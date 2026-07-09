@@ -1,0 +1,72 @@
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from './admin';
+import type { Database } from './types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type UserRole = Profile['role'];
+
+import { verifyJWT } from '@/lib/auth-utils';
+
+export type ApiAuthContext = {
+  userId: string;
+  profile: Profile;
+};
+
+export async function requireApiAuth(
+  request: Request,
+  allowedRoles: UserRole[]
+): Promise<ApiAuthContext | NextResponse> {
+  let token = '';
+  const authHeader = request.headers.get('Authorization');
+  
+  if (authHeader?.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  } else {
+    // Hỗ trợ lấy token từ Cookie auth_token cho các request từ cùng origin
+    const cookieHeader = request.headers.get('cookie') || '';
+    const pairs = cookieHeader.split(';');
+    for (const pair of pairs) {
+      const [k, v] = pair.split('=');
+      if (k.trim() === 'auth_token') {
+        token = decodeURIComponent(v.trim());
+        break;
+      }
+    }
+  }
+
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const payload = await verifyJWT(token);
+
+  if (!payload) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const userId = (payload.sub || payload.id) as string;
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!profile.is_active) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  if (!allowedRoles.includes(profile.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  return { userId, profile: profile as Profile };
+}
+
+export function isApiError(result: ApiAuthContext | NextResponse): result is NextResponse {
+  return result instanceof NextResponse;
+}

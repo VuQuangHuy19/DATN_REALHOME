@@ -1,0 +1,665 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload } from 'lucide-react';
+import { PermissionGate } from '@/components/ui/PermissionGate';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import type { DBBuilding } from '@/lib/supabase/types';
+import { useLandlords, useEmployees } from '@/lib/hooks/useEntities';
+import { supabase } from '@/lib/supabase/client';
+
+type VnProvince = { id: string; name: string };
+type VnDistrict = { id: string; name: string; province_id: string };
+type VnWard = { id: string; name: string; district_id: string };
+
+export function BuildingListPage() {
+  const { company, role, profile } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { items: buildingList, loading, error, add, update, remove } = usePropertiesFeature(company?.id);
+  const { items: landlordList } = useLandlords(company?.id);
+  const { items: employeeList } = useEmployees(company?.id);
+
+  const currentLandlord = landlordList.find(l => l.id === profile?.landlord_id);
+  const currentLandlordCode = currentLandlord?.code || null;
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterArea, setFilterArea] = useState('');
+  const [editItem, setEditItem] = useState<DBBuilding | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  const [electricityPrice, setElectricityPrice] = useState('');
+  const [waterPrice, setWaterPrice] = useState('');
+  const [internetPrice, setInternetPrice] = useState('');
+  const [commonServicePrice, setCommonServicePrice] = useState('');
+  const [extraOccupantFee, setExtraOccupantFee] = useState('');
+  const [electricVehicleFee, setElectricVehicleFee] = useState('');
+
+  // --- Location cascade state ---
+  const [provinces, setProvinces] = useState<VnProvince[]>([]);
+  const [districts, setDistricts] = useState<VnDistrict[]>([]);
+  const [wards, setWards] = useState<VnWard[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>('');
+  const [selectedWardId, setSelectedWardId] = useState<string>('');
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+
+  // Load all provinces once
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase.from('vn_provinces').select('*').order('name');
+      if (error) console.error('[Location] provinces error:', error);
+      setProvinces((data as VnProvince[] | null) ?? []);
+    })();
+  }, []);
+
+  // Load districts when province changes
+  useEffect(() => {
+    if (!selectedProvinceId) {
+      setDistricts([]);
+      setSelectedDistrictId('');
+      setWards([]);
+      setSelectedWardId('');
+      return;
+    }
+    let cancelled = false;
+    setLoadingDistricts(true);
+    setSelectedDistrictId('');
+    setWards([]);
+    setSelectedWardId('');
+    (async () => {
+      console.log('[Location] fetching districts for provinceId:', selectedProvinceId, typeof selectedProvinceId);
+      const res = await supabase
+        .from('vn_districts')
+        .select('*')
+        .eq('province_id', selectedProvinceId)
+        .order('name');
+      console.log('[Location] districts raw response:', res);
+      if (!cancelled) {
+        if (res.error) console.error('[Location] districts error:', res.error);
+        setDistricts((res.data as VnDistrict[] | null) ?? []);
+        setLoadingDistricts(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedProvinceId]);
+
+  // Load wards when district changes
+  useEffect(() => {
+    if (!selectedDistrictId) {
+      setWards([]);
+      setSelectedWardId('');
+      return;
+    }
+    let cancelled = false;
+    setLoadingWards(true);
+    setSelectedWardId('');
+    (async () => {
+      const { data, error } = await supabase
+        .from('vn_wards')
+        .select('*')
+        .eq('district_id', selectedDistrictId)
+        .order('name');
+      if (!cancelled) {
+        if (error) console.error('[Location] wards error:', error);
+        setWards((data as VnWard[] | null) ?? []);
+        setLoadingWards(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDistrictId]);
+
+  // Compose the `area` string from selected location names
+  const composedArea = useMemo(() => {
+    const province = provinces.find(p => p.id === selectedProvinceId);
+    const district = districts.find(d => d.id === selectedDistrictId);
+    const ward = wards.find(w => w.id === selectedWardId);
+    return [ward?.name, district?.name, province?.name].filter(Boolean).join(', ');
+  }, [selectedProvinceId, selectedDistrictId, selectedWardId, provinces, districts, wards]);
+
+  const formatNumber = (val: number | string) => {
+    if (!val && val !== 0) return '';
+    const num = String(val).replace(/\D/g, '');
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const parseNumber = (val: string) => {
+    return Number(val.replace(/\./g, '')) || 0;
+  };
+
+  const handlePriceChange = (setter: (val: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+    setter(formatNumber(rawVal));
+  };
+
+  const areas = useMemo(() => Array.from(new Set(buildingList.map((b) => b.area).filter(Boolean))), [buildingList]);
+
+  const filtered = buildingList.filter((b) => {
+    const matchesSearch = b.code.toLowerCase().includes(searchQuery.toLowerCase()) || b.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesArea = !filterArea || b.area === filterArea;
+    return matchesSearch && matchesArea;
+  });
+
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    const formData = new FormData(e.currentTarget);
+    
+    const currentLandlord = landlordList.find(l => l.id === profile?.landlord_id);
+    const currentLandlordCode = currentLandlord?.code || null;
+
+    const payload = {
+      company_id: company?.id ?? '',
+      code: formData.get('code') as string,
+      name: formData.get('name') as string,
+      area: composedArea || (formData.get('area') as string) || '',
+      address: formData.get('address') as string,
+      year_built: Number(formData.get('year_built')) || null,
+      total_floors: Number(formData.get('total_floors')) || 0,
+      total_rooms: Number(formData.get('total_rooms')) || 0,
+      description: (formData.get('description') as string) || null,
+      image_url: imageUrl,
+      landlord_id: role === 'landlord' ? currentLandlordCode : ((formData.get('landlord_id') as string) || null),
+      manager_ids: selectedManagers,
+      has_elevator: formData.get('has_elevator') === 'true',
+      pccc_certified: formData.get('pccc_certified') === 'true',
+      common_drying_area: (formData.get('common_drying_area') as string) || null,
+      allow_pet: formData.get('allow_pet') === 'true',
+      allow_foreigners: formData.get('allow_foreigners') === 'true',
+      allow_vinfast_electric: formData.get('allow_vinfast_electric') === 'true',
+      has_air_conditioner: formData.get('has_air_conditioner') === 'true',
+      has_water_heater: formData.get('has_water_heater') === 'true',
+      has_bed: formData.get('has_bed') === 'true',
+      has_wardrobe: formData.get('has_wardrobe') === 'true',
+      has_kitchen_cabinet: formData.get('has_kitchen_cabinet') === 'true',
+      has_refrigerator: formData.get('has_refrigerator') === 'true',
+      has_hood: formData.get('has_hood') === 'true',
+      has_dressing_table: formData.get('has_dressing_table') === 'true',
+      electricity_price: parseNumber(electricityPrice),
+      water_price: parseNumber(waterPrice),
+      internet_price: parseNumber(internetPrice),
+      common_service_price: parseNumber(commonServicePrice),
+      common_service_description: (formData.get('common_service_description') as string) || null,
+      fingerprint_lock_desc: (formData.get('fingerprint_lock_desc') as string) || null,
+      extra_occupant_fee: parseNumber(extraOccupantFee),
+      has_car_parking: formData.get('has_car_parking') === 'true',
+      washing_machine_type: (formData.get('washing_machine_type') as string) || 'chung',
+      dryer_type: (formData.get('dryer_type') as string) || 'chung',
+      electric_vehicle_fee: parseNumber(electricVehicleFee),
+    };
+
+    if (editItem) {
+      await update(editItem.id, payload);
+    } else {
+      await add(payload);
+    }
+    setSaving(false);
+    setIsDialogOpen(false);
+    setEditItem(null);
+    setImageUrl(null);
+  };
+
+  const openAdd = () => {
+    setEditItem(null);
+    setSelectedManagers([]);
+    setImageUrl(null);
+    setElectricityPrice('4.000');
+    setWaterPrice('35.000');
+    setInternetPrice('100.000');
+    setCommonServicePrice('200.000');
+    setExtraOccupantFee('0');
+    setElectricVehicleFee('0');
+    setSelectedProvinceId('');
+    setSelectedDistrictId('');
+    setSelectedWardId('');
+    setDistricts([]);
+    setWards([]);
+    setIsDialogOpen(true);
+  };
+
+  const openEdit = (item: DBBuilding) => {
+    setEditItem(item);
+    setSelectedManagers(item.manager_ids || []);
+    setImageUrl(item.image_url || null);
+    setElectricityPrice(formatNumber(item.electricity_price ?? 4000));
+    setWaterPrice(formatNumber(item.water_price ?? 35000));
+    setInternetPrice(formatNumber(item.internet_price ?? 100000));
+    setCommonServicePrice(formatNumber(item.common_service_price ?? 200000));
+    setExtraOccupantFee(formatNumber(item.extra_occupant_fee ?? 0));
+    setElectricVehicleFee(formatNumber(item.electric_vehicle_fee ?? 0));
+    // Reset location selects — user can re-select if they want to change area
+    setSelectedProvinceId('');
+    setSelectedDistrictId('');
+    setSelectedWardId('');
+    setDistricts([]);
+    setWards([]);
+    setIsDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Quản lý Tòa nhà</h1>
+          <p className="text-slate-500">Quản lý tòa nhà và thông tin chi tiết</p>
+        </div>
+        <PermissionGate roles={['company_admin']}>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => router.push('/admin/system/import')} variant="outline" className="border-slate-300 hover:bg-slate-50">
+              <Upload className="mr-2 h-4 w-4" /> Nhập Excel
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" /> Thêm tòa nhà</Button>
+              </DialogTrigger>
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle>{editItem ? 'Cập nhật tòa nhà' : 'Thêm tòa nhà mới'}</DialogTitle>
+              </DialogHeader>
+              <div className="overflow-y-auto flex-1 px-3">
+              <form id="building-form" onSubmit={handleSave} className="space-y-4 py-1">
+                {/* 1. Thông tin cơ bản */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Mã tòa nhà</Label><Input name="code" defaultValue={editItem?.code} required /></div>
+                  <div className="space-y-2"><Label>Tên tòa nhà</Label><Input name="name" defaultValue={editItem?.name} required /></div>
+                </div>
+                {/* Location cascade: Tỉnh → Huyện → Xã */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tỉnh / Thành phố</Label>
+                    <select
+                      value={selectedProvinceId}
+                      onChange={e => setSelectedProvinceId(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">-- Chọn tỉnh/thành --</option>
+                      {provinces.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Quận / Huyện</Label>
+                    <select
+                      value={selectedDistrictId}
+                      onChange={e => setSelectedDistrictId(e.target.value)}
+                      disabled={!selectedProvinceId || loadingDistricts}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">{loadingDistricts ? 'Đang tải...' : '-- Chọn quận/huyện --'}</option>
+                      {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phường / Xã</Label>
+                    <select
+                      value={selectedWardId}
+                      onChange={e => setSelectedWardId(e.target.value)}
+                      disabled={!selectedDistrictId || loadingWards}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">{loadingWards ? 'Đang tải...' : '-- Chọn phường/xã --'}</option>
+                      {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {/* Hiển thị khu vực đã chọn hoặc giá trị cũ khi edit */}
+                {editItem?.area && !composedArea && (
+                  <div className="text-xs text-slate-500 -mt-2">
+                    Khu vực hiện tại: <span className="font-medium text-slate-700">{editItem.area}</span>
+                    <span className="ml-1 text-slate-400">(Chọn lại bên trên để cập nhật)</span>
+                  </div>
+                )}
+                {composedArea && (
+                  <div className="text-xs text-emerald-600 -mt-2 font-medium">
+                    ✓ Khu vực: {composedArea}
+                  </div>
+                )}
+                <input name="area" value={composedArea || editItem?.area || ''} readOnly className="hidden" />
+                {role !== 'landlord' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="landlord_id">Chủ nhà phụ trách</Label>
+                    <select id="landlord_id" name="landlord_id" defaultValue={editItem?.landlord_id ?? ''} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                      <option value="">-- Chọn chủ nhà --</option>
+                      {landlordList.map((l) => <option key={l.id} value={l.code || ''}>{l.code ? `${l.code} - ` : ''}{l.name}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="text-sm font-medium text-slate-500">
+                    Chủ nhà: <span className="font-semibold text-emerald-600">
+                      {landlordList.find(l => l.id === profile?.landlord_id)?.name || profile?.full_name} ({currentLandlordCode})
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-2"><Label>Địa chỉ chi tiết <span className="text-slate-400 font-normal text-xs">(Số nhà, tên đường...)</span></Label><Input name="address" defaultValue={editItem?.address ?? ''} placeholder="Ví dụ: 123 Nguyễn Trãi" /></div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2"><Label>Năm XD</Label><Input name="year_built" type="number" defaultValue={editItem?.year_built ?? ''} /></div>
+                  <div className="space-y-2"><Label>Số tầng</Label><Input name="total_floors" type="number" defaultValue={editItem?.total_floors ?? 0} required /></div>
+                  <div className="space-y-2"><Label>Số phòng</Label><Input name="total_rooms" type="number" defaultValue={editItem?.total_rooms ?? 0} required /></div>
+                </div>
+
+                {/* 2. Tiện ích & Quy định */}
+                <div className="border p-4 rounded-xl bg-slate-50/50 space-y-4">
+                  <span className="text-xs font-bold text-slate-700 block uppercase tracking-wider">Tiện ích & Quy định chung</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="has_elevator" className="text-xs">Thang máy</Label>
+                      <select id="has_elevator" name="has_elevator" defaultValue={editItem ? String(editItem.has_elevator) : 'true'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="true">Có thang máy</option>
+                        <option value="false">Không thang máy</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="pccc_certified" className="text-xs">Hệ thống PCCC & Thoát hiểm</Label>
+                      <select id="pccc_certified" name="pccc_certified" defaultValue={editItem ? String(editItem.pccc_certified) : 'true'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="true">Đảm bảo an toàn</option>
+                        <option value="false">Chưa hoàn thiện</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="has_car_parking" className="text-xs">Chỗ đỗ xe ô tô</Label>
+                      <select id="has_car_parking" name="has_car_parking" defaultValue={editItem ? String(editItem.has_car_parking) : 'false'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="false">Không có chỗ đỗ ô tô</option>
+                        <option value="true">Có chỗ đỗ ô tô</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="allow_pet" className="text-xs">Nuôi thú cưng</Label>
+                      <select id="allow_pet" name="allow_pet" defaultValue={editItem ? String(editItem.allow_pet) : 'false'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="false">Không cho phép</option>
+                        <option value="true">Cho phép</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="allow_foreigners" className="text-xs">Người nước ngoài</Label>
+                      <select id="allow_foreigners" name="allow_foreigners" defaultValue={editItem ? String(editItem.allow_foreigners) : 'false'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="false">Chỉ khách Việt</option>
+                        <option value="true">Cho phép</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="allow_vinfast_electric" className="text-xs">Xe điện VinFast</Label>
+                      <select id="allow_vinfast_electric" name="allow_vinfast_electric" defaultValue={editItem ? String(editItem.allow_vinfast_electric) : 'true'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="true">Nhận & sạc điện</option>
+                        <option value="false">Không nhận</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="electric_vehicle_fee" className="text-xs">Phí sạc/gửi xe điện (VND/xe)</Label>
+                      <Input id="electric_vehicle_fee" name="electric_vehicle_fee" value={electricVehicleFee} onChange={handlePriceChange(setElectricVehicleFee)} className="h-9 text-xs" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="washing_machine_type" className="text-xs">Máy giặt</Label>
+                      <select id="washing_machine_type" name="washing_machine_type" defaultValue={editItem?.washing_machine_type ?? 'chung'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="chung">Máy giặt chung</option>
+                        <option value="riêng">Máy giặt riêng</option>
+                        <option value="không có">Không có máy giặt</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="dryer_type" className="text-xs">Máy sấy</Label>
+                      <select id="dryer_type" name="dryer_type" defaultValue={editItem?.dryer_type ?? 'chung'} className="w-full h-9 rounded-md border border-input bg-background px-2.5 py-1 text-xs">
+                        <option value="chung">Máy sấy chung</option>
+                        <option value="riêng">Máy sấy riêng</option>
+                        <option value="không có">Không có máy sấy</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="common_drying_area" className="text-xs">Khu vực phơi đồ chung</Label>
+                    <Input id="common_drying_area" name="common_drying_area" defaultValue={editItem?.common_drying_area ?? ''} placeholder="Ví dụ: Ban công tầng 7 rộng rãi, sân thượng..." className="h-9 text-xs" />
+                  </div>
+                </div>
+
+                {/* 3. Nội thất mặc định */}
+                <div className="border p-4 rounded-xl bg-slate-50/50 space-y-4">
+                  <span className="text-xs font-bold text-slate-700 block uppercase tracking-wider">Trang bị nội thất mặc định</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_air_conditioner" name="has_air_conditioner" defaultChecked={editItem ? editItem.has_air_conditioner : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_air_conditioner" className="text-xs cursor-pointer select-none">Điều hòa</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_water_heater" name="has_water_heater" defaultChecked={editItem ? editItem.has_water_heater : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_water_heater" className="text-xs cursor-pointer select-none">Nóng lạnh</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_bed" name="has_bed" defaultChecked={editItem ? editItem.has_bed : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_bed" className="text-xs cursor-pointer select-none">Giường</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_wardrobe" name="has_wardrobe" defaultChecked={editItem ? editItem.has_wardrobe : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_wardrobe" className="text-xs cursor-pointer select-none">Tủ quần áo</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_kitchen_cabinet" name="has_kitchen_cabinet" defaultChecked={editItem ? editItem.has_kitchen_cabinet : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_kitchen_cabinet" className="text-xs cursor-pointer select-none">Tủ bếp</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_refrigerator" name="has_refrigerator" defaultChecked={editItem ? editItem.has_refrigerator : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_refrigerator" className="text-xs cursor-pointer select-none">Tủ lạnh</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_hood" name="has_hood" defaultChecked={editItem ? editItem.has_hood : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_hood" className="text-xs cursor-pointer select-none">Máy hút mùi</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input type="checkbox" id="has_dressing_table" name="has_dressing_table" defaultChecked={editItem ? editItem.has_dressing_table : true} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4" value="true" />
+                      <Label htmlFor="has_dressing_table" className="text-xs cursor-pointer select-none">Bàn trang điểm</Label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Định mức chi phí dịch vụ */}
+                <div className="border p-4 rounded-xl bg-slate-50/50 space-y-4">
+                  <span className="text-xs font-bold text-slate-700 block uppercase tracking-wider">Định mức chi phí dịch vụ & Phụ thu</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="electricity_price" className="text-xs">Giá điện (VND/kWh)</Label>
+                      <Input id="electricity_price" name="electricity_price" value={electricityPrice} onChange={handlePriceChange(setElectricityPrice)} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="water_price" className="text-xs">Giá nước (VND/m³)</Label>
+                      <Input id="water_price" name="water_price" value={waterPrice} onChange={handlePriceChange(setWaterPrice)} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="internet_price" className="text-xs">Giá Internet (VND/phòng)</Label>
+                      <Input id="internet_price" name="internet_price" value={internetPrice} onChange={handlePriceChange(setInternetPrice)} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="common_service_price" className="text-xs">Dịch vụ chung (VND/người)</Label>
+                      <Input id="common_service_price" name="common_service_price" value={commonServicePrice} onChange={handlePriceChange(setCommonServicePrice)} className="h-9 text-xs" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="common_service_description" className="text-xs">Chi tiết dịch vụ chung bao gồm</Label>
+                      <Input id="common_service_description" name="common_service_description" defaultValue={editItem?.common_service_description ?? 'Vệ sinh chung, đổ rác, bảo trì đồ đạc trong phòng, máy giặt chung'} className="h-9 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="extra_occupant_fee" className="text-xs">Phụ thu quá số người (VND/người dôi ra)</Label>
+                      <Input id="extra_occupant_fee" name="extra_occupant_fee" value={extraOccupantFee} onChange={handlePriceChange(setExtraOccupantFee)} placeholder="Ví dụ: 200.000" className="h-9 text-xs" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="fingerprint_lock_desc" className="text-xs">Mô tả cổng vân tay, gửi xe</Label>
+                      <Input id="fingerprint_lock_desc" name="fingerprint_lock_desc" defaultValue={editItem?.fingerprint_lock_desc ?? 'Cổng vân tay gửi xe free'} className="h-9 text-xs" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Mô tả chi tiết & Hình ảnh & Quản lý */}
+                <div className="space-y-2">
+                  <Label htmlFor="description">Mô tả chi tiết tòa nhà</Label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    defaultValue={editItem?.description ?? ''}
+                    placeholder="Mô tả các thông tin chi tiết khác về tòa nhà..."
+                    className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="space-y-2"><Label>Hình ảnh tòa nhà</Label><ImageUpload value={imageUrl} onChange={setImageUrl} /></div>
+                <div className="space-y-2">
+                  <Label>Quản lý tòa nhà</Label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[40px] bg-white">
+                    {employeeList.map((emp) => (
+                      <Badge key={emp.id} variant={selectedManagers.includes(emp.id) ? 'default' : 'outline'} className="cursor-pointer select-none" onClick={() => setSelectedManagers((prev) => prev.includes(emp.id) ? prev.filter((id) => id !== emp.id) : [...prev, emp.id])}>
+                        {emp.name}
+                      </Badge>
+                    ))}
+                    {employeeList.length === 0 && <div className="text-slate-400 text-xs py-1 text-center w-full">Chưa có nhân viên nào</div>}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
+                  <Button type="submit" form="building-form" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu thông tin</Button>
+                </div>
+              </form>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </PermissionGate>
+      </div>
+
+      {error && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"><AlertCircle className="h-4 w-4 flex-shrink-0" />{error}</div>}
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Tìm theo mã hoặc tên..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+            </div>
+            <select value={filterArea} onChange={(e) => setFilterArea(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer">
+              <option value="">Tất cả khu vực</option>
+              {areas.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div> : (
+            <div className="border rounded-lg overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">Mã</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">Tên</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">Khu vực</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">Năm XD</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">Số tầng</th>
+                    <th className="px-4 py-3 text-left font-medium text-slate-600">Số phòng</th>
+                    <th className="px-4 py-3 text-right font-medium text-slate-600">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filtered.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50 cursor-pointer" onClick={(e) => { 
+                      if ((e.target as HTMLElement).closest('button')) return; 
+                      const targetPrefix = pathname.startsWith('/landlord') ? '/landlord/buildings' : '/admin/realhome/buildings';
+                      router.push(`${targetPrefix}/${item.id}`); 
+                    }}>
+                      <td className="px-4 py-3 font-mono text-slate-600">{item.code}</td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-3">{item.image_url ? <img src={item.image_url} alt={item.name} className="w-10 h-10 object-cover rounded-md border flex-shrink-0" /> : <div className="w-10 h-10 bg-slate-100 rounded-md border flex items-center justify-center text-slate-400 flex-shrink-0"><Building2 className="h-5 w-5" /></div>}<div><span className="font-medium text-slate-800 hover:text-blue-600 block">{item.name}</span><span className="text-xs text-slate-400 block max-w-[200px] truncate">{item.address || 'Không có địa chỉ'}</span></div></div></td>
+                      <td className="px-4 py-3"><Badge variant="outline">{item.area}</Badge></td>
+                      <td className="px-4 py-3 text-slate-600">{item.year_built ?? '—'}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.total_floors}</td>
+                      <td className="px-4 py-3 text-slate-600">{item.total_rooms}</td>
+                      <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1"><PermissionGate roles={['company_admin', 'manager']}><Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-4 w-4" /></Button></PermissionGate><PermissionGate roles={['company_admin']}><Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); remove(item.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button></PermissionGate></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y">
+                {filtered.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      const targetPrefix = pathname.startsWith('/landlord') ? '/landlord/buildings' : '/admin/realhome/buildings';
+                      router.push(`${targetPrefix}/${item.id}`);
+                    }}
+                    className="p-4 hover:bg-slate-50 cursor-pointer transition-colors space-y-3.5"
+                  >
+                    <div className="flex items-start gap-3">
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-14 h-14 object-cover rounded-lg border flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 bg-slate-100 rounded-lg border flex items-center justify-center text-slate-400 flex-shrink-0">
+                          <Building2 className="h-6 w-6" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-800 text-sm truncate">{item.name}</span>
+                          <span className="font-mono text-xs text-slate-400 font-semibold">{item.code}</span>
+                        </div>
+                        <span className="text-xs text-slate-500 block mt-1 line-clamp-1">{item.address || 'Không có địa chỉ'}</span>
+                        <div className="mt-1">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {item.area}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs text-slate-500 border-t border-slate-50">
+                      <div>
+                        <div className="font-semibold text-slate-700">{item.total_floors}</div>
+                        <div className="text-[10px] text-slate-400">Số tầng</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-700">{item.total_rooms}</div>
+                        <div className="text-[10px] text-slate-400">Số phòng</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-700">{item.year_built ?? '—'}</div>
+                        <div className="text-[10px] text-slate-400">Năm XD</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-50" onClick={(e) => e.stopPropagation()}>
+                      <PermissionGate roles={['company_admin', 'manager']}>
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                      </PermissionGate>
+                      <PermissionGate roles={['company_admin']}>
+                        <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                      </PermissionGate>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filtered.length === 0 && <div className="text-center py-10 text-slate-400"><Building2 className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-sm">Chưa có tòa nhà nào</p></div>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
