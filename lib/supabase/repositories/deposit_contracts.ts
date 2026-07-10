@@ -8,6 +8,7 @@ export type DepositContractWithRoom = DBDepositContract & {
   rooms: {
     code: string;
     price: number;
+    rose?: string | null;
     buildings: {
       name: string;
       address: string | null;
@@ -27,8 +28,8 @@ export async function getDepositContracts(companyId?: string, landlordId?: strin
   }
 
   const selectQuery = filterLandlordCode
-    ? '*, rooms!inner(code, price, buildings!inner(name, address, area, landlord_id))'
-    : '*, rooms(code, price, buildings(name, address, area))';
+    ? '*, rooms!inner(code, price, rose, buildings!inner(name, address, area, landlord_id))'
+    : '*, rooms(code, price, rose, buildings(name, address, area))';
 
   let q = supabase
     .from('deposit_contracts')
@@ -53,7 +54,7 @@ export async function getDepositContracts(companyId?: string, landlordId?: strin
 export async function getDepositContract(id: string): Promise<DepositContractWithRoom | null> {
   const { data, error } = await supabase
     .from('deposit_contracts')
-    .select('*, rooms(code, price, buildings(name, address, area))')
+    .select('*, rooms(code, price, rose, buildings(name, address, area))')
     .eq('id', id)
     .maybeSingle();
 

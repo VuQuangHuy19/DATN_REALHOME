@@ -14,7 +14,8 @@ import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Load
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { useRoomsFeature } from '@/src/features/rooms/hooks/useRoomsFeature';
-import { useRoomImages, useRentalContracts, useRoomTypesCatalog } from '@/lib/hooks/useEntities';
+import { useRoomImages, useRentalContracts, useRoomTypesCatalog, useDepositContracts } from '@/lib/hooks/useEntities';
+import { DepositCountdown } from '@/components/ui/DepositCountdown';
 import { getRoomImages, addRoomImage } from '@/lib/supabase/repositories/room_images';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
@@ -48,6 +49,7 @@ export function BuildingDetailPage() {
   const building = useMemo(() => buildingList.find((b) => b.id === buildingId), [buildingList, buildingId]);
   const { items: roomList, loading: roomLoading, error: roomError, add: addRoom, update: updateRoom, remove: removeRoom } = useRoomsFeature(building?.code, company?.id);
   const { items: contracts } = useRentalContracts(company?.id);
+  const { items: depositContracts } = useDepositContracts(company?.id);
   const { items: roomTypes } = useRoomTypesCatalog(company?.id);
   const landlordCode = building?.landlord_id ?? null;
 
@@ -155,11 +157,14 @@ export function BuildingDetailPage() {
   const roomsByFloor = useMemo(() => {
     const grouped: Record<number, DBRoom[]> = {};
     roomList.forEach((room) => {
+      if (role === 'sales_agent' && room.status === 'rented') {
+        return;
+      }
       if (!grouped[room.floor]) grouped[room.floor] = [];
       grouped[room.floor].push(room);
     });
     return Object.entries(grouped).sort((a, b) => Number(a[0]) - Number(b[0])).map(([floor, rooms]) => ({ floor: Number(floor), rooms }));
-  }, [roomList]);
+  }, [roomList, role]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc muốn xóa phòng này?')) return;
@@ -726,7 +731,15 @@ export function BuildingDetailPage() {
                       </div>
                       {(() => {
                         const ds = getRoomDisplayStatus(item, contracts);
-                        return <Badge className={`${ds.colorClass} border`} variant="outline">{ds.label}</Badge>;
+                        const activeDeposit = item.status === 'reserved'
+                          ? depositContracts.find((c) => c.room_id === item.id && c.status === 'active')
+                          : null;
+                        return (
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <Badge className={`${ds.colorClass} border`} variant="outline">{ds.label}</Badge>
+                            {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                          </div>
+                        );
                       })()}
                     </div>
                     <div className="mt-3 text-sm text-slate-600 space-y-1">

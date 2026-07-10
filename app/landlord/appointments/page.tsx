@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import {
   Eye, Search, CalendarDays, Loader2, AlertCircle, Share2, 
   User, Phone, Building, Briefcase, CalendarClock, MessageSquare
 } from 'lucide-react';
-import { useAppointments } from '@/lib/hooks/useEntities';
+import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { AppointmentWithRelations } from '@/lib/supabase/repositories/appointments';
 
@@ -80,6 +80,12 @@ function buildShareText(item: AppointmentWithRelations): string {
 export default function LandlordAppointmentsPage() {
   const { company } = useAuth();
   const { items: aptList, loading, error, update } = useAppointments(company?.id);
+  const { items: profiles } = useProfiles(company?.id);
+
+  const assignableProfiles = useMemo(() => {
+    return profiles.filter((p) => p.role !== 'landlord');
+  }, [profiles]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -407,6 +413,38 @@ export default function LandlordAppointmentsPage() {
                 <p className="text-slate-700 leading-relaxed text-sm bg-slate-50 p-2.5 rounded border border-slate-100 whitespace-pre-wrap">
                   {viewItem.notes || 'Không có ghi chú thêm.'}
                 </p>
+              </div>
+
+              {/* Phân công Sale */}
+              <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-sm space-y-2">
+                <Label className="text-slate-500 text-xs block uppercase font-bold tracking-wide">
+                  Phân công Sale phụ trách
+                </Label>
+                <select
+                  value={viewItem.assigned_to || ''}
+                  onChange={async (e) => {
+                    const profileId = e.target.value;
+                    const profileName = assignableProfiles.find(p => p.id === profileId)?.full_name || null;
+                    try {
+                      await update(viewItem.id, { 
+                        assigned_to: profileId || null, 
+                        assigned_to_name: profileName 
+                      });
+                      toast.success('Đã phân công Sale phụ trách!');
+                      setIsViewOpen(false);
+                    } catch {
+                      toast.error('Lỗi khi phân công Sale');
+                    }
+                  }}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="">-- Chưa phân công --</option>
+                  {assignableProfiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name || p.email} {p.phone ? `(${p.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Hành động cập nhật nhanh trạng thái */}

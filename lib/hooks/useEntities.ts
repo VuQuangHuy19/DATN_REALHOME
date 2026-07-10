@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
@@ -91,6 +91,11 @@ export function useAppointments(companyId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const itemsRef = useRef<string[]>([]);
+  useEffect(() => {
+    itemsRef.current = items.map(i => i.id);
+  }, [items]);
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -165,6 +170,19 @@ export function useAppointments(companyId?: string) {
               description: `Khách hàng ${newApt.customer_name} vừa đặt lịch xem phòng ${newApt.room_title || ''} vào lúc ${newApt.time} ngày ${formatDate(newApt.date)}`,
               duration: 8000,
             });
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedApt = payload.new as DBAppointment;
+            // Nếu người dùng hiện tại là sale và vừa được chỉ định lịch hẹn này
+            if (role === 'sales_agent' && profile?.id && updatedApt.assigned_to === profile.id) {
+              const wasAlreadyAssigned = itemsRef.current.includes(updatedApt.id);
+              if (!wasAlreadyAssigned) {
+                playNotificationSound();
+                toast.success(`📅 Bạn được phân công lịch hẹn mới!`, {
+                  description: `Khách hàng ${updatedApt.customer_name} xem phòng ${updatedApt.room_title || ''} vào lúc ${updatedApt.time} ngày ${formatDate(updatedApt.date)}`,
+                  duration: 8000,
+                });
+              }
+            }
           }
         }
       )
@@ -173,7 +191,7 @@ export function useAppointments(companyId?: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [companyId, fetch]);
+  }, [companyId, fetch, role, profile?.id]);
 
   const add = async (item: any): Promise<DBAppointment | null> => {
     try {
@@ -293,6 +311,80 @@ export function useDepositContracts(companyId?: string) {
 
   useEffect(() => { fetch(); }, [fetch]);
 
+  // Realtime subscription for deposit_contracts
+  useEffect(() => {
+    if (!companyId) return;
+
+    const playNotificationSound = () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const playNote = (frequency: number, startTime: number, duration: number) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(frequency, startTime);
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        };
+        const now = audioCtx.currentTime;
+        playNote(523.25, now, 0.25); // C5
+        playNote(659.25, now + 0.1, 0.25); // E5
+        playNote(783.99, now + 0.2, 0.5); // G5
+      } catch (e) {
+        console.error('Không thể phát âm thanh thông báo:', e);
+      }
+    };
+
+    const statusLabelsLocal: Record<string, string> = {
+      draft: 'Bản nháp',
+      active: 'Chờ xác nhận',
+      signed: 'Đã xác nhận cọc',
+      converted: 'Đã thuê',
+      cancelled: 'Đã hủy',
+      forfeited: 'Mất cọc',
+      refunded: 'Trả cọc',
+    };
+
+    const channel = supabase
+      .channel(`deposit-contracts-realtime:${companyId}:${Math.random().toString(36).substring(2, 9)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'deposit_contracts',
+          filter: `company_id=eq.${companyId}`,
+        },
+        (payload: { eventType: string; new?: any }) => {
+          fetch();
+
+          if (payload.eventType === 'UPDATE') {
+            const updatedContract = payload.new;
+            const isMyContract = updatedContract.created_by === profile?.id;
+            const isAdminOrManager = role === 'company_admin' || role === 'manager';
+
+            if (isMyContract || isAdminOrManager) {
+              playNotificationSound();
+              toast.success(`📝 Hợp đồng cọc thay đổi!`, {
+                description: `Hợp đồng cọc #${updatedContract.contract_code} (khách ${updatedContract.party_b_name}) đã chuyển trạng thái thành: "${statusLabelsLocal[updatedContract.status] || updatedContract.status}"`,
+                duration: 8000,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, fetch, role, profile?.id]);
+
   const add = async (item: any) => {
     try {
       const created = await createDepositContract(item);
@@ -391,6 +483,78 @@ export function useRentalContracts(companyId?: string) {
   }, [companyId, landlordId, role, profile?.id]);
 
   useEffect(() => { fetch(); }, [fetch]);
+
+  // Realtime subscription for rental_contracts
+  useEffect(() => {
+    if (!companyId) return;
+
+    const playNotificationSound = () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const playNote = (frequency: number, startTime: number, duration: number) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(frequency, startTime);
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        };
+        const now = audioCtx.currentTime;
+        playNote(523.25, now, 0.25); // C5
+        playNote(659.25, now + 0.1, 0.25); // E5
+        playNote(783.99, now + 0.2, 0.5); // G5
+      } catch (e) {
+        console.error('Không thể phát âm thanh thông báo:', e);
+      }
+    };
+
+    const statusLabelsLocal: Record<string, string> = {
+      draft: 'Bản nháp',
+      active: 'Hiệu lực',
+      ended: 'Đã hết hạn',
+      terminated: 'Kết thúc sớm',
+      cancelled: 'Đã hủy',
+    };
+
+    const channel = supabase
+      .channel(`rental-contracts-realtime:${companyId}:${Math.random().toString(36).substring(2, 9)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'rental_contracts',
+          filter: `company_id=eq.${companyId}`,
+        },
+        (payload: { eventType: string; new?: any }) => {
+          fetch();
+
+          if (payload.eventType === 'UPDATE') {
+            const updatedContract = payload.new;
+            const isMyContract = updatedContract.created_by === profile?.id;
+            const isAdminOrManager = role === 'company_admin' || role === 'manager';
+
+            if (isMyContract || isAdminOrManager) {
+              playNotificationSound();
+              toast.success(`📝 Hợp đồng thuê thay đổi!`, {
+                description: `Hợp đồng thuê #${updatedContract.contract_code} (khách ${updatedContract.party_b_name}) đã chuyển trạng thái thành: "${statusLabelsLocal[updatedContract.status] || updatedContract.status}"`,
+                duration: 8000,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, fetch, role, profile?.id]);
 
   const add = async (item: any) => {
     try {

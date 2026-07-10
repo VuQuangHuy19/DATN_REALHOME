@@ -37,6 +37,58 @@ export async function updateLead(id: string, updates: LeadUpdate): Promise<DBLea
     .select()
     .single();
   if (error) throw error;
+
+  // Sync to appointments table (by matching customer phone number)
+  try {
+    const lead = data as unknown as DBLead;
+    if (lead && lead.phone && lead.company_id) {
+      const aptPatch: any = {};
+
+      // 1. Sync assigned_to and assigned_to_name
+      if ('assigned_to' in updates) {
+        aptPatch.assigned_to = lead.assigned_to;
+        if (lead.assigned_to) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', lead.assigned_to)
+            .maybeSingle();
+          aptPatch.assigned_to_name = profile?.full_name || profile?.email || null;
+        } else {
+          aptPatch.assigned_to_name = null;
+        }
+      }
+
+      // 2. Sync status: map lead status to appointment status
+      if ('status' in updates) {
+        let mappedStatus: string | null = null;
+        if (lead.status === 'appointment') {
+          mappedStatus = 'Confirm';
+        } else if (lead.status === 'viewed') {
+          mappedStatus = 'Viewed';
+        } else if (lead.status === 'rented') {
+          mappedStatus = 'Dealed';
+        } else if (lead.status === 'cancelled') {
+          mappedStatus = 'Cancel';
+        }
+
+        if (mappedStatus) {
+          aptPatch.status = mappedStatus;
+        }
+      }
+
+      if (Object.keys(aptPatch).length > 0) {
+        await supabase
+          .from('appointments')
+          .update({ ...aptPatch, updated_at: new Date().toISOString() })
+          .eq('company_id', lead.company_id)
+          .eq('customer_phone', lead.phone);
+      }
+    }
+  } catch (syncErr) {
+    console.error('Error syncing lead to appointments:', syncErr);
+  }
+
   return data as unknown as DBLead;
 }
 

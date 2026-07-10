@@ -10,7 +10,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, Eye, DoorOpen, Loader2, AlertCircle, Image as LucideImage } from 'lucide-react';
-import { useRooms, useBuildings, useRoomImages, useRentalContracts, useRoomTypesCatalog } from '@/lib/hooks/useEntities';
+import { useRooms, useBuildings, useRoomImages, useRentalContracts, useRoomTypesCatalog, useDepositContracts } from '@/lib/hooks/useEntities';
+import { DepositCountdown } from '@/components/ui/DepositCountdown';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/lib/supabase/client';
@@ -30,10 +31,11 @@ const statusLabels: Record<string, string> = {
 };
 
 export function RoomListPage() {
-  const { company } = useAuth();
+  const { company, role } = useAuth();
   const { items: roomList, loading, error, add, update, remove } = useRooms(company?.id);
   const { items: buildings } = useBuildings(company?.id);
   const { items: contracts } = useRentalContracts(company?.id);
+  const { items: depositContracts } = useDepositContracts(company?.id);
   const { items: roomTypes } = useRoomTypesCatalog(company?.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -131,6 +133,9 @@ export function RoomListPage() {
   };
 
   const filtered = roomList.filter((r) => {
+    if (role === 'sales_agent' && r.status === 'rented') {
+      return false;
+    }
     const buildingName = r.buildings?.name ?? '';
     const landlordCode = r.landlord_code ?? '';
     const matchesSearch = r.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -503,10 +508,16 @@ export function RoomListPage() {
                       <td className="px-4 py-3">
                         {(() => {
                           const ds = getRoomDisplayStatus(item, contracts);
+                          const activeDeposit = item.status === 'reserved'
+                            ? depositContracts.find((c) => c.room_id === item.id && c.status === 'active')
+                            : null;
                           return (
-                            <span className={`inline-block px-2 py-0.5 rounded text-xs border ${ds.colorClass}`}>
-                              {ds.label}
-                            </span>
+                            <div className="flex flex-col items-start gap-1">
+                              <span className={`inline-block px-2 py-0.5 rounded text-xs border ${ds.colorClass}`}>
+                                {ds.label}
+                              </span>
+                              {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                            </div>
                           );
                         })()}
                       </td>
@@ -534,10 +545,16 @@ export function RoomListPage() {
                       <span className="font-mono font-bold text-slate-800 text-base">Phòng {item.code}</span>
                       {(() => {
                         const ds = getRoomDisplayStatus(item, contracts);
+                        const activeDeposit = item.status === 'reserved'
+                          ? depositContracts.find((c) => c.room_id === item.id && c.status === 'active')
+                          : null;
                         return (
-                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border ${ds.colorClass}`}>
-                            {ds.label}
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border ${ds.colorClass}`}>
+                              {ds.label}
+                            </span>
+                            {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                          </div>
                         );
                       })()}
                     </div>
@@ -603,10 +620,16 @@ export function RoomListPage() {
                   <span className="text-slate-500">Trạng thái:</span>{' '}
                   {(() => {
                     const ds = getRoomDisplayStatus(viewItem, contracts);
+                    const activeDeposit = viewItem.status === 'reserved'
+                      ? depositContracts.find((c) => c.room_id === viewItem.id && c.status === 'active')
+                      : null;
                     return (
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs border ${ds.colorClass}`}>
-                        {ds.label}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs border ${ds.colorClass}`}>
+                          {ds.label}
+                        </span>
+                        {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                      </div>
                     );
                   })()}
                 </div>

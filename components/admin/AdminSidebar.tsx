@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
     children: [
       { label: 'Tòa nhà', href: '/admin/realhome/buildings', icon: Building2, permission: 'buildings.read' },
       { label: 'Phòng', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
+      { label: 'Danh mục', href: '/admin/categories', icon: List, permission: 'buildings.read' },
     ],
   },
   {

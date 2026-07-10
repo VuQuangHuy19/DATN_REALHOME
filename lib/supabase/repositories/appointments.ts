@@ -31,9 +31,9 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
   const { data: landlords, error: landlordsError } = await supabase.from('landlords').select('id, code, name');
   if (landlordsError) throw landlordsError;
 
-  // 5. Fetch employees
-  const { data: employees, error: employeesError } = await supabase.from('employees').select('id, name, phone');
-  if (employeesError) throw employeesError;
+  // 5. Fetch profiles
+  const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, full_name, phone, email');
+  if (profilesError) throw profilesError;
 
   // 6. Fetch companies
   const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name, phone');
@@ -53,8 +53,8 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
     (landlords ?? []).map((l: { id: string; code: string | null; name: string | null }) => [l.id, { code: l.code, name: l.name }])
   );
 
-  const employeesMap = new Map<string, { name: string; phone: string | null }>(
-    (employees ?? []).map((e: { id: string; name: string; phone: string | null }) => [e.id, { name: e.name, phone: e.phone }])
+  const profilesMap = new Map<string, { name: string; phone: string | null }>(
+    (profiles ?? []).map((p: any) => [p.id, { name: p.full_name || p.email || '', phone: p.phone }])
   );
 
   const companiesMap = new Map<string, { name: string; phone: string | null }>(
@@ -80,7 +80,7 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
     const landlord = landlordIdVal ? landlordsMap.get(landlordIdVal) : null;
 
     // Sale Info
-    const saleInfo = row.assigned_to ? employeesMap.get(row.assigned_to) : null;
+    const saleInfo = row.assigned_to ? profilesMap.get(row.assigned_to) : null;
     const saleName = saleInfo?.name || row.assigned_to_name || null;
     const salePhone = saleInfo?.phone || null;
 
@@ -127,6 +127,61 @@ export async function updateAppointment(id: string, a: AppointmentUpdate): Promi
     .from('appointments').update({ ...(a as any), updated_at: new Date().toISOString() })
     .eq('id', id).select().single();
   if (error) throw error;
+
+  // Sync to Leads table (by matching customer phone number)
+  try {
+    const { data: apt } = await supabase
+      .from('appointments')
+      .select('customer_phone, company_id, assigned_to, status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (apt && apt.customer_phone && apt.company_id) {
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('id, assigned_to, status')
+        .eq('company_id', apt.company_id)
+        .eq('phone', apt.customer_phone)
+        .maybeSingle();
+
+      if (lead) {
+        const leadPatch: any = {};
+        
+        // Sync assigned_to
+        if ('assigned_to' in a && lead.assigned_to !== apt.assigned_to) {
+          leadPatch.assigned_to = apt.assigned_to;
+        }
+
+        // Sync status: map appointment status to lead status
+        if ('status' in a) {
+          let mappedStatus: string | null = null;
+          if (apt.status === 'Confirm' || apt.status === 'Pending') {
+            mappedStatus = 'appointment';
+          } else if (apt.status === 'Viewed') {
+            mappedStatus = 'viewed';
+          } else if (apt.status === 'Dealed') {
+            mappedStatus = 'rented';
+          } else if (apt.status === 'Cancel') {
+            mappedStatus = 'cancelled';
+          }
+
+          if (mappedStatus && lead.status !== mappedStatus) {
+            leadPatch.status = mappedStatus;
+          }
+        }
+
+        if (Object.keys(leadPatch).length > 0) {
+          await supabase
+            .from('leads')
+            .update({ ...leadPatch, updated_at: new Date().toISOString() })
+            .eq('id', lead.id);
+        }
+      }
+    }
+  } catch (syncErr) {
+    console.error('Error syncing appointment to lead:', syncErr);
+  }
+
   return data as unknown as DBAppointment;
 }
 

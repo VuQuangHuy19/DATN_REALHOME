@@ -8,6 +8,7 @@ export type RentalContractWithRoom = DBRentalContract & {
   rooms: {
     code: string;
     price: number;
+    rose?: string | null;
     buildings: {
       name: string;
       address: string | null;
@@ -27,8 +28,8 @@ export async function getRentalContracts(companyId?: string, landlordId?: string
   }
 
   const selectQuery = filterLandlordCode
-    ? '*, rooms!inner(code, price, buildings!inner(name, address, area, landlord_id))'
-    : '*, rooms(code, price, buildings(name, address, area))';
+    ? '*, rooms!inner(code, price, rose, buildings!inner(name, address, area, landlord_id))'
+    : '*, rooms(code, price, rose, buildings(name, address, area))';
 
   let q = supabase
     .from('rental_contracts')
@@ -53,7 +54,7 @@ export async function getRentalContracts(companyId?: string, landlordId?: string
 export async function getRentalContract(id: string): Promise<RentalContractWithRoom | null> {
   const { data, error } = await supabase
     .from('rental_contracts')
-    .select('*, rooms(code, price, buildings(name, address, area))')
+    .select('*, rooms(code, price, rose, buildings(name, address, area))')
     .eq('id', id)
     .maybeSingle();
 

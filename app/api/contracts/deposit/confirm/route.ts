@@ -73,6 +73,16 @@ export async function POST(request: Request) {
       throw updateErr;
     }
 
+    if (contract.room_id) {
+      const { error: roomErr } = await supabaseAdmin
+        .from('rooms')
+        .update({ status: 'rented', updated_at: new Date().toISOString() })
+        .eq('id', contract.room_id);
+      if (roomErr) {
+        console.error('Lỗi tự động cập nhật trạng thái phòng khi xác nhận cọc:', roomErr.message);
+      }
+    }
+
     const roomCode = contract.rooms?.code || '---';
     const buildingName = contract.rooms?.buildings?.name || 'Tòa nhà';
 

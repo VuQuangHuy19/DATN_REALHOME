@@ -47,6 +47,8 @@ export default function ExcelImportPage() {
     if (clean === '2n1k') return '2N - 1K - 1WC';
     if (clean === '1n1k') return '1N - 1K - 1WC';
     if (clean === '3n1k') return '3N - 1K - 1WC';
+    if (clean === 'gác xép' || clean === 'gac xep') return 'Gác xép';
+    if (clean === 'duplex') return 'Duplex';
     
     // Dynamic matching of XnYk format
     const match = clean.match(/^(\d+)n(\d+)k$/);
@@ -56,6 +58,19 @@ export default function ExcelImportPage() {
     
     // Default fallback: capitalize first letter
     return typeStr.trim().charAt(0).toUpperCase() + typeStr.trim().slice(1);
+  };
+
+  // Helper to parse floor number from room code (e.g. 302 -> 3, 1205 -> 12, P501 -> 5)
+  const parseFloorFromRoomCode = (code: string): number => {
+    const clean = code.trim();
+    const numOnly = Number(clean.replace(/[^\d]/g, ''));
+    if (!isNaN(numOnly) && numOnly > 0) {
+      if (numOnly >= 100) {
+        return Math.floor(numOnly / 100);
+      }
+      return numOnly;
+    }
+    return 1; // fallback
   };
 
   // Helper to generate building code (e.g. "ngõ 24 Thổ Quan" -> "24TQ")
@@ -131,6 +146,16 @@ export default function ExcelImportPage() {
     const clean = statusStr.trim();
     if (!clean) return null;
 
+    // Matches Excel serial date numbers (e.g. 46302)
+    const serialNum = Number(clean);
+    if (!isNaN(serialNum) && serialNum > 30000 && serialNum < 60000) {
+      const dateObj = new Date((serialNum - 25569) * 86400 * 1000);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     // Matches e.g. "31/7", "31-7", "31/07", "31/7/2026", "31-7-2026"
     const dateRegex = /^(\d{1,2})[\/\-](\d{1,2})([\/\-](\d{4}))?$/;
     const match = clean.match(dateRegex);
@@ -190,11 +215,11 @@ export default function ExcelImportPage() {
 
     // Sheet 1: BangHang (Đơn giản - Gộp dòng từ ảnh của người dùng)
     const bangHangData = [
-      ['Mã chủ nhà (*)', 'Chủ nhà (Tên)', 'SĐT chủ nhà', 'Email chủ nhà', 'Tòa nhà (Địa chỉ) (*)', 'Khu vực', 'Phòng trống (*)', 'Giá Phòng (*)', 'Loại Phòng', 'Diện tích', 'Phòng ngủ', 'Phòng tắm', 'Thang máy', 'Số xe', 'Số người', 'Thanh toán', 'Internet', 'DVC', 'Trạng thái', 'Link ảnh + video'],
-      ['TH01', 'Võ Quang Huy', { v: '0857844999', t: 's' }, 'huy@realhome.vn', '24 ngách 24 ngõ Thổ Quan - Phố Khâm Thiên', 'Đống Đa', '501', '8.500.000', '2n1k', '55m2', 2, 1, 'Y', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267'],
-      ['', '', '', '', '', '', '602', '8.000.000', 'studio', '30m2', 1, 1, 'Y', 2, 2, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', ''],
-      ['TH02', 'Nguyễn Đức Minh', { v: '0912345678', t: 's' }, 'minh@realhome.vn', '9 nghách 20 ngõ 102 Pháo Đài Láng', 'Đống Đa', '301', '4.800.000', 'studio', '50m2', 1, 1, 'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', '10/7', 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00'],
-      ['', '', '', '', '', '', '203', '8.500.000', '2n1k', '50m2', 2, 1, 'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', '']
+      ['Mã chủ nhà (*)', 'Chủ nhà (Tên)', 'SĐT chủ nhà', 'Email chủ nhà', 'Tòa nhà (Địa chỉ) (*)', 'Khu vực', 'Phòng trống (*)', 'Giá Phòng (*)', 'Loại Phòng', 'Diện tích', 'Phòng ngủ', 'Phòng tắm', 'Thang máy', 'Số xe', 'Số người', 'Thanh toán', 'Internet', 'DVC', 'Trạng thái', 'Link ảnh + video', 'Hoa hồng (rose) (*)', 'Hợp đồng tối thiểu'],
+      ['TH01', 'Võ Quang Huy', { v: '0857844999', t: 's' }, 'huy@realhome.vn', '24 ngách 24 ngõ Thổ Quan - Phố Khâm Thiên', 'Đống Đa', '501', '8.500.000', '2n1k', '55m2', 2, 1, 'Y', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267', '0.5 tháng', 12],
+      ['', '', '', '', '', '', '602', '8.000.000', 'studio', '30m2', 1, 1, 'Y', 2, 2, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', '', '', 12],
+      ['TH02', 'Nguyễn Đức Minh', { v: '0912345678', t: 's' }, 'minh@realhome.vn', '9 nghách 20 ngõ 102 Pháo Đài Láng', 'Đống Đa', '301', '4.800.000', 'studio', '50m2', 1, 1, 'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', '10/7', 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00', '0.5 tháng', 12],
+      ['', '', '', '', '', '', '203', '8.500.000', '2n1k', '50m2', 2, 1, 'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', '', '', 12]
     ];
     const wsBangHang = XLSX.utils.aoa_to_sheet(bangHangData);
     wsBangHang['!cols'] = getColWidths(bangHangData);
@@ -222,10 +247,10 @@ export default function ExcelImportPage() {
 
     // Sheet 4: Phong (Mẫu 3 sheet chuẩn)
     const phongData = [
-      ['Mã tòa nhà (*)', 'Số tầng', 'Mã phòng (*)', 'Loại phòng', 'Diện tích (m²)', 'Giá thuê (đ/tháng)', 'Phòng ngủ', 'Phòng tắm', 'Trạng thái (available/rented/maintenance/reserved)', 'Giới hạn số người', 'Giới hạn số xe', 'Hợp đồng tối thiểu (tháng)', 'Hình ảnh (Link)'],
-      ['TN-GN04', 1, 'P101', 'Studio', 25, 4500000, 1, 1, 'available', 2, 2, 12, 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267,https://images.unsplash.com/photo-1502672260266-1c1ef2d93688'],
-      ['TN-GN04', 1, 'P102', '1PN', 30, 5000000, 1, 1, 'available', 2, 2, 12, ''],
-      ['TN-HD02', 1, 'P101', 'Studio', 20, 3500000, 1, 1, 'available', 2, 1, 6, '']
+      ['Mã tòa nhà (*)', 'Số tầng', 'Mã phòng (*)', 'Loại phòng', 'Diện tích (m²)', 'Giá thuê (đ/tháng)', 'Phòng ngủ', 'Phòng tắm', 'Trạng thái (available/rented/maintenance/reserved)', 'Giới hạn số người', 'Giới hạn số xe', 'Hợp đồng tối thiểu (tháng)', 'Hình ảnh (Link)', 'Hoa hồng (rose) (*)'],
+      ['TN-GN04', 1, 'P101', 'Studio', 25, 4500000, 1, 1, 'available', 2, 2, 12, 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267,https://images.unsplash.com/photo-1502672260266-1c1ef2d93688', '0.5 tháng'],
+      ['TN-GN04', 1, 'P102', '1PN', 30, 5000000, 1, 1, 'available', 2, 2, 12, '', '0.5 tháng'],
+      ['TN-HD02', 1, 'P101', 'Studio', 20, 3500000, 1, 1, 'available', 2, 1, 6, '', '1 tháng']
     ];
     const wsPhong = XLSX.utils.aoa_to_sheet(phongData);
     wsPhong['!cols'] = getColWidths(phongData);
@@ -302,6 +327,8 @@ export default function ExcelImportPage() {
           let depositColIdx = 7;
           let statusColIdx = 10;
           let imageColIdx = 11;
+          let roseColIdx = -1;
+          let minContractColIdx = -1;
 
           headerRow.forEach((cell: any, idx: number) => {
             const cellStr = String(cell || '').toLowerCase();
@@ -323,6 +350,8 @@ export default function ExcelImportPage() {
             else if (cellStr.includes('thanh toán') || cellStr.includes('đóng') || cellStr.includes('cọc')) depositColIdx = idx;
             else if (cellStr.includes('trạng thái')) statusColIdx = idx;
             else if (cellStr.includes('link') || cellStr.includes('ảnh') || cellStr.includes('video')) imageColIdx = idx;
+            else if (cellStr.includes('hoa hồng') || cellStr.includes('rose')) roseColIdx = idx;
+            else if (cellStr.includes('hợp đồng tối thiểu') || cellStr.includes('tối thiểu')) minContractColIdx = idx;
           });
 
           const uniqueBuildings = new Set<string>();
@@ -544,11 +573,13 @@ export default function ExcelImportPage() {
 
             const rawImages = getCellHyperlink(wsFirst, i, imageColIdx) || (row[imageColIdx] ? String(row[imageColIdx]).trim() : '');
             const depositTerms = row[depositColIdx] ? String(row[depositColIdx]).trim() : '';
-
+            const rose = roseColIdx !== -1 && row[roseColIdx] !== undefined && row[roseColIdx] !== null ? String(row[roseColIdx]).trim() : '';
+            const minContractMonths = minContractColIdx !== -1 && row[minContractColIdx] !== undefined && row[minContractColIdx] !== null ? Number(String(row[minContractColIdx]).replace(/[^\d]/g, '')) : 12;
+ 
             rooms.push({
               rowIndex: i + 1,
               building_code: lastBuildingCode,
-              floor: 1,
+              floor: parseFloorFromRoomCode(roomCode),
               code: roomCode,
               room_type: roomType,
               size,
@@ -558,9 +589,10 @@ export default function ExcelImportPage() {
               status,
               max_occupants: maxOccupants,
               max_vehicles_per_room: maxVehicles,
-              min_contract_months: 12,
+              min_contract_months: minContractMonths || 12,
               image_urls: rawImages,
               deposit_terms: depositTerms,
+              rose: rose,
               description: description
             });
           }
@@ -662,7 +694,7 @@ export default function ExcelImportPage() {
               rooms.push({
                 rowIndex: i + 1,
                 building_code: lastBuildingCode,
-                floor: row[1] ? Number(row[1]) : 1,
+                floor: row[1] ? Number(row[1]) : parseFloorFromRoomCode(roomCode),
                 code: roomCode,
                 room_type: row[3] ? String(row[3]).trim() : '',
                 size: row[4] ? Number(row[4]) : null,
@@ -674,6 +706,7 @@ export default function ExcelImportPage() {
                 max_vehicles_per_room: row[10] ? Number(row[10]) : 2,
                 min_contract_months: row[11] ? Number(row[11]) : 12,
                 image_urls: getCellHyperlink(wsPhong, i, 12) || (row[12] ? String(row[12]).trim() : ''),
+                rose: row[13] ? String(row[13]).trim() : '',
                 description: description
               });
             }
@@ -792,6 +825,15 @@ export default function ExcelImportPage() {
           column: 'Trạng thái', 
           value: r.status, 
           message: `Trạng thái phải là một trong các giá trị: ${validStatuses.join(', ')}` 
+        });
+      }
+      if (!r.rose) {
+        errors.push({
+          sheet: sheetName,
+          row: r.rowIndex,
+          column: isSingle ? 'Hoa hồng (rose) (*)' : 'Hoa hồng (rose) (*)',
+          value: r.rose,
+          message: 'Hoa hồng (rose) là bắt buộc và phải nhập'
         });
       }
     });

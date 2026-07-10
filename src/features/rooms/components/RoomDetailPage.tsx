@@ -35,7 +35,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   soon_available: { label: 'Sắp trống', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', icon: AlertCircle },
 };
 
-const ROOM_TYPES = ['Studio', 'Phòng trọ', '1PN', '2PN', '3PN', 'Penthouse', 'Shophouse', 'Văn phòng'];
+const ROOM_TYPES = ['Studio', 'Phòng trọ', '1PN', '2PN', '3PN', 'Penthouse', 'Shophouse', 'Văn phòng', 'Gác xép', 'Duplex'];
 
 const InfoRow = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="flex items-start justify-between py-3 border-b last:border-0">

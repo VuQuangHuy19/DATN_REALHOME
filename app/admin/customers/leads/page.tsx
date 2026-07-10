@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getProfiles } from '@/lib/supabase/repositories/profiles';
-import { useRoomTypesCatalog } from '@/lib/hooks/useEntities';
+
+import { useRoomTypesCatalog, useProfiles } from '@/lib/hooks/useEntities';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -165,13 +165,7 @@ export default function LeadsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<DBLead | null>(null);
   const [saving, setSaving] = useState(false);
-  const [profiles, setProfiles] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (company?.id) {
-      getProfiles(company.id).then(setProfiles).catch(console.error);
-    }
-  }, [company?.id]);
+  const { items: profiles } = useProfiles(company?.id);
 
   const isSale = role === 'sales_agent';
 

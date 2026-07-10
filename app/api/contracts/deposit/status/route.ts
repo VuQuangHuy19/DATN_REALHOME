@@ -58,9 +58,9 @@ export async function POST(request: Request) {
     let roomStatusUpdate = null;
     if (['cancelled', 'forfeited', 'refunded'].includes(status)) {
       roomStatusUpdate = 'available'; // Mở khóa phòng về trống
-    } else if (status === 'converted') {
+    } else if (status === 'converted' || status === 'signed') {
       roomStatusUpdate = 'rented'; // Đã cho thuê
-    } else if (['active', 'signed'].includes(status)) {
+    } else if (status === 'active') {
       roomStatusUpdate = 'reserved'; // Khóa phòng giữ cọc
     }
 

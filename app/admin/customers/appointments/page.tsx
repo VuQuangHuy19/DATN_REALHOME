@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getProfiles } from '@/lib/supabase/repositories/profiles';
+
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2 } from 'lucide-react';
-import { useAppointments } from '@/lib/hooks/useEntities';
+import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBAppointment } from '@/lib/supabase/types';
 
@@ -77,13 +77,7 @@ export default function CustomersAppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [profiles, setProfiles] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (company?.id) {
-      getProfiles(company.id).then(setProfiles).catch(console.error);
-    }
-  }, [company?.id]);
+  const { items: profiles } = useProfiles(company?.id);
 
   const isSale = role === 'sales_agent';
 

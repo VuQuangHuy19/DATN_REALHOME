@@ -1,11 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 import { getLeads, getLead, createLead, updateLead, deleteLead, getLeadActivities, createLeadActivity, updateLeadStatus, type LeadInsert, type LeadUpdate, type LeadActivityInsert } from '@/lib/supabase/repositories/leads';
 import type { DBLead, DBLeadActivity } from '@/lib/supabase/types';
 
 export function useLeads(companyId?: string) {
+  const { role, profile } = useAuth();
   const [leads, setLeads] = useState<DBLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const leadsRef = useRef<string[]>([]);
+  useEffect(() => {
+    leadsRef.current = leads.map((l) => l.id);
+  }, [leads]);
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -21,6 +30,81 @@ export function useLeads(companyId?: string) {
   }, [companyId]);
 
   useEffect(() => { fetch(); }, [fetch]);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!companyId) return;
+
+    const playNotificationSound = () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const playNote = (frequency: number, startTime: number, duration: number) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(frequency, startTime);
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        };
+        const now = audioCtx.currentTime;
+        playNote(587.33, now, 0.4); // D5
+        playNote(880.00, now + 0.12, 0.6); // A5
+      } catch (e) {
+        console.error('Không thể phát âm thanh thông báo:', e);
+      }
+    };
+
+    const channel = supabase
+      .channel(`leads-realtime:${companyId}:${Math.random().toString(36).substring(2, 9)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+          filter: `company_id=eq.${companyId}`,
+        },
+        (payload: { eventType: string; new?: DBLead }) => {
+          fetch();
+
+          if (payload.eventType === 'INSERT') {
+            const newLead = payload.new as DBLead;
+            const isAssignedToMe = newLead.assigned_to === profile?.id;
+            const isAdminOrManager = role === 'company_admin' || role === 'manager';
+
+            if (isAssignedToMe || isAdminOrManager) {
+              playNotificationSound();
+              toast.success(isAssignedToMe ? `💼 Bạn có Lead mới được phân công!` : `💼 Lead mới vừa đăng ký!`, {
+                description: `Khách hàng ${newLead.full_name} (${newLead.phone})` + (newLead.interest ? ` quan tâm: ${newLead.interest}` : ''),
+                duration: 8000,
+              });
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedLead = payload.new as DBLead;
+            if (role === 'sales_agent' && profile?.id && updatedLead.assigned_to === profile.id) {
+              const wasAlreadyAssigned = leadsRef.current.includes(updatedLead.id);
+              if (!wasAlreadyAssigned) {
+                playNotificationSound();
+                toast.success(`💼 Bạn được phân công Lead mới!`, {
+                  description: `Khách hàng ${updatedLead.full_name} (${updatedLead.phone})` + (updatedLead.interest ? ` quan tâm: ${updatedLead.interest}` : ''),
+                  duration: 8000,
+                });
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, fetch, role, profile?.id]);
 
   const add = async (lead: LeadInsert) => {
     try {

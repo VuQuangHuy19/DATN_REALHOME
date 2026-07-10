@@ -29,7 +29,7 @@ const budgetRanges = [
 ];
 
 const roomTypeOptions = [
-  'Studio', '1 Phòng ngủ', '2 Phòng ngủ', '3 Phòng ngủ', 'Penthouse', 'Duplex',
+  'Studio', '1 Phòng ngủ', '2 Phòng ngủ', '3 Phòng ngủ', 'Penthouse', 'Duplex', 'Gác xép',
 ];
 
 const areaOptions = [

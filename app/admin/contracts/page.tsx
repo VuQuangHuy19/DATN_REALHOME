@@ -45,6 +45,37 @@ const formatDateDisplay = (dateStr?: string | null): string => {
   }
 };
 
+const calculateCommissionAmount = (price: number, roseStr?: string | null): number => {
+  if (!roseStr) return 0;
+  const clean = roseStr.trim().toLowerCase();
+  if (!clean) return 0;
+
+  if (clean.includes('%')) {
+    const num = parseFloat(clean.replace(/[^\d.]/g, ''));
+    if (!isNaN(num)) {
+      return price * (num / 100);
+    }
+  }
+
+  if (clean.includes('tháng') || clean.includes('thang')) {
+    const num = parseFloat(clean.replace(/[^\d.]/g, ''));
+    if (!isNaN(num)) {
+      return price * num;
+    }
+  }
+
+  const num = parseFloat(clean);
+  if (!isNaN(num)) {
+    if (num > 1) {
+      // E.g. 50 (meaning 50%)
+      return price * (num / 100);
+    }
+    return price * num;
+  }
+
+  return 0;
+};
+
 export default function ContractsPage() {
   const { company, role } = useAuth();
   const pathname = usePathname();
@@ -381,8 +412,15 @@ export default function ContractsPage() {
                               );
                             })()}
                           </td>
-                          <td className="px-4 py-3 font-semibold text-slate-800">
-                            {Number(item.deposit_amount).toLocaleString('vi-VN')} đ
+                           <td className="px-4 py-3">
+                            <span className="font-semibold text-slate-800">
+                              {Number(item.deposit_amount).toLocaleString('vi-VN')} đ
+                            </span>
+                            {item.rooms?.rose && (
+                              <p className="text-xs text-emerald-600 font-semibold mt-0.5 whitespace-nowrap">
+                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose).toLocaleString('vi-VN')} đ ({item.rooms.rose})
+                              </p>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-slate-600">
                             {formatDateDisplay(item.deadline_sign_contract)}
@@ -569,8 +607,15 @@ export default function ContractsPage() {
                               );
                             })()}
                           </td>
-                          <td className="px-4 py-3 font-semibold text-slate-800">
-                            {Number(item.rent_price).toLocaleString('vi-VN')} đ/tháng
+                           <td className="px-4 py-3">
+                            <span className="font-semibold text-slate-800">
+                              {Number(item.rent_price).toLocaleString('vi-VN')} đ/tháng
+                            </span>
+                            {item.rooms?.rose && (
+                              <p className="text-xs text-emerald-600 font-semibold mt-0.5 whitespace-nowrap">
+                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose).toLocaleString('vi-VN')} đ ({item.rooms.rose})
+                              </p>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-slate-600 text-xs">
                             {formatDateDisplay(item.start_date)} - {formatDateDisplay(item.end_date)}
@@ -764,6 +809,14 @@ export default function ContractsPage() {
                   {viewDeposit.sign_location && <p className="md:col-span-3"><span className="text-slate-400">Nơi ký hợp đồng:</span> {viewDeposit.sign_location}</p>}
                   <p><span className="text-slate-400">Giá thuê dự kiến:</span> <span className="font-semibold text-slate-800">{Number(viewDeposit.rent_price).toLocaleString('vi-VN')} đ/tháng</span></p>
                   <p><span className="text-slate-400">Số tiền đặt cọc:</span> <span className="font-bold text-slate-800">{Number(viewDeposit.deposit_amount).toLocaleString('vi-VN')} đ</span></p>
+                  {viewDeposit.rooms?.rose && (
+                    <p>
+                      <span className="text-slate-400">Hoa hồng Sale nhận:</span>{' '}
+                      <span className="font-bold text-emerald-600">
+                        {calculateCommissionAmount(viewDeposit.rooms.price, viewDeposit.rooms.rose).toLocaleString('vi-VN')} đ ({viewDeposit.rooms.rose})
+                      </span>
+                    </p>
+                  )}
                   <p><span className="text-slate-400">Hạn ký HĐ chính thức:</span> <span className="font-semibold text-red-600">{formatDateDisplay(viewDeposit.deadline_sign_contract)}</span></p>
                   <p><span className="text-slate-400">Tiền điện:</span> {Number(viewDeposit.electricity_price).toLocaleString('vi-VN')} đ/số</p>
                   <p><span className="text-slate-400">Tiền nước:</span> {viewDeposit.water_price}</p>
@@ -915,6 +968,14 @@ export default function ContractsPage() {
                   {viewRental.sign_location && <p className="md:col-span-3"><span className="text-slate-400">Nơi ký hợp đồng:</span> {viewRental.sign_location}</p>}
                   <p><span className="text-slate-400">Giá thuê hàng tháng:</span> <span className="font-bold text-slate-800">{Number(viewRental.rent_price).toLocaleString('vi-VN')} đ</span></p>
                   <p><span className="text-slate-400">Số tiền cọc đã đóng:</span> <span className="font-bold text-slate-800">{Number(viewRental.deposit_amount).toLocaleString('vi-VN')} đ</span></p>
+                  {viewRental.rooms?.rose && (
+                    <p>
+                      <span className="text-slate-400">Hoa hồng Sale nhận:</span>{' '}
+                      <span className="font-bold text-emerald-650">
+                        {calculateCommissionAmount(viewRental.rooms.price, viewRental.rooms.rose).toLocaleString('vi-VN')} đ ({viewRental.rooms.rose})
+                      </span>
+                    </p>
+                  )}
                   <p><span className="text-slate-400">Ngày đóng tiền:</span> Ngày {viewRental.payment_day_of_month} hàng tháng</p>
                   <p><span className="text-slate-400">Chu kỳ đóng tiền:</span> {viewRental.billing_cycle_months} tháng/lần</p>
                   <p><span className="text-slate-400">Ngày bắt đầu:</span> {formatDateDisplay(viewRental.start_date)}</p>

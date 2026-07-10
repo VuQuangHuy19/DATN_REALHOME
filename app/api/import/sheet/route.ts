@@ -266,7 +266,7 @@ export async function POST(request: Request) {
         const {
           building_code, code, floor, size, price, bedrooms, bathrooms, status,
           max_occupants, max_vehicles_per_room, min_contract_months,
-          image_urls, room_type, deposit_terms, description
+          image_urls, room_type, deposit_terms, rose, description
         } = room;
 
         if (!building_code || !code) {
@@ -307,6 +307,7 @@ export async function POST(request: Request) {
           min_contract_months: min_contract_months ? Number(min_contract_months) : 12,
           landlord_id: bld?.landlord_id || null,
           deposit_terms: deposit_terms || null,
+          rose: rose || null,
           description: description || null,
           updated_at: new Date().toISOString()
         };
@@ -328,8 +329,20 @@ export async function POST(request: Request) {
           roomId = newRoom.id;
         }
 
-        // Import room images from links
-        if (image_urls && roomId) {
+        // Kiểm tra xem phòng đã có ảnh trong DB chưa để tránh tải lại
+        let hasImages = false;
+        if (existing?.id) {
+          const { count, error: countErr } = await supabaseAdmin
+            .from('room_images')
+            .select('id', { count: 'exact', head: true })
+            .eq('room_id', existing.id);
+          if (!countErr && count && count > 0) {
+            hasImages = true;
+          }
+        }
+
+        // Import room images from links (Chỉ chạy khi phòng chưa có ảnh)
+        if (!hasImages && image_urls && roomId) {
           const urlList = String(image_urls).split(',').map((u) => u.trim()).filter(Boolean);
           let imgIndex = 0;
           for (const rawUrl of urlList) {

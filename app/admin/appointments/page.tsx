@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2 } from 'lucide-react';
-import { useAppointments, useEmployees } from '@/lib/hooks/useEntities';
+import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBAppointment } from '@/lib/supabase/types';
 
@@ -93,7 +93,11 @@ const statusLabels: Record<string, string> = {
 export default function AppointmentsPage() {
   const { company } = useAuth();
   const { items: aptList, loading, error, update } = useAppointments(company?.id);
-  const { items: employeeList } = useEmployees(company?.id);
+  const { items: profiles } = useProfiles(company?.id);
+
+  const assignableProfiles = useMemo(() => {
+    return profiles.filter((p) => p.role !== 'landlord');
+  }, [profiles]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -390,11 +394,11 @@ export default function AppointmentsPage() {
                 <select
                   value={viewItem.assigned_to || ''}
                   onChange={async (e) => {
-                    const empId = e.target.value;
-                    const empName = employeeList.find(emp => emp.id === empId)?.name || null;
+                    const profileId = e.target.value;
+                    const profileName = assignableProfiles.find(p => p.id === profileId)?.full_name || null;
                     await update(viewItem.id, { 
-                      assigned_to: empId || null, 
-                      assigned_to_name: empName 
+                      assigned_to: profileId || null, 
+                      assigned_to_name: profileName 
                     });
                     toast.success('Đã phân công Sale phụ trách!');
                     setIsViewOpen(false);
@@ -402,9 +406,9 @@ export default function AppointmentsPage() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">-- Chưa phân công --</option>
-                  {employeeList.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name} {emp.phone ? `(${emp.phone})` : ''}
+                  {assignableProfiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name || p.email} {p.phone ? `(${p.phone})` : ''}
                     </option>
                   ))}
                 </select>
