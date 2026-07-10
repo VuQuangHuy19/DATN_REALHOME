@@ -202,7 +202,7 @@ export async function POST(request: Request) {
           const trimmedEmail = String(email).trim().toLowerCase();
           const { data: existingProfile } = await supabaseAdmin
             .from('profiles')
-            .select('id')
+            .select('id, landlord_id')
             .eq('email', trimmedEmail)
             .maybeSingle();
 
@@ -240,7 +240,7 @@ export async function POST(request: Request) {
                 const inviteLink = `${siteUrl}/onboarding?token=${tokenPayload.rawToken}`;
 
                 try {
-                  await sendEmail({
+                  const result = await sendEmail({
                     to: trimmedEmail,
                     subject: 'Lời mời kích hoạt tài khoản Chủ nhà - RealHome Business',
                     html: `
@@ -259,6 +259,9 @@ export async function POST(request: Request) {
                       </div>
                     `,
                   });
+                  if (!result.success) {
+                    console.error('Lỗi gửi email mời kích hoạt chủ nhà khi import:', result.error);
+                  }
                 } catch (emailErr) {
                   console.error('Lỗi gửi email mời kích hoạt chủ nhà khi import:', emailErr);
                 }
@@ -267,6 +270,24 @@ export async function POST(request: Request) {
               }
             } else {
               console.error('Lỗi tạo profile khi import chủ nhà:', profileError.message);
+            }
+          } else {
+            // Profile đã tồn tại, đảm bảo landlord_id được liên kết và role là landlord
+            if (existingProfile.landlord_id !== landlordId) {
+              const { error: updateProfileError } = await supabaseAdmin
+                .from('profiles')
+                .update({
+                  landlord_id: landlordId,
+                  role: 'landlord',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', existingProfile.id);
+
+              if (updateProfileError) {
+                console.error('Lỗi cập nhật landlord_id cho profile có sẵn khi import:', updateProfileError.message);
+              } else {
+                console.log(`Đã cập nhật landlord_id (${landlordId}) cho profile có sẵn (${trimmedEmail})`);
+              }
             }
           }
         }
