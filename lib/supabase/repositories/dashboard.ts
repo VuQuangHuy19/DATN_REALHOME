@@ -15,9 +15,9 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       .eq('company_id', companyId)
       .eq('landlord_id', filterLandlordCode);
 
-    const buildingIds = (landlordBuildings ?? []).map((b: any) => b.id);
+    const buildingCodes = (landlordBuildings ?? []).map((b: any) => b.code).filter(Boolean);
 
-    if (buildingIds.length === 0) {
+    if (buildingCodes.length === 0) {
       return {
         totalBuildings: 0,
         totalRooms: 0,
@@ -45,7 +45,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       .from('rooms')
       .select('id, building_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months')
       .eq('company_id', companyId)
-      .in('building_id', buildingIds);
+      .in('building_id', buildingCodes);
 
     const roomRows = landlordRooms ?? [];
     const totalRooms = roomRows.length;
@@ -98,7 +98,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     // 6. Calculate building details with revenue & occupancy
     const buildingsList = [];
     for (const building of landlordBuildings ?? []) {
-      const bRooms = roomRows.filter((r: any) => r.building_id === building.id);
+      const bRooms = roomRows.filter((r: any) => r.building_id === building.code);
       const bRoomsCount = bRooms.length;
       const bRentedCount = bRooms.filter((r: any) => r.status === 'rented').length;
       const bRoomIds = bRooms.map((r: any) => r.id);

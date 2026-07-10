@@ -177,6 +177,7 @@ export function RoomListPage() {
       max_occupants: Number(formData.get('max_occupants')) || 2,
       max_vehicles_per_room: Number(formData.get('max_vehicles_per_room')) || 2,
       min_contract_months: Number(formData.get('min_contract_months')) || 12,
+      rose: (formData.get('rose') as string) || null,
     };
 
     if (editItem) {
@@ -340,7 +341,10 @@ export function RoomListPage() {
                 </div>
               </div>
 
-              <div><Label htmlFor="description">Mô tả</Label><Input id="description" name="description" defaultValue={editItem?.description ?? ''} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label htmlFor="description">Mô tả</Label><Input id="description" name="description" defaultValue={editItem?.description ?? ''} /></div>
+                <div><Label htmlFor="rose">Hoa hồng (ví dụ: 40% cho hợp đồng 6 tháng, 50% cho 12 tháng)</Label><Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." /></div>
+              </div>
 
               {/* Quản lý ảnh phòng trực tiếp trong Dialog Sửa hoặc Thêm */}
               <div className="border-t pt-4 space-y-3">
@@ -641,6 +645,7 @@ export function RoomListPage() {
                 <div><span className="text-slate-500">Số người tối đa:</span> {viewItem.max_occupants} người</div>
                 <div><span className="text-slate-500">Số xe tối đa:</span> {viewItem.max_vehicles_per_room} xe</div>
                 <div><span className="text-slate-500">Hợp đồng tối thiểu:</span> {viewItem.min_contract_months} tháng</div>
+                {viewItem.rose && <div><span className="text-slate-500">Hoa hồng:</span> <span className="font-semibold text-emerald-600">{viewItem.rose}</span></div>}
               </div>
               {(() => {
                 const ds = getRoomDisplayStatus(viewItem, contracts);

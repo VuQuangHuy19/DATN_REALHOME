@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import crypto from 'crypto';
+import { generateOnboardingToken } from '@/lib/auth/onboarding-token';
+import { sendEmail } from '@/lib/mail';
 
 export const runtime = 'nodejs';
+
+// Helper to normalize area/size texts like "25m2" or "25 m2" to "25 m²"
+function normalizeAreaText(text: string | null | undefined): string | null {
+  if (!text) return null;
+  return String(text).replace(/(\d+(?:[.,]\d+)?)\s*(?:m2|m\^2|m²|M2)/gi, '$1 m²');
+}
 
 // Helper to extract Google Drive Folder file IDs from public shared links
 async function getGoogleDriveFolderFileIds(folderUrl: string): Promise<string[]> {
@@ -166,9 +175,11 @@ export async function POST(request: Request) {
           phone: phone ? String(phone) : null,
           email: email || null,
           address: address || null,
-          notes: notes || null,
+          notes: notes ? normalizeAreaText(notes) : null,
           updated_at: new Date().toISOString()
         };
+
+        let landlordId = existing?.id;
 
         if (existing) {
           const { error } = await supabaseAdmin
@@ -177,11 +188,89 @@ export async function POST(request: Request) {
             .eq('id', existing.id);
           if (error) throw error;
         } else {
-          const { error } = await supabaseAdmin
+          const { data: newLandlord, error } = await supabaseAdmin
             .from('landlords')
-            .insert({ ...payload, created_at: new Date().toISOString() });
+            .insert({ ...payload, created_at: new Date().toISOString() })
+            .select('id')
+            .single();
           if (error) throw error;
+          landlordId = newLandlord.id;
         }
+
+        // Tự động tạo profile chưa kích hoạt và gửi email mời onboarding nếu có email và chưa có profile
+        if (email && landlordId) {
+          const trimmedEmail = String(email).trim().toLowerCase();
+          const { data: existingProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('email', trimmedEmail)
+            .maybeSingle();
+
+          if (!existingProfile) {
+            const profileId = crypto.randomUUID();
+            const { error: profileError } = await supabaseAdmin
+              .from('profiles')
+              .insert({
+                id: profileId,
+                company_id: companyId,
+                email: trimmedEmail,
+                full_name: name,
+                phone: phone ? String(phone) : null,
+                role: 'landlord',
+                is_active: false,
+                landlord_id: landlordId,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+
+            if (!profileError) {
+              const tokenPayload = generateOnboardingToken(48);
+              const { error: inviteError } = await supabaseAdmin
+                .from('tenant_invitations')
+                .insert({
+                  email: trimmedEmail,
+                  company_id: companyId,
+                  profile_id: profileId,
+                  token_hash: tokenPayload.tokenHash,
+                  expires_at: tokenPayload.expiresAt.toISOString(),
+                });
+
+              if (!inviteError) {
+                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+                const inviteLink = `${siteUrl}/onboarding?token=${tokenPayload.rawToken}`;
+
+                try {
+                  await sendEmail({
+                    to: trimmedEmail,
+                    subject: 'Lời mời kích hoạt tài khoản Chủ nhà - RealHome Business',
+                    html: `
+                      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <h2 style="color: #059669; margin-bottom: 20px; text-align: center;">Chào mừng bạn đến với RealHome Business</h2>
+                        <p>Xin chào <strong>${name}</strong>,</p>
+                        <p>Bạn đã được thêm làm **Chủ nhà** trên hệ thống quản lý bất động sản RealHome Business từ danh sách nhập liệu.</p>
+                        <p>Vui lòng click vào nút bên dưới để thiết lập mật khẩu truy cập và bắt đầu theo dõi trạng thái tòa nhà, phòng, hợp đồng và hóa đơn doanh thu của bạn. Đường liên kết này có hiệu lực trong vòng 48 giờ.</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                          <a href="${inviteLink}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Kích hoạt tài khoản</a>
+                        </div>
+                        <p style="color: #64748b; font-size: 13px;">Nếu nút trên không hoạt động, bạn có thể sao chép và dán liên kết sau vào trình duyệt:</p>
+                        <p style="color: #059669; font-size: 13px; word-break: break-all;">${inviteLink}</p>
+                        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                        <p style="color: #94a3b8; font-size: 12px; text-align: center;">Đây là email tự động, vui lòng không trả lời email này.</p>
+                      </div>
+                    `,
+                  });
+                } catch (emailErr) {
+                  console.error('Lỗi gửi email mời kích hoạt chủ nhà khi import:', emailErr);
+                }
+              } else {
+                console.error('Lỗi tạo invitation token khi import chủ nhà:', inviteError.message);
+              }
+            } else {
+              console.error('Lỗi tạo profile khi import chủ nhà:', profileError.message);
+            }
+          }
+        }
+
         results.landlordsImported++;
       } catch (err: any) {
         results.errors.push(`Chủ nhà ${landlord.name || landlord.code}: ${err.message}`);
@@ -234,7 +323,7 @@ export async function POST(request: Request) {
           allow_foreigners: allow_foreigners === true || allow_foreigners === 'Y' || allow_foreigners === 'Yes',
           allow_vinfast_electric: allow_vinfast_electric === true || allow_vinfast_electric === 'Y' || allow_vinfast_electric === 'Yes',
           image_url: processedImageUrl,
-          deposit_terms: deposit_terms || null,
+          deposit_terms: deposit_terms ? normalizeAreaText(deposit_terms) : null,
           washing_machine_type: washing_machine_type || 'chung',
           updated_at: new Date().toISOString()
         };
@@ -306,9 +395,9 @@ export async function POST(request: Request) {
           max_vehicles_per_room: max_vehicles_per_room ? Number(max_vehicles_per_room) : 2,
           min_contract_months: min_contract_months ? Number(min_contract_months) : 12,
           landlord_id: bld?.landlord_id || null,
-          deposit_terms: deposit_terms || null,
-          rose: rose || null,
-          description: description || null,
+          deposit_terms: deposit_terms ? normalizeAreaText(deposit_terms) : null,
+          rose: rose ? normalizeAreaText(rose) : null,
+          description: description ? normalizeAreaText(description) : null,
           updated_at: new Date().toISOString()
         };
 

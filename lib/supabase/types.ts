@@ -341,6 +341,7 @@ export interface Database {
           bedrooms: number;
           bathrooms: number;
           description: string | null;
+          rose: string | null;
           created_at: string;
           updated_at: string;
           created_by?: string | null;

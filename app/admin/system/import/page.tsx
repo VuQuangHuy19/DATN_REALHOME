@@ -60,6 +60,22 @@ export default function ExcelImportPage() {
     return typeStr.trim().charAt(0).toUpperCase() + typeStr.trim().slice(1);
   };
 
+  // Helper to parse size/area safely from inputs like "25", "25m2", "25.5 m2", "30,5m²"
+  const parseSize = (sizeVal: any): number | null => {
+    if (sizeVal === null || sizeVal === undefined) return null;
+    if (typeof sizeVal === 'number') return sizeVal;
+    
+    const cleanStr = String(sizeVal).trim().replace(',', '.');
+    const match = cleanStr.match(/^(\d+(?:\.\d+)?)/);
+    return match ? Number(match[1]) : null;
+  };
+
+  // Helper to normalize area/size texts like "25m2" or "25 m2" to "25 m²"
+  const normalizeAreaText = (text: any): string => {
+    if (text === null || text === undefined) return '';
+    return String(text).replace(/(\d+(?:[.,]\d+)?)\s*(?:m2|m\^2|m²|M2)/gi, '$1 m²');
+  };
+
   // Helper to parse floor number from room code (e.g. 302 -> 3, 1205 -> 12, P501 -> 5)
   const parseFloorFromRoomCode = (code: string): number => {
     const clean = code.trim();
@@ -475,9 +491,8 @@ export default function ExcelImportPage() {
             const rawPrice = String(row[priceColIdx] || '').replace(/[^\d]/g, '');
             const price = Number(rawPrice) || 0;
 
-            // Parse size: extract digit characters
-            const rawSize = String(row[sizeColIdx] || '').replace(/[^\d]/g, '');
-            const size = Number(rawSize) || null;
+            // Parse size: extract numeric value safely
+            const size = parseSize(row[sizeColIdx]);
 
             // Parse max occupants and max vehicles
             const maxVehicles = Number(String(row[xeColIdx] || '').replace(/[^\d]/g, '')) || 2;
@@ -591,9 +606,9 @@ export default function ExcelImportPage() {
               max_vehicles_per_room: maxVehicles,
               min_contract_months: minContractMonths || 12,
               image_urls: rawImages,
-              deposit_terms: depositTerms,
-              rose: rose,
-              description: description
+              deposit_terms: normalizeAreaText(depositTerms),
+              rose: normalizeAreaText(rose),
+              description: normalizeAreaText(description)
             });
           }
 
@@ -697,7 +712,7 @@ export default function ExcelImportPage() {
                 floor: row[1] ? Number(row[1]) : parseFloorFromRoomCode(roomCode),
                 code: roomCode,
                 room_type: row[3] ? String(row[3]).trim() : '',
-                size: row[4] ? Number(row[4]) : null,
+                size: parseSize(row[4]),
                 price: row[5] ? Number(row[5]) : 0,
                 bedrooms: row[6] ? Number(row[6]) : 0,
                 bathrooms: row[7] ? Number(row[7]) : 1,
@@ -706,8 +721,8 @@ export default function ExcelImportPage() {
                 max_vehicles_per_room: row[10] ? Number(row[10]) : 2,
                 min_contract_months: row[11] ? Number(row[11]) : 12,
                 image_urls: getCellHyperlink(wsPhong, i, 12) || (row[12] ? String(row[12]).trim() : ''),
-                rose: row[13] ? String(row[13]).trim() : '',
-                description: description
+                rose: normalizeAreaText(row[13]),
+                description: normalizeAreaText(description)
               });
             }
           }

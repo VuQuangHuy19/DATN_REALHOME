@@ -205,6 +205,7 @@ export function BuildingDetailPage() {
       max_occupants: room.max_occupants,
       max_vehicles_per_room: room.max_vehicles_per_room,
       min_contract_months: room.min_contract_months,
+      rose: room.rose,
     };
 
     const createdRoom = await addRoom(payload);
@@ -331,6 +332,7 @@ export function BuildingDetailPage() {
       max_occupants: Number(fd.get('max_occupants')) || 2,
       max_vehicles_per_room: Number(fd.get('max_vehicles_per_room')) || 2,
       min_contract_months: Number(fd.get('min_contract_months')) || 12,
+      rose: (fd.get('rose') as string) || null,
     };
 
     if (editItem) {
@@ -494,7 +496,10 @@ export function BuildingDetailPage() {
                   </div>
                 </div>
 
-                <div><Label htmlFor="description">Mô tả</Label><Input id="description" name="description" defaultValue={editItem?.description ?? ''} /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label htmlFor="description">Mô tả</Label><Input id="description" name="description" defaultValue={editItem?.description ?? ''} /></div>
+                  <div><Label htmlFor="rose">Hoa hồng (ví dụ: 40% cho hợp đồng 6 tháng, 50% cho 12 tháng)</Label><Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." /></div>
+                </div>
 
                 {/* Quản lý ảnh phòng trực tiếp trong Dialog */}
                 <div className="border-t pt-4 space-y-3">
@@ -791,6 +796,7 @@ export function BuildingDetailPage() {
               <div><strong>Số người tối đa:</strong> {viewItem.max_occupants} người</div>
               <div><strong>Số xe tối đa:</strong> {viewItem.max_vehicles_per_room} xe</div>
               <div><strong>Hợp đồng tối thiểu:</strong> {viewItem.min_contract_months} tháng</div>
+              {viewItem.rose && <div><strong>Hoa hồng:</strong> <span className="font-semibold text-emerald-600">{viewItem.rose}</span></div>}
             </div>
           )}
         </DialogContent>
