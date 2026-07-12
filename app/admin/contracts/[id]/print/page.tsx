@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getDepositContract, type DepositContractWithRoom } from '@/lib/supabase/repositories/deposit_contracts';
+import { getDepositContract, type DepositContractWithRoom } from '@/src/features/finance/services/deposit_contracts';
 import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft, Loader2, AlertCircle, Download } from 'lucide-react';
 import Link from 'next/link';

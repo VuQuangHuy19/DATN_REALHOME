@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBEmployeeKPI } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBEmployeeKPI } from '@/lib/supabase/types';
 
 type KPIInsert = Omit<DBEmployeeKPI, 'id' | 'created_at' | 'updated_at'>;
 type KPIUpdate = Partial<KPIInsert>;

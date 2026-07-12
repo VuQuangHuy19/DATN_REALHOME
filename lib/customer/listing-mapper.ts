@@ -44,6 +44,8 @@ type RoomRow = {
     has_refrigerator?: boolean | null;
     has_hood?: boolean | null;
     has_dressing_table?: boolean | null;
+    district_id?: string | null;
+    ward_id?: string | null;
   } | null;
   room_images?: { url: string; is_thumbnail: boolean; priority: number }[] | null;
   rental_contracts?: any[] | null;
@@ -112,5 +114,7 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     hasRefrigerator: building?.has_refrigerator ?? undefined,
     hasHood: building?.has_hood ?? undefined,
     hasDressingTable: building?.has_dressing_table ?? undefined,
+    districtId: building?.district_id ?? null,
+    wardId: building?.ward_id ?? null,
   };
 }

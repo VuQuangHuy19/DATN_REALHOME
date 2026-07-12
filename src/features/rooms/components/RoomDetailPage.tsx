@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useRoomsByBuilding, useRoomImages, useRentalContracts } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { getRoom } from '@/lib/supabase/repositories/rooms';
+import { getRoom } from '@/src/features/rooms/services/rooms';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';

@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBRentalContract, Database } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBRentalContract, Database } from '@/lib/supabase/types';
 
 export type RentalContractInsert = Database['public']['Tables']['rental_contracts']['Insert'];
 export type RentalContractUpdate = Database['public']['Tables']['rental_contracts']['Update'];

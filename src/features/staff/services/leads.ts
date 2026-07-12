@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBLead, DBLeadActivity } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBLead, DBLeadActivity } from '@/lib/supabase/types';
 
 export type LeadInsert = Omit<DBLead, 'id' | 'created_at' | 'updated_at'>;
 export type LeadUpdate = Partial<LeadInsert>;

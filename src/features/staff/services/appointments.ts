@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBAppointment } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBAppointment } from '@/lib/supabase/types';
 
 export type AppointmentWithRelations = DBAppointment & {
   sale_name: string | null;

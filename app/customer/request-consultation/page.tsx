@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, MessageSquare, Building2, Banknote, UserCircle, AlertCircle } from 'lucide-react';
-import { createConsultation } from '@/lib/supabase/repositories/consultations';
-import { createLead, createLeadActivity } from '@/lib/supabase/repositories/leads';
+import { createConsultation } from '@/src/features/staff/services/consultations';
+import { createLead, createLeadActivity } from '@/src/features/staff/services/leads';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 
 const sources = [

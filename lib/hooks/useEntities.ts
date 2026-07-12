@@ -2,19 +2,19 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
-import { getBuildings, createBuilding, updateBuilding, deleteBuilding } from '@/lib/supabase/repositories/buildings';
+import { getBuildings, createBuilding, updateBuilding, deleteBuilding } from '@/src/features/properties/services/buildings';
 import { getLandlords, createLandlord, updateLandlord, deleteLandlord } from '@/lib/supabase/repositories/landlords';
-import { getRooms, getRoomsByBuilding, createRoom, updateRoom, deleteRoom, type RoomWithBuilding } from '@/lib/supabase/repositories/rooms';
-import { getAppointments, createAppointment, updateAppointment, deleteAppointment, type AppointmentWithRelations } from '@/lib/supabase/repositories/appointments';
+import { getRooms, getRoomsByBuilding, createRoom, updateRoom, deleteRoom, type RoomWithBuilding } from '@/src/features/rooms/services/rooms';
+import { getAppointments, createAppointment, updateAppointment, deleteAppointment, type AppointmentWithRelations } from '@/src/features/staff/services/appointments';
 import { getContractTemplates, createContractTemplate, updateContractTemplate, deleteContractTemplate } from '@/lib/supabase/repositories/contracts';
-import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from '@/lib/supabase/repositories/employees';
-import { getDepositContracts, createDepositContract, updateDepositContract, deleteDepositContract, type DepositContractWithRoom } from '@/lib/supabase/repositories/deposit_contracts';
-import { getRentalContracts, createRentalContract, updateRentalContract, deleteRentalContract, type RentalContractWithRoom } from '@/lib/supabase/repositories/rental_contracts';
+import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from '@/src/features/staff/services/employees';
+import { getDepositContracts, createDepositContract, updateDepositContract, deleteDepositContract, type DepositContractWithRoom } from '@/src/features/finance/services/deposit_contracts';
+import { getRentalContracts, createRentalContract, updateRentalContract, deleteRentalContract, type RentalContractWithRoom } from '@/src/features/finance/services/rental_contracts';
 import { getRoomImages, addRoomImage, deleteRoomImage, setRoomThumbnail, updateRoomImagePriority } from '@/lib/supabase/repositories/room_images';
 import { getBuildingServices, createBuildingService, updateBuildingService, deleteBuildingService } from '@/lib/supabase/repositories/building-services';
 import { getPriceRanges, createPriceRange, updatePriceRange, deletePriceRange, getAmenities, createAmenity, updateAmenity, deleteAmenity, getRoomTypes, createRoomType, updateRoomType, deleteRoomType, type DBPriceRange, type DBAmenity, type DBRoomType } from '@/lib/supabase/repositories/categories';
 import { getProvinces, getDistricts, getWards, type VnProvince, type VnDistrict, type VnWard } from '@/lib/supabase/repositories/vn_locations';
-import { getProfiles } from '@/lib/supabase/repositories/profiles';
+import { getProfiles } from '@/src/features/staff/services/profiles';
 import type { DBBuilding, DBLandlord, DBRoom, DBAppointment, DBContractTemplate, DBEmployee, DBDepositContract, DBRentalContract, DBRoomImage, DBBuildingService } from '@/lib/supabase/types';
 
 

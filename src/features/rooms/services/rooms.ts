@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBRoom } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBRoom } from '@/lib/supabase/types';
 
 type RoomInsert = Omit<DBRoom, 'id' | 'created_at' | 'updated_at'>;
 type RoomUpdate = Partial<RoomInsert>;
@@ -76,4 +76,3 @@ export async function deleteRoom(id: string) {
   const { error } = await supabase.from('rooms').delete().eq('id', id);
   if (error) throw error;
 }
-

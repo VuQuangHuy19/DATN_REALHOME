@@ -1,6 +1,6 @@
-import { supabase } from '../client';
-import { authFetch } from '../auth-fetch';
-import type { DBCompany } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import { authFetch } from '@/lib/supabase/auth-fetch';
+import type { DBCompany } from '@/lib/supabase/types';
 
 export type CompanyInsert = Omit<DBCompany, 'id' | 'created_at' | 'updated_at'>;
 export type CompanyUpdate = Partial<CompanyInsert>;
@@ -67,6 +67,6 @@ export async function getCompanyStats() {
     byPlan: companies.reduce((acc: Record<string, number>, c) => {
       acc[c.plan] = (acc[c.plan] || 0) + 1;
       return acc;
-    }, {}),
+      }, {}),
   };
 }

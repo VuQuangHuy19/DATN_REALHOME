@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { getInvoices, updateInvoice, batchGenerateInvoices, deleteInvoice } from '@/lib/supabase/repositories/invoices';
+import { getInvoices, updateInvoice, batchGenerateInvoices, deleteInvoice } from '@/src/features/finance/services/invoices';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import {
   Loader2, Search, PlusCircle, CheckCircle, XCircle, FileText, 
   Printer, DollarSign, Calendar, RefreshCw, AlertCircle 
 } from 'lucide-react';
-import type { InvoiceWithRoomAndContract } from '@/lib/supabase/repositories/invoices';
+import type { InvoiceWithRoomAndContract } from '@/src/features/finance/services/invoices';
 
 export default function InvoicesPage() {
   const { company, role, profile } = useAuth();

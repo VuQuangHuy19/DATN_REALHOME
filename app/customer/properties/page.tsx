@@ -1,52 +1,338 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Slider } from '@/components/ui/slider';
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicListings } from '@/lib/hooks/usePublicListings';
-import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
-import { formatDateDisplay } from '@/lib/room-status';
-import { Filter, MapPin, Bed, Bath, Square, SlidersHorizontal, Heart, Phone, Calendar, Loader2, AlertCircle, FileText } from 'lucide-react';
+import type { CustomerListing } from '@/lib/customer/types';
+import {
+  MapPin, Phone, Calendar, Loader2, AlertCircle,
+  ChevronLeft, ChevronRight, SlidersHorizontal, Filter, ArrowUpDown,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import Pagination from '@/components/Pagination';
+import { supabase } from '@/lib/supabase/client';
 
-const STATUS_OPTIONS = ['available', 'rented', 'maintenance', 'reserved'] as const;
-
-function useFavorites() {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('property-favorites');
-      if (stored) setFavorites(new Set(JSON.parse(stored)));
-    } catch { }
-  }, []);
-
-  const toggle = useCallback((id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem('property-favorites', JSON.stringify(Array.from(next)));
-      } catch { }
-      return next;
-    });
-  }, []);
-
-  return { favorites, toggle };
+// ─── Kiểu dữ liệu nhóm theo tòa nhà ─────────────────────────────────────────
+interface BuildingGroup {
+  buildingId: string;
+  buildingName: string;
+  area: string;
+  address: string;
+  companyId: string;
+  availableRoomCodes: string[];
+  minPrice: number;
+  maxPrice: number;
+  allImages: string[];
+  rooms: CustomerListing[];
+  representativeRoom: CustomerListing;
 }
 
+// ─── Image Slider ─────────────────────────────────────────────────────────────
+function ImageSlider({ images, alt }: { images: string[]; alt: string }) {
+  const [idx, setIdx] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+  const prev = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setIdx((i) => (i - 1 + images.length) % images.length);
+  };
+  const next = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setIdx((i) => (i + 1) % images.length);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+  const onTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return;
+    const diff = touchStartX.current - touchEndX.current;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) setIdx((i) => (i + 1) % images.length);
+      else setIdx((i) => (i - 1 + images.length) % images.length);
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  return (
+    <div
+      className="relative h-52 bg-slate-100 overflow-hidden select-none"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <Image
+        src={images[idx] || '/placeholder.jpg'}
+        alt={alt}
+        fill
+        className="object-cover transition-opacity duration-300"
+      />
+
+      {images.length > 1 && (
+        <>
+          {/* Mép trái */}
+          <button
+            onClick={prev}
+            aria-label="Ảnh trước"
+            className="absolute left-0 inset-y-0 w-10 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors z-10"
+          >
+            <ChevronLeft className="h-5 w-5 text-white drop-shadow" />
+          </button>
+          {/* Mép phải */}
+          <button
+            onClick={next}
+            aria-label="Ảnh tiếp"
+            className="absolute right-0 inset-y-0 w-10 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors z-10"
+          >
+            <ChevronRight className="h-5 w-5 text-white drop-shadow" />
+          </button>
+          {/* Dots */}
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`block h-1.5 rounded-full transition-all ${i === idx ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Thẻ tòa nhà ─────────────────────────────────────────────────────────────
+function BuildingCard({
+  group,
+  onBook,
+  onContact,
+  isSale,
+}: {
+  group: BuildingGroup;
+  onBook: (g: BuildingGroup) => void;
+  onContact: () => void;
+  isSale: boolean;
+}) {
+  const hasAvailable = group.availableRoomCodes.length > 0;
+  const priceLabel =
+    group.minPrice === group.maxPrice
+      ? `${group.minPrice.toLocaleString('vi-VN')}đ`
+      : `${group.minPrice.toLocaleString('vi-VN')} – ${group.maxPrice.toLocaleString('vi-VN')}đ`;
+
+  return (
+    <div className="rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+      <Link href={`/customer/properties/${group.representativeRoom.id}`} className="block">
+        <ImageSlider images={group.allImages} alt={group.buildingName} />
+      </Link>
+
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        {/* Tên tòa nhà */}
+        <Link href={`/customer/properties/${group.representativeRoom.id}`}>
+          <h3 className="text-base font-bold text-slate-800 leading-snug hover:text-blue-600 transition-colors line-clamp-1">
+            {group.buildingName}
+          </h3>
+        </Link>
+
+        {/* Khu vực */}
+        <div className="flex items-center gap-1 text-sm text-slate-500">
+          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="line-clamp-1">{group.area}</span>
+        </div>
+
+        {/* Phòng trống */}
+        <div className="text-sm">
+          {hasAvailable ? (
+            <span className="text-green-700 font-medium">
+              Phòng trống:{' '}
+              <span className="text-slate-800">
+                {group.availableRoomCodes.slice(0, 6).join(', ')}
+                {group.availableRoomCodes.length > 6 && ` +${group.availableRoomCodes.length - 6} phòng`}
+              </span>
+            </span>
+          ) : (
+            <span className="text-slate-400 italic text-xs">Hiện tại không còn phòng trống</span>
+          )}
+        </div>
+
+        {/* Giá */}
+        <p className="text-lg font-bold text-slate-800">
+          {priceLabel}
+          <span className="text-sm font-normal text-slate-500"> / tháng</span>
+        </p>
+
+        {/* Nút action */}
+        <div className="flex gap-2 pt-1 mt-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-9 text-sm"
+            onClick={() => onBook(group)}
+          >
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            Hẹn xem
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1 h-9 text-sm bg-slate-800 hover:bg-slate-700 text-white"
+            onClick={onContact}
+          >
+            <Phone className="h-3.5 w-3.5 mr-1.5" />
+            Liên hệ
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Location Filter 3 cấp thật (vn_provinces → vn_districts → vn_wards) ────
+interface VnProvince { id: string; name: string; }
+interface VnDistrict { id: string; name: string; province_id: string; }
+interface VnWard    { id: string; name: string; level: string; district_id: string; }
+
+function LocationFilter({
+  selectedProvinceId,
+  selectedDistrictId,
+  selectedWardId,
+  onProvinceChange,
+  onDistrictChange,
+  onWardChange,
+}: {
+  selectedProvinceId: string;
+  selectedDistrictId: string;
+  selectedWardId: string;
+  onProvinceChange: (id: string) => void;
+  onDistrictChange: (id: string) => void;
+  onWardChange: (id: string) => void;
+}) {
+  const [provinces, setProvinces] = useState<VnProvince[]>([]);
+  const [districts, setDistricts] = useState<VnDistrict[]>([]);
+  const [wards, setWards] = useState<VnWard[]>([]);
+  const [loadingProv, setLoadingProv] = useState(true);
+  const [loadingDist, setLoadingDist] = useState(false);
+  const [loadingWard, setLoadingWard] = useState(false);
+
+  // Load tất cả tỉnh/thành phố khi mount
+  useEffect(() => {
+    setLoadingProv(true);
+    supabase
+      .from('vn_provinces')
+      .select('id, name')
+      .order('name')
+      .then(({ data }: { data: VnProvince[] | null }) => {
+        setProvinces(data ?? []);
+        setLoadingProv(false);
+      });
+  }, []);
+
+  // Load quận/huyện khi chọn tỉnh
+  useEffect(() => {
+    setDistricts([]);
+    setWards([]);
+    if (!selectedProvinceId) return;
+    setLoadingDist(true);
+    supabase
+      .from('vn_districts')
+      .select('id, name, province_id')
+      .eq('province_id', selectedProvinceId)
+      .order('name')
+      .then(({ data }: { data: VnDistrict[] | null }) => {
+        setDistricts(data ?? []);
+        setLoadingDist(false);
+      });
+  }, [selectedProvinceId]);
+
+  // Load phường/xã khi chọn quận
+  useEffect(() => {
+    setWards([]);
+    if (!selectedDistrictId) return;
+    setLoadingWard(true);
+    supabase
+      .from('vn_wards')
+      .select('id, name, level, district_id')
+      .eq('district_id', selectedDistrictId)
+      .order('name')
+      .then(({ data }: { data: VnWard[] | null }) => {
+        setWards(data ?? []);
+        setLoadingWard(false);
+      });
+  }, [selectedDistrictId]);
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      {/* Tỉnh / Thành phố */}
+      <div>
+        <label className="block text-xs text-slate-500 mb-1 font-medium">Tỉnh / Thành phố</label>
+        <select
+          value={selectedProvinceId}
+          onChange={(e) => { onProvinceChange(e.target.value); onDistrictChange(''); onWardChange(''); }}
+          disabled={loadingProv}
+          className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:opacity-60"
+        >
+          <option value="">-- Chọn tỉnh/thành --</option>
+          {provinces.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Quận / Huyện */}
+      <div>
+        <label className="block text-xs text-slate-500 mb-1 font-medium">Quận / Huyện</label>
+        <select
+          value={selectedDistrictId}
+          onChange={(e) => { onDistrictChange(e.target.value); onWardChange(''); }}
+          disabled={!selectedProvinceId || loadingDist}
+          className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:opacity-60 disabled:bg-slate-50"
+        >
+          <option value="">{loadingDist ? 'Đang tải...' : '-- Chọn quận/huyện --'}</option>
+          {districts.map((d) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Phường / Xã */}
+      <div>
+        <label className="block text-xs text-slate-500 mb-1 font-medium">Phường / Xã</label>
+        <select
+          value={selectedWardId}
+          onChange={(e) => onWardChange(e.target.value)}
+          disabled={!selectedDistrictId || loadingWard}
+          className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:opacity-60 disabled:bg-slate-50"
+        >
+          <option value="">{loadingWard ? 'Đang tải...' : '-- Chọn phường/xã --'}</option>
+          {wards.map((w) => (
+            <option key={w.id} value={w.id}>{w.name}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sort options ─────────────────────────────────────────────────────────────
+type SortOption = 'price_asc' | 'price_desc' | 'newest';
+const SORT_LABELS: Record<SortOption, string> = {
+  price_asc: 'Giá từ thấp tới cao',
+  price_desc: 'Giá từ cao tới thấp',
+  newest: 'Tòa mới',
+};
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PropertiesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,100 +345,121 @@ export default function PropertiesPage() {
     isSale
   );
 
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const [selectedWardId, setSelectedWardId] = useState('');
   const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [priceSlider, setPriceSlider] = useState<number[]>([500000, 100000000]);
   const [priceRange, setPriceRange] = useState<number[]>([500000, 100000000]);
   const [sizeSlider, setSizeSlider] = useState<number[]>([0, 500]);
   const [sizeRange, setSizeRange] = useState<number[]>([0, 500]);
-
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 9;
 
-  const { favorites, toggle: toggleFavorite } = useFavorites();
   const [isContactOpen, setIsContactOpen] = useState(false);
-  const [heartAnimating, setHeartAnimating] = useState<string | null>(null);
-  const [viewingProperty, setViewingProperty] = useState<{
-    id: string;
-    title: string;
-    address: string;
-    area: string;
-    companyId: string;
-  } | null>(null);
+  const [viewingGroup, setViewingGroup] = useState<BuildingGroup | null>(null);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedAreas, selectedRoomTypes, selectedStatuses, priceRange, sizeRange]);
-
-  const areaOptions = useMemo(
-    () => Array.from(new Set(listings.map((p) => p.area).filter(Boolean))).sort(),
-    [listings]
-  );
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedProvinceId, selectedDistrictId, selectedWardId, priceRange, sizeRange, selectedRoomTypes, sortBy]);
 
   const roomTypeOptions = useMemo(
     () => Array.from(new Set(listings.map((p) => p.roomType).filter(Boolean))).sort(),
     [listings]
   );
 
-  const filteredProperties = useMemo(() => {
-    return listings.filter((property) => {
-      const matchesSearch =
-        !searchQuery ||
-        property.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (isSale && property.landlordId?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (isSale && property.buildingCode?.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesArea = selectedAreas.length === 0 || selectedAreas.includes(property.area);
-      const matchesRoomType = selectedRoomTypes.length === 0 || selectedRoomTypes.includes(property.roomType);
-      const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(property.status);
+  // Gom listings theo buildingId
+  const buildingGroups = useMemo<BuildingGroup[]>(() => {
+    const map = new Map<string, CustomerListing[]>();
+    for (const listing of listings) {
+      const key = listing.buildingId || listing.buildingName;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(listing);
+    }
 
-      // Chỉ lọc giá khi khoảng giá thực sự thay đổi khỏi mặc định
-      const isPriceFilterActive = priceRange[0] !== 500000 || priceRange[1] !== 100000000;
-      const matchesPrice = !isPriceFilterActive || (property.price >= priceRange[0] && property.price <= priceRange[1]);
+    return Array.from(map.entries()).map(([buildingId, rooms]) => {
+      const rep = rooms[0];
+      const available = rooms.filter((r) => r.status === 'available' || r.status === 'soon_available');
+      const prices = rooms.map((r) => r.price).filter((p) => p > 0);
+      const allImages = Array.from(
+        new Set(rooms.flatMap((r) => r.imageUrls ?? [r.imageUrl]).filter(Boolean))
+      );
 
-      // Chỉ lọc diện tích khi diện tích thực sự thay đổi khỏi mặc định
-      const isSizeFilterActive = sizeRange[0] !== 0 || sizeRange[1] !== 500;
-      const matchesSize = !isSizeFilterActive || (property.size >= sizeRange[0] && property.size <= sizeRange[1]);
-
-      return matchesSearch && matchesArea && matchesRoomType && matchesStatus && matchesPrice && matchesSize;
+      return {
+        buildingId,
+        buildingName: rep.buildingName,
+        area: rep.area,
+        address: rep.address,
+        companyId: rep.companyId,
+        availableRoomCodes: available.map((r) => r.title.split('—')[1]?.trim() || r.id.slice(0, 6)),
+        minPrice: prices.length ? Math.min(...prices) : 0,
+        maxPrice: prices.length ? Math.max(...prices) : 0,
+        allImages: allImages.length ? allImages : ['/placeholder.jpg'],
+        rooms,
+        representativeRoom: rep,
+      } satisfies BuildingGroup;
     });
-  }, [listings, searchQuery, selectedAreas, selectedRoomTypes, selectedStatuses, priceRange, sizeRange, isSale]);
+  }, [listings]);
 
-  const paginatedProperties = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredProperties.slice(startIndex, startIndex + pageSize);
-  }, [filteredProperties, currentPage, pageSize]);
+  // Lọc
+  const filteredGroups = useMemo(() => {
+    return buildingGroups.filter((g) => {
+      const matchSearch = !searchQuery ||
+        g.buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        g.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        g.address.toLowerCase().includes(searchQuery.toLowerCase());
+      // Lọc theo quận/huyện (districtId) hoặc phường/xã (wardId) nếu đã chọn
+      // Nếu buildings.district_id chưa được set (dữ liệu cũ), fallback match theo tên area
+      const matchDistrict = !selectedDistrictId || (
+        g.representativeRoom.districtId === selectedDistrictId ||
+        (!g.representativeRoom.districtId && !selectedDistrictId)
+      );
+      const matchWard = !selectedWardId || g.representativeRoom.wardId === selectedWardId;
+      const isPriceActive = priceRange[0] !== 500000 || priceRange[1] !== 100000000;
+      const matchPrice = !isPriceActive || (g.minPrice <= priceRange[1] && g.maxPrice >= priceRange[0]);
+      const isSizeActive = sizeRange[0] !== 0 || sizeRange[1] !== 500;
+      const matchSize = !isSizeActive || g.rooms.some((r) => r.size >= sizeRange[0] && r.size <= sizeRange[1]);
+      const matchRoomType = selectedRoomTypes.length === 0 || g.rooms.some((r) => selectedRoomTypes.includes(r.roomType));
+      return matchSearch && matchDistrict && matchWard && matchPrice && matchSize && matchRoomType;
+    });
+  }, [buildingGroups, searchQuery, selectedDistrictId, selectedWardId, priceRange, sizeRange, selectedRoomTypes]);
 
-  const totalPages = Math.ceil(filteredProperties.length / pageSize);
+  // Sắp xếp
+  const sortedGroups = useMemo(() => {
+    const arr = [...filteredGroups];
+    if (sortBy === 'price_asc') arr.sort((a, b) => a.minPrice - b.minPrice);
+    else if (sortBy === 'price_desc') arr.sort((a, b) => b.maxPrice - a.maxPrice);
+    else arr.sort((a, b) => b.rooms[0].buildingId.localeCompare(a.rooms[0].buildingId));
+    return arr;
+  }, [filteredGroups, sortBy]);
+
+  const paginatedGroups = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedGroups.slice(start, start + pageSize);
+  }, [sortedGroups, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(sortedGroups.length / pageSize);
 
   const clearFilters = () => {
-    const params = new URLSearchParams(searchParams?.toString() || '');
-    params.delete('q');
-    const qs = params.toString();
-    router.replace(`/customer/properties${qs ? `?${qs}` : ''}`, { scroll: false });
-    setSelectedAreas([]);
+    setSelectedProvinceId('');
+    setSelectedDistrictId('');
+    setSelectedWardId('');
     setSelectedRoomTypes([]);
-    setSelectedStatuses([]);
     setPriceSlider([500000, 100000000]);
     setPriceRange([500000, 100000000]);
     setSizeSlider([0, 500]);
     setSizeRange([0, 500]);
+    setSortBy('newest');
+    const params = new URLSearchParams(searchParams?.toString() || '');
+    params.delete('q');
+    const qs = params.toString();
+    router.replace(`/customer/properties${qs ? `?${qs}` : ''}`, { scroll: false });
   };
 
   const hasActiveFilters =
-    !!searchQuery || selectedAreas.length > 0 || selectedRoomTypes.length > 0 || selectedStatuses.length > 0 ||
+    !!searchQuery || !!selectedProvinceId || !!selectedDistrictId || !!selectedWardId ||
+    selectedRoomTypes.length > 0 ||
     priceRange[0] > 500000 || priceRange[1] < 100000000 ||
     sizeRange[0] > 0 || sizeRange[1] < 500;
-
-  const handleHeartClick = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleFavorite(id);
-    setHeartAnimating(id);
-    setTimeout(() => setHeartAnimating(null), 300);
-  };
 
   const loading = companyLoading || listingsLoading;
   const hotline = company?.phone || '(028) 1234-5678';
@@ -161,7 +468,7 @@ export default function PropertiesPage() {
   const renderFilterContent = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="font-semibold mb-3">Khoảng giá</h3>
+        <h3 className="font-semibold text-slate-800 mb-3">Khoảng giá</h3>
         <div className="px-2">
           <Slider
             value={priceSlider}
@@ -169,22 +476,18 @@ export default function PropertiesPage() {
             onValueCommit={(v) => setPriceRange(v)}
             min={500000}
             max={100000000}
-            step={10000}
+            step={100000}
             className="w-full"
           />
           <div className="flex justify-between mt-3 text-sm font-medium text-slate-700">
-            <span className="tabular-nums">
-              {priceSlider[0].toLocaleString('vi-VN')} đ
-            </span>
-            <span className="tabular-nums">
-              {priceSlider[1].toLocaleString('vi-VN')} đ
-            </span>
+            <span>{priceSlider[0].toLocaleString('vi-VN')} đ</span>
+            <span>{priceSlider[1].toLocaleString('vi-VN')} đ</span>
           </div>
         </div>
       </div>
 
       <div>
-        <h3 className="font-semibold mb-3">Diện tích (m²)</h3>
+        <h3 className="font-semibold text-slate-800 mb-3">Diện tích (m²)</h3>
         <div className="px-2">
           <Slider
             value={sizeSlider}
@@ -195,81 +498,41 @@ export default function PropertiesPage() {
             className="w-full"
           />
           <div className="flex justify-between mt-3 text-sm font-medium text-slate-700">
-            <span className="tabular-nums">{sizeSlider[0]}m²</span>
-            <span className="tabular-nums">{sizeSlider[1]}m²</span>
+            <span>{sizeSlider[0]}m²</span>
+            <span>{sizeSlider[1]}m²</span>
           </div>
         </div>
       </div>
 
-      <div>
-        <h3 className="font-semibold mb-3">Khu vực</h3>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedAreas([])}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.length === 0
-                ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm font-semibold'
-                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-              }`}
-          >
-            Tất cả
-          </button>
-          {areaOptions.map((area) => {
-            const isSelected = selectedAreas.includes(area);
-            return (
-              <button
-                key={area}
-                type="button"
-                onClick={() => {
-                  setSelectedAreas((prev) =>
-                    prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
-                  );
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
-                    ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm font-semibold'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-              >
-                {area}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       <div>
-        <h3 className="font-semibold mb-3">Loại phòng</h3>
+        <h3 className="font-semibold text-slate-800 mb-3">Loại phòng</h3>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setSelectedRoomTypes([])}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.length === 0
-                ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm font-semibold'
-                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-              }`}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+              selectedRoomTypes.length === 0 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
           >
             Tất cả
           </button>
-          {roomTypeOptions.map((type) => {
-            const isSelected = selectedRoomTypes.includes(type);
-            return (
-              <button
-                key={type}
-                type="button"
-                onClick={() => {
-                  setSelectedRoomTypes((prev) =>
-                    prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-                  );
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected
-                    ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-sm font-semibold'
-                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-              >
-                {type}
-              </button>
-            );
-          })}
+          {roomTypeOptions.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() =>
+                setSelectedRoomTypes((prev) =>
+                  prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+                )
+              }
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                selectedRoomTypes.includes(type) ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -283,23 +546,49 @@ export default function PropertiesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Bất Động Sản</h1>
-          {company && <p className="text-sm text-slate-500 mt-1">{company.name}</p>}
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-600 hidden sm:inline">
-            {filteredProperties.length} bất động sản được tìm thấy
-          </span>
+      {/* Header */}
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold text-slate-800">Bất Động Sản</h1>
+        {company && <p className="text-sm text-slate-500 mt-0.5">{company.name}</p>}
+      </div>
+
+      {/* 3-cấp vị trí */}
+      <LocationFilter
+        selectedProvinceId={selectedProvinceId}
+        selectedDistrictId={selectedDistrictId}
+        selectedWardId={selectedWardId}
+        onProvinceChange={setSelectedProvinceId}
+        onDistrictChange={setSelectedDistrictId}
+        onWardChange={setSelectedWardId}
+      />
+
+      {/* Thanh kết quả + sort */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <span className="text-sm text-slate-600 font-medium">
+          {sortedGroups.length} bất động sản được tìm thấy
+        </span>
+
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+          >
+            {(Object.keys(SORT_LABELS) as SortOption[]).map((k) => (
+              <option key={k} value={k}>{SORT_LABELS[k]}</option>
+            ))}
+          </select>
+
+          {/* Mobile filter */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" className="lg:hidden">
-                <SlidersHorizontal className="h-4 w-4 mr-2" />
-                Bộ lọc
+              <Button variant="outline" size="sm" className="lg:hidden">
+                <SlidersHorizontal className="h-4 w-4 mr-1.5" />
+                Lọc
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[320px] flex flex-col overflow-hidden">
+            <SheetContent side="left" className="w-[300px] flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto py-6">
                 {renderFilterContent()}
               </div>
@@ -315,7 +604,8 @@ export default function PropertiesPage() {
       )}
 
       <div className="flex gap-8">
-        <aside className="hidden lg:block w-72 flex-shrink-0">
+        {/* Sidebar filter (desktop) */}
+        <aside className="hidden lg:block w-64 flex-shrink-0">
           <div className="sticky top-20 flex flex-col max-h-[calc(100vh-5.5rem)]">
             <div className="flex-1 overflow-y-auto pr-1">
               {renderFilterContent()}
@@ -323,123 +613,30 @@ export default function PropertiesPage() {
           </div>
         </aside>
 
-        <div className="flex-1">
+        {/* Grid tòa nhà */}
+        <div className="flex-1 min-w-0">
           {loading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
-          ) : filteredProperties.length === 0 ? (
+          ) : sortedGroups.length === 0 ? (
             <div className="text-center py-16">
               <Filter className="h-12 w-12 text-slate-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-600">Không tìm thấy bất động sản</h3>
               <p className="text-slate-500 mt-2">Hãy thử điều chỉnh bộ lọc</p>
-              <Button variant="outline" className="mt-4" onClick={clearFilters}>
-                Xóa bộ lọc
-              </Button>
+              <Button variant="outline" className="mt-4" onClick={clearFilters}>Xóa bộ lọc</Button>
             </div>
           ) : (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginatedProperties.map((property) => (
-                  <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
-                    <Link href={`/customer/properties/${property.id}`} className="block flex-1">
-                      <div className="relative h-48">
-                        <Image src={property.imageUrl} alt={property.title} fill className="object-cover" />
-                        <button
-                          onClick={(e) => handleHeartClick(e, property.id)}
-                          className={`absolute top-3 left-3 h-8 w-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors ${heartAnimating === property.id ? 'heart-pop' : ''}`}
-                          aria-label="Yêu thích"
-                        >
-                          <Heart
-                            className="h-4 w-4"
-                            style={{
-                              fill: favorites.has(property.id) ? '#ef4444' : 'none',
-                              stroke: favorites.has(property.id) ? '#ef4444' : '#64748b',
-                            }}
-                          />
-                        </button>
-                        <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                          <Badge className={
-                            property.status === 'available' ? 'bg-green-600 hover:bg-green-700 text-white font-semibold' :
-                            property.status === 'reserved' ? 'bg-amber-600 hover:bg-amber-700 text-white font-semibold' :
-                            property.status === 'rented' ? 'bg-red-600 hover:bg-red-700 text-white font-semibold' :
-                            property.status === 'soon_available' ? 'bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md border border-blue-500 animate-pulse' :
-                            'bg-slate-600 hover:bg-slate-700 text-white'
-                          }>
-                            {LISTING_STATUS_LABELS[property.status]}
-                          </Badge>
-                          {property.status === 'soon_available' && property.expectedAvailableDate && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-black/60 text-white backdrop-blur-sm shadow-sm select-none">
-                              Trống từ: {formatDateDisplay(property.expectedAvailableDate)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <CardHeader className="pb-2">
-                        <h3 className="text-lg font-semibold text-slate-800 line-clamp-1">{property.title}</h3>
-                        <div className="flex items-center justify-between text-sm text-slate-500">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            {property.area}
-                          </div>
-                          {isSale && (
-                            <span className="text-xs bg-slate-100 border text-slate-600 px-2 py-0.5 rounded font-mono">
-                              Nhà: {property.landlordId || '—'} | Tòa: {property.buildingCode || '—'}
-                            </span>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="pb-3">
-                        <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
-                          <span className="flex items-center gap-1"><Bed className="h-4 w-4" />{property.bedrooms}</span>
-                          <span className="flex items-center gap-1"><Bath className="h-4 w-4" />{property.bathrooms}</span>
-                          <span className="flex items-center gap-1"><Square className="h-4 w-4" />{property.size}m²</span>
-                        </div>
-                        <p className="text-xl font-bold text-slate-800">
-                          {property.price.toLocaleString('vi-VN')}đ/tháng
-                        </p>
-                      </CardContent>
-                    </Link>
-                    <div className="px-6 pb-4 pt-1 border-t border-slate-100 mt-auto">
-                      {isSale && (
-                        <div className="flex pb-3 pt-2 border-b border-dashed mb-2 text-xs">
-                          <Button
-                            size="sm"
-                            className="w-full h-8 text-[11px] bg-indigo-600 hover:bg-indigo-700 text-white"
-                            asChild
-                          >
-                            <Link href={`/admin/contracts/create?room_id=${property.id}`} onClick={(e) => e.stopPropagation()}>
-                              <FileText className="h-3 w-3 mr-1" /> Soạn cọc
-                            </Link>
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex gap-2 pt-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-9"
-                          disabled={!company}
-                          onClick={() =>
-                            setViewingProperty({
-                              id: property.id,
-                              title: property.title,
-                              address: property.address,
-                              area: property.area,
-                              companyId: property.companyId,
-                            })
-                          }
-                        >
-                          <Calendar className="h-3.5 w-3.5 mr-1.5" />
-                          Hẹn xem
-                        </Button>
-                        <Button size="sm" className="flex-1 h-9" onClick={() => setIsContactOpen(true)}>
-                          <Phone className="h-3.5 w-3.5 mr-1.5" />
-                          Liên Hệ
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {paginatedGroups.map((group) => (
+                  <BuildingCard
+                    key={group.buildingId}
+                    group={group}
+                    onBook={setViewingGroup}
+                    onContact={() => setIsContactOpen(true)}
+                    isSale={isSale}
+                  />
                 ))}
               </div>
               <Pagination
@@ -452,6 +649,7 @@ export default function PropertiesPage() {
         </div>
       </div>
 
+      {/* Dialog liên hệ */}
       <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -468,21 +666,24 @@ export default function PropertiesPage() {
               <span className="text-2xl font-semibold text-slate-800">{hotline}</span>
             </div>
             <Button className="w-full" size="lg" asChild>
-              <a href={hotlineHref}>
-                <Phone className="h-4 w-4 mr-2" />
-                Gọi ngay
-              </a>
+              <a href={hotlineHref}><Phone className="h-4 w-4 mr-2" />Gọi ngay</a>
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {viewingProperty && (
+      {/* Dialog đặt lịch xem */}
+      {viewingGroup && (
         <ViewingRequestDialog
-          open={viewingProperty !== null}
-          onOpenChange={(open) => { if (!open) setViewingProperty(null); }}
-          companyId={viewingProperty.companyId}
-          property={viewingProperty}
+          open={viewingGroup !== null}
+          onOpenChange={(open) => { if (!open) setViewingGroup(null); }}
+          companyId={viewingGroup.companyId}
+          property={{
+            id: viewingGroup.representativeRoom.id,
+            title: viewingGroup.buildingName,
+            address: viewingGroup.address,
+            area: viewingGroup.area,
+          }}
         />
       )}
     </div>

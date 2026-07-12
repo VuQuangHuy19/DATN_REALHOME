@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBServiceReading, Database } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBServiceReading, Database } from '@/lib/supabase/types';
 
 export type ServiceReadingInsert = Database['public']['Tables']['service_readings']['Insert'];
 export type ServiceReadingUpdate = Database['public']['Tables']['service_readings']['Update'];

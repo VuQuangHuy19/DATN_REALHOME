@@ -1,6 +1,6 @@
-import { supabase } from '../client';
-import { authFetch } from '../auth-fetch';
-import type { DBEmployee } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import { authFetch } from '@/lib/supabase/auth-fetch';
+import type { DBEmployee } from '@/lib/supabase/types';
 
 type EmployeeInsert = Omit<DBEmployee, 'id' | 'created_at' | 'updated_at'>;
 type EmployeeUpdate = Partial<EmployeeInsert>;

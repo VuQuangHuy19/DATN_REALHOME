@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getCompanies, createCompany, updateCompany, deleteCompany, getCompanyStats, type CompanyInsert, type CompanyUpdate } from '@/lib/supabase/repositories/companies';
+import { getCompanies, createCompany, updateCompany, deleteCompany, getCompanyStats, type CompanyInsert, type CompanyUpdate } from '@/src/features/staff/services/companies';
 import type { DBCompany } from '@/lib/supabase/types';
 import { supabase } from '@/lib/supabase/client';
 

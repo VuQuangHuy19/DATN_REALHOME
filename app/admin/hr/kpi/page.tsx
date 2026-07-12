@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TrendingUp, TrendingDown, Minus, Search, Loader2, AlertCircle } from 'lucide-react';
-import { getKPIs, createKPI, updateKPI } from '@/lib/supabase/repositories/kpis';
+import { getKPIs, createKPI, updateKPI } from '@/src/features/staff/services/kpis';
 import { useEmployees } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBEmployeeKPI } from '@/lib/supabase/types';

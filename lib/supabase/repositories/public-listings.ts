@@ -1,4 +1,4 @@
-import { supabase } from '../client';
+import { supabase, isUserLoggedIn } from '../client';
 import { mapRoomToListing } from '@/lib/customer/listing-mapper';
 import type { CustomerListing, PublicCompany } from '@/lib/customer/types';
 import { getRoomDisplayStatus } from '@/lib/room-status';
@@ -56,9 +56,14 @@ function filterPublicListing(row: any): boolean {
 }
 
 export async function getPublicListings(companyId: string | string[], showAll: boolean = false): Promise<CustomerListing[]> {
+  const loggedIn = await isUserLoggedIn();
+  const selectFields = loggedIn
+    ? '*, buildings(*), room_images(*), rental_contracts(*)'
+    : '*, buildings(*), room_images(*)';
+
   let query = supabase
     .from('rooms')
-    .select('*, buildings(*), room_images(*), rental_contracts(*)');
+    .select(selectFields);
 
   if (Array.isArray(companyId)) {
     query = query.in('company_id', companyId);
@@ -79,9 +84,14 @@ export async function getPublicListings(companyId: string | string[], showAll: b
 }
 
 export async function getPublicListing(id: string): Promise<CustomerListing | null> {
+  const loggedIn = await isUserLoggedIn();
+  const selectFields = loggedIn
+    ? '*, buildings(*), room_images(*), rental_contracts(*)'
+    : '*, buildings(*), room_images(*)';
+
   const { data, error } = await supabase
     .from('rooms')
-    .select('*, buildings(*), room_images(*), rental_contracts(*)')
+    .select(selectFields)
     .eq('id', id)
     .maybeSingle();
 
@@ -94,9 +104,14 @@ export async function getPublicListing(id: string): Promise<CustomerListing | nu
 export async function getPublicListingsByIds(ids: string[], companyId?: string | string[] | null, showAll: boolean = false): Promise<CustomerListing[]> {
   if (ids.length === 0) return [];
 
+  const loggedIn = await isUserLoggedIn();
+  const selectFields = loggedIn
+    ? '*, buildings(*), room_images(*), rental_contracts(*)'
+    : '*, buildings(*), room_images(*)';
+
   let query = supabase
     .from('rooms')
-    .select('*, buildings(*), room_images(*), rental_contracts(*)')
+    .select(selectFields)
     .in('id', ids);
 
   if (companyId) {
@@ -117,3 +132,4 @@ export async function getPublicListingsByIds(ids: string[], companyId?: string |
     .map((row: Parameters<typeof mapRoomToListing>[0]) => mapRoomToListing(row))
     .filter((item: CustomerListing | null): item is CustomerListing => item !== null);
 }
+

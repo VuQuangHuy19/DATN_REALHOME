@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Search, Lock, Unlock, Shield, Loader2, AlertCircle } from 'lucide-react';
-import { getProfiles } from '@/lib/supabase/repositories/profiles';
+import { getProfiles } from '@/src/features/staff/services/profiles';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { Database } from '@/lib/supabase/types';
 

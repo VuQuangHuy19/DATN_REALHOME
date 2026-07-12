@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
-import { getLeads, getLead, createLead, updateLead, deleteLead, getLeadActivities, createLeadActivity, updateLeadStatus, type LeadInsert, type LeadUpdate, type LeadActivityInsert } from '@/lib/supabase/repositories/leads';
+import { getLeads, getLead, createLead, updateLead, deleteLead, getLeadActivities, createLeadActivity, updateLeadStatus, type LeadInsert, type LeadUpdate, type LeadActivityInsert } from '@/src/features/staff/services/leads';
 import type { DBLead, DBLeadActivity } from '@/lib/supabase/types';
 
 export function useLeads(companyId?: string) {

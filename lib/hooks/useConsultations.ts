@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getConsultations, createConsultation, updateConsultation, deleteConsultation } from '@/lib/supabase/repositories/consultations';
+import { getConsultations, createConsultation, updateConsultation, deleteConsultation } from '@/src/features/staff/services/consultations';
 import type { Database } from '@/lib/supabase/types';
 
 type DBConsultation = Database['public']['Tables']['consultations']['Row'];

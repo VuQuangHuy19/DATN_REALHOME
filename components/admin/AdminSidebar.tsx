@@ -119,6 +119,15 @@ const landlordNavItems: NavItem[] = [
   },
 ];
 
+const salesNavItems: NavItem[] = [
+  { label: 'Xem trang khách', href: '/customer/properties', icon: Home },
+  { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+  { label: 'Khách hàng của tôi', href: '/admin/customers/leads', icon: UserSearch, permission: 'leads.read' },
+  { label: 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
+  { label: 'Tra cứu phòng trống', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
+  { label: 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
+];
+
 export function AdminSidebar() {
   const pathname = usePathname();
   const { hasPermission, role } = useAuth();
@@ -140,7 +149,12 @@ export function AdminSidebar() {
     return !item.permission || hasPermission(item.permission);
   };
 
-  const currentNavItems = role === 'landlord' ? landlordNavItems : navItems;
+  const currentNavItems = role === 'landlord'
+    ? landlordNavItems
+    : role === 'sales_agent'
+    ? salesNavItems
+    : navItems;
+
   const visibleNavItems = currentNavItems.filter(canViewItem);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');

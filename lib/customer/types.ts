@@ -39,6 +39,8 @@ export interface CustomerListing {
   landlordId?: string | null;
   buildingCode?: string | null;
   depositTerms?: string | null;
+  districtId?: string | null;
+  wardId?: string | null;
 }
 
 export interface PublicCompany {

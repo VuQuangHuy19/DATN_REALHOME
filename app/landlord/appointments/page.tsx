@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
-import type { AppointmentWithRelations } from '@/lib/supabase/repositories/appointments';
+import type { AppointmentWithRelations } from '@/src/features/staff/services/appointments';
 
 const statusColors: Record<string, string> = {
   Confirm: 'bg-green-50 text-green-700 border-green-200',

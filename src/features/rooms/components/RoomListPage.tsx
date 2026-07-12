@@ -17,7 +17,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { addRoomImage } from '@/lib/supabase/repositories/room_images';
-import type { RoomWithBuilding } from '@/lib/supabase/repositories/rooms';
+import type { RoomWithBuilding } from '@/src/features/rooms/services/rooms';
 import type { DBRoom } from '@/lib/supabase/types';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import Link from 'next/link';
@@ -239,6 +239,7 @@ export function RoomListPage() {
           <h1 className="text-2xl font-bold text-slate-800">Quản lý Căn hộ/Phòng</h1>
           <p className="text-slate-500">Quản lý căn hộ và phòng riêng lẻ</p>
         </div>
+        {role !== 'sales_agent' && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
@@ -453,6 +454,7 @@ export function RoomListPage() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {error && (
@@ -528,8 +530,12 @@ export function RoomListPage() {
                       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" onClick={() => openView(item)}><Eye className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                          {role !== 'sales_agent' && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -586,8 +592,12 @@ export function RoomListPage() {
                       </span>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button variant="ghost" size="sm" onClick={() => openView(item)}><Eye className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        {role !== 'sales_agent' && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

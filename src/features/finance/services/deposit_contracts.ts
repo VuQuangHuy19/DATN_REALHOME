@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBDepositContract, Database } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBDepositContract, Database } from '@/lib/supabase/types';
 
 export type DepositContractInsert = Database['public']['Tables']['deposit_contracts']['Insert'];
 export type DepositContractUpdate = Database['public']['Tables']['deposit_contracts']['Update'];

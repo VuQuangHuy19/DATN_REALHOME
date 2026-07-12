@@ -4,7 +4,7 @@ import {
   createRoom,
   updateRoom,
   deleteRoom,
-} from '@/lib/supabase/repositories/rooms';
+} from '@/src/features/rooms/services/rooms';
 import type { DBRoom } from '@/lib/supabase/types';
 
 export async function getRoomsClient(companyId?: string) {

@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBBuilding } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBBuilding } from '@/lib/supabase/types';
 
 type BuildingInsert = Omit<DBBuilding, 'id' | 'created_at' | 'updated_at'>;
 type BuildingUpdate = Partial<BuildingInsert>;

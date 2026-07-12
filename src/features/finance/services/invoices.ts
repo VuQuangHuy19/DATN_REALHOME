@@ -1,5 +1,5 @@
-import { supabase } from '../client';
-import type { DBInvoice, Database } from '../types';
+import { supabase } from '@/lib/supabase/client';
+import type { DBInvoice, Database } from '@/lib/supabase/types';
 
 export type InvoiceInsert = Database['public']['Tables']['invoices']['Insert'];
 export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update'];

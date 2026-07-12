@@ -3,7 +3,7 @@ import {
   createBuilding,
   updateBuilding,
   deleteBuilding,
-} from '@/lib/supabase/repositories/buildings';
+} from '@/src/features/properties/services/buildings';
 import type { DBBuilding } from '@/lib/supabase/types';
 
 export async function getBuildingsClient(companyId?: string, landlordId?: string): Promise<DBBuilding[]> {
