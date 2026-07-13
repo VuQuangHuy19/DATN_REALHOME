@@ -39,46 +39,58 @@ function CrudTable({ data, columns, onEdit, onDelete, loading, icon: Icon }: Cru
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-ink-muted" />
       </div>
     );
   }
   if (data.length === 0) {
     return (
-      <div className="text-center py-10 text-slate-400 border border-dashed rounded-lg">
-        <Icon className="h-8 w-8 mx-auto mb-2 opacity-40" />
+      <div className="text-center py-12 text-ink-muted border border-dashed border-border rounded-lg bg-bg-base/30">
+        <Icon className="h-8 w-8 mx-auto mb-2 opacity-35" />
         <p className="text-sm">Chưa có dữ liệu. Nhấn &quot;Thêm mới&quot; để bắt đầu.</p>
       </div>
     );
   }
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50">
+    <div className="border border-border rounded-lg overflow-hidden bg-white">
+      <table className="w-full text-sm border-collapse">
+        <thead className="bg-bg-subtle border-b border-border">
           <tr>
             {columns.map((col) => (
-              <th key={col.key} className="px-4 py-3 text-left font-medium text-slate-600">
+              <th key={col.key} className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">
                 {col.label}
               </th>
             ))}
-            <th className="px-4 py-3 text-right font-medium text-slate-600">Thao tác</th>
+            <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-y divide-border text-ink">
           {data.map((item) => (
-            <tr key={item.id} className="hover:bg-slate-50">
+            <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors">
               {columns.map((col) => (
-                <td key={col.key} className="px-4 py-3 text-slate-700">
-                  {item[col.key] ?? '—'}
+                <td key={col.key} className="px-6 py-4 text-sm font-medium text-ink">
+                  {col.key === 'min' || col.key === 'max'
+                    ? (item[col.key] !== null && item[col.key] !== undefined ? `${Number(item[col.key]).toLocaleString('vi-VN')}đ` : '—')
+                    : (item[col.key] ?? '—')}
                 </td>
               ))}
-              <td className="px-4 py-3 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => onEdit(item)}>
+              <td className="px-6 py-4 text-right">
+                <div className="flex items-center justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md"
+                    onClick={() => onEdit(item)}
+                  >
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => onDelete(item.id)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md"
+                    onClick={() => onDelete(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </td>
@@ -212,35 +224,38 @@ export default function CategoriesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý Danh mục</h1>
-          <p className="text-slate-500">Quản lý khoảng giá, tiện ích, loại phòng và tra cứu địa chỉ hành chính</p>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản lý Danh mục</h1>
+          <p className="text-ink-muted text-sm">Quản lý khoảng giá, tiện ích, loại phòng và tra cứu địa chỉ hành chính</p>
         </div>
         {activeTab !== 'areas' && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <Button onClick={openAdd}>
+            <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg">
               <Plus className="h-4 w-4 mr-2" />
               Thêm mới
             </Button>
-            <DialogContent>
+            <DialogContent className="max-w-md rounded-lg border border-border bg-white">
               <DialogHeader>
-                <DialogTitle>{editItem ? 'Chỉnh sửa' : 'Thêm'} {getTabLabel()}</DialogTitle>
+                <DialogTitle className="font-heading text-lg font-bold text-ink">
+                  {editItem ? 'Chỉnh sửa' : 'Thêm'} {getTabLabel()}
+                </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSave} className="space-y-4 pt-4">
                 {getFormFields().map((field) => (
-                  <div key={field.name}>
-                    <Label htmlFor={field.name}>{field.label}</Label>
+                  <div key={field.name} className="space-y-1.5">
+                    <Label htmlFor={field.name} className="text-ink font-semibold text-xs uppercase tracking-wider">{field.label}</Label>
                     <Input
                       id={field.name}
                       name={field.name}
                       type={field.type}
                       placeholder={field.placeholder}
                       defaultValue={editItem?.[field.name] ?? ''}
+                      className="rounded-lg border-border focus-visible:ring-accent"
                     />
                   </div>
                 ))}
-                <Button type="submit" className="w-full" disabled={saving}>
+                <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white rounded-lg mt-2" disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Lưu
                 </Button>
@@ -251,27 +266,27 @@ export default function CategoriesPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 max-w-md">
-          <TabsTrigger value="prices">
-            <DollarSign className="h-4 w-4 mr-1 hidden sm:inline" />Khoảng giá
+        <TabsList className="grid w-full grid-cols-4 max-w-md bg-bg-subtle p-1 border border-border rounded-lg">
+          <TabsTrigger value="prices" className="text-xs font-semibold text-ink-muted data-[state=active]:bg-white data-[state=active]:text-ink data-[state=active]:shadow-sm rounded-md transition-all">
+            <DollarSign className="h-3.5 w-3.5 mr-1 hidden sm:inline" />Khoảng giá
           </TabsTrigger>
-          <TabsTrigger value="amenities">
-            <Sparkles className="h-4 w-4 mr-1 hidden sm:inline" />Tiện ích
+          <TabsTrigger value="amenities" className="text-xs font-semibold text-ink-muted data-[state=active]:bg-white data-[state=active]:text-ink data-[state=active]:shadow-sm rounded-md transition-all">
+            <Sparkles className="h-3.5 w-3.5 mr-1 hidden sm:inline" />Tiện ích
           </TabsTrigger>
-          <TabsTrigger value="roomtypes">
-            <BedDouble className="h-4 w-4 mr-1 hidden sm:inline" />Loại phòng
+          <TabsTrigger value="roomtypes" className="text-xs font-semibold text-ink-muted data-[state=active]:bg-white data-[state=active]:text-ink data-[state=active]:shadow-sm rounded-md transition-all">
+            <BedDouble className="h-3.5 w-3.5 mr-1 hidden sm:inline" />Loại phòng
           </TabsTrigger>
-          <TabsTrigger value="areas">
-            <MapPin className="h-4 w-4 mr-1 hidden sm:inline" />Địa chỉ
+          <TabsTrigger value="areas" className="text-xs font-semibold text-ink-muted data-[state=active]:bg-white data-[state=active]:text-ink data-[state=active]:shadow-sm rounded-md transition-all">
+            <MapPin className="h-3.5 w-3.5 mr-1 hidden sm:inline" />Địa chỉ
           </TabsTrigger>
         </TabsList>
 
         {/* ─── Khoảng giá ─── */}
         <TabsContent value="prices" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />Khoảng giá
+          <Card className="border-border rounded-lg shadow-none bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 font-heading text-base font-bold text-ink">
+                <DollarSign className="h-5 w-5 text-accent" />Khoảng giá
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -293,10 +308,10 @@ export default function CategoriesPage() {
 
         {/* ─── Tiện ích ─── */}
         <TabsContent value="amenities" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />Tiện ích
+          <Card className="border-border rounded-lg shadow-none bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 font-heading text-base font-bold text-ink">
+                <Sparkles className="h-5 w-5 text-accent" />Tiện ích
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -317,10 +332,10 @@ export default function CategoriesPage() {
 
         {/* ─── Loại phòng ─── */}
         <TabsContent value="roomtypes" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BedDouble className="h-5 w-5" />Loại phòng
+          <Card className="border-border rounded-lg shadow-none bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 font-heading text-base font-bold text-ink">
+                <BedDouble className="h-5 w-5 text-accent" />Loại phòng
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -341,22 +356,22 @@ export default function CategoriesPage() {
 
         {/* ─── Địa chỉ hành chính ─── */}
         <TabsContent value="areas" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />Tra cứu địa chỉ hành chính
+          <Card className="border-border rounded-lg shadow-none bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 font-heading text-base font-bold text-ink">
+                <MapPin className="h-5 w-5 text-accent" />Tra cứu địa chỉ hành chính
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-ink-muted">
                 Dữ liệu hành chính Hà Nội được tích hợp sẵn. Chọn Tỉnh/Thành → Quận/Huyện → Phường/Xã để tra cứu.
               </p>
 
               {/* Tỉnh/Thành */}
-              <div>
-                <Label>Tỉnh / Thành phố</Label>
+              <div className="space-y-1.5">
+                <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Tỉnh / Thành phố</Label>
                 <select
-                  className="w-full mt-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="w-full mt-1.5 h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   value={selectedProvince}
                   onChange={(e) => { setSelectedProvince(e.target.value); setSelectedDistrict(''); }}
                   disabled={loadingProvinces}
@@ -369,10 +384,10 @@ export default function CategoriesPage() {
               </div>
 
               {/* Quận/Huyện */}
-              <div>
-                <Label>Quận / Huyện</Label>
+              <div className="space-y-1.5">
+                <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Quận / Huyện</Label>
                 <select
-                  className="w-full mt-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="w-full mt-1.5 h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
                   value={selectedDistrict}
                   onChange={(e) => setSelectedDistrict(e.target.value)}
                   disabled={!selectedProvince || loadingDistricts}
@@ -386,33 +401,33 @@ export default function CategoriesPage() {
 
               {/* Phường/Xã */}
               {selectedDistrict && (
-                <div>
-                  <Label>Phường / Xã / Thị trấn</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Phường / Xã / Thị trấn</Label>
                   {loadingWards ? (
-                    <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
+                    <div className="flex items-center gap-2 mt-2 text-sm text-ink-muted">
+                      <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải...
                     </div>
                   ) : (
-                    <div className="mt-2 border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 sticky top-0">
+                    <div className="mt-2 border border-border rounded-lg overflow-hidden max-h-64 overflow-y-auto bg-white">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="bg-bg-subtle border-b border-border sticky top-0">
                           <tr>
-                            <th className="px-4 py-2 text-left font-medium text-slate-600">Tên</th>
-                            <th className="px-4 py-2 text-left font-medium text-slate-600">Cấp</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Tên</th>
+                            <th className="px-4 py-2.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Cấp</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody className="divide-y divide-border text-ink">
                           {wards.map((w) => (
-                            <tr key={w.id} className="hover:bg-slate-50">
-                              <td className="px-4 py-2 text-slate-700">{w.name}</td>
-                              <td className="px-4 py-2 text-slate-500 text-xs">{w.level}</td>
+                            <tr key={w.id} className="hover:bg-bg-subtle/50 transition-colors">
+                              <td className="px-4 py-2.5 text-sm font-medium text-ink">{w.name}</td>
+                              <td className="px-4 py-2.5 text-xs text-ink-muted font-semibold">{w.level}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   )}
-                  <p className="text-xs text-slate-400 mt-1">{wards.length} phường/xã trong quận/huyện này</p>
+                  <p className="text-xs text-ink-muted font-medium mt-1.5">{wards.length} phường/xã trong quận/huyện này</p>
                 </div>
               )}
             </CardContent>

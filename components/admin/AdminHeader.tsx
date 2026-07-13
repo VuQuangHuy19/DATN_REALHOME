@@ -19,10 +19,10 @@ export function AdminHeader() {
   const { unreadCount } = useNotifications(user?.id, company?.id);
 
   return (
-    <header className="h-16 bg-white border-b pl-16 pr-6 md:px-6 flex items-center justify-between">
+    <header className="h-16 bg-white border-b border-border-subtle pl-16 pr-6 md:px-6 flex items-center justify-between shadow-none">
       <div className="flex items-center gap-4 flex-1">
         <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
           <Input placeholder="Tìm kiếm..." className="pl-9 w-full" />
         </div>
       </div>
@@ -30,9 +30,9 @@ export function AdminHeader() {
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="relative" asChild>
           <Link href="/admin/system/notifications">
-            <Bell className="h-5 w-5" />
+            <Bell className="h-5 w-5 text-ink-muted" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              <span className="absolute top-1 right-1 h-4 w-4 bg-danger rounded-full text-white text-[10px] font-bold flex items-center justify-center leading-none">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -42,14 +42,14 @@ export function AdminHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-10">
-              <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center">
-                <User className="h-4 w-4 text-slate-600" />
+              <div className="h-7 w-7 rounded-full bg-accent-soft flex items-center justify-center">
+                <User className="h-4 w-4 text-accent" />
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-slate-800 leading-tight">
+                <p className="text-sm font-medium text-ink leading-tight">
                   {profile?.full_name || 'Người dùng'}
                 </p>
-                <p className="text-xs text-slate-400 leading-tight">
+                <p className="text-xs text-ink-muted leading-tight">
                   {company?.name || '—'}
                 </p>
               </div>

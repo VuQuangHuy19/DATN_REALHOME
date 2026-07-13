@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
@@ -199,6 +200,7 @@ export default function ContractsPage() {
   const [isViewDepositOpen, setIsViewDepositOpen] = useState(false);
   const [viewRental, setViewRental] = useState<any | null>(null);
   const [isViewRentalOpen, setIsViewRentalOpen] = useState(false);
+  const error = depositsError || rentalsError || templatesError;
 
   // Handlers
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -303,23 +305,17 @@ export default function ContractsPage() {
   const openEditTemplate = (item: DBContractTemplate) => { setEditItem(item); setIsDialogOpen(true); };
   const openViewTemplate = (item: DBContractTemplate) => { setViewItem(item); setIsViewOpen(true); };
 
-  const error = activeTab === 'deposits' 
-    ? depositsError 
-    : activeTab === 'rentals' 
-      ? rentalsError 
-      : templatesError;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý hợp đồng</h1>
-          <p className="text-slate-500">Quản lý hợp đồng đặt cọc giữ chỗ và hợp đồng thuê chính thức</p>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản lý hợp đồng</h1>
+          <p className="text-ink-muted text-sm mt-0.5">Quản lý hợp đồng đặt cọc giữ chỗ và hợp đồng thuê chính thức</p>
         </div>
 
         {activeTab === 'deposits' ? (
           role !== 'landlord' && (
-            <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
+            <Button asChild className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none">
               <Link href={`${pathPrefix}/contracts/create`}>
                 <Plus className="h-4 w-4 mr-2" /> Soạn hợp đồng cọc
               </Link>
@@ -327,7 +323,7 @@ export default function ContractsPage() {
           )
         ) : activeTab === 'rentals' ? (
           role !== 'sales_agent' && role !== 'landlord' && (
-            <Button asChild className="bg-slate-900 text-white hover:bg-slate-800">
+            <Button asChild className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none">
               <Link href={`${pathPrefix}/contracts/create-rental`}>
                 <Plus className="h-4 w-4 mr-2" /> Soạn hợp đồng thuê
               </Link>
@@ -337,175 +333,178 @@ export default function ContractsPage() {
           role !== 'sales_agent' && role !== 'landlord' && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={openAddTemplate} className="bg-slate-900 text-white hover:bg-slate-800">
+                <Button onClick={openAddTemplate} className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none">
                   <Plus className="h-4 w-4 mr-2" /> Thêm mẫu hợp đồng
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editItem ? 'Chỉnh sửa' : 'Thêm'} mẫu hợp đồng</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSaveTemplate} className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Tên mẫu</Label>
-                    <Input id="name" name="name" defaultValue={editItem?.name} required />
+              <DialogContent className="max-w-2xl rounded-lg border border-border bg-white shadow-lg">
+                <DialogHeader>
+                  <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} mẫu hợp đồng</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSaveTemplate} className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="name" className="text-ink font-semibold text-xs uppercase tracking-wider">Tên mẫu</Label>
+                      <Input id="name" name="name" defaultValue={editItem?.name} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại hợp đồng</Label>
+                      <Input id="type" name="type" defaultValue={editItem?.type} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="type">Loại hợp đồng</Label>
-                    <Input id="type" name="type" defaultValue={editItem?.type} required />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="content" className="text-ink font-semibold text-xs uppercase tracking-wider">Nội dung mẫu</Label>
+                    <Textarea id="content" name="content" defaultValue={editItem?.content ?? ''} rows={10} className="rounded-lg border-border focus-visible:ring-accent" />
                   </div>
-                </div>
-                <div>
-                  <Label htmlFor="content">Nội dung mẫu</Label>
-                  <Textarea id="content" name="content" defaultValue={editItem?.content ?? ''} rows={10} />
-                </div>
-                <Button type="submit" className="w-full bg-slate-900 text-white" disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Lưu
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold" disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Lưu
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
           )
         )}
       </div>
 
       {/* Tabs chuyển đổi */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-border">
         <button
           onClick={() => setActiveTab('deposits')}
-          className={`px-4 py-2.5 font-medium text-sm border-b-2 transition-all ${
+          className={`px-4 py-2.5 font-heading text-sm border-b-2 transition-all relative ${
             activeTab === 'deposits'
-              ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-accent text-accent font-bold'
+              : 'border-transparent text-ink-muted hover:text-ink font-medium'
           }`}
         >
           Hợp đồng đặt cọc
+          {activeTab === 'deposits' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
         </button>
         <button
           onClick={() => setActiveTab('rentals')}
-          className={`px-4 py-2.5 font-medium text-sm border-b-2 transition-all ${
+          className={`px-4 py-2.5 font-heading text-sm border-b-2 transition-all relative ${
             activeTab === 'rentals'
-              ? 'border-indigo-600 text-indigo-600 font-semibold'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-accent text-accent font-bold'
+              : 'border-transparent text-ink-muted hover:text-ink font-medium'
           }`}
         >
           Hợp đồng thuê chính thức
+          {activeTab === 'rentals' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
         </button>
         {role !== 'landlord' && (
           <button
             onClick={() => setActiveTab('templates')}
-            className={`px-4 py-2.5 font-medium text-sm border-b-2 transition-all ${
+            className={`px-4 py-2.5 font-heading text-sm border-b-2 transition-all relative ${
               activeTab === 'templates'
-                ? 'border-indigo-600 text-indigo-600 font-semibold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-accent text-accent font-bold'
+                : 'border-transparent text-ink-muted hover:text-ink font-medium'
             }`}
           >
             Mẫu hợp đồng
+            {activeTab === 'templates' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
           </button>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm font-medium">
           <AlertCircle className="h-4 w-4 flex-shrink-0" /> {error}
         </div>
       )}
 
       {activeTab === 'deposits' ? (
         // TABLE HỢP ĐỒNG ĐẶT CỌC
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
+        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+          <CardHeader className="p-4 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <Input 
                 placeholder="Tìm hợp đồng cọc theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
                 value={depositSearch} 
                 onChange={(e) => setDepositSearch(e.target.value)} 
-                className="pl-9" 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
               />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {depositsLoading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-accent" />
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-bg-subtle border-b border-border">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Mã hợp đồng</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Phòng / Tòa nhà</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Khách thuê (Bên B)</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Nhân viên Sale</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Tiền đặt cọc</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Hạn ký HĐ thuê</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Trạng thái</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-700">Thao tác</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã hợp đồng</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Phòng / Tòa nhà</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách thuê (Bên B)</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nhân viên Sale</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Tiền đặt cọc</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Hạn ký HĐ thuê</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-border text-ink">
                     {filteredDeposits.map((item) => {
-                      const statusInfo = statusLabels[item.status] || { label: item.status, color: 'bg-slate-100 text-slate-700' };
+                      const statusInfo = statusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted border-border' };
                       return (
                         <tr 
                           key={item.id} 
-                          className="hover:bg-slate-50/50 cursor-pointer"
+                          className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                           onClick={(e) => {
                             if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
                             setViewDeposit(item);
                             setIsViewDepositOpen(true);
                           }}
                         >
-                          <td className="px-4 py-3 font-medium text-slate-900">{item.contract_code}</td>
+                          <td className="px-4 py-3 font-mono font-bold text-xs">{item.contract_code}</td>
                           <td className="px-4 py-3">
-                            <span className="font-semibold text-indigo-600">Phòng {item.rooms?.code || '---'}</span>
-                            <p className="text-xs text-slate-400 truncate max-w-[180px]">
+                            <span className="font-bold text-accent">Phòng {item.rooms?.code || '---'}</span>
+                            <p className="text-xs text-ink-muted truncate max-w-[180px] font-medium mt-0.5">
                               {item.rooms?.buildings?.name || 'Vị trí khác'}
                             </p>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-medium text-slate-800">{item.party_b_name}</span>
-                            <p className="text-xs text-slate-500">{item.party_b_phone}</p>
+                            <span className="font-semibold text-ink">{item.party_b_name}</span>
+                            <p className="text-xs text-ink-muted font-mono mt-0.5">{item.party_b_phone}</p>
                           </td>
                           <td className="px-4 py-3">
                             {(() => {
                               const saleProfile = item.created_by ? profilesMap.get(item.created_by) : null;
-                              if (!saleProfile) return <span className="font-medium text-slate-800">Hệ thống</span>;
+                              if (!saleProfile) return <span className="font-semibold text-ink-muted text-xs">Hệ thống</span>;
                               return (
                                 <>
-                                  <span className="font-medium text-slate-800">{saleProfile.full_name || '—'}</span>
-                                  <p className="text-xs text-slate-500">{saleProfile.phone || '—'}</p>
+                                  <span className="font-semibold text-ink text-xs">{saleProfile.full_name || '—'}</span>
+                                  <p className="text-xs text-ink-muted font-mono mt-0.5">{saleProfile.phone || '—'}</p>
                                 </>
                               );
                             })()}
                           </td>
-                           <td className="px-4 py-3">
-                            <span className="font-semibold text-slate-800">
-                              {Number(item.deposit_amount).toLocaleString('vi-VN')} đ
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-mono font-bold text-accent text-sm">
+                              {Number(item.deposit_amount).toLocaleString('vi-VN')}đ
                             </span>
                             {item.rooms?.rose && (
-                              <p className="text-xs text-emerald-600 font-semibold mt-0.5 whitespace-nowrap">
-                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose, item.lease_duration_months).toLocaleString('vi-VN')} đ ({item.rooms.rose})
+                              <p className="text-[10px] text-emerald-600 font-bold mt-0.5 whitespace-nowrap">
+                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose, item.lease_duration_months).toLocaleString('vi-VN')}đ ({item.rooms.rose})
                               </p>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600">
+                          <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">
                             {formatDateDisplay(item.deadline_sign_contract)}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${statusInfo.color}`}>
+                          <td className="px-4 py-3 text-center">
+                            <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
                               {statusInfo.label}
-                            </span>
+                            </Badge>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               {(role === 'company_admin' || role === 'manager') && ['signed', 'active', 'draft'].includes(item.status) && (
-                                <Button variant="ghost" size="sm" asChild title="Chuyển thành Hợp đồng thuê">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-emerald-600 hover:bg-bg-subtle" asChild title="Chuyển thành Hợp đồng thuê">
                                   <Link href={`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`}>
-                                    <FileText className="h-4 w-4 text-emerald-600" />
+                                    <FileText className="h-4 w-4" />
                                   </Link>
                                 </Button>
                               )}
@@ -515,21 +514,18 @@ export default function ContractsPage() {
                                 <Button 
                                   variant="outline" 
                                   size="sm" 
-                                  className="bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 font-semibold text-xs py-1 h-8"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleLandlordConfirm(item.id);
-                                  }}
+                                  className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 font-bold text-xs py-1 h-8 rounded-lg"
+                                  onClick={() => handleLandlordConfirm(item.id)}
                                 >
-                                  Xác nhận nhận cọc
+                                  Nhận cọc
                                 </Button>
                               )}
                               
                               {/* Edit contract (Admin / Manager only) */}
                               {role !== 'sales_agent' && role !== 'landlord' && (
-                                <Button variant="ghost" size="sm" asChild title="Chỉnh sửa hợp đồng">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Chỉnh sửa hợp đồng">
                                   <Link href={`${pathPrefix}/contracts/${item.id}/edit`}>
-                                    <Pencil className="h-4 w-4 text-slate-600" />
+                                    <Pencil className="h-4 w-4" />
                                   </Link>
                                 </Button>
                               )}
@@ -538,11 +534,11 @@ export default function ContractsPage() {
                               {role !== 'sales_agent' && role !== 'landlord' && (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm" title="Thay đổi trạng thái">
-                                      <RefreshCw className="h-4 w-4 text-amber-600" />
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" title="Thay đổi trạng thái">
+                                      <RefreshCw className="h-4 w-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
+                                  <DropdownMenuContent align="end" className="bg-white border-border rounded-lg shadow-md text-ink text-xs font-semibold">
                                     <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'active')}>
                                       Chờ xác nhận (active)
                                     </DropdownMenuItem>
@@ -562,16 +558,17 @@ export default function ContractsPage() {
                                 </DropdownMenu>
                               )}
 
-                              <Button variant="ghost" size="sm" asChild title="In hợp đồng">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="In hợp đồng">
                                 <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
-                                  <Printer className="h-4 w-4 text-indigo-600" />
+                                  <Printer className="h-4 w-4" />
                                 </Link>
                               </Button>
                               
                               {role !== 'sales_agent' && role !== 'landlord' && (
                                 <Button 
                                   variant="ghost" 
-                                  size="sm" 
+                                  size="icon"
+                                  className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
                                   onClick={() => {
                                     if (confirm('Bạn có chắc muốn xóa hợp đồng cọc này?')) {
                                       removeDeposit(item.id);
@@ -579,7 +576,7 @@ export default function ContractsPage() {
                                   }} 
                                   title="Xóa"
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               )}
                             </div>
@@ -589,118 +586,119 @@ export default function ContractsPage() {
                     })}
                   </tbody>
                 </table>
-                {filteredDeposits.length === 0 && (
-                  <div className="text-center py-12 text-slate-400 bg-white">
-                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-35 text-slate-600" />
-                    <p className="text-sm font-medium">Chưa có hợp đồng đặt cọc nào</p>
-                    <p className="text-xs text-slate-400 mt-1">Bấm nút &quot;Soạn hợp đồng cọc&quot; để bắt đầu</p>
-                  </div>
-                )}
+              </div>
+            )}
+            {!depositsLoading && filteredDeposits.length === 0 && (
+              <div className="text-center py-12 text-ink-muted bg-white">
+                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                <p className="text-sm font-semibold">Chưa có hợp đồng đặt cọc nào</p>
+                <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Soạn hợp đồng cọc&quot; để bắt đầu</p>
               </div>
             )}
           </CardContent>
         </Card>
       ) : activeTab === 'rentals' ? (
         // TABLE HỢP ĐỒNG THUÊ CHÍNH THỨC
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
+        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+          <CardHeader className="p-4 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <Input 
                 placeholder="Tìm hợp đồng thuê theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
                 value={rentalSearch} 
                 onChange={(e) => setRentalSearch(e.target.value)} 
-                className="pl-9" 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
               />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {rentalsLoading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-accent" />
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-bg-subtle border-b border-border">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Mã hợp đồng</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Phòng / Tòa nhà</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Khách thuê (Bên B)</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Nhân viên Sale</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Tiền thuê</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Thời hạn</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Trạng thái</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-700">Thao tác</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã hợp đồng</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Phòng / Tòa nhà</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách thuê (Bên B)</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nhân viên Sale</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Tiền thuê</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Thời hạn</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-border text-ink">
                     {filteredRentals.map((item) => {
                       const rentalStatusLabels: Record<string, { label: string; color: string }> = {
-                        draft: { label: 'Bản nháp', color: 'bg-slate-100 text-slate-700' },
-                        active: { label: 'Hiệu lực', color: 'bg-green-100 text-green-700' },
-                        ended: { label: 'Đã hết hạn', color: 'bg-slate-300 text-slate-650' },
-                        terminated: { label: 'Kết thúc sớm', color: 'bg-amber-100 text-amber-700' },
-                        cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-700' },
+                        draft: { label: 'Bản nháp', color: 'bg-bg-subtle text-ink-muted border-border' },
+                        active: { label: 'Hiệu lực', color: 'bg-green-50 text-green-700 border-green-250' },
+                        ended: { label: 'Đã hết hạn', color: 'bg-bg-subtle text-ink-muted border-border' },
+                        terminated: { label: 'Kết thúc sớm', color: 'bg-amber-50 text-amber-700 border-amber-250' },
+                        cancelled: { label: 'Đã hủy', color: 'bg-red-50 text-red-750 border-red-250' },
                       };
-                      const statusInfo = rentalStatusLabels[item.status] || { label: item.status, color: 'bg-slate-100 text-slate-700' };
+                      const statusInfo = rentalStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
                       return (
                         <tr 
                           key={item.id} 
-                          className="hover:bg-slate-50/50 cursor-pointer"
+                          className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                           onClick={(e) => {
                             if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
                             setViewRental(item);
                             setIsViewRentalOpen(true);
                           }}
                         >
-                          <td className="px-4 py-3 font-medium text-slate-900">{item.contract_code}</td>
+                          <td className="px-4 py-3 font-mono font-bold text-xs">{item.contract_code}</td>
                           <td className="px-4 py-3">
-                            <span className="font-semibold text-indigo-600">Phòng {item.rooms?.code || '---'}</span>
-                            <p className="text-xs text-slate-400 truncate max-w-[180px]">
+                            <span className="font-bold text-accent">Phòng {item.rooms?.code || '---'}</span>
+                            <p className="text-xs text-ink-muted truncate max-w-[180px] font-medium mt-0.5">
                               {item.rooms?.buildings?.name || 'Vị trí khác'}
                             </p>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-medium text-slate-800">{item.party_b_name}</span>
-                            <p className="text-xs text-slate-500">{item.party_b_phone}</p>
+                            <span className="font-semibold text-ink">{item.party_b_name}</span>
+                            <p className="text-xs text-ink-muted font-mono mt-0.5">{item.party_b_phone}</p>
                           </td>
                           <td className="px-4 py-3">
                             {(() => {
                               const saleProfile = item.created_by ? profilesMap.get(item.created_by) : null;
-                              if (!saleProfile) return <span className="font-medium text-slate-800">Hệ thống</span>;
+                              if (!saleProfile) return <span className="font-semibold text-ink-muted text-xs">Hệ thống</span>;
                               return (
                                 <>
-                                  <span className="font-medium text-slate-800">{saleProfile.full_name || '—'}</span>
-                                  <p className="text-xs text-slate-500">{saleProfile.phone || '—'}</p>
+                                  <span className="font-semibold text-ink text-xs">{saleProfile.full_name || '—'}</span>
+                                  <p className="text-xs text-ink-muted font-mono mt-0.5">{saleProfile.phone || '—'}</p>
                                 </>
                               );
                             })()}
                           </td>
-                           <td className="px-4 py-3">
-                            <span className="font-semibold text-slate-800">
-                              {Number(item.rent_price).toLocaleString('vi-VN')} đ/tháng
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-mono font-bold text-accent text-sm">
+                              {Number(item.rent_price).toLocaleString('vi-VN')}đ/th
                             </span>
                             {item.rooms?.rose && (
-                              <p className="text-xs text-emerald-600 font-semibold mt-0.5 whitespace-nowrap">
-                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose, getContractTermMonths(item.start_date, item.end_date)).toLocaleString('vi-VN')} đ ({item.rooms.rose})
+                              <p className="text-[10px] text-emerald-600 font-bold mt-0.5 whitespace-nowrap">
+                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose, getContractTermMonths(item.start_date, item.end_date)).toLocaleString('vi-VN')}đ ({item.rooms.rose})
                               </p>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 text-xs">
+                          <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">
                             {formatDateDisplay(item.start_date)} - {formatDateDisplay(item.end_date)}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${statusInfo.color}`}>
+                          <td className="px-4 py-3 text-center">
+                            <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
                               {statusInfo.label}
-                            </span>
+                            </Badge>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               {role !== 'sales_agent' && role !== 'landlord' && (
                                 <Button 
                                   variant="ghost" 
-                                  size="sm" 
+                                  size="icon"
+                                  className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
                                   onClick={() => {
                                     if (confirm('Bạn có chắc muốn xóa hợp đồng thuê này?')) {
                                       removeRental(item.id);
@@ -708,7 +706,7 @@ export default function ContractsPage() {
                                   }} 
                                   title="Xóa"
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               )}
                             </div>
@@ -718,68 +716,72 @@ export default function ContractsPage() {
                     })}
                   </tbody>
                 </table>
-                {filteredRentals.length === 0 && (
-                  <div className="text-center py-12 text-slate-400 bg-white">
-                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-35 text-slate-600" />
-                    <p className="text-sm font-medium">Chưa có hợp đồng thuê chính thức nào</p>
-                    <p className="text-xs text-slate-400 mt-1">Bấm nút &quot;Soạn hợp đồng thuê&quot; hoặc chuyển đổi từ Hợp đồng cọc để bắt đầu</p>
-                  </div>
-                )}
+              </div>
+            )}
+            {!rentalsLoading && filteredRentals.length === 0 && (
+              <div className="text-center py-12 text-ink-muted bg-white">
+                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                <p className="text-sm font-semibold">Chưa có hợp đồng thuê chính thức nào</p>
+                <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Soạn hợp đồng thuê&quot; hoặc chuyển đổi từ Hợp đồng cọc để bắt đầu</p>
               </div>
             )}
           </CardContent>
         </Card>
       ) : (
         // TABLE MẪU HỢP ĐỒNG
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader>
+        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+          <CardHeader className="p-4 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <Input 
                 placeholder="Tìm theo tên mẫu hoặc loại..." 
                 value={templateSearch} 
                 onChange={(e) => setTemplateSearch(e.target.value)} 
-                className="pl-9" 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
               />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {templatesLoading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-accent" />
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="bg-bg-subtle border-b border-border">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Tên</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Loại</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Ngày tạo</th>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700">Cập nhật</th>
-                      <th className="px-4 py-3 text-right font-semibold text-slate-700">Thao tác</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Tên</th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Loại</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Ngày tạo</th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Cập nhật</th>
+                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-border text-ink">
                     {filteredTemplates.map((item) => (
                       <tr
                         key={item.id}
-                        className="hover:bg-slate-50/50 cursor-pointer"
+                        className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                         onClick={(e) => {
                           if ((e.target as HTMLElement).closest('button')) return;
                           openViewTemplate(item);
                         }}
                       >
-                        <td className="px-4 py-3 font-semibold text-slate-800">{item.name}</td>
-                        <td className="px-4 py-3 text-slate-600">{item.type}</td>
-                        <td className="px-4 py-3 text-slate-500">{item.created_at.split('T')[0]}</td>
-                        <td className="px-4 py-3 text-slate-500">{item.updated_at.split('T')[0]}</td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 font-semibold text-ink">{item.name}</td>
+                        <td className="px-4 py-3 text-ink-muted font-medium">{item.type}</td>
+                        <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">{item.created_at.split('T')[0]}</td>
+                        <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">{item.updated_at.split('T')[0]}</td>
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             {role !== 'sales_agent' && (
                               <>
-                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEditTemplate(item); }}><Pencil className="h-4 w-4 text-slate-600" /></Button>
-                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); if (confirm('Bạn có chắc muốn xóa mẫu này?')) removeTemplate(item.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" onClick={() => openEditTemplate(item)}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10" onClick={() => { if (confirm('Bạn có chắc muốn xóa mẫu này?')) removeTemplate(item.id); }}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </>
                             )}
                           </div>
@@ -788,12 +790,12 @@ export default function ContractsPage() {
                     ))}
                   </tbody>
                 </table>
-                {filteredTemplates.length === 0 && (
-                  <div className="text-center py-12 text-slate-400 bg-white">
-                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-35 text-slate-600" />
-                    <p className="text-sm font-medium">Chưa có mẫu hợp đồng nào</p>
-                  </div>
-                )}
+              </div>
+            )}
+            {!templatesLoading && filteredTemplates.length === 0 && (
+              <div className="text-center py-12 text-ink-muted bg-white">
+                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                <p className="text-sm font-semibold">Chưa có mẫu hợp đồng nào</p>
               </div>
             )}
           </CardContent>
@@ -802,40 +804,40 @@ export default function ContractsPage() {
 
       {/* Dialog chi tiết hợp đồng cọc */}
       <Dialog open={isViewDepositOpen} onOpenChange={setIsViewDepositOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-white shadow-lg p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800 text-lg font-bold">
-              <FileText className="h-5 w-5 text-indigo-650" />
+            <DialogTitle className="flex items-center gap-2 text-ink text-lg font-bold font-heading">
+              <FileText className="h-5 w-5 text-accent" />
               Chi tiết Hợp đồng Đặt cọc #{viewDeposit?.contract_code}
             </DialogTitle>
           </DialogHeader>
           {viewDeposit && (
-            <div className="space-y-6 pt-4 text-sm text-slate-600">
+            <div className="space-y-6 pt-4 text-sm text-ink-muted">
               {/* Thông tin chung */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-bg-subtle p-4 rounded-lg border border-border">
                 <div>
-                  <span className="text-slate-400 block text-xs">Mã hợp đồng:</span>
-                  <span className="font-semibold text-slate-800">{viewDeposit.contract_code}</span>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Mã hợp đồng:</span>
+                  <span className="font-bold text-ink text-xs font-mono">{viewDeposit.contract_code}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-xs">Trạng thái:</span>
-                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold mt-1 ${statusLabels[viewDeposit.status]?.color || ''}`}>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Trạng thái:</span>
+                  <Badge className={`${statusLabels[viewDeposit.status]?.color || ''} border font-bold text-[9px] rounded-full uppercase tracking-wider mt-1`} variant="outline">
                     {statusLabels[viewDeposit.status]?.label || viewDeposit.status}
-                  </span>
+                  </Badge>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-xs">Ngày lập HĐ:</span>
-                  <span className="font-medium text-slate-800">{formatDateDisplay(viewDeposit.agreement_date)}</span>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Ngày lập HĐ:</span>
+                  <span className="font-semibold text-ink text-xs font-mono">{formatDateDisplay(viewDeposit.agreement_date)}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-xs">Nhân viên Sale:</span>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Nhân viên Sale:</span>
                   {(() => {
                     const saleProfile = viewDeposit.created_by ? profilesMap.get(viewDeposit.created_by) : null;
-                    if (!saleProfile) return <span className="font-semibold text-slate-800">Hệ thống</span>;
+                    if (!saleProfile) return <span className="font-semibold text-ink text-xs">Hệ thống</span>;
                     return (
                       <>
-                        <span className="font-semibold text-slate-800">{saleProfile.full_name || '—'}</span>
-                        <span className="text-slate-500 block text-xs">{saleProfile.phone || '—'}</span>
+                        <span className="font-semibold text-ink text-xs block truncate">{saleProfile.full_name || '—'}</span>
+                        <span className="text-ink-muted text-[10px] font-mono block mt-0.5">{saleProfile.phone || '—'}</span>
                       </>
                     );
                   })()}
@@ -844,94 +846,94 @@ export default function ContractsPage() {
 
               {/* Thông tin 2 bên */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 p-4 border rounded-lg bg-indigo-50/20 border-indigo-100">
-                  <h4 className="font-bold text-indigo-900 border-b pb-1 flex items-center gap-1.5">
-                    <User className="h-4 w-4" /> Bên Cho Thuê (Bên A)
+                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                    <User className="h-4 w-4 text-accent" /> Bên Cho Thuê (Bên A)
                   </h4>
-                  <p><span className="text-slate-400">Họ và tên:</span> <span className="font-semibold text-slate-800">{viewDeposit.party_a_name}</span></p>
-                  <p><span className="text-slate-400">Số điện thoại:</span> {viewDeposit.party_a_phone}</p>
-                  <p><span className="text-slate-400">Ngày sinh:</span> {formatDateDisplay(viewDeposit.party_a_dob)}</p>
-                  <p><span className="text-slate-400">Số CCCD:</span> {viewDeposit.party_a_id_card || '—'}</p>
-                  {viewDeposit.party_a_id_date && <p><span className="text-slate-400">Ngày cấp:</span> {formatDateDisplay(viewDeposit.party_a_id_date)} (Nơi cấp: {viewDeposit.party_a_id_place || '—'})</p>}
-                  <p><span className="text-slate-400">Địa chỉ:</span> {viewDeposit.party_a_address || '—'}</p>
+                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewDeposit.party_a_name}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewDeposit.party_a_phone}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_a_dob)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewDeposit.party_a_id_card || '—'}</span></p>
+                  {viewDeposit.party_a_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_a_id_date)}</span> (Nơi cấp: {viewDeposit.party_a_id_place || '—'})</p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewDeposit.party_a_address || '—'}</span></p>
                 </div>
 
-                <div className="space-y-2 p-4 border rounded-lg bg-emerald-50/20 border-emerald-100">
-                  <h4 className="font-bold text-emerald-900 border-b pb-1 flex items-center gap-1.5">
-                    <User className="h-4 w-4" /> Bên Đặt Cọc (Bên B)
+                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                    <User className="h-4 w-4 text-accent" /> Bên Đặt Cọc (Bên B)
                   </h4>
-                  <p><span className="text-slate-400">Họ và tên:</span> <span className="font-semibold text-slate-800">{viewDeposit.party_b_name}</span></p>
-                  <p><span className="text-slate-400">Số điện thoại:</span> <span className="font-semibold text-slate-800">{viewDeposit.party_b_phone}</span></p>
-                  <p><span className="text-slate-400">Ngày sinh:</span> {formatDateDisplay(viewDeposit.party_b_dob)}</p>
-                  <p><span className="text-slate-400">Số CCCD:</span> {viewDeposit.party_b_id_card || '—'}</p>
-                  {viewDeposit.party_b_id_date && <p><span className="text-slate-400">Ngày cấp:</span> {formatDateDisplay(viewDeposit.party_b_id_date)} (Nơi cấp: {viewDeposit.party_b_id_place || '—'})</p>}
-                  <p><span className="text-slate-400">Địa chỉ:</span> {viewDeposit.party_b_address || '—'}</p>
+                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewDeposit.party_b_name}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewDeposit.party_b_phone}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_b_dob)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewDeposit.party_b_id_card || '—'}</span></p>
+                  {viewDeposit.party_b_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_b_id_date)}</span> (Nơi cấp: {viewDeposit.party_b_id_place || '—'})</p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewDeposit.party_b_address || '—'}</span></p>
                 </div>
               </div>
 
               {/* Thông tin phòng & điều khoản thuê */}
-              <div className="space-y-4 p-4 border rounded-lg bg-white">
-                <h4 className="font-bold text-slate-800 border-b pb-1 flex items-center gap-1.5">
-                  <Building className="h-4 w-4 text-indigo-600" /> Thông tin phòng & Thỏa thuận thuê
+              <div className="space-y-4 p-4 border rounded-lg bg-white border-border">
+                <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                  <Building className="h-4 w-4 text-accent" /> Thông tin phòng & Thỏa thuận thuê
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <p className="md:col-span-3"><span className="text-slate-400">Địa điểm/Phòng đặt cọc:</span> <span className="font-bold text-indigo-600">Phòng {viewDeposit.rooms?.code || '---'} - {viewDeposit.rooms?.buildings?.name || 'Khu vực khác'}</span></p>
-                  {viewDeposit.sign_location && <p className="md:col-span-3"><span className="text-slate-400">Nơi ký hợp đồng:</span> {viewDeposit.sign_location}</p>}
-                  <p><span className="text-slate-400">Giá thuê dự kiến:</span> <span className="font-semibold text-slate-800">{Number(viewDeposit.rent_price).toLocaleString('vi-VN')} đ/tháng</span></p>
-                  <p><span className="text-slate-400">Số tiền đặt cọc:</span> <span className="font-bold text-slate-800">{Number(viewDeposit.deposit_amount).toLocaleString('vi-VN')} đ</span></p>
+                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Địa điểm/Phòng đặt cọc:</span> <span className="font-bold text-accent">Phòng {viewDeposit.rooms?.code || '---'} - {viewDeposit.rooms?.buildings?.name || 'Khu vực khác'}</span></p>
+                  {viewDeposit.sign_location && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nơi ký hợp đồng:</span> <span className="text-ink">{viewDeposit.sign_location}</span></p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Giá thuê dự kiến:</span> <span className="font-semibold font-mono text-ink">{Number(viewDeposit.rent_price).toLocaleString('vi-VN')}đ/tháng</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số tiền đặt cọc:</span> <span className="font-bold font-mono text-accent">{Number(viewDeposit.deposit_amount).toLocaleString('vi-VN')}đ</span></p>
                   {viewDeposit.rooms?.rose && (
                     <p>
-                      <span className="text-slate-400">Hoa hồng Sale nhận:</span>{' '}
-                      <span className="font-bold text-emerald-600">
-                        {calculateCommissionAmount(viewDeposit.rooms.price, viewDeposit.rooms.rose, viewDeposit.lease_duration_months).toLocaleString('vi-VN')} đ ({viewDeposit.rooms.rose})
+                      <span className="text-ink-muted text-xs font-medium">Hoa hồng Sale:</span>{' '}
+                      <span className="font-bold font-mono text-emerald-600">
+                        {calculateCommissionAmount(viewDeposit.rooms.price, viewDeposit.rooms.rose, viewDeposit.lease_duration_months).toLocaleString('vi-VN')}đ ({viewDeposit.rooms.rose})
                       </span>
                     </p>
                   )}
-                  <p><span className="text-slate-400">Hạn ký HĐ chính thức:</span> <span className="font-semibold text-red-600">{formatDateDisplay(viewDeposit.deadline_sign_contract)}</span></p>
-                  <p><span className="text-slate-400">Tiền điện:</span> {Number(viewDeposit.electricity_price).toLocaleString('vi-VN')} đ/số</p>
-                  <p><span className="text-slate-400">Tiền nước:</span> {viewDeposit.water_price}</p>
-                  <p><span className="text-slate-400">Phí dịch vụ:</span> {viewDeposit.service_price}</p>
-                  <p><span className="text-slate-400">Tiền mạng internet:</span> {viewDeposit.other_services?.internet || 'Chưa thỏa thuận'}</p>
-                  <p><span className="text-slate-400">Phí giặt sấy:</span> {viewDeposit.other_services?.laundry || 'Chưa thỏa thuận'}</p>
-                  <p><span className="text-slate-400">Số người đăng ký ở:</span> {viewDeposit.tenant_count} người</p>
-                  <p><span className="text-slate-400">Thời hạn HĐ dự kiến:</span> {viewDeposit.lease_duration_months} tháng</p>
-                  <p><span className="text-slate-400">Báo trước khi đòi nhà:</span> {viewDeposit.termination_notice_days} ngày</p>
-                  {viewDeposit.room_repair_support_date && <p><span className="text-slate-400">Hạn hỗ trợ sửa phòng:</span> {formatDateDisplay(viewDeposit.room_repair_support_date)}</p>}
-                  <p className="md:col-span-3"><span className="text-slate-400">Phương thức thanh toán:</span> {viewDeposit.payment_method}</p>
+                  <p><span className="text-ink-muted text-xs font-medium">Hạn ký HĐ chính thức:</span> <span className="font-semibold text-danger font-mono">{formatDateDisplay(viewDeposit.deadline_sign_contract)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Tiền điện:</span> <span className="font-mono text-ink font-semibold">{Number(viewDeposit.electricity_price).toLocaleString('vi-VN')}đ/số</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Tiền nước:</span> <span className="text-ink font-semibold">{viewDeposit.water_price}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Phí dịch vụ:</span> <span className="text-ink font-semibold">{viewDeposit.service_price}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Mạng internet:</span> <span className="text-ink font-semibold">{viewDeposit.other_services?.internet || 'Chưa thỏa thuận'}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Phí giặt sấy:</span> <span className="text-ink font-semibold">{viewDeposit.other_services?.laundry || 'Chưa thỏa thuận'}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số người đăng ký:</span> <span className="text-ink font-semibold">{viewDeposit.tenant_count} người</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Thời hạn dự kiến:</span> <span className="text-ink font-semibold">{viewDeposit.lease_duration_months} tháng</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Báo trước khi đòi nhà:</span> <span className="text-ink font-semibold">{viewDeposit.termination_notice_days} ngày</span></p>
+                  {viewDeposit.room_repair_support_date && <p><span className="text-ink-muted text-xs font-medium">Hạn hỗ trợ sửa phòng:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.room_repair_support_date)}</span></p>}
+                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phương thức thanh toán:</span> <span className="text-ink">{viewDeposit.payment_method}</span></p>
                 </div>
               </div>
 
               {/* Thông tin thanh toán ngân hàng */}
-              <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
-                <h4 className="font-bold text-slate-800 border-b pb-1 flex items-center gap-1.5">
-                  <Landmark className="h-4 w-4 text-indigo-650" /> Thông tin tài khoản nhận cọc
+              <div className="space-y-4 p-4 border rounded-lg bg-bg-subtle border-border">
+                <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                  <Landmark className="h-4 w-4 text-accent" /> Thông tin tài khoản nhận cọc
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <p><span className="text-slate-400">Ngân hàng:</span> {viewDeposit.bank_name || '—'}</p>
-                  <p><span className="text-slate-400">Số tài khoản:</span> {viewDeposit.bank_account_number || '—'}</p>
-                  <p><span className="text-slate-400">Chủ tài khoản:</span> {viewDeposit.bank_account_owner || '—'}</p>
-                  <p className="md:col-span-3"><span className="text-slate-400">Nội dung chuyển khoản mẫu:</span> <span className="font-mono bg-white px-2 py-1 border rounded text-slate-700 text-xs">{viewDeposit.transfer_content_template || '—'}</span></p>
-                  {viewDeposit.note && <p className="md:col-span-3"><span className="text-slate-400">Ghi chú thêm:</span> {viewDeposit.note}</p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Ngân hàng:</span> <span className="text-ink font-semibold">{viewDeposit.bank_name || '—'}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số tài khoản:</span> <span className="text-ink font-mono font-semibold">{viewDeposit.bank_account_number || '—'}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Chủ tài khoản:</span> <span className="text-ink font-semibold uppercase">{viewDeposit.bank_account_owner || '—'}</span></p>
+                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nội dung chuyển khoản mẫu:</span> <span className="font-mono bg-white px-2 py-1 border border-border rounded text-ink text-xs block mt-1">{viewDeposit.transfer_content_template || '—'}</span></p>
+                  {viewDeposit.note && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Ghi chú thêm:</span> <span className="text-ink">{viewDeposit.note}</span></p>}
                 </div>
               </div>
 
               {/* Ảnh minh chứng */}
               {(viewDeposit.lead_view_image_url || viewDeposit.transfer_proof_url) && (
-                <div className="space-y-4 p-4 border rounded-lg bg-white">
-                  <h4 className="font-bold text-slate-800 border-b pb-1">📸 Ảnh minh chứng giao dịch</h4>
+                <div className="space-y-4 p-4 border rounded-lg bg-white border-border">
+                  <h4 className="font-bold font-heading text-ink border-b pb-2 uppercase text-xs tracking-wider border-border">📸 Ảnh minh chứng giao dịch</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {viewDeposit.lead_view_image_url && (
                       <div className="space-y-1">
-                        <span className="text-slate-500 block text-xs">Ảnh dẫn khách xem phòng:</span>
-                        <a href={viewDeposit.lead_view_image_url} target="_blank" rel="noopener noreferrer" className="block border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90">
+                        <span className="text-ink-muted block text-xs font-medium">Ảnh dẫn khách xem phòng:</span>
+                        <a href={viewDeposit.lead_view_image_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90 transition-opacity">
                           <img src={viewDeposit.lead_view_image_url} alt="Ảnh dẫn khách" className="w-full h-full object-cover max-h-[300px]" />
                         </a>
                       </div>
                     )}
                     {viewDeposit.transfer_proof_url && (
                       <div className="space-y-1">
-                        <span className="text-slate-500 block text-xs">Ảnh hóa đơn chuyển khoản đặt cọc:</span>
-                        <a href={viewDeposit.transfer_proof_url} target="_blank" rel="noopener noreferrer" className="block border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90">
+                        <span className="text-ink-muted block text-xs font-medium">Ảnh hóa đơn chuyển khoản đặt cọc:</span>
+                        <a href={viewDeposit.transfer_proof_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90 transition-opacity">
                           <img src={viewDeposit.transfer_proof_url} alt="Ảnh chuyển khoản cọc" className="w-full h-full object-cover max-h-[300px]" />
                         </a>
                       </div>
@@ -942,9 +944,9 @@ export default function ContractsPage() {
 
               {/* Landlord Confirmation Button inside Modal */}
               {role === 'landlord' && viewDeposit.status === 'active' && (
-                <div className="flex justify-end pt-4 border-t mt-4">
+                <div className="flex justify-end pt-4 border-t border-border mt-4">
                   <Button 
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 h-10 flex items-center gap-2"
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 h-10 flex items-center gap-2 rounded-lg"
                     onClick={() => handleLandlordConfirm(viewDeposit.id)}
                   >
                     <ShieldCheck className="h-5 w-5" />
@@ -959,42 +961,42 @@ export default function ContractsPage() {
 
       {/* Dialog chi tiết hợp đồng thuê */}
       <Dialog open={isViewRentalOpen} onOpenChange={setIsViewRentalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-white shadow-lg p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800 text-lg font-bold">
-              <FileText className="h-5 w-5 text-emerald-650" />
+            <DialogTitle className="flex items-center gap-2 text-ink text-lg font-bold font-heading">
+              <FileText className="h-5 w-5 text-accent" />
               Chi tiết Hợp đồng Thuê chính thức #{viewRental?.contract_code}
             </DialogTitle>
           </DialogHeader>
           {viewRental && (
-            <div className="space-y-6 pt-4 text-sm text-slate-600">
+            <div className="space-y-6 pt-4 text-sm text-ink-muted">
               {/* Thông tin chung */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-bg-subtle p-4 rounded-lg border border-border">
                 <div>
-                  <span className="text-slate-400 block text-xs">Mã hợp đồng:</span>
-                  <span className="font-semibold text-slate-800">{viewRental.contract_code}</span>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Mã hợp đồng:</span>
+                  <span className="font-bold text-ink text-xs font-mono">{viewRental.contract_code}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-xs">Trạng thái:</span>
-                  <span className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold mt-1 bg-green-100 text-green-700`}>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Trạng thái:</span>
+                  <Badge className="bg-green-50 text-green-700 border-green-250 border font-bold text-[9px] rounded-full uppercase tracking-wider mt-1" variant="outline">
                     {viewRental.status === 'active' ? 'Hiệu lực' : viewRental.status}
-                  </span>
+                  </Badge>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-xs">Thời hạn:</span>
-                  <span className="font-medium text-slate-800 block text-xs mt-1">
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Thời hạn:</span>
+                  <span className="font-semibold text-ink text-xs font-mono block mt-1">
                     {formatDateDisplay(viewRental.start_date)} - {formatDateDisplay(viewRental.end_date)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-xs">Nhân viên Sale:</span>
+                  <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Nhân viên Sale:</span>
                   {(() => {
                     const saleProfile = viewRental.created_by ? profilesMap.get(viewRental.created_by) : null;
-                    if (!saleProfile) return <span className="font-semibold text-slate-800">Hệ thống</span>;
+                    if (!saleProfile) return <span className="font-semibold text-ink text-xs">Hệ thống</span>;
                     return (
                       <>
-                        <span className="font-semibold text-slate-800">{saleProfile.full_name || '—'}</span>
-                        <span className="text-slate-500 block text-xs">{saleProfile.phone || '—'}</span>
+                        <span className="font-semibold text-ink text-xs block truncate">{saleProfile.full_name || '—'}</span>
+                        <span className="text-ink-muted text-[10px] font-mono block mt-0.5">{saleProfile.phone || '—'}</span>
                       </>
                     );
                   })()}
@@ -1003,63 +1005,63 @@ export default function ContractsPage() {
 
               {/* Thông tin 2 bên */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 p-4 border rounded-lg bg-indigo-50/20 border-indigo-100">
-                  <h4 className="font-bold text-indigo-900 border-b pb-1 flex items-center gap-1.5">
-                    <User className="h-4 w-4" /> Bên Cho Thuê (Bên A)
+                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                    <User className="h-4 w-4 text-accent" /> Bên Cho Thuê (Bên A)
                   </h4>
-                  <p><span className="text-slate-400">Họ và tên:</span> <span className="font-semibold text-slate-800">{viewRental.party_a_name}</span></p>
-                  <p><span className="text-slate-400">Số điện thoại:</span> {viewRental.party_a_phone}</p>
-                  <p><span className="text-slate-400">Ngày sinh:</span> {formatDateDisplay(viewRental.party_a_dob)}</p>
-                  <p><span className="text-slate-400">Số CCCD:</span> {viewRental.party_a_id_card || '—'}</p>
-                  {viewRental.party_a_id_date && <p><span className="text-slate-400">Ngày cấp:</span> {formatDateDisplay(viewRental.party_a_id_date)} (Nơi cấp: {viewRental.party_a_id_place || '—'})</p>}
-                  <p><span className="text-slate-400">Địa chỉ:</span> {viewRental.party_a_address || '—'}</p>
+                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewRental.party_a_name}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewRental.party_a_phone}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_a_dob)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewRental.party_a_id_card || '—'}</span></p>
+                  {viewRental.party_a_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_a_id_date)}</span> (Nơi cấp: {viewRental.party_a_id_place || '—'})</p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewRental.party_a_address || '—'}</span></p>
                 </div>
 
-                <div className="space-y-2 p-4 border rounded-lg bg-emerald-50/20 border-emerald-100">
-                  <h4 className="font-bold text-emerald-900 border-b pb-1 flex items-center gap-1.5">
-                    <User className="h-4 w-4" /> Bên Thuê Phòng (Bên B)
+                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                    <User className="h-4 w-4 text-accent" /> Bên Thuê Phòng (Bên B)
                   </h4>
-                  <p><span className="text-slate-400">Họ và tên:</span> <span className="font-semibold text-slate-800">{viewRental.party_b_name}</span></p>
-                  <p><span className="text-slate-400">Số điện thoại:</span> <span className="font-semibold text-slate-800">{viewRental.party_b_phone}</span></p>
-                  <p><span className="text-slate-400">Ngày sinh:</span> {formatDateDisplay(viewRental.party_b_dob)}</p>
-                  <p><span className="text-slate-400">Số CCCD:</span> {viewRental.party_b_id_card || '—'}</p>
-                  {viewRental.party_b_id_date && <p><span className="text-slate-400">Ngày cấp:</span> {formatDateDisplay(viewRental.party_b_id_date)} (Nơi cấp: {viewRental.party_b_id_place || '—'})</p>}
-                  <p><span className="text-slate-400">Địa chỉ:</span> {viewRental.party_b_address || '—'}</p>
+                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewRental.party_b_name}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewRental.party_b_phone}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_b_dob)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewRental.party_b_id_card || '—'}</span></p>
+                  {viewRental.party_b_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_b_id_date)}</span> (Nơi cấp: {viewRental.party_b_id_place || '—'})</p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewRental.party_b_address || '—'}</span></p>
                 </div>
               </div>
 
               {/* Thông tin phòng & điều khoản thuê */}
-              <div className="space-y-4 p-4 border rounded-lg bg-white">
-                <h4 className="font-bold text-slate-800 border-b pb-1 flex items-center gap-1.5">
-                  <Building className="h-4 w-4 text-emerald-650" /> Thông tin phòng & Chi tiết thuê
+              <div className="space-y-4 p-4 border rounded-lg bg-white border-border">
+                <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                  <Building className="h-4 w-4 text-accent" /> Thông tin phòng & Chi tiết thuê
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <p className="md:col-span-3"><span className="text-slate-400">Phòng thuê chính thức:</span> <span className="font-bold text-emerald-600">Phòng {viewRental.rooms?.code || '---'} - {viewRental.rooms?.buildings?.name || 'Khu vực khác'}</span></p>
-                  {viewRental.sign_location && <p className="md:col-span-3"><span className="text-slate-400">Nơi ký hợp đồng:</span> {viewRental.sign_location}</p>}
-                  <p><span className="text-slate-400">Giá thuê hàng tháng:</span> <span className="font-bold text-slate-800">{Number(viewRental.rent_price).toLocaleString('vi-VN')} đ</span></p>
-                  <p><span className="text-slate-400">Số tiền cọc đã đóng:</span> <span className="font-bold text-slate-800">{Number(viewRental.deposit_amount).toLocaleString('vi-VN')} đ</span></p>
+                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phòng thuê chính thức:</span> <span className="font-bold text-accent">Phòng {viewRental.rooms?.code || '---'} - {viewRental.rooms?.buildings?.name || 'Khu vực khác'}</span></p>
+                  {viewRental.sign_location && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nơi ký hợp đồng:</span> <span className="text-ink">{viewRental.sign_location}</span></p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Giá thuê hàng tháng:</span> <span className="font-bold font-mono text-ink">{Number(viewRental.rent_price).toLocaleString('vi-VN')}đ</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số tiền cọc đã đóng:</span> <span className="font-bold font-mono text-accent">{Number(viewRental.deposit_amount).toLocaleString('vi-VN')}đ</span></p>
                   {viewRental.rooms?.rose && (
                     <p>
-                      <span className="text-slate-400">Hoa hồng Sale nhận:</span>{' '}
-                      <span className="font-bold text-emerald-650">
-                        {calculateCommissionAmount(viewRental.rooms.price, viewRental.rooms.rose, getContractTermMonths(viewRental.start_date, viewRental.end_date)).toLocaleString('vi-VN')} đ ({viewRental.rooms.rose})
+                      <span className="text-ink-muted text-xs font-medium">Hoa hồng Sale:</span>{' '}
+                      <span className="font-bold font-mono text-emerald-600">
+                        {calculateCommissionAmount(viewRental.rooms.price, viewRental.rooms.rose, getContractTermMonths(viewRental.start_date, viewRental.end_date)).toLocaleString('vi-VN')}đ ({viewRental.rooms.rose})
                       </span>
                     </p>
                   )}
-                  <p><span className="text-slate-400">Ngày đóng tiền:</span> Ngày {viewRental.payment_day_of_month} hàng tháng</p>
-                  <p><span className="text-slate-400">Chu kỳ đóng tiền:</span> {viewRental.billing_cycle_months} tháng/lần</p>
-                  <p><span className="text-slate-400">Ngày bắt đầu:</span> {formatDateDisplay(viewRental.start_date)}</p>
-                  <p><span className="text-slate-400">Ngày kết thúc:</span> {formatDateDisplay(viewRental.end_date)}</p>
-                  <p><span className="text-slate-400">Ngày bàn giao:</span> {formatDateDisplay(viewRental.handover_date)}</p>
-                  <p><span className="text-slate-400">Tiền điện:</span> {Number(viewRental.electricity_price).toLocaleString('vi-VN')} đ/số</p>
-                  <p><span className="text-slate-400">Tiền nước:</span> {viewRental.water_price}</p>
-                  <p><span className="text-slate-400">Phí dịch vụ:</span> {viewRental.service_price}</p>
-                  <p><span className="text-slate-400">Tiền mạng internet:</span> {viewRental.other_services?.internet || 'Chưa thỏa thuận'}</p>
-                  <p><span className="text-slate-400">Phí giặt sấy:</span> {viewRental.other_services?.laundry || 'Chưa thỏa thuận'}</p>
-                  <p><span className="text-slate-400">Số người ở thực tế:</span> {viewRental.tenant_count} người</p>
-                  <p><span className="text-slate-400">Báo trước khi hủy HĐ:</span> {viewRental.termination_notice_days} ngày</p>
-                  <p className="md:col-span-3"><span className="text-slate-400">Phương thức thanh toán:</span> {viewRental.payment_method}</p>
-                  {viewRental.note && <p className="md:col-span-3"><span className="text-slate-400">Ghi chú & Thỏa thuận thêm:</span> {viewRental.note}</p>}
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày đóng tiền:</span> <span className="text-ink font-semibold">Ngày {viewRental.payment_day_of_month} hàng tháng</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Chu kỳ đóng tiền:</span> <span className="text-ink font-semibold">{viewRental.billing_cycle_months} tháng/lần</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày bắt đầu:</span> <span className="font-mono text-ink">{formatDateDisplay(viewRental.start_date)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày kết thúc:</span> <span className="font-mono text-ink">{formatDateDisplay(viewRental.end_date)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Ngày bàn giao:</span> <span className="font-mono text-ink">{formatDateDisplay(viewRental.handover_date)}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Tiền điện:</span> <span className="font-mono text-ink font-semibold">{Number(viewRental.electricity_price).toLocaleString('vi-VN')}đ/số</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Tiền nước:</span> <span className="text-ink font-semibold">{viewRental.water_price}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Phí dịch vụ:</span> <span className="text-ink font-semibold">{viewRental.service_price}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Mạng internet:</span> <span className="text-ink font-semibold">{viewRental.other_services?.internet || 'Chưa thỏa thuận'}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Phí giặt sấy:</span> <span className="text-ink font-semibold">{viewRental.other_services?.laundry || 'Chưa thỏa thuận'}</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Số người ở thực tế:</span> <span className="text-ink font-semibold">{viewRental.tenant_count} người</span></p>
+                  <p><span className="text-ink-muted text-xs font-medium">Báo trước khi hủy HĐ:</span> <span className="text-ink font-semibold">{viewRental.termination_notice_days} ngày</span></p>
+                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phương thức thanh toán:</span> <span className="text-ink">{viewRental.payment_method}</span></p>
+                  {viewRental.note && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Ghi chú & Thỏa thuận thêm:</span> <span className="text-ink text-xs block bg-bg-subtle/40 p-2 border border-border rounded mt-1">{viewRental.note}</span></p>}
                 </div>
               </div>
             </div>
@@ -1069,23 +1071,23 @@ export default function ContractsPage() {
 
       {/* Dialog chi tiết mẫu hợp đồng */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl rounded-lg border border-border bg-white shadow-lg p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-slate-800">
-              <FileText className="h-5 w-5 text-indigo-600" />Chi tiết mẫu hợp đồng
+            <DialogTitle className="flex items-center gap-2 text-ink font-heading font-bold text-lg">
+              <FileText className="h-5 w-5 text-accent" />Chi tiết mẫu hợp đồng
             </DialogTitle>
           </DialogHeader>
           {viewItem && (
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded-lg border">
-                <div><span className="text-slate-500">Tên:</span> <span className="font-semibold text-slate-800">{viewItem.name}</span></div>
-                <div><span className="text-slate-500">Loại:</span> <span className="font-semibold text-slate-800">{viewItem.type}</span></div>
-                <div><span className="text-slate-500">Ngày tạo:</span> {viewItem.created_at.split('T')[0]}</div>
-                <div><span className="text-slate-500">Cập nhật:</span> {viewItem.updated_at.split('T')[0]}</div>
+              <div className="grid grid-cols-2 gap-4 text-sm bg-bg-subtle p-3 rounded-lg border border-border">
+                <div><span className="text-ink-muted font-semibold text-xs">Tên mẫu:</span> <span className="font-semibold text-ink block mt-0.5">{viewItem.name}</span></div>
+                <div><span className="text-ink-muted font-semibold text-xs">Loại:</span> <span className="font-semibold text-ink block mt-0.5">{viewItem.type}</span></div>
+                <div><span className="text-ink-muted font-semibold text-xs">Ngày tạo:</span> <span className="font-mono text-ink block mt-0.5">{viewItem.created_at.split('T')[0]}</span></div>
+                <div><span className="text-ink-muted font-semibold text-xs">Cập nhật:</span> <span className="font-mono text-ink block mt-0.5">{viewItem.updated_at.split('T')[0]}</span></div>
               </div>
-              <div className="border rounded-lg p-4 bg-white max-h-[350px] overflow-auto">
-                <h4 className="text-sm font-bold text-slate-700 mb-2 border-b pb-1">Nội dung mẫu</h4>
-                <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{viewItem.content}</p>
+              <div className="border border-border rounded-lg p-4 bg-white max-h-[350px] overflow-auto">
+                <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-2 border-b border-border pb-1">Nội dung mẫu</h4>
+                <p className="text-xs text-ink-muted whitespace-pre-wrap leading-relaxed">{viewItem.content}</p>
               </div>
             </div>
           )}
@@ -1094,3 +1096,4 @@ export default function ContractsPage() {
     </div>
   );
 }
+

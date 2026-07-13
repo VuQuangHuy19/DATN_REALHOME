@@ -15,12 +15,27 @@ const config: Config = {
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
+      fontFamily: {
+        sans: ['var(--font-manrope)', 'sans-serif'],
+        heading: ['var(--font-space-grotesk)', 'sans-serif'],
+        mono: ['var(--font-jetbrains-mono)', 'monospace'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+        'bg-base': 'var(--bg-base)',
+        'bg-subtle': 'var(--bg-subtle)',
+        'ink': 'var(--ink)',
+        'ink-muted': 'var(--ink-muted)',
+        'border-subtle': 'var(--border-subtle)',
+        'accent-900': 'var(--accent-900)',
+        'accent-500': 'var(--accent-500)',
+        'accent-soft': 'var(--accent-soft)',
+        'warn': 'var(--warn)',
+        'danger': 'var(--danger)',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -44,7 +59,7 @@ const config: Config = {
           foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
+          DEFAULT: 'var(--accent)',
           foreground: 'hsl(var(--accent-foreground))',
         },
         destructive: {

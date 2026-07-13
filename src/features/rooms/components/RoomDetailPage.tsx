@@ -212,10 +212,10 @@ export function RoomDetailPage() {
   const StatusIcon = sc.icon;
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-5xl">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild className="border-border hover:bg-bg-subtle text-ink rounded-lg">
             <Link href={buildingUrl}>
               <ArrowLeft className="h-4 w-4 mr-1" />
               Quay lại tòa nhà
@@ -223,14 +223,14 @@ export function RoomDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <DoorOpen className="h-6 w-6 text-slate-600" />
-              <h1 className="text-2xl font-bold text-slate-800 font-mono">{room.code}</h1>
-              <Badge className={`${sc.bg} ${sc.color} border`} variant="outline">
+              <DoorOpen className="h-6 w-6 text-ink-muted" />
+              <h1 className="text-2xl font-bold text-ink font-heading tracking-tight">{room.code}</h1>
+              <Badge className={`${sc.bg} ${sc.color} border font-bold text-xs rounded-full`} variant="outline">
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {ds?.label || sc.label}
               </Badge>
             </div>
-            <p className="text-slate-500 text-sm mt-1">
+            <p className="text-ink-muted text-sm mt-1">
               Tầng {room.floor} · {room.room_type ?? 'Chưa phân loại'}
             </p>
           </div>
@@ -238,13 +238,13 @@ export function RoomDetailPage() {
 
         <div className="flex gap-2">
           <PermissionGate roles={['company_admin', 'manager']}>
-            <Button variant="outline" onClick={() => setIsEditOpen(true)}>
+            <Button variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg" onClick={() => setIsEditOpen(true)}>
               <Pencil className="h-4 w-4 mr-2" />
               Chỉnh sửa
             </Button>
           </PermissionGate>
           <PermissionGate roles={['company_admin']}>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button variant="destructive" className="bg-danger hover:bg-danger/90 text-white rounded-lg" onClick={handleDelete}>
               <Trash2 className="h-4 w-4 mr-2" />
               Xóa phòng
             </Button>
@@ -255,19 +255,19 @@ export function RoomDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { icon: Maximize2, label: 'Diện tích', value: room.size ? `${room.size} m²` : '—' },
-          { icon: Banknote, label: 'Giá thuê', value: `${room.price.toLocaleString('vi-VN')}đ/tháng` },
+          { icon: Banknote, label: 'Giá thuê', value: `${room.price.toLocaleString('vi-VN')}đ/tháng`, class: 'text-accent font-mono font-bold' },
           { icon: BedDouble, label: 'Phòng ngủ', value: room.bedrooms },
           { icon: Bath, label: 'Phòng tắm', value: room.bathrooms },
-        ].map(({ icon: Icon, label, value }) => (
-          <Card key={label}>
+        ].map((item) => (
+          <Card key={item.label} className="border-border rounded-lg shadow-none bg-white">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-100 rounded-lg">
-                  <Icon className="h-5 w-5 text-slate-600" />
+                <div className="p-2 bg-bg-subtle rounded-lg border border-border">
+                  <item.icon className="h-5 w-5 text-ink-muted" />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">{label}</div>
-                  <div className="font-semibold text-slate-800">{value}</div>
+                  <div className="text-xs text-ink-muted">{item.label}</div>
+                  <div className={`font-bold text-ink ${item.class || ''}`}>{item.value}</div>
                 </div>
               </div>
             </CardContent>
@@ -276,41 +276,40 @@ export function RoomDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 border-border rounded-lg shadow-none bg-white border-t-2 border-t-accent">
           <CardHeader>
-            <CardTitle className="text-base">Thông tin chi tiết</CardTitle>
+            <CardTitle className="font-heading text-base font-bold text-ink">Thông tin chi tiết</CardTitle>
           </CardHeader>
-          <CardContent>
-            <InfoRow label="Mã phòng" value={<span className="font-mono">{room.code}</span>} />
+          <CardContent className="space-y-0.5">
+            <InfoRow label="Mã phòng" value={<span className="font-mono text-ink font-semibold">{room.code}</span>} />
             <InfoRow label="Tầng" value={`Tầng ${room.floor}`} />
             <InfoRow label="Loại phòng" value={room.room_type} />
             <InfoRow label="Trạng thái" value={
-              <Badge className={`${sc.bg} ${sc.color} border`} variant="outline">{ds?.label || sc.label}</Badge>
+              <Badge className={`${sc.bg} ${sc.color} border font-bold text-xs rounded-full`} variant="outline">{ds?.label || sc.label}</Badge>
             } />
             <InfoRow label="Diện tích" value={room.size ? `${room.size} m²` : null} />
-            <InfoRow label="Giá thuê" value={`${room.price.toLocaleString('vi-VN')}đ/tháng`} />
-            <InfoRow label="Phòng ngủ" value={room.bedrooms} />
-            <InfoRow label="Phòng tắm" value={room.bathrooms} />
+            <InfoRow label="Giá thuê" value={<span className="font-mono text-accent font-bold">{room.price.toLocaleString('vi-VN')}đ/tháng</span>} />
+            <InfoRow label="Cấu trúc" value={`${room.bedrooms} PN · ${room.bathrooms} WC`} />
             <InfoRow label="Ban công riêng" value={room.has_private_balcony ? 'Có ban công riêng' : 'Không có'} />
             <InfoRow label="Số người tối đa" value={`${room.max_occupants} người`} />
             <InfoRow label="Số xe tối đa" value={`${room.max_vehicles_per_room} xe/phòng`} />
             <InfoRow label="Hợp đồng tối thiểu" value={`${room.min_contract_months} tháng`} />
             {room.description && (
-              <InfoRow label="Mô tả" value={room.description} />
+              <InfoRow label="Mô tả" value={<span className="text-ink-muted text-xs leading-relaxed block text-left max-w-md">{room.description}</span>} />
             )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border rounded-lg shadow-none bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <LucideImage className="h-5 w-5 text-indigo-600" />
-              Bộ sưu tập ảnh phòng ({images.length})
+            <CardTitle className="text-base font-bold font-heading flex items-center gap-2 text-ink">
+              <LucideImage className="h-5 w-5 text-accent" />
+              Ảnh phòng ({images.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {imgError && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 {imgError}
               </div>
@@ -318,62 +317,61 @@ export function RoomDetailPage() {
 
             {imgLoading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-ink-muted" />
               </div>
             ) : (
               <>
                 {images.length === 0 ? (
-                  <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 bg-slate-50/50">
-                    <LucideImage className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">Tải lên ảnh đầu tiên để tự động đặt làm ảnh đại diện.</p>
+                  <div className="text-center py-8 border-2 border-dashed border-border rounded-lg text-ink-muted bg-bg-base/30">
+                    <LucideImage className="h-8 w-8 mx-auto mb-2 opacity-35" />
+                    <p className="text-xs font-semibold">Chưa có hình ảnh nào</p>
+                    <p className="text-[10px] text-ink-muted mt-1 px-4">Tải lên ảnh đầu tiên để tự động đặt làm ảnh đại diện.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-1">
                     {images.map((img) => (
                       <div
                         key={img.id}
-                        className={`relative group rounded-lg overflow-hidden border bg-slate-50 aspect-video flex flex-col justify-between transition-all ${img.is_thumbnail ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-slate-200'
+                        className={`relative group rounded-lg overflow-hidden border bg-bg-subtle aspect-video flex flex-col justify-between transition-all ${img.is_thumbnail ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-border'
                           }`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={img.url}
                           alt="Room"
-                          className="object-cover w-full h-20 border-b border-slate-100"
+                          className="object-cover w-full h-16 border-b border-border"
                         />
                         {img.is_thumbnail && (
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-amber-950 shadow-sm">
-                            ★ Đại diện
+                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400 text-amber-950 shadow-sm uppercase tracking-wider">
+                            ★ Ảnh chính
                           </div>
                         )}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Button
                             size="icon"
                             variant="destructive"
-                            className="h-6 w-6"
+                            className="h-5 w-5 bg-danger hover:bg-danger/90 text-white"
                             onClick={() => handleRemoveImage(img.id, img.url)}
                             title="Xóa ảnh"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                        <div className="p-1 bg-white flex items-center justify-between text-[11px] gap-1">
+                        <div className="p-1 bg-white flex items-center justify-between text-[10px] gap-1 shrink-0">
                           <div className="flex items-center gap-1">
-                            <span className="text-slate-400 text-[9px] font-medium uppercase">Ưu tiên:</span>
+                            <span className="text-ink-muted text-[9px] font-bold uppercase tracking-tight">Ưu tiên:</span>
                             <input
                               type="number"
                               value={img.priority}
                               onChange={(e) => updatePriority(img.id, Number(e.target.value))}
-                              className="w-8 h-4 border border-slate-200 rounded text-center font-mono text-[10px]"
+                              className="w-8 h-4 border border-border rounded text-center font-mono text-[9px] text-ink"
                             />
                           </div>
                           {!img.is_thumbnail && (
                             <button
                               onClick={() => makeThumbnail(img.id)}
-                              className="text-indigo-650 hover:text-indigo-850 font-semibold"
+                              className="text-accent hover:text-accent-500 font-semibold text-[10px]"
                             >
-                              Đại diện
+                              Đặt chính
                             </button>
                           )}
                         </div>
@@ -382,7 +380,7 @@ export function RoomDetailPage() {
                   </div>
                 )}
 
-                <div className="border-t pt-4">
+                <div className="border-t border-border pt-4">
                   <ImageUpload
                     value={null}
                     onChange={handleImageUploaded}
@@ -398,9 +396,9 @@ export function RoomDetailPage() {
 
         <div className="space-y-4">
           <PermissionGate roles={['company_admin', 'manager']}>
-            <Card>
+            <Card className="border-border rounded-lg shadow-none bg-white">
               <CardHeader>
-                <CardTitle className="text-base">Đổi trạng thái nhanh</CardTitle>
+                <CardTitle className="text-base font-bold font-heading text-ink">Đổi trạng thái nhanh</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(Object.entries(statusConfig) as [DBRoom['status'], typeof statusConfig[string]][]).map(([key, cfg]) => (
@@ -408,37 +406,37 @@ export function RoomDetailPage() {
                     key={key}
                     onClick={() => handleStatusChange(key)}
                     disabled={room.status === key}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm border transition-all ${room.status === key
-                      ? `${cfg.bg} ${cfg.color} border-current font-medium`
-                      : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs border transition-all uppercase tracking-wider font-semibold ${room.status === key
+                      ? `${cfg.bg} ${cfg.color} border-current`
+                      : 'border-border hover:border-accent text-ink-muted hover:bg-bg-subtle/50'
                       }`}
                   >
                     {cfg.label}
-                    {room.status === key && <span className="float-right text-xs">✓ Hiện tại</span>}
+                    {room.status === key && <span className="float-right text-[10px] lowercase text-ink font-normal font-sans">✓ Hiện tại</span>}
                   </button>
                 ))}
               </CardContent>
             </Card>
           </PermissionGate>
 
-          <Card>
+          <Card className="border-border rounded-lg shadow-none bg-white">
             <CardHeader>
-              <CardTitle className="text-base">Tòa nhà</CardTitle>
+              <CardTitle className="text-base font-bold font-heading text-ink">Tòa nhà</CardTitle>
             </CardHeader>
             <CardContent>
-              <Button asChild variant="outline" className="w-full">
+              <Button asChild variant="outline" className="w-full border-border hover:bg-bg-subtle text-ink rounded-lg font-semibold text-xs">
                 <Link href={buildingUrl}>
-                  <Building2 className="h-4 w-4 mr-2" />
+                  <Building2 className="h-4 w-4 mr-2 text-ink-muted" />
                   Xem tòa nhà
                 </Link>
               </Button>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle className="text-base">Metadata</CardTitle></CardHeader>
-            <CardContent className="space-y-1 text-xs text-slate-500">
-              <div>ID: <span className="font-mono text-slate-700">{room.id.slice(0, 8)}…</span></div>
+          <Card className="border-border rounded-lg shadow-none bg-white">
+            <CardHeader><CardTitle className="text-base font-bold font-heading text-ink">Metadata</CardTitle></CardHeader>
+            <CardContent className="space-y-1.5 text-xs text-ink-muted font-medium">
+              <div>ID: <span className="font-mono text-ink font-semibold">{room.id.slice(0, 8)}…</span></div>
               <div>Tạo lúc: {new Date(room.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
               {room.updated_at && (
                 <div>Cập nhật: {new Date(room.updated_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
@@ -449,37 +447,37 @@ export function RoomDetailPage() {
       </div>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-4xl max-h-[70vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white shadow-lg">
           <DialogHeader className="flex-shrink-0 px-6 pt-6">
-            <DialogTitle>Chỉnh sửa phòng {room.code}</DialogTitle>
+            <DialogTitle className="font-heading text-lg font-bold text-ink">Chỉnh sửa phòng {room.code}</DialogTitle>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 px-6 py-4">
+          <div className="overflow-y-auto flex-1 px-6 pb-6">
             <form onSubmit={handleSave} className="space-y-4 py-1">
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="code">Mã phòng</Label>
-                  <Input id="code" name="code" defaultValue={room.code} required />
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng</Label>
+                  <Input id="code" name="code" defaultValue={room.code} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="floor">Tầng</Label>
-                  <Input id="floor" name="floor" type="number" defaultValue={room.floor} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Tầng</Label>
+                  <Input id="floor" name="floor" type="number" defaultValue={room.floor} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="room_type">Loại phòng</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng</Label>
                   <select id="room_type" name="room_type" defaultValue={room.room_type ?? ''}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
                     <option value="">Chọn loại</option>
                     {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
-                <div>
-                  <Label htmlFor="status">Trạng thái</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái</Label>
                   <select
                     id="status"
                     name="status"
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent"
                   >
                     <option value="available">Còn trống</option>
                     <option value="soon_available">Sắp trống</option>
@@ -491,9 +489,9 @@ export function RoomDetailPage() {
               </div>
 
               {selectedStatus === 'soon_available' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1.5 col-span-2">
-                    <Label htmlFor="soon_date">Ngày trống dự kiến</Label>
+                    <Label htmlFor="soon_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày trống dự kiến</Label>
                     <FormattedDateInput
                       id="soon_date"
                       name="soon_date"
@@ -505,13 +503,13 @@ export function RoomDetailPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="size">Diện tích (m²)</Label>
-                  <Input id="size" name="size" type="number" defaultValue={room.size ?? ''} />
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="size" className="text-ink font-semibold text-xs uppercase tracking-wider">Diện tích (m²)</Label>
+                  <Input id="size" name="size" type="number" defaultValue={room.size ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="price">Giá (đ)</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê (đ)</Label>
                   <Input
                     id="price"
                     type="text"
@@ -520,80 +518,80 @@ export function RoomDetailPage() {
                     onChange={handlePriceChange}
                     placeholder="0"
                     required
+                    className="rounded-lg border-border focus-visible:ring-accent"
                   />
                   <input type="hidden" name="price" value={displayPrice.replace(/\./g, '')} />
                 </div>
-                <div>
-                  <Label htmlFor="min_contract_months">HĐ tối thiểu (tháng)</Label>
-                  <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={room.min_contract_months} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">HĐ tối thiểu (tháng)</Label>
+                  <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={room.min_contract_months} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="has_private_balcony">Ban công riêng</Label>
-                  <select id="has_private_balcony" name="has_private_balcony" defaultValue={String(room.has_private_balcony)} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <div className="space-y-1.5">
+                  <Label htmlFor="has_private_balcony" className="text-ink font-semibold text-xs uppercase tracking-wider">Ban công riêng</Label>
+                  <select id="has_private_balcony" name="has_private_balcony" defaultValue={String(room.has_private_balcony)} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
                     <option value="false">Không có</option>
                     <option value="true">Có ban công riêng</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-4">
-                <div>
-                  <Label htmlFor="bedrooms">Phòng ngủ</Label>
-                  <Input id="bedrooms" name="bedrooms" type="number" defaultValue={room.bedrooms} required />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ</Label>
+                  <Input id="bedrooms" name="bedrooms" type="number" defaultValue={room.bedrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="bathrooms">Phòng tắm</Label>
-                  <Input id="bathrooms" name="bathrooms" type="number" defaultValue={room.bathrooms} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm</Label>
+                  <Input id="bathrooms" name="bathrooms" type="number" defaultValue={room.bathrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="max_occupants">Số người tối đa</Label>
-                  <Input id="max_occupants" name="max_occupants" type="number" defaultValue={room.max_occupants} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa</Label>
+                  <Input id="max_occupants" name="max_occupants" type="number" defaultValue={room.max_occupants} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div>
-                  <Label htmlFor="max_vehicles_per_room">Số xe tối đa</Label>
-                  <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={room.max_vehicles_per_room} required />
+                <div className="space-y-1.5">
+                  <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa</Label>
+                  <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={room.max_vehicles_per_room} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="description">Mô tả</Label>
-                <Input id="description" name="description" defaultValue={room.description ?? ''} />
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-ink font-semibold text-xs uppercase tracking-wider">Mô tả</Label>
+                <Input id="description" name="description" defaultValue={room.description ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
               </div>
 
-              <div className="border-t pt-4 space-y-3">
-                <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                  <LucideImage className="h-4 w-4 text-indigo-600" />
+              <div className="border-t border-border pt-4 space-y-3">
+                <Label className="text-ink font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+                  <LucideImage className="h-4 w-4 text-accent" />
                   Hình ảnh phòng ({images.length})
                 </Label>
 
                 {images.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-slate-200 rounded-lg text-slate-400 bg-slate-50/50">
+                  <div className="text-center py-6 border border-dashed border-border rounded-lg text-ink-muted bg-bg-base/30">
                     <LucideImage className="h-5 w-5 mx-auto mb-1 opacity-45" />
                     <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border rounded-lg bg-slate-50/30">
+                  <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border border-border rounded-lg bg-bg-subtle/20">
                     {images.map((img) => (
                       <div
                         key={img.id}
-                        className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-slate-200'
+                        className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-border'
                           }`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={img.url}
                           alt="Room preview"
-                          className="object-cover w-14 h-10 rounded border border-slate-100 shrink-0"
+                          className="object-cover w-14 h-10 rounded border border-border shrink-0"
                         />
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+                            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-ink select-none">
                               <input
                                 type="radio"
                                 name="dialog_thumbnail_radio"
                                 checked={img.is_thumbnail}
                                 onChange={() => makeThumbnail(img.id)}
-                                className="w-3.5 h-3.5 text-amber-500 border-slate-300 focus:ring-amber-400 focus:ring-offset-0 cursor-pointer"
+                                className="w-3.5 h-3.5 text-amber-500 border-border focus:ring-amber-450 focus:ring-offset-0 cursor-pointer"
                               />
                               Ảnh chính
                             </label>
@@ -601,19 +599,19 @@ export function RoomDetailPage() {
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-5 w-5 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              className="h-5 w-5 text-danger hover:text-danger hover:bg-danger/10"
                               onClick={() => handleRemoveImage(img.id, img.url)}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[11px]">
-                            <span className="text-slate-400 font-medium">Ưu tiên:</span>
+                          <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+                            <span className="font-semibold text-[10px] uppercase">Ưu tiên:</span>
                             <input
                               type="number"
                               value={img.priority}
                               onChange={(e) => updatePriority(img.id, Number(e.target.value))}
-                              className="w-10 h-5 border border-slate-200 rounded text-center font-mono text-[10px]"
+                              className="w-10 h-5 border border-border rounded text-center font-mono text-[10px] text-ink bg-white"
                             />
                           </div>
                         </div>
@@ -633,9 +631,9 @@ export function RoomDetailPage() {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsEditOpen(false)}>Hủy</Button>
-                <Button type="submit" className="flex-1" disabled={saving}>
+              <div className="flex gap-2 pt-4 border-t border-border mt-4">
+                <Button type="button" variant="ghost" className="flex-1 text-ink hover:bg-bg-subtle rounded-lg" onClick={() => setIsEditOpen(false)}>Hủy</Button>
+                <Button type="submit" className="flex-1 bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold" disabled={saving}>
                   {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Lưu thay đổi
                 </Button>

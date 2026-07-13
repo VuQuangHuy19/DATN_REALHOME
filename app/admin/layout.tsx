@@ -35,7 +35,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
   const hasAccess = !requiredPerm || hasPermission(requiredPerm);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-bg-base">
       <AdminSidebar />
       <div className="flex-1 flex flex-col ml-0 md:ml-64">
         <AdminHeader />
@@ -44,12 +44,12 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
             children
           ) : (
             <div className="flex items-center justify-center min-h-[60vh]">
-              <div className="bg-white p-8 rounded-xl border shadow-sm max-w-md w-full text-center space-y-4">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                  <ShieldAlert className="h-6 w-6 text-red-650" />
+              <div className="bg-white p-8 rounded-lg border border-border-subtle shadow-none max-w-md w-full text-center space-y-4">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger/10">
+                  <ShieldAlert className="h-6 w-6 text-danger" />
                 </div>
-                <h2 className="text-xl font-bold text-slate-800">Không có quyền truy cập</h2>
-                <p className="text-slate-500 text-sm">
+                <h2 className="text-xl font-semibold text-ink">Không có quyền truy cập</h2>
+                <p className="text-ink-muted text-sm leading-relaxed">
                   Tài khoản của bạn không được cấp quyền truy cập vào mục này. Vui lòng liên hệ với quản trị viên nếu bạn cần hỗ trợ.
                 </p>
               </div>

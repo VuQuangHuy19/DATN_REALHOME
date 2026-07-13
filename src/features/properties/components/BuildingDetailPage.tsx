@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { PermissionGate } from '@/components/ui/PermissionGate';
-import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage } from 'lucide-react';
+import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage, ArrowUpDown, ShieldCheck, ShieldAlert, PawPrint, Globe, Zap, Check, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { useRoomsFeature } from '@/src/features/rooms/hooks/useRoomsFeature';
@@ -402,250 +402,305 @@ export function BuildingDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" asChild><Link href="/admin/realhome/buildings"><ArrowLeft className="h-4 w-4 mr-1" />Quay lại</Link></Button>
-          <div><h1 className="text-2xl font-bold text-slate-800">{building.name}</h1><p className="text-slate-500 text-sm">{building.code} — {building.address}</p></div>
+          <Button variant="outline" size="sm" asChild className="border-border hover:bg-bg-subtle text-ink rounded-lg"><Link href="/admin/realhome/buildings"><ArrowLeft className="h-4 w-4 mr-1" />Quay lại</Link></Button>
+          <div>
+            <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">{building.name}</h1>
+            <p className="text-ink-muted text-sm font-mono mt-0.5">{building.code} — {building.address}</p>
+          </div>
         </div>
         <PermissionGate roles={['company_admin', 'manager']}>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
-            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+            <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white shadow-lg">
               <DialogHeader className="flex-shrink-0 px-6 pt-6">
-                <DialogTitle>{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
+                <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
               </DialogHeader>
-              <div className="overflow-y-auto flex-1 px-6 py-4">
-              <form onSubmit={handleSave} className="space-y-4 py-1">
-                {/* 1. Thông tin cơ bản */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label htmlFor="code">Mã phòng</Label><Input id="code" name="code" defaultValue={editItem?.code} required /></div>
-                  <div><Label htmlFor="floor">Tầng</Label><Input id="floor" name="floor" type="number" defaultValue={editItem?.floor} required /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="room_type">Loại phòng</Label>
-                    <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" required>
-                      <option value="">Chọn loại</option>
-                      {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="status">Trạng thái</Label>
-                    <select
-                      id="status"
-                      name="status"
-                      value={selectedStatus}
-                      onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      required
-                    >
-                      <option value="available">Còn trống</option>
-                      <option value="soon_available">Sắp trống</option>
-                      <option value="rented">Đã cho thuê</option>
-                      <option value="maintenance">Bảo trì</option>
-                      <option value="reserved">Đặt trước</option>
-                    </select>
-                  </div>
-                </div>
-
-                {selectedStatus === 'soon_available' && (
+              <div className="overflow-y-auto flex-1 px-6 pb-6">
+                <form onSubmit={handleSave} className="space-y-4 py-1">
+                  {/* 1. Thông tin cơ bản */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5 col-span-2">
-                      <Label htmlFor="soon_date">Ngày trống dự kiến</Label>
-                      <Input
-                        id="soon_date"
-                        name="soon_date"
-                        type="date"
-                        value={soonDate}
-                        onChange={(e) => setSoonDate(e.target.value)}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng</Label>
+                      <Input id="code" name="code" defaultValue={editItem?.code} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Tầng</Label>
+                      <Input id="floor" name="floor" type="number" defaultValue={editItem?.floor} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng</Label>
+                      <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent" required>
+                        <option value="">Chọn loại</option>
+                        {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái</Label>
+                      <select
+                        id="status"
+                        name="status"
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                        className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent"
                         required
+                      >
+                        <option value="available">Còn trống</option>
+                        <option value="soon_available">Sắp trống</option>
+                        <option value="rented">Đã cho thuê</option>
+                        <option value="maintenance">Bảo trì</option>
+                        <option value="reserved">Đặt trước</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {selectedStatus === 'soon_available' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5 col-span-2">
+                        <Label htmlFor="soon_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày trống dự kiến</Label>
+                        <Input
+                          id="soon_date"
+                          name="soon_date"
+                          type="date"
+                          value={soonDate}
+                          onChange={(e) => setSoonDate(e.target.value)}
+                          required
+                          className="rounded-lg border-border focus-visible:ring-accent"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="size" className="text-ink font-semibold text-xs uppercase tracking-wider">Diện tích (m²)</Label>
+                      <Input id="size" name="size" type="number" defaultValue={editItem?.size ?? ''} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ</Label>
+                      <Input id="bedrooms" name="bedrooms" type="number" defaultValue={editItem?.bedrooms ?? 0} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm</Label>
+                      <Input id="bathrooms" name="bathrooms" type="number" defaultValue={editItem?.bathrooms ?? 0} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê (VND/tháng)</Label>
+                    <Input id="price" name="price" type="text" value={displayPrice} onChange={handlePriceChange} placeholder="Nhập giá thuê" required className="rounded-lg border-border focus-visible:ring-accent" />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="has_private_balcony" className="text-ink font-semibold text-xs uppercase tracking-wider">Ban công riêng</Label>
+                      <select id="has_private_balcony" name="has_private_balcony" defaultValue={editItem ? String(editItem.has_private_balcony) : 'false'} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
+                        <option value="false">Không có</option>
+                        <option value="true">Có ban công riêng</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">Thời hạn hợp đồng tối thiểu (tháng)</Label>
+                      <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={editItem?.min_contract_months ?? 12} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa</Label>
+                      <Input id="max_occupants" name="max_occupants" type="number" defaultValue={editItem?.max_occupants ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa</Label>
+                      <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={editItem?.max_vehicles_per_room ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="description" className="text-ink font-semibold text-xs uppercase tracking-wider">Mô tả</Label>
+                      <Input id="description" name="description" defaultValue={editItem?.description ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="rose" className="text-ink font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới</Label>
+                      <Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+
+                  {/* Quản lý ảnh phòng trực tiếp trong Dialog */}
+                  <div className="border-t border-border pt-4 space-y-3">
+                    <Label className="text-ink font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+                      <LucideImage className="h-4 w-4 text-accent" />
+                      Hình ảnh phòng ({(editItem ? images : tempImages).length})
+                    </Label>
+
+                    {(editItem ? images : tempImages).length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-border rounded-lg text-ink-muted bg-bg-base/30">
+                        <LucideImage className="h-5 w-5 mx-auto mb-1 opacity-45" />
+                        <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border border-border rounded-lg bg-bg-subtle/20">
+                        {(editItem ? images : tempImages).map((img) => (
+                          <div
+                            key={img.id}
+                            className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-border'
+                              }`}
+                          >
+                            <img
+                              src={img.url}
+                              alt="Room preview"
+                              className="object-cover w-14 h-10 rounded border border-border shrink-0"
+                            />
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-ink select-none">
+                                  <input
+                                    type="radio"
+                                    name="dialog_list_thumbnail_radio"
+                                    checked={img.is_thumbnail}
+                                    onChange={() => {
+                                      if (editItem) {
+                                        makeThumbnail(img.id);
+                                      } else {
+                                        setTempImages(prev => prev.map(item => ({
+                                          ...item,
+                                          is_thumbnail: item.id === img.id
+                                        })));
+                                      }
+                                    }}
+                                    className="w-3.5 h-3.5 text-amber-500 border-border focus:ring-amber-450 focus:ring-offset-0 cursor-pointer"
+                                  />
+                                  Ảnh chính
+                                </label>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 text-danger hover:text-danger hover:bg-danger/10"
+                                  onClick={() => {
+                                    if (editItem) {
+                                      handleRemoveImage(img.id, img.url);
+                                    } else {
+                                      handleRemoveTempImage(img.id, img.url);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+                                <span className="font-semibold text-[10px] uppercase">Ưu tiên:</span>
+                                <input
+                                  type="number"
+                                  value={img.priority}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (editItem) {
+                                      updatePriority(img.id, val);
+                                    } else {
+                                      setTempImages(prev => prev.map(item =>
+                                        item.id === img.id ? { ...item, priority: val } : item
+                                      ).sort((a, b) => a.priority - b.priority));
+                                    }
+                                  }}
+                                  className="w-10 h-5 border border-border rounded text-center font-mono text-[10px] text-ink bg-white"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-1">
+                      <ImageUpload
+                        value={null}
+                        onChange={handleImageUploaded}
+                        bucket="room_images"
+                        multiple={true}
+                        className="w-full"
                       />
                     </div>
                   </div>
-                )}
-                <div className="grid grid-cols-3 gap-4">
-                  <div><Label htmlFor="size">Diện tích (m²)</Label><Input id="size" name="size" type="number" defaultValue={editItem?.size ?? ''} required /></div>
-                  <div><Label htmlFor="bedrooms">Phòng ngủ</Label><Input id="bedrooms" name="bedrooms" type="number" defaultValue={editItem?.bedrooms ?? 0} required /></div>
-                  <div><Label htmlFor="bathrooms">Phòng tắm</Label><Input id="bathrooms" name="bathrooms" type="number" defaultValue={editItem?.bathrooms ?? 0} required /></div>
-                </div>
-                <div>
-                  <Label htmlFor="price">Giá thuê (VND/tháng)</Label>
-                  <Input id="price" name="price" type="text" value={displayPrice} onChange={handlePriceChange} placeholder="Nhập giá thuê" required />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="has_private_balcony">Ban công riêng</Label>
-                    <select id="has_private_balcony" name="has_private_balcony" defaultValue={editItem ? String(editItem.has_private_balcony) : 'false'} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                      <option value="false">Không có</option>
-                      <option value="true">Có ban công riêng</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="min_contract_months">Thời hạn hợp đồng tối thiểu (tháng)</Label>
-                    <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={editItem?.min_contract_months ?? 12} required />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="max_occupants">Số người tối đa</Label>
-                    <Input id="max_occupants" name="max_occupants" type="number" defaultValue={editItem?.max_occupants ?? 2} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="max_vehicles_per_room">Số xe tối đa</Label>
-                    <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={editItem?.max_vehicles_per_room ?? 2} required />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label htmlFor="description">Mô tả</Label><Input id="description" name="description" defaultValue={editItem?.description ?? ''} /></div>
-                  <div><Label htmlFor="rose">Hoa hồng (ví dụ: 40% cho hợp đồng 6 tháng, 50% cho 12 tháng)</Label><Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." /></div>
-                </div>
-
-                {/* Quản lý ảnh phòng trực tiếp trong Dialog */}
-                <div className="border-t pt-4 space-y-3">
-                  <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <LucideImage className="h-4 w-4 text-indigo-600" />
-                    Hình ảnh phòng ({(editItem ? images : tempImages).length})
-                  </Label>
-
-                  {(editItem ? images : tempImages).length === 0 ? (
-                    <div className="text-center py-6 border border-dashed border-slate-200 rounded-lg text-slate-400 bg-slate-50/50">
-                      <LucideImage className="h-5 w-5 mx-auto mb-1 opacity-45" />
-                      <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border rounded-lg bg-slate-50/30">
-                      {(editItem ? images : tempImages).map((img) => (
-                        <div
-                          key={img.id}
-                          className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-slate-200'
-                            }`}
-                        >
-                          <img
-                            src={img.url}
-                            alt="Room preview"
-                            className="object-cover w-14 h-10 rounded border border-slate-100 shrink-0"
-                          />
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 select-none">
-                                <input
-                                  type="radio"
-                                  name="dialog_list_thumbnail_radio"
-                                  checked={img.is_thumbnail}
-                                  onChange={() => {
-                                    if (editItem) {
-                                      makeThumbnail(img.id);
-                                    } else {
-                                      setTempImages(prev => prev.map(item => ({
-                                        ...item,
-                                        is_thumbnail: item.id === img.id
-                                      })));
-                                    }
-                                  }}
-                                  className="w-3.5 h-3.5 text-amber-500 border-slate-300 focus:ring-amber-400 focus:ring-offset-0 cursor-pointer"
-                                />
-                                Ảnh chính
-                              </label>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => {
-                                  if (editItem) {
-                                    handleRemoveImage(img.id, img.url);
-                                  } else {
-                                    handleRemoveTempImage(img.id, img.url);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[11px]">
-                              <span className="text-slate-400 font-medium">Ưu tiên:</span>
-                              <input
-                                type="number"
-                                value={img.priority}
-                                onChange={(e) => {
-                                  const val = Number(e.target.value);
-                                  if (editItem) {
-                                    updatePriority(img.id, val);
-                                  } else {
-                                    setTempImages(prev => prev.map(item =>
-                                      item.id === img.id ? { ...item, priority: val } : item
-                                    ).sort((a, b) => a.priority - b.priority));
-                                  }
-                                }}
-                                className="w-10 h-5 border border-slate-200 rounded text-center font-mono text-[10px]"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="pt-1">
-                    <ImageUpload
-                      value={null}
-                      onChange={handleImageUploaded}
-                      bucket="room_images"
-                      multiple={true}
-                      className="w-full"
-                    />
+                  <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                    <Button type="button" variant="ghost" className="text-ink hover:bg-bg-subtle rounded-lg" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
+                    <Button type="submit" className="bg-accent hover:bg-accent-500 text-white rounded-lg" disabled={saving}>
+                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu
+                    </Button>
                   </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu
-                  </Button>
-                </div>
-              </form>
+                </form>
               </div>
             </DialogContent>
           </Dialog>
         </PermissionGate>
       </div>
 
-      {roomError && <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"><AlertCircle className="h-4 w-4 flex-shrink-0" />{roomError}</div>}
+      {roomError && <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm"><AlertCircle className="h-4 w-4 flex-shrink-0" />{roomError}</div>}
 
       <div className="grid md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 border-border rounded-lg shadow-none bg-white border-t-2 border-t-accent">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Thông tin tòa nhà</CardTitle>
+            <CardTitle className="flex items-center gap-2 font-heading text-lg font-bold text-ink"><Building2 className="h-5 w-5 text-accent" />Thông tin tòa nhà</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4 border-b">
-              <div className="flex items-center gap-2 text-slate-600"><MapPin className="h-4 w-4 flex-shrink-0" />{building.address}</div>
-              <div className="flex items-center gap-2 text-slate-600"><Calendar className="h-4 w-4 flex-shrink-0" />Năm xây dựng: {building.year_built ?? '—'}</div>
-              <div className="flex items-center gap-2 text-slate-600"><Layers className="h-4 w-4 flex-shrink-0" />Tổng số phòng: {building.total_rooms}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4 border-b border-border">
+              <div className="flex items-center gap-2 text-ink-muted"><MapPin className="h-4 w-4 flex-shrink-0 text-ink-muted" />{building.address}</div>
+              <div className="flex items-center gap-2 text-ink-muted"><Calendar className="h-4 w-4 flex-shrink-0 text-ink-muted" />Năm xây dựng: {building.year_built ?? '—'}</div>
+              <div className="flex items-center gap-2 text-ink-muted"><Layers className="h-4 w-4 flex-shrink-0 text-ink-muted" />Tổng số phòng: {building.total_rooms}</div>
             </div>
             
             <div className="space-y-2">
-              <span className="text-xs font-semibold text-slate-500 block uppercase">Tiện ích & Quy định tòa nhà</span>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant={building.has_elevator ? 'default' : 'secondary'} className="text-xs">
-                  Thang máy: {building.has_elevator ? 'Có' : 'Không'}
-                </Badge>
-                <Badge variant={building.pccc_certified ? 'default' : 'destructive'} className="text-xs">
-                  PCCC: {building.pccc_certified ? 'Đảm bảo' : 'Chưa hoàn thiện'}
-                </Badge>
-                <Badge variant={building.allow_pet ? 'outline' : 'secondary'} className="text-xs">
-                  Nuôi Pet: {building.allow_pet ? 'Có' : 'Không'}
-                </Badge>
-                <Badge variant={building.allow_foreigners ? 'outline' : 'secondary'} className="text-xs">
-                  Khách nước ngoài: {building.allow_foreigners ? 'Cho phép' : 'Không'}
-                </Badge>
-                <Badge variant={building.allow_vinfast_electric ? 'default' : 'secondary'} className="text-xs">
-                  Sạc xe điện VinFast: {building.allow_vinfast_electric ? 'Nhận' : 'Cấm'}
-                </Badge>
+              <span className="text-xs font-semibold text-ink-muted block uppercase tracking-wider">Tiện ích & Quy định tòa nhà</span>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-3">
+                <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.has_elevator ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
+                  <div className="flex items-center justify-between">
+                    <ArrowUpDown className="h-4.5 w-4.5" />
+                    <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${building.has_elevator ? 'bg-white border-accent/20 text-accent' : 'bg-white border-border text-ink-muted'}`}>
+                      {building.has_elevator ? 'Có' : 'Không'}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Thang máy</span>
+                </div>
+                <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.pccc_certified ? 'bg-emerald-50/30 border-emerald-200 text-emerald-700' : 'bg-danger/5 border-danger/10 text-danger'}`}>
+                  <div className="flex items-center justify-between">
+                    {building.pccc_certified ? <ShieldCheck className="h-4.5 w-4.5" /> : <ShieldAlert className="h-4.5 w-4.5" />}
+                    <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${building.pccc_certified ? 'bg-white border-emerald-200 text-emerald-700' : 'bg-white border-danger/10 text-danger'}`}>
+                      {building.pccc_certified ? 'Đảm bảo' : 'Chưa'}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">An toàn PCCC</span>
+                </div>
+                <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.allow_pet ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
+                  <div className="flex items-center justify-between">
+                    <PawPrint className="h-4.5 w-4.5" />
+                    <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${building.allow_pet ? 'bg-white border-accent/20 text-accent' : 'bg-white border-border text-ink-muted'}`}>
+                      {building.allow_pet ? 'Cho phép' : 'Cấm'}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Nuôi Pet</span>
+                </div>
+                <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.allow_foreigners ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
+                  <div className="flex items-center justify-between">
+                    <Globe className="h-4.5 w-4.5" />
+                    <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${building.allow_foreigners ? 'bg-white border-accent/20 text-accent' : 'bg-white border-border text-ink-muted'}`}>
+                      {building.allow_foreigners ? 'Nhận' : 'Không'}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Khách ngoại</span>
+                </div>
+                <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.allow_vinfast_electric ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
+                  <div className="flex items-center justify-between">
+                    <Zap className="h-4.5 w-4.5" />
+                    <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${building.allow_vinfast_electric ? 'bg-white border-accent/20 text-accent' : 'bg-white border-border text-ink-muted'}`}>
+                      {building.allow_vinfast_electric ? 'Nhận' : 'Cấm'}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider">Sạc xe điện</span>
+                </div>
               </div>
               {building.common_drying_area && (
-                <div className="mt-2 text-xs text-slate-600 p-2 bg-slate-50 border rounded">
+                <div className="mt-4 text-xs text-ink p-3 bg-bg-subtle/50 border border-border rounded-lg">
                   <strong>Chỗ phơi đồ chung:</strong> {building.common_drying_area}
                 </div>
               )}
@@ -653,53 +708,52 @@ export function BuildingDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Cấu hình biểu phí dịch vụ tòa nhà */}
-        <Card>
+        <Card className="border-border rounded-lg shadow-none bg-white">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-slate-800">
-              <DollarSign className="h-4.5 w-4.5 text-emerald-600" />Biểu phí dịch vụ
+            <CardTitle className="text-sm font-bold font-heading flex items-center gap-1.5 text-ink">
+              <DollarSign className="h-4.5 w-4.5 text-accent animate-pulse" />Biểu phí dịch vụ
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <div className="border rounded-md overflow-hidden bg-white">
+            <div className="border border-border rounded-lg overflow-hidden bg-white">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 text-slate-500 border-b">
+                <thead className="bg-bg-subtle text-ink-muted border-b border-border">
                   <tr>
-                    <th className="p-2 font-medium">Dịch vụ</th>
-                    <th className="p-2 font-medium">Đơn giá</th>
+                    <th className="p-2 font-bold uppercase tracking-wider">Dịch vụ</th>
+                    <th className="p-2 font-bold uppercase tracking-wider">Đơn giá</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y text-slate-700">
-                  <tr className="hover:bg-slate-50/50">
+                <tbody className="divide-y divide-border text-ink">
+                  <tr className="hover:bg-bg-subtle/50 transition-colors">
                     <td className="p-2 font-medium">Giá điện</td>
-                    <td className="p-2 text-emerald-600 font-semibold">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</td>
+                    <td className="p-2 text-accent font-bold font-mono">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</td>
                   </tr>
-                  <tr className="hover:bg-slate-50/50">
+                  <tr className="hover:bg-bg-subtle/50 transition-colors">
                     <td className="p-2 font-medium">Giá nước</td>
-                    <td className="p-2 text-emerald-600 font-semibold">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</td>
+                    <td className="p-2 text-accent font-bold font-mono">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</td>
                   </tr>
-                  <tr className="hover:bg-slate-50/50">
+                  <tr className="hover:bg-bg-subtle/50 transition-colors">
                     <td className="p-2 font-medium">Internet</td>
-                    <td className="p-2 text-emerald-600 font-semibold">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</td>
+                    <td className="p-2 text-accent font-bold font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</td>
                   </tr>
-                  <tr className="hover:bg-slate-50/50">
+                  <tr className="hover:bg-bg-subtle/50 transition-colors">
                     <td className="p-2 font-medium">Dịch vụ chung</td>
-                    <td className="p-2 text-emerald-600 font-semibold">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</td>
+                    <td className="p-2 text-accent font-bold font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</td>
                   </tr>
-                  <tr className="hover:bg-slate-50/50">
+                  <tr className="hover:bg-bg-subtle/50 transition-colors">
                     <td className="p-2 font-medium">Phí xe điện</td>
-                    <td className="p-2 text-emerald-600 font-semibold">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</td>
+                    <td className="p-2 text-accent font-bold font-mono">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             {building.common_service_description && (
-              <p className="text-[11px] text-slate-500 mt-2 px-1">
+              <p className="text-[11px] text-ink-muted mt-2.5 px-1 font-medium">
                 * Dịch vụ chung: {building.common_service_description}
               </p>
             )}
             {building.fingerprint_lock_desc && (
-              <p className="text-[11px] text-slate-500 mt-1 px-1">
+              <p className="text-[11px] text-ink-muted mt-1 px-1 font-medium">
                 * {building.fingerprint_lock_desc}
               </p>
             )}
@@ -709,16 +763,16 @@ export function BuildingDetailPage() {
 
       <div className="space-y-4">
         {roomsByFloor.map(({ floor, rooms }) => (
-          <Card key={floor}>
+          <Card key={floor} className="border-border rounded-lg shadow-none bg-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-base">Tầng {floor}</CardTitle>
+              <CardTitle className="text-base font-bold font-heading text-ink">Tầng {floor}</CardTitle>
               <PermissionGate roles={['company_admin', 'manager']}>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleDuplicateFloor(floor)}>
+                  <Button size="sm" variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg text-xs" onClick={() => handleDuplicateFloor(floor)}>
                     Nhân bản tầng {floor}
                   </Button>
                   <PermissionGate roles={['company_admin']}>
-                    <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700" onClick={() => handleDeleteFloor(floor, rooms)}>
+                    <Button size="sm" variant="outline" className="text-danger border-danger/25 hover:bg-danger/10 rounded-lg text-xs" onClick={() => handleDeleteFloor(floor, rooms)}>
                       Xóa tầng {floor}
                     </Button>
                   </PermissionGate>
@@ -728,11 +782,11 @@ export function BuildingDetailPage() {
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {rooms.map((item) => (
-                  <div key={item.id} className="border rounded-lg p-4 bg-white shadow-sm">
+                  <div key={item.id} className="border border-border rounded-lg p-4 bg-white shadow-none hover:bg-bg-subtle/20 transition-all">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="font-semibold text-slate-800">{item.code}</div>
-                        <div className="text-sm text-slate-500">{item.room_type}</div>
+                        <div className="font-bold text-ink text-base font-mono">{item.code}</div>
+                        <div className="text-xs text-ink-muted font-medium mt-0.5">{item.room_type}</div>
                       </div>
                       {(() => {
                         const ds = getRoomDisplayStatus(item, contracts);
@@ -741,27 +795,27 @@ export function BuildingDetailPage() {
                           : null;
                         return (
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <Badge className={`${ds.colorClass} border`} variant="outline">{ds.label}</Badge>
+                            <Badge className={`${statusColor(ds.status)} border font-bold text-xs rounded-full`} variant="outline">{ds.label}</Badge>
                             {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
                           </div>
                         );
                       })()}
                     </div>
-                    <div className="mt-3 text-sm text-slate-600 space-y-1">
-                      <div>Giá: {item.price?.toLocaleString('vi-VN')}đ</div>
-                      <div>Diện tích: {item.size} m²</div>
-                      <div>Phòng ngủ: {item.bedrooms} · Phòng tắm: {item.bathrooms}</div>
+                    <div className="mt-3 text-xs text-ink-muted space-y-1 border-t border-dashed border-border pt-3">
+                      <div className="flex justify-between"><span className="font-medium">Giá:</span> <span className="font-bold text-ink font-mono">{item.price?.toLocaleString('vi-VN')}đ</span></div>
+                      <div className="flex justify-between"><span className="font-medium">Diện tích:</span> <span className="font-bold text-ink font-mono">{item.size} m²</span></div>
+                      <div className="flex justify-between"><span className="font-medium">Cấu trúc:</span> <span className="font-semibold text-ink">{item.bedrooms} PN · {item.bathrooms} WC</span></div>
                     </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openView(item)}><Eye className="h-4 w-4 mr-1" />Xem</Button>
+                    <div className="mt-4 flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
+                      <Button size="sm" variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg text-xs" onClick={() => openView(item)}><Eye className="h-3.5 w-3.5 mr-1 text-ink-muted" />Xem</Button>
                       <PermissionGate roles={['company_admin', 'manager']}>
-                        <Button size="sm" variant="outline" onClick={() => openEdit(item)}><Pencil className="h-4 w-4 mr-1" />Sửa</Button>
-                        <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => handleDuplicateRoomAction(item)}>
+                        <Button size="sm" variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg text-xs" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5 mr-1 text-ink-muted" />Sửa</Button>
+                        <Button size="sm" variant="outline" className="text-accent border-accent/20 hover:bg-accent-soft/30 rounded-lg text-xs" onClick={() => handleDuplicateRoomAction(item)}>
                           Nhân bản
                         </Button>
                       </PermissionGate>
                       <PermissionGate roles={['company_admin']}>
-                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4 mr-1" />Xóa</Button>
+                        <Button size="sm" variant="outline" className="text-danger border-danger/20 hover:bg-danger/10 rounded-lg text-xs" onClick={() => handleDelete(item.id)}><Trash2 className="h-3.5 w-3.5 mr-1 text-danger" />Xóa</Button>
                       </PermissionGate>
                     </div>
                   </div>
@@ -773,30 +827,31 @@ export function BuildingDetailPage() {
       </div>
 
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Chi tiết phòng</DialogTitle></DialogHeader>
+        <DialogContent className="rounded-lg border border-border bg-white shadow-lg max-w-md">
+          <DialogHeader><DialogTitle className="font-heading text-lg font-bold text-ink">Chi tiết phòng</DialogTitle></DialogHeader>
           {viewItem && (
-            <div className="space-y-2 text-sm text-slate-600">
-              <div><strong>Mã phòng:</strong> {viewItem.code}</div>
-              <div><strong>Loại phòng:</strong> {viewItem.room_type}</div>
-              <div><strong>Giá:</strong> {viewItem.price?.toLocaleString('vi-VN')}đ</div>
-              <div><strong>Diện tích:</strong> {viewItem.size} m²</div>
+            <div className="space-y-2.5 text-sm text-ink-muted pt-2">
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã phòng:</strong> <span className="font-mono text-ink font-semibold">{viewItem.code}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Loại phòng:</strong> <span className="text-ink font-semibold">{viewItem.room_type}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Giá:</strong> <span className="font-mono text-accent font-bold">{viewItem.price?.toLocaleString('vi-VN')}đ</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Diện tích:</strong> <span className="font-mono text-ink font-semibold">{viewItem.size} m²</span></div>
               {(() => {
                 const ds = getRoomDisplayStatus(viewItem, contracts);
                 return (
                   <>
-                    <div><strong>Trạng thái:</strong> <Badge className={`${ds.colorClass} border`} variant="outline">{ds.label}</Badge></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Trạng thái:</strong> <Badge className={`${statusColor(ds.status)} border font-bold rounded-full`} variant="outline">{ds.label}</Badge></div>
                     {ds.expectedEmptyDate && (
-                      <div><strong>Ngày trống dự kiến:</strong> <span className="font-semibold text-amber-600">{formatDateDisplay(ds.expectedEmptyDate)}</span></div>
+                      <div className="flex justify-between border-b pb-2 border-border/50"><strong>Ngày trống dự kiến:</strong> <span className="font-bold text-warn">{formatDateDisplay(ds.expectedEmptyDate)}</span></div>
                     )}
                   </>
                 );
               })()}
-              <div><strong>Ban công riêng:</strong> {viewItem.has_private_balcony ? 'Có' : 'Không'}</div>
-              <div><strong>Số người tối đa:</strong> {viewItem.max_occupants} người</div>
-              <div><strong>Số xe tối đa:</strong> {viewItem.max_vehicles_per_room} xe</div>
-              <div><strong>Hợp đồng tối thiểu:</strong> {viewItem.min_contract_months} tháng</div>
-              {viewItem.rose && <div><strong>Hoa hồng:</strong> <span className="font-semibold text-emerald-600">{viewItem.rose}</span></div>}
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Ban công riêng:</strong> <span className="text-ink font-semibold">{viewItem.has_private_balcony ? 'Có' : 'Không'}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số người tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_occupants} người</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số xe tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_vehicles_per_room} xe</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hợp đồng tối thiểu:</strong> <span className="text-ink font-semibold">{viewItem.min_contract_months} tháng</span></div>
+              {viewItem.rose && <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hoa hồng:</strong> <span className="font-bold text-emerald-600">{viewItem.rose}</span></div>}
+              {viewItem.description && <div className="pt-2 text-xs text-ink-muted bg-bg-subtle/50 p-2.5 rounded-lg border border-border"><strong>Mô tả:</strong> {viewItem.description}</div>}
             </div>
           )}
         </DialogContent>
@@ -804,9 +859,9 @@ export function BuildingDetailPage() {
 
       {/* Dialog Nhân bản Tầng / Phòng */}
       <Dialog open={isDupOpen} onOpenChange={setIsDupOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-lg border border-border bg-white shadow-lg">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="font-heading text-lg font-bold text-ink">
               {duplicateConfig?.type === 'floor' 
                 ? `Nhân bản toàn bộ Tầng ${duplicateConfig.sourceFloor}` 
                 : `Nhân bản phòng ${duplicateConfig?.sourceRoom?.code}`}
@@ -814,23 +869,24 @@ export function BuildingDetailPage() {
           </DialogHeader>
           <div className="space-y-4 pt-4">
             {duplicateConfig?.type === 'floor' ? (
-              <div className="space-y-2">
-                <Label htmlFor="dup_target_floor">Nhân bản đến Tầng (Số tầng mới)</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="dup_target_floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Nhân bản đến Tầng (Số tầng mới)</Label>
                 <Input
                   id="dup_target_floor"
                   type="number"
                   placeholder="Ví dụ: 2"
                   value={duplicateConfig.targetFloor}
                   onChange={(e) => setDuplicateConfig(prev => prev ? { ...prev, targetFloor: e.target.value } : null)}
+                  className="rounded-lg border-border focus-visible:ring-accent"
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-ink-muted font-medium mt-1">
                   Toàn bộ các phòng ở Tầng {duplicateConfig.sourceFloor} sẽ được sao chép sang tầng mới. Mã phòng mới sẽ tự động đổi đầu số tầng tương ứng.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                <div>
-                  <Label htmlFor="dup_room_target_floor">Nhân bản đến Tầng</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="dup_room_target_floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Nhân bản đến Tầng</Label>
                   <Input
                     id="dup_room_target_floor"
                     type="number"
@@ -855,22 +911,24 @@ export function BuildingDetailPage() {
                         return { ...prev, targetFloor: newFloorVal, newRoomCode: calculatedCode };
                       });
                     }}
+                    className="rounded-lg border-border focus-visible:ring-accent"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="dup_new_room_code">Mã phòng mới</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="dup_new_room_code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng mới</Label>
                   <Input
                     id="dup_new_room_code"
                     type="text"
                     value={duplicateConfig?.newRoomCode ?? ''}
                     onChange={(e) => setDuplicateConfig(prev => prev ? { ...prev, newRoomCode: e.target.value } : null)}
+                    className="rounded-lg border-border focus-visible:ring-accent"
                   />
                 </div>
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setIsDupOpen(false)}>Hủy</Button>
-              <Button type="button" disabled={saving} onClick={handleExecuteDuplicate}>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
+              <Button type="button" variant="ghost" className="text-ink hover:bg-bg-subtle rounded-lg" onClick={() => setIsDupOpen(false)}>Hủy</Button>
+              <Button type="button" className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold" disabled={saving} onClick={handleExecuteDuplicate}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Thực hiện nhân bản
               </Button>
             </div>

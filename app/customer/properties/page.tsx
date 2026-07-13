@@ -133,7 +133,7 @@ function BuildingCard({
       : `${group.minPrice.toLocaleString('vi-VN')} – ${group.maxPrice.toLocaleString('vi-VN')}đ`;
 
   return (
-    <div className="rounded-2xl overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col">
+    <div className="rounded-lg overflow-hidden bg-white border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col">
       <Link href={`/customer/properties/${group.representativeRoom.id}`} className="block">
         <ImageSlider images={group.allImages} alt={group.buildingName} />
       </Link>
@@ -141,14 +141,14 @@ function BuildingCard({
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Tên tòa nhà */}
         <Link href={`/customer/properties/${group.representativeRoom.id}`}>
-          <h3 className="text-base font-bold text-slate-800 leading-snug hover:text-blue-600 transition-colors line-clamp-1">
+          <h3 className="text-base font-bold text-ink leading-snug hover:text-accent font-heading transition-colors line-clamp-1">
             {group.buildingName}
           </h3>
         </Link>
 
         {/* Khu vực */}
-        <div className="flex items-center gap-1 text-sm text-slate-500">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+        <div className="flex items-center gap-1 text-sm text-ink-muted">
+          <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
           <span className="line-clamp-1">{group.area}</span>
         </div>
 
@@ -157,20 +157,20 @@ function BuildingCard({
           {hasAvailable ? (
             <span className="text-green-700 font-medium">
               Phòng trống:{' '}
-              <span className="text-slate-800">
+              <span className="text-ink">
                 {group.availableRoomCodes.slice(0, 6).join(', ')}
                 {group.availableRoomCodes.length > 6 && ` +${group.availableRoomCodes.length - 6} phòng`}
               </span>
             </span>
           ) : (
-            <span className="text-slate-400 italic text-xs">Hiện tại không còn phòng trống</span>
+            <span className="text-ink-muted italic text-xs">Hiện tại không còn phòng trống</span>
           )}
         </div>
 
         {/* Giá */}
-        <p className="text-lg font-bold text-slate-800">
+        <p className="text-lg font-bold text-ink font-mono">
           {priceLabel}
-          <span className="text-sm font-normal text-slate-500"> / tháng</span>
+          <span className="text-sm font-normal text-ink-muted"> / tháng</span>
         </p>
 
         {/* Nút action */}
@@ -186,7 +186,7 @@ function BuildingCard({
           </Button>
           <Button
             size="sm"
-            className="flex-1 h-9 text-sm bg-slate-800 hover:bg-slate-700 text-white"
+            className="flex-1 h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
             onClick={onContact}
           >
             <Phone className="h-3.5 w-3.5 mr-1.5" />
@@ -275,12 +275,12 @@ function LocationFilter({
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
       {/* Tỉnh / Thành phố */}
       <div>
-        <label className="block text-xs text-slate-500 mb-1 font-medium">Tỉnh / Thành phố</label>
+        <label className="block text-xs text-ink-muted mb-1 font-medium">Tỉnh / Thành phố</label>
         <select
           value={selectedProvinceId}
           onChange={(e) => { onProvinceChange(e.target.value); onDistrictChange(''); onWardChange(''); }}
           disabled={loadingProv}
-          className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:opacity-60"
+          className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60"
         >
           <option value="">-- Chọn tỉnh/thành --</option>
           {provinces.map((p) => (
@@ -291,12 +291,12 @@ function LocationFilter({
 
       {/* Quận / Huyện */}
       <div>
-        <label className="block text-xs text-slate-500 mb-1 font-medium">Quận / Huyện</label>
+        <label className="block text-xs text-ink-muted mb-1 font-medium">Quận / Huyện</label>
         <select
           value={selectedDistrictId}
           onChange={(e) => { onDistrictChange(e.target.value); onWardChange(''); }}
           disabled={!selectedProvinceId || loadingDist}
-          className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:opacity-60 disabled:bg-slate-50"
+          className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50"
         >
           <option value="">{loadingDist ? 'Đang tải...' : '-- Chọn quận/huyện --'}</option>
           {districts.map((d) => (
@@ -307,12 +307,12 @@ function LocationFilter({
 
       {/* Phường / Xã */}
       <div>
-        <label className="block text-xs text-slate-500 mb-1 font-medium">Phường / Xã</label>
+        <label className="block text-xs text-ink-muted mb-1 font-medium">Phường / Xã</label>
         <select
           value={selectedWardId}
           onChange={(e) => onWardChange(e.target.value)}
           disabled={!selectedDistrictId || loadingWard}
-          className="w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition disabled:opacity-60 disabled:bg-slate-50"
+          className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50"
         >
           <option value="">{loadingWard ? 'Đang tải...' : '-- Chọn phường/xã --'}</option>
           {wards.map((w) => (
@@ -468,7 +468,7 @@ export default function PropertiesPage() {
   const renderFilterContent = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="font-semibold text-slate-800 mb-3">Khoảng giá</h3>
+        <h3 className="font-semibold font-heading text-ink mb-3">Khoảng giá</h3>
         <div className="px-2">
           <Slider
             value={priceSlider}
@@ -479,7 +479,7 @@ export default function PropertiesPage() {
             step={100000}
             className="w-full"
           />
-          <div className="flex justify-between mt-3 text-sm font-medium text-slate-700">
+          <div className="flex justify-between mt-3 text-sm font-medium text-ink-muted">
             <span>{priceSlider[0].toLocaleString('vi-VN')} đ</span>
             <span>{priceSlider[1].toLocaleString('vi-VN')} đ</span>
           </div>
@@ -487,7 +487,7 @@ export default function PropertiesPage() {
       </div>
 
       <div>
-        <h3 className="font-semibold text-slate-800 mb-3">Diện tích (m²)</h3>
+        <h3 className="font-semibold font-heading text-ink mb-3">Diện tích (m²)</h3>
         <div className="px-2">
           <Slider
             value={sizeSlider}
@@ -497,7 +497,7 @@ export default function PropertiesPage() {
             step={5}
             className="w-full"
           />
-          <div className="flex justify-between mt-3 text-sm font-medium text-slate-700">
+          <div className="flex justify-between mt-3 text-sm font-medium text-ink-muted">
             <span>{sizeSlider[0]}m²</span>
             <span>{sizeSlider[1]}m²</span>
           </div>
@@ -506,13 +506,13 @@ export default function PropertiesPage() {
 
 
       <div>
-        <h3 className="font-semibold text-slate-800 mb-3">Loại phòng</h3>
+        <h3 className="font-semibold font-heading text-ink mb-3">Loại phòng</h3>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setSelectedRoomTypes([])}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-              selectedRoomTypes.length === 0 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              selectedRoomTypes.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
             }`}
           >
             Tất cả
@@ -527,7 +527,7 @@ export default function PropertiesPage() {
                 )
               }
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                selectedRoomTypes.includes(type) ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                selectedRoomTypes.includes(type) ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
               }`}
             >
               {type}
@@ -545,11 +545,11 @@ export default function PropertiesPage() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 bg-bg-base">
       {/* Header */}
       <div className="mb-4">
-        <h1 className="text-3xl font-bold text-slate-800">Bất Động Sản</h1>
-        {company && <p className="text-sm text-slate-500 mt-0.5">{company.name}</p>}
+        <h1 className="text-3xl font-bold font-heading text-ink">Bất Động Sản</h1>
+        {company && <p className="text-sm text-ink-muted mt-0.5">{company.name}</p>}
       </div>
 
       {/* 3-cấp vị trí */}
@@ -564,16 +564,16 @@ export default function PropertiesPage() {
 
       {/* Thanh kết quả + sort */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <span className="text-sm text-slate-600 font-medium">
+        <span className="text-sm text-ink-muted font-medium">
           {sortedGroups.length} bất động sản được tìm thấy
         </span>
 
         <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <ArrowUpDown className="h-4 w-4 text-ink-muted flex-shrink-0" />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            className="h-9 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition"
           >
             {(Object.keys(SORT_LABELS) as SortOption[]).map((k) => (
               <option key={k} value={k}>{SORT_LABELS[k]}</option>
@@ -598,7 +598,7 @@ export default function PropertiesPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 mb-6 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 mb-6 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
@@ -617,13 +617,15 @@ export default function PropertiesPage() {
         <div className="flex-1 min-w-0">
           {loading ? (
             <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : sortedGroups.length === 0 ? (
-            <div className="text-center py-16">
-              <Filter className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-600">Không tìm thấy bất động sản</h3>
-              <p className="text-slate-500 mt-2">Hãy thử điều chỉnh bộ lọc</p>
+            <div className="text-center py-16 bg-white border border-border-subtle rounded-lg p-8">
+              <Filter className="h-12 w-12 text-ink-muted/40 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold font-heading text-ink">Không tìm thấy bất động sản phù hợp</h3>
+              <p className="text-ink-muted mt-2 text-sm max-w-md mx-auto leading-relaxed">
+                Chúng tôi không tìm thấy bất động sản nào khớp với bộ lọc hiện tại của bạn. Bạn hãy thử nới rộng khoảng giá, tăng diện tích tìm kiếm hoặc xóa bớt các tiêu chí lọc để tìm được nhiều lựa chọn hơn.
+              </p>
               <Button variant="outline" className="mt-4" onClick={clearFilters}>Xóa bộ lọc</Button>
             </div>
           ) : (
@@ -653,19 +655,19 @@ export default function PropertiesPage() {
       <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 justify-center">
+            <DialogTitle className="flex items-center gap-2 justify-center font-heading">
               <Phone className="h-5 w-5" />
               Liên Hệ Môi Giới
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-2 pb-2 text-center">
             <div className="flex items-center justify-center gap-3 py-2">
-              <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
-                <Phone className="h-6 w-6 text-slate-600" />
+              <div className="h-12 w-12 rounded-full bg-accent-soft flex items-center justify-center">
+                <Phone className="h-6 w-6 text-accent" />
               </div>
-              <span className="text-2xl font-semibold text-slate-800">{hotline}</span>
+              <span className="text-2xl font-semibold text-ink font-mono">{hotline}</span>
             </div>
-            <Button className="w-full" size="lg" asChild>
+            <Button className="w-full bg-accent hover:bg-accent-500 text-white font-semibold" size="lg" asChild>
               <a href={hotlineHref}><Phone className="h-4 w-4 mr-2" />Gọi ngay</a>
             </Button>
           </div>

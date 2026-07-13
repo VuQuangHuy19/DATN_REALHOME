@@ -70,14 +70,13 @@ function LandlordSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; s
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0',
-          'bg-gradient-to-b from-emerald-950 to-slate-900 text-white',
+          'fixed inset-y-0 left-0 z-40 w-64 flex flex-col border-r border-border-subtle bg-bg-subtle text-ink transition-transform duration-300 ease-in-out md:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center gap-3 px-6 h-16 border-b border-emerald-800/50 flex-shrink-0">
+        <div className="flex items-center gap-3 px-6 h-16 border-b border-border-subtle flex-shrink-0">
           <img src="/logo.png" alt="RealHome Logo" className="h-14 w-auto object-contain" />
-          <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">Chủ nhà</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider bg-accent-soft text-accent px-2 py-0.5 rounded-full">Chủ nhà</span>
         </div>
 
         {/* Nav */}
@@ -98,8 +97,8 @@ function LandlordSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; s
                     className={cn(
                       'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                       groupActive
-                        ? 'bg-emerald-700/50 text-white'
-                        : 'text-emerald-200/70 hover:bg-emerald-800/40 hover:text-white'
+                        ? 'bg-accent-soft text-ink font-semibold'
+                        : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                     )}
                   >
                     <div className="flex items-center gap-3">
@@ -119,8 +118,8 @@ function LandlordSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; s
                     className={cn(
                       'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                       isActive(item.href)
-                        ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-900/50'
-                        : 'text-emerald-200/70 hover:bg-emerald-800/40 hover:text-white'
+                        ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
+                        : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                     )}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
@@ -129,7 +128,7 @@ function LandlordSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; s
                 )}
 
                 {hasChildren && isExpand && item.children && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-emerald-700/50 pl-3">
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border-subtle pl-3">
                     {item.children.map((child) => {
                       const ChildIcon = child.icon;
                       return (
@@ -140,8 +139,8 @@ function LandlordSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; s
                           className={cn(
                             'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
                             isActive(child.href)
-                              ? 'bg-emerald-600/70 text-white'
-                              : 'text-emerald-300/60 hover:bg-emerald-800/40 hover:text-white'
+                              ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
+                              : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                           )}
                         >
                           {ChildIcon && <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />}
@@ -169,21 +168,21 @@ function LandlordHeader() {
   const { unreadCount } = useNotifications(user?.id, company?.id);
 
   return (
-    <header className="h-16 bg-white border-b border-slate-100 pl-16 pr-6 md:px-6 flex items-center justify-between">
+    <header className="h-16 bg-white border-b border-border-subtle pl-16 pr-6 md:px-6 flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold px-3 py-1 rounded-lg text-xs hover:bg-emerald-50">
+        <Badge className="bg-accent-soft text-accent border border-accent/20 font-semibold px-3 py-1 rounded-lg text-xs hover:bg-accent-soft">
           🏠 Cổng Chủ nhà
         </Badge>
-        <span className="text-slate-400 text-sm hidden sm:block">{company?.name}</span>
+        <span className="text-ink-muted text-sm hidden sm:block">{company?.name}</span>
       </div>
 
       <div className="flex items-center gap-3">
         {/* Bell */}
         <Button variant="ghost" size="icon" className="relative" asChild>
           <Link href="/landlord/notifications">
-            <Bell className="h-5 w-5 text-slate-500" />
+            <Bell className="h-5 w-5 text-ink-muted" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center leading-none">
+              <span className="absolute top-1 right-1 h-4 w-4 bg-danger rounded-full text-white text-[10px] font-bold flex items-center justify-center leading-none">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -194,14 +193,14 @@ function LandlordHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-10">
-              <div className="h-7 w-7 rounded-full bg-emerald-100 flex items-center justify-center">
-                <User className="h-4 w-4 text-emerald-700" />
+              <div className="h-7 w-7 rounded-full bg-accent-soft flex items-center justify-center">
+                <User className="h-4 w-4 text-accent" />
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-slate-800 leading-tight">
+                <p className="text-sm font-medium text-ink leading-tight">
                   {profile?.full_name || 'Chủ nhà'}
                 </p>
-                <p className="text-xs text-emerald-600 leading-tight font-medium">Chủ nhà</p>
+                <p className="text-xs text-ink-muted leading-tight font-medium">Chủ nhà</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
@@ -209,7 +208,7 @@ function LandlordHeader() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={signOut}
-              className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+              className="flex items-center gap-2 text-red-650 focus:text-red-650 focus:bg-red-50"
             >
               <LogOut className="h-4 w-4" />
               Đăng xuất
@@ -225,7 +224,7 @@ function LandlordContent({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-bg-base">
       <LandlordSidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       <div className="flex-1 flex flex-col ml-0 md:ml-64">
         <LandlordHeader />

@@ -36,28 +36,28 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
   const pages = getPages();
 
   return (
-    <nav className="flex items-center justify-between border-t border-slate-200 px-4 sm:px-0 mt-6 pt-6 select-none">
+    <nav className="flex items-center justify-between border-t border-border-subtle px-4 sm:px-0 mt-6 pt-6 select-none">
       {/* Trang trước */}
       <div className="-mt-px flex w-0 flex-1">
         <button
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 disabled:hover:border-transparent disabled:hover:text-slate-500 transition-colors"
+          className="inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium text-ink-muted hover:border-border-subtle hover:text-ink disabled:opacity-40 disabled:hover:border-transparent disabled:hover:text-ink-muted transition-colors"
         >
-          <ChevronLeft className="mr-2 h-4 w-4 text-slate-400" aria-hidden="true" />
+          <ChevronLeft className="mr-2 h-4 w-4 text-ink-muted" aria-hidden="true" />
           Trước
         </button>
       </div>
 
       {/* Danh sách trang */}
-      <div className="hidden md:-mt-px md:flex gap-1">
+      <div className="hidden md:-mt-px md:flex gap-1 font-sans">
         {pages.map((page, idx) => {
           if (page === '...') {
             return (
               <span
                 key={`ellipsis-${idx}`}
-                className="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-slate-400"
+                className="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-ink-muted"
               >
                 ...
               </span>
@@ -74,8 +74,8 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
               onClick={() => onPageChange(pageNum)}
               className={`inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium transition-colors ${
                 isCurrent
-                  ? 'border-indigo-600 text-indigo-600 font-semibold'
-                  : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                  ? 'border-accent text-accent font-semibold'
+                  : 'border-transparent text-ink-muted hover:border-border-subtle hover:text-ink'
               }`}
               aria-current={isCurrent ? 'page' : undefined}
             >
@@ -91,10 +91,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700 disabled:opacity-40 disabled:hover:border-transparent disabled:hover:text-slate-500 transition-colors"
+          className="inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium text-ink-muted hover:border-border-subtle hover:text-ink disabled:opacity-40 disabled:hover:border-transparent disabled:hover:text-ink-muted transition-colors"
         >
           Sau
-          <ChevronRight className="ml-2 h-4 w-4 text-slate-400" aria-hidden="true" />
+          <ChevronRight className="ml-2 h-4 w-4 text-ink-muted" aria-hidden="true" />
         </button>
       </div>
     </nav>

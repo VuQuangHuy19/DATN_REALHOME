@@ -33,7 +33,7 @@ function MobileBottomNav() {
   };
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-100 h-16 flex items-center justify-around z-40 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-border-subtle h-16 flex items-center justify-around z-40 pb-safe shadow-none">
       {navLinks.map((link) => {
         const Icon = link.icon;
         const active = isActive(link.href);
@@ -43,7 +43,7 @@ function MobileBottomNav() {
             href={link.href}
             className={cn(
               "flex flex-col items-center justify-center flex-1 h-full text-[10px] transition-colors",
-              active ? "text-blue-600 font-semibold" : "text-slate-400 hover:text-slate-600"
+              active ? "text-accent font-semibold" : "text-ink-muted hover:text-ink"
             )}
           >
             <Icon className={cn("h-5 w-5 mb-0.5", active ? "stroke-[2.5]" : "stroke-[2]")} />

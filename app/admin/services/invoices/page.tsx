@@ -127,17 +127,17 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản Lý Hóa Đơn Tháng</h1>
-          <p className="text-slate-500">Quản lý thanh toán hóa đơn tiền phòng và dịch vụ hàng tháng</p>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản Lý Hóa Đơn Tháng</h1>
+          <p className="text-ink-muted text-sm mt-0.5">Quản lý thanh toán hóa đơn tiền phòng và dịch vụ hàng tháng</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={loadInvoices} variant="outline" size="icon" disabled={loading} title="Tải lại">
+          <Button onClick={loadInvoices} variant="outline" size="icon" disabled={loading} title="Tải lại" className="border-border hover:bg-bg-subtle text-ink rounded-lg">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={handleBatchGenerate} disabled={generating || loading} className="bg-indigo-650 hover:bg-indigo-700 text-white shadow-sm">
+          <Button onClick={handleBatchGenerate} disabled={generating || loading} className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none">
             {generating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -154,19 +154,19 @@ export default function InvoicesPage() {
       </div>
 
       {/* Bộ lọc */}
-      <Card className="border-slate-200 shadow-sm">
+      <Card className="border-border shadow-none rounded-lg bg-white">
         <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5"><Calendar className="h-4 w-4 text-slate-400" /> Chọn kỳ hóa đơn</Label>
-            <Input type="month" value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} />
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider"><Calendar className="h-4 w-4 text-ink-muted" /> Chọn kỳ hóa đơn</Label>
+            <Input type="month" value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
           </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5"><Search className="h-4 w-4 text-slate-400" /> Tìm kiếm</Label>
-            <Input placeholder="Tìm phòng, tên khách, mã hóa đơn..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider"><Search className="h-4 w-4 text-ink-muted" /> Tìm kiếm</Label>
+            <Input placeholder="Tìm phòng, tên khách, mã hóa đơn..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
           </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5">Trạng thái thanh toán</Label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái thanh toán</Label>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
               <option value="all">Tất cả</option>
               <option value="unpaid">Chưa thanh toán</option>
               <option value="paid">Đã thanh toán</option>
@@ -178,47 +178,56 @@ export default function InvoicesPage() {
       </Card>
 
       {/* Bảng hóa đơn */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardContent className="pt-6 p-0">
+      <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+        <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-655" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b text-slate-700 font-semibold">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-bg-subtle border-b border-border text-ink-muted">
                   <tr>
-                    <th className="px-6 py-3 text-left">Mã hóa đơn</th>
-                    <th className="px-6 py-3 text-left">Phòng</th>
-                    <th className="px-6 py-3 text-left">Khách thuê</th>
-                    <th className="px-6 py-3 text-left">Kỳ đóng</th>
-                    <th className="px-6 py-3 text-left">Tổng tiền thanh toán</th>
-                    <th className="px-6 py-3 text-left">Hạn thanh toán</th>
-                    <th className="px-6 py-3 text-left">Trạng thái</th>
-                    <th className="px-6 py-3 text-right">Thao tác</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Mã hóa đơn</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Phòng</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Khách thuê</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider">Kỳ đóng</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider">Tổng tiền thanh toán</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider">Hạn thanh toán</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y text-slate-700">
+                <tbody className="divide-y divide-border text-ink">
                   {filtered.map((item) => {
                     const badge = statusBadges[item.status] || { label: item.status, variant: 'outline' };
+                    let statusColor = 'bg-bg-subtle text-ink-muted border-border';
+                    if (item.status === 'paid') statusColor = 'bg-green-50 text-green-700 border-green-250';
+                    if (item.status === 'unpaid') statusColor = 'bg-amber-50 text-amber-700 border-amber-250';
+                    if (item.status === 'overdue') statusColor = 'bg-red-50 text-red-750 border-red-250';
+                    
                     return (
-                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-mono font-medium text-slate-900">{item.invoice_code}</td>
-                        <td className="px-6 py-4 font-semibold text-indigo-650">Phòng {item.rooms?.code || '—'}</td>
-                        <td className="px-6 py-4 font-medium">{item.rental_contracts?.party_b_name || 'Khách thuê lẻ'}</td>
-                        <td className="px-6 py-4 text-slate-650">{item.period}</td>
-                        <td className="px-6 py-4 font-semibold text-slate-900">{Number(item.total_amount).toLocaleString('vi-VN')} đ</td>
-                        <td className="px-6 py-4 text-slate-500">{new Date(item.due_date).toLocaleDateString('vi-VN')}</td>
-                        <td className="px-6 py-4">
-                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                      <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-xs">{item.invoice_code}</td>
+                        <td className="px-6 py-4 font-bold text-accent">Phòng {item.rooms?.code || '—'}</td>
+                        <td className="px-6 py-4 font-semibold">{item.rental_contracts?.party_b_name || 'Khách thuê lẻ'}</td>
+                        <td className="px-6 py-4 text-center text-xs font-mono font-medium text-ink-muted">{item.period}</td>
+                        <td className="px-6 py-4 text-right font-mono font-bold text-accent text-sm">
+                          {Number(item.total_amount).toLocaleString('vi-VN')}đ
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs font-mono text-ink-muted">{new Date(item.due_date).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-6 py-4 text-center">
+                          <Badge className={`${statusColor} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant={badge.variant}>
+                            {badge.label}
+                          </Badge>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}
-                            className="text-indigo-650 hover:text-indigo-800"
+                            className="text-accent hover:text-accent-500 hover:bg-bg-subtle rounded-lg font-semibold text-xs"
                           >
                             Chi tiết
                           </Button>
@@ -228,10 +237,10 @@ export default function InvoicesPage() {
                   })}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-6 py-12 text-center text-slate-400 bg-white">
+                      <td colSpan={8} className="px-6 py-12 text-center text-ink-muted bg-white">
                         <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                        <p className="text-sm font-medium">Không tìm thấy hóa đơn nào trong kỳ này.</p>
-                        <p className="text-xs text-slate-400 mt-1">Bấm nút &quot;Lập hóa đơn hàng loạt&quot; để tạo tự động.</p>
+                        <p className="text-sm font-semibold">Không tìm thấy hóa đơn nào trong kỳ này.</p>
+                        <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Lập hóa đơn hàng loạt&quot; để tạo tự động.</p>
                       </td>
                     </tr>
                   )}
@@ -244,34 +253,34 @@ export default function InvoicesPage() {
 
       {/* View Detail Receipt Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white border border-border rounded-lg shadow-lg p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-indigo-650">
-              <FileText className="h-5 w-5" /> Hóa Đơn Thu Tiền Nhà
+            <DialogTitle className="flex items-center gap-2 text-ink text-lg font-bold font-heading">
+              <FileText className="h-5 w-5 text-accent" /> Hóa Đơn Thu Tiền Nhà
             </DialogTitle>
-            <DialogDescription>Mã: {viewInvoice?.invoice_code} (Kỳ {viewInvoice?.period})</DialogDescription>
+            <DialogDescription className="text-xs text-ink-muted font-mono">Mã: {viewInvoice?.invoice_code} (Kỳ {viewInvoice?.period})</DialogDescription>
           </DialogHeader>
           
           {viewInvoice && (
-            <div className="space-y-4 pt-4 text-sm">
+            <div className="space-y-4 pt-4 text-sm text-ink-muted">
               {/* Thông tin phòng & khách */}
-              <div className="border rounded-lg p-3 bg-slate-50/50 space-y-1">
+              <div className="border rounded-lg p-3 bg-bg-subtle border-border space-y-1">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Phòng thuê:</span>
-                  <span className="font-semibold text-indigo-750">Phòng {viewInvoice.rooms?.code}</span>
+                  <span className="text-ink-muted text-xs font-semibold">Phòng thuê:</span>
+                  <span className="font-bold text-accent">Phòng {viewInvoice.rooms?.code}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Khách thuê:</span>
-                  <span className="font-semibold text-slate-800">{viewInvoice.rental_contracts?.party_b_name}</span>
+                  <span className="text-ink-muted text-xs font-semibold">Khách thuê:</span>
+                  <span className="font-semibold text-ink">{viewInvoice.rental_contracts?.party_b_name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Hạn nộp tiền:</span>
-                  <span className="font-medium text-slate-800">{new Date(viewInvoice.due_date).toLocaleDateString('vi-VN')}</span>
+                  <span className="text-ink-muted text-xs font-semibold">Hạn nộp tiền:</span>
+                  <span className="font-medium text-ink font-mono">{new Date(viewInvoice.due_date).toLocaleDateString('vi-VN')}</span>
                 </div>
                 {viewInvoice.status === 'paid' && (
-                  <div className="flex justify-between text-green-700 bg-green-50 p-1.5 rounded mt-1.5 text-xs font-semibold">
+                  <div className="flex justify-between text-green-700 bg-green-50 border border-green-250 p-2 rounded-lg mt-2 text-xs font-bold">
                     <span>Thanh toán ngày:</span>
-                    <span>
+                    <span className="font-mono">
                       {viewInvoice.payment_date ? new Date(viewInvoice.payment_date).toLocaleDateString('vi-VN') : 'N/A'} 
                       ({viewInvoice.payment_method === 'transfer' ? 'Chuyển khoản' : 'Tiền mặt'})
                     </span>
@@ -281,51 +290,51 @@ export default function InvoicesPage() {
 
               {/* Chi tiết tiền dịch vụ */}
               <div className="space-y-2">
-                <h4 className="font-semibold text-slate-700 border-b pb-1">Chi tiết hóa đơn</h4>
+                <h4 className="font-bold font-heading text-ink text-xs uppercase tracking-wider border-b border-border pb-1.5">Chi tiết hóa đơn</h4>
                 <div className="space-y-1.5">
                   <div className="flex justify-between">
-                    <span>Tiền phòng:</span>
-                    <span className="font-medium">{Number(viewInvoice.rent_amount).toLocaleString('vi-VN')} đ</span>
+                    <span className="text-ink-muted font-semibold text-xs">Tiền phòng:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.rent_amount).toLocaleString('vi-VN')}đ</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>
-                      Tiền điện: <span className="text-xs text-slate-400">(Sử dụng {viewInvoice.electricity_usage} số)</span>
+                    <span className="text-ink-muted font-semibold text-xs">
+                      Tiền điện: <span className="text-[10px] text-ink-muted italic font-mono">(Sử dụng {viewInvoice.electricity_usage} số)</span>
                     </span>
-                    <span className="font-medium">{Number(viewInvoice.electricity_amount).toLocaleString('vi-VN')} đ</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.electricity_amount).toLocaleString('vi-VN')}đ</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Tiền nước:</span>
-                    <span className="font-medium">{Number(viewInvoice.water_amount).toLocaleString('vi-VN')} đ</span>
+                    <span className="text-ink-muted font-semibold text-xs">Tiền nước:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.water_amount).toLocaleString('vi-VN')}đ</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Phí dịch vụ chung:</span>
-                    <span className="font-medium">{Number(viewInvoice.service_amount).toLocaleString('vi-VN')} đ</span>
+                    <span className="text-ink-muted font-semibold text-xs">Phí dịch vụ chung:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.service_amount).toLocaleString('vi-VN')}đ</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>
-                      Dịch vụ khác <span className="text-xs text-slate-400">({viewInvoice.other_details})</span>:
+                    <span className="text-ink-muted font-semibold text-xs">
+                      Dịch vụ khác <span className="text-[10px] text-ink-muted font-mono">({viewInvoice.other_details})</span>:
                     </span>
-                    <span className="font-medium">{Number(viewInvoice.other_amount).toLocaleString('vi-VN')} đ</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.other_amount).toLocaleString('vi-VN')}đ</span>
                   </div>
-                  <hr className="border-dashed" />
-                  <div className="flex justify-between text-base font-bold text-slate-900 pt-1">
+                  <hr className="border-dashed border-border" />
+                  <div className="flex justify-between text-base font-bold text-ink pt-1 font-heading">
                     <span>Tổng tiền thu:</span>
-                    <span className="text-indigo-650">{Number(viewInvoice.total_amount).toLocaleString('vi-VN')} đ</span>
+                    <span className="text-accent font-mono">{Number(viewInvoice.total_amount).toLocaleString('vi-VN')}đ</span>
                   </div>
                 </div>
               </div>
 
               {/* Nút thao tác thay đổi trạng thái hóa đơn */}
-              <div className="pt-4 flex flex-col gap-2">
+              <div className="pt-2 flex flex-col gap-2">
                 {viewInvoice.status !== 'paid' && viewInvoice.status !== 'cancelled' && (
-                  <div className="border p-3 rounded-lg space-y-3 bg-white">
+                  <div className="border border-border p-3 rounded-lg space-y-3 bg-white">
                     <div className="space-y-1.5">
-                      <Label htmlFor="pay_method">Hình thức thanh toán thực tế</Label>
+                      <Label htmlFor="pay_method" className="text-ink font-semibold text-xs uppercase tracking-wider block">Hình thức thanh toán thực tế</Label>
                       <select 
                         id="pay_method" 
                         value={payMethod} 
                         onChange={(e) => setPayMethod(e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
                       >
                         <option value="transfer">Chuyển khoản</option>
                         <option value="cash">Tiền mặt</option>
@@ -334,7 +343,7 @@ export default function InvoicesPage() {
                     <Button 
                       onClick={() => handleMarkAsPaid(viewInvoice.id)} 
                       disabled={updatingStatus}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg"
                     >
                       {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
                       Đánh dấu ĐÃ THANH TOÁN
@@ -347,14 +356,14 @@ export default function InvoicesPage() {
                     onClick={() => handleCancelInvoice(viewInvoice.id)} 
                     variant="outline" 
                     disabled={updatingStatus}
-                    className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    className="w-full border-danger/20 text-danger hover:bg-danger/10 hover:text-danger rounded-lg font-semibold"
                   >
                     {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
                     Hủy hóa đơn này
                   </Button>
                 )}
                 
-                <Button variant="ghost" onClick={() => setIsViewOpen(false)} className="w-full">
+                <Button variant="ghost" onClick={() => setIsViewOpen(false)} className="w-full text-ink-muted hover:bg-bg-subtle rounded-lg font-semibold">
                   Đóng cửa sổ
                 </Button>
               </div>
@@ -364,4 +373,5 @@ export default function InvoicesPage() {
       </Dialog>
     </div>
   );
+
 }

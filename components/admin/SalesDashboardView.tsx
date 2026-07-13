@@ -96,16 +96,16 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Leads */}
         <Link href="/admin/customers/leads">
-          <Card className="hover:shadow-md transition-all cursor-pointer border-slate-200 group">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Tổng Leads</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-1">{stats.totalLeads}</p>
-                  <p className="text-xs text-indigo-600 mt-1 font-medium">{stats.newLeads} lead mới</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-indigo-50 group-hover:bg-indigo-100 transition-colors">
-                  <Users className="h-5 w-5 text-indigo-600" />
+          <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border-subtle rounded-lg shadow-none cursor-pointer group">
+            <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+              <div>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tổng Leads</p>
+                <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.totalLeads}</p>
+                <p className="text-xs text-accent mt-1 font-semibold">{stats.newLeads} lead mới</p>
+              </div>
+              <div className="flex justify-end mt-2">
+                <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
+                  <Users className="h-4 w-4" />
                 </div>
               </div>
             </CardContent>
@@ -113,17 +113,17 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
         </Link>
 
         {/* Today Appointments */}
-        <Link href="/admin/appointments">
-          <Card className="hover:shadow-md transition-all cursor-pointer border-slate-200 group">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Lịch hẹn hôm nay</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-1">{stats.todayAppointments.length}</p>
-                  <p className="text-xs text-orange-600 mt-1 font-medium">{stats.pendingAppointments.length} chờ duyệt</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-orange-50 group-hover:bg-orange-100 transition-colors">
-                  <CalendarDays className="h-5 w-5 text-orange-600" />
+        <Link href="/admin/customers/appointments">
+          <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border-subtle rounded-lg shadow-none cursor-pointer group">
+            <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+              <div>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Lịch hẹn hôm nay</p>
+                <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.todayAppointments.length}</p>
+                <p className="text-xs text-warn mt-1 font-semibold">{stats.pendingAppointments.length} chờ duyệt</p>
+              </div>
+              <div className="flex justify-end mt-2">
+                <div className="p-1.5 rounded-md bg-accent-soft text-accent">
+                  <CalendarDays className="h-4 w-4" />
                 </div>
               </div>
             </CardContent>
@@ -132,18 +132,18 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
 
         {/* Deposits this month */}
         <Link href="/admin/contracts">
-          <Card className="hover:shadow-md transition-all cursor-pointer border-slate-200 group">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Cọc trong tháng</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-1">{stats.monthlyContracts.length}</p>
-                  <p className="text-xs text-emerald-600 mt-1 font-medium">
-                    {stats.totalDepositRevenue > 0 ? `${(stats.totalDepositRevenue / 1_000_000).toFixed(1)}M đ` : '—'}
-                  </p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-emerald-50 group-hover:bg-emerald-100 transition-colors">
-                  <FileText className="h-5 w-5 text-emerald-600" />
+          <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border-subtle rounded-lg shadow-none cursor-pointer group">
+            <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+              <div>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Cọc trong tháng</p>
+                <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.monthlyContracts.length}</p>
+                <p className="text-xs text-emerald-600 mt-1 font-semibold">
+                  {stats.totalDepositRevenue > 0 ? `${(stats.totalDepositRevenue / 1_000_000).toFixed(1)}M đ` : '—'}
+                </p>
+              </div>
+              <div className="flex justify-end mt-2">
+                <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
+                  <FileText className="h-4 w-4" />
                 </div>
               </div>
             </CardContent>
@@ -151,24 +151,17 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
         </Link>
 
         {/* Conversion Rate */}
-        <Card className="border-slate-200">
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Tỷ lệ chuyển đổi</p>
-                <p className="text-3xl font-bold text-slate-800 mt-1">{conversionRate}%</p>
-                <p className="text-xs text-slate-400 mt-1">Leads → Cọc/Thành công</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-violet-50">
-                <Target className="h-5 w-5 text-violet-600" />
-              </div>
+        <Card className="border-border-subtle rounded-lg shadow-none">
+          <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+            <div>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tỷ lệ chuyển đổi</p>
+              <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{conversionRate}%</p>
+              <p className="text-xs text-ink-muted mt-1">Leads → Cọc/Thành công</p>
             </div>
-            {/* Mini progress bar */}
-            <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-400 to-indigo-500"
-                style={{ width: `${conversionRate}%` }}
-              />
+            <div className="flex justify-end mt-2">
+              <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
+                <Target className="h-4 w-4" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -219,7 +212,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
                   <span className="h-2 w-2 rounded-full bg-orange-400 animate-pulse" />
                 )}
               </div>
-              <Link href="/admin/appointments" className="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+              <Link href="/admin/customers/appointments" className="text-xs text-accent hover:underline flex items-center gap-1">
                 Xem tất cả <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
@@ -284,7 +277,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
             )}
 
             <div className="pt-3">
-              <Link href="/admin/appointments">
+              <Link href="/admin/customers/appointments">
                 <Button size="sm" variant="outline" className="w-full gap-2 text-xs">
                   <PlusCircle className="h-3.5 w-3.5" />
                   Thêm lịch hẹn mới

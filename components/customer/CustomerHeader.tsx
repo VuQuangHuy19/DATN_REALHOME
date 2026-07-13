@@ -61,7 +61,7 @@ export function CustomerHeader() {
   }, [role]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
         {/* Left: Logo */}
@@ -72,12 +72,12 @@ export function CustomerHeader() {
         {/* Center: Search bar */}
         <div className="hidden md:flex justify-center">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
             <Input
               placeholder="Tìm bất động sản, địa chỉ, khu vực..."
               value={searchValue}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-9 bg-slate-50 border-slate-200 focus:bg-white focus-visible:ring-1 transition-colors"
+              className="pl-9 bg-bg-subtle border-border-subtle text-ink placeholder:text-ink-muted/60 focus:bg-white focus:ring-1 focus:ring-accent focus:border-accent focus-visible:ring-1 focus-visible:ring-accent focus-visible:border-accent transition-colors"
             />
           </div>
         </div>
@@ -93,8 +93,8 @@ export function CustomerHeader() {
                   href={link.href}
                   className={`text-sm font-semibold px-4 py-2 rounded-full transition-all duration-200 ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
-                      : 'text-slate-600 hover:text-blue-600 hover:bg-blue-50'
+                      ? 'bg-accent text-white shadow-none hover:bg-accent-500'
+                      : 'text-ink-muted hover:text-accent hover:bg-accent-soft'
                   }`}
                 >
                   {link.label}
@@ -191,8 +191,8 @@ export function CustomerHeader() {
           {!authLoading && user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 w-9 rounded-full p-0 flex items-center justify-center bg-slate-100 hover:bg-slate-200 border border-slate-200">
-                  <User className="h-4 w-4 text-slate-600" />
+                <Button variant="ghost" className="h-9 w-9 rounded-full p-0 flex items-center justify-center bg-accent-soft hover:bg-accent-soft border border-accent/20">
+                  <User className="h-4 w-4 text-accent" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">

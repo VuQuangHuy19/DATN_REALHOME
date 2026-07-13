@@ -272,39 +272,39 @@ export default function EditDepositContractPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" asChild>
+        <Button variant="outline" size="icon" asChild className="border-border hover:bg-bg-subtle text-ink rounded-lg">
           <Link href={`${pathPrefix}/contracts`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Chỉnh Sửa Hợp Đồng Đặt Cọc</h1>
-          <p className="text-slate-500">Mã hợp đồng: {contractCode}</p>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Chỉnh Sửa Hợp Đồng Đặt Cọc</h1>
+          <p className="text-ink-muted text-sm mt-0.5 font-mono">Mã hợp đồng: {contractCode}</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Khối 1: Chọn phòng */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="bg-slate-50 border-b border-slate-100">
-            <CardTitle className="text-base flex items-center gap-2 text-slate-800">
-              <Building className="h-5 w-5 text-indigo-600" />
+        <Card className="border-border shadow-none rounded-lg bg-white border-t-2 border-t-accent">
+          <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
+            <CardTitle className="text-base font-heading font-bold flex items-center gap-2 text-ink">
+              <Building className="h-5 w-5 text-accent" />
               1. Chọn phòng & Toà nhà đặt cọc
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="room_select">Chọn phòng *</Label>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="room_select" className="text-ink font-semibold text-xs uppercase tracking-wider">Chọn phòng *</Label>
               {roomsLoading ? (
-                <div className="flex items-center gap-2 h-10 border rounded px-3 text-slate-400">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Đang tải danh sách...
+                <div className="flex items-center gap-2 h-10 border border-border rounded-lg px-3 text-ink-muted bg-bg-subtle/50 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải danh sách...
                 </div>
               ) : (
                 <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-                  <SelectTrigger id="room_select">
+                  <SelectTrigger id="room_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
                     <SelectValue placeholder="Chọn phòng..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
                     {rooms.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         Phòng {r.code} - {r.buildings?.name || 'Khu vực khác'} ({Number(r.price).toLocaleString('vi-VN')}đ/tháng)
@@ -314,8 +314,8 @@ export default function EditDepositContractPage() {
                 </Select>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="agreement_date">Ngày lập hợp đồng *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="agreement_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày lập hợp đồng *</Label>
               <FormattedDateInput 
                 id="agreement_date" 
                 name="agreement_date" 
@@ -324,231 +324,240 @@ export default function EditDepositContractPage() {
                 required 
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="sign_location">Nơi ký hợp đồng đặt cọc</Label>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="sign_location" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi ký hợp đồng đặt cọc</Label>
               <Input 
                 id="sign_location" 
                 value={signLocation} 
                 onChange={(e) => setSignLocation(e.target.value)} 
                 placeholder="Địa chỉ ký kết" 
+                className="rounded-lg border-border focus-visible:ring-accent"
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Khối 2: Thông tin Bên A */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="bg-slate-50 border-b border-slate-100">
-            <CardTitle className="text-base flex items-center gap-2 text-slate-800">
-              <User className="h-5 w-5 text-indigo-600" />
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
+            <CardTitle className="text-base font-heading font-bold flex items-center gap-2 text-ink">
+              <User className="h-5 w-5 text-accent" />
               2. Đại diện Bên Cho Thuê (Bên A)
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="party_a_name">Họ và tên *</Label>
-              <Input id="party_a_name" value={partyAName} onChange={(e) => setPartyAName(e.target.value)} required />
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="party_a_name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ và tên *</Label>
+              <Input id="party_a_name" value={partyAName} onChange={(e) => setPartyAName(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_a_dob">Ngày sinh</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_a_dob" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày sinh</Label>
               <FormattedDateInput 
                 id="party_a_dob" 
                 value={partyADob} 
                 onChange={setPartyADob} 
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_a_phone">Số điện thoại *</Label>
-              <Input id="party_a_phone" value={partyAPhone} onChange={(e) => setPartyAPhone(e.target.value)} required />
+            <div className="space-y-1.5">
+              <Label htmlFor="party_a_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại *</Label>
+              <Input id="party_a_phone" value={partyAPhone} onChange={(e) => setPartyAPhone(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_a_id_card">Số CMND / CCCD</Label>
-              <Input id="party_a_id_card" value={partyAIdCard} onChange={(e) => setPartyAIdCard(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label htmlFor="party_a_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CCCD / CMND</Label>
+              <Input id="party_a_id_card" value={partyAIdCard} onChange={(e) => setPartyAIdCard(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-mono" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_a_id_date">Ngày cấp</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_a_id_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày cấp</Label>
               <FormattedDateInput 
                 id="party_a_id_date" 
                 value={partyAIdDate} 
                 onChange={setPartyAIdDate} 
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_a_id_place">Nơi cấp</Label>
-              <Input id="party_a_id_place" value={partyAIdPlace} onChange={(e) => setPartyAIdPlace(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label htmlFor="party_a_id_place" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi cấp</Label>
+              <Input id="party_a_id_place" value={partyAIdPlace} onChange={(e) => setPartyAIdPlace(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <div className="space-y-2 md:col-span-3">
-              <Label htmlFor="party_a_address">Địa chỉ thường trú</Label>
-              <Input id="party_a_address" value={partyAAddress} onChange={(e) => setPartyAAddress(e.target.value)} />
+            <div className="space-y-1.5 md:col-span-3">
+              <Label htmlFor="party_a_address" className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ thường trú</Label>
+              <Input id="party_a_address" value={partyAAddress} onChange={(e) => setPartyAAddress(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
           </CardContent>
         </Card>
 
         {/* Khối 3: Thông tin Bên B */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="bg-slate-50 border-b border-slate-100">
-            <CardTitle className="text-base flex items-center gap-2 text-emerald-600">
-              <User className="h-5 w-5" />
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
+            <CardTitle className="text-base font-heading font-bold flex items-center gap-2 text-ink">
+              <User className="h-5 w-5 text-accent" />
               3. Thông tin Khách Thuê Đặt Cọc (Bên B)
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="party_b_name">Họ và tên khách thuê *</Label>
-              <Input id="party_b_name" value={partyBName} onChange={(e) => setPartyBName(e.target.value)} required />
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ và tên khách thuê *</Label>
+              <Input id="party_b_name" value={partyBName} onChange={(e) => setPartyBName(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_b_dob">Ngày/Năm sinh</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_dob" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày/Năm sinh</Label>
               <FormattedDateInput 
                 id="party_b_dob" 
                 value={partyBDob} 
                 onChange={setPartyBDob} 
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_b_phone">Số điện thoại khách thuê *</Label>
-              <Input id="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} required />
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại khách thuê *</Label>
+              <Input id="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_b_id_card">Số CMND / CCCD</Label>
-              <Input id="party_b_id_card" value={partyBIdCard} onChange={(e) => setPartyBIdCard(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CMND / CCCD</Label>
+              <Input id="party_b_id_card" value={partyBIdCard} onChange={(e) => setPartyBIdCard(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-mono" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_b_id_date">Ngày cấp</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_id_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày cấp</Label>
               <FormattedDateInput 
                 id="party_b_id_date" 
                 value={partyBIdDate} 
                 onChange={setPartyBIdDate} 
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="party_b_id_place">Nơi cấp</Label>
-              <Input id="party_b_id_place" value={partyBIdPlace} onChange={(e) => setPartyBIdPlace(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_id_place" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi cấp</Label>
+              <Input id="party_b_id_place" value={partyBIdPlace} onChange={(e) => setPartyBIdPlace(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <div className="space-y-2 md:col-span-3">
-              <Label htmlFor="party_b_address">Hộ khẩu thường trú</Label>
-              <Input id="party_b_address" value={partyBAddress} onChange={(e) => setPartyBAddress(e.target.value)} />
+            <div className="space-y-1.5 md:col-span-3">
+              <Label htmlFor="party_b_address" className="text-ink font-semibold text-xs uppercase tracking-wider">Hộ khẩu thường trú</Label>
+              <Input id="party_b_address" value={partyBAddress} onChange={(e) => setPartyBAddress(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
           </CardContent>
         </Card>
 
         {/* Khối 4: Thỏa thuận thuê */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="bg-slate-50 border-b border-slate-100">
-            <CardTitle className="text-base flex items-center gap-2 text-slate-800">
-              <Settings className="h-5 w-5 text-indigo-600" />
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
+            <CardTitle className="text-base font-heading font-bold flex items-center gap-2 text-ink">
+              <Settings className="h-5 w-5 text-accent" />
               4. Thỏa thuận thuê & Đơn giá dịch vụ
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="rent_price">Giá thuê dự kiến (đ/tháng) *</Label>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="rent_price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê dự kiến (đ/tháng) *</Label>
               <Input 
                 type="text" 
                 id="rent_price" 
                 value={formatNumber(rentPrice)} 
                 onChange={(e) => setRentPrice(parseNumber(e.target.value))} 
                 required 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-accent"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="electricity_price">Tiền điện (đ/số)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="electricity_price" className="text-ink font-semibold text-xs uppercase tracking-wider">Tiền điện (đ/số)</Label>
               <Input 
                 type="text" 
                 id="electricity_price" 
                 value={formatNumber(electricityPrice)} 
                 onChange={(e) => setElectricityPrice(parseNumber(e.target.value))} 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="water_price">Tiền nước</Label>
-              <Input id="water_price" value={waterPrice} onChange={(e) => setWaterPrice(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label htmlFor="water_price" className="text-ink font-semibold text-xs uppercase tracking-wider">Tiền nước</Label>
+              <Input id="water_price" value={waterPrice} onChange={(e) => setWaterPrice(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="service_price">Phí dịch vụ chung</Label>
-              <Input id="service_price" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} />
+            <div className="space-y-1.5">
+              <Label htmlFor="service_price" className="text-ink font-semibold text-xs uppercase tracking-wider">Phí dịch vụ chung</Label>
+              <Input id="service_price" value={servicePrice} onChange={(e) => setServicePrice(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="internet_price">Tiền mạng internet (đ/tháng)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="internet_price" className="text-ink font-semibold text-xs uppercase tracking-wider">Tiền mạng internet (đ/tháng)</Label>
               <Input 
                 type="text" 
                 id="internet_price" 
                 value={formatNumber(internetPrice)} 
                 onChange={(e) => setInternetPrice(parseNumber(e.target.value))} 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="laundry_price">Phí máy giặt/sấy (đ/tháng)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="laundry_price" className="text-ink font-semibold text-xs uppercase tracking-wider">Phí máy giặt/sấy (đ/tháng)</Label>
               <Input 
                 type="text" 
                 id="laundry_price" 
                 value={formatNumber(laundryPrice)} 
                 onChange={(e) => setLaundryPrice(parseNumber(e.target.value))} 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="tenant_count">Số người ở đăng ký</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="tenant_count" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người ở đăng ký</Label>
               <Input 
                 type="number" 
                 id="tenant_count" 
                 value={tenantCount} 
                 onChange={(e) => setTenantCount(Number(e.target.value))} 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="lease_duration">Thời hạn hợp đồng dự kiến (tháng)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="lease_duration" className="text-ink font-semibold text-xs uppercase tracking-wider">Thời hạn hợp đồng dự kiến (tháng)</Label>
               <Input 
                 type="number" 
                 id="lease_duration" 
                 value={leaseDuration} 
                 onChange={(e) => setLeaseDuration(Number(e.target.value))} 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="termination_notice">Báo trước khi đòi nhà (ngày)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="termination_notice" className="text-ink font-semibold text-xs uppercase tracking-wider">Báo trước khi đòi nhà (ngày)</Label>
               <Input 
                 type="number" 
                 id="termination_notice" 
                 value={terminationNotice} 
                 onChange={(e) => setTerminationNotice(Number(e.target.value))} 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="support_repair_date">Hạn hỗ trợ sửa phòng trước khi ký HĐ</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="support_repair_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Hạn hỗ trợ sửa phòng trước khi ký HĐ</Label>
               <FormattedDateInput 
                 id="support_repair_date" 
                 value={supportRepairDate} 
                 onChange={setSupportRepairDate} 
               />
             </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="payment_method">Phương thức thanh toán thỏa thuận</Label>
-              <Input id="payment_method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} />
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="payment_method" className="text-ink font-semibold text-xs uppercase tracking-wider">Phương thức thanh toán thỏa thuận</Label>
+              <Input id="payment_method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
           </CardContent>
         </Card>
 
         {/* Khối 5: Thỏa thuận cọc */}
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="bg-slate-50 border-b border-slate-100">
-            <CardTitle className="text-base flex items-center gap-2 text-slate-800">
-              <Landmark className="h-5 w-5 text-indigo-600" />
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
+            <CardTitle className="text-base font-heading font-bold flex items-center gap-2 text-ink">
+              <Landmark className="h-5 w-5 text-accent" />
               5. Thỏa thuận đặt cọc & Thanh toán
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="deposit_amount">Số tiền nhận đặt cọc (đ) *</Label>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="deposit_amount" className="text-ink font-semibold text-xs uppercase tracking-wider">Số tiền nhận đặt cọc (đ) *</Label>
               <Input 
                 type="text" 
                 id="deposit_amount" 
                 value={formatNumber(depositAmount)} 
                 onChange={(e) => setDepositAmount(parseNumber(e.target.value))} 
                 required 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-accent"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="deadline_sign">Hạn ký hợp đồng chính thức *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="deadline_sign" className="text-ink font-semibold text-xs uppercase tracking-wider">Hạn ký hợp đồng chính thức *</Label>
               <FormattedDateInput 
                 id="deadline_sign" 
                 value={deadlineSign} 
@@ -556,13 +565,13 @@ export default function EditDepositContractPage() {
                 required 
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="payment_type">Hình thức cọc *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="payment_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Hình thức cọc *</Label>
               <Select value={paymentType} onValueChange={(value: any) => setPaymentType(value)}>
-                <SelectTrigger id="payment_type">
+                <SelectTrigger id="payment_type" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
                   <SelectValue placeholder="Chọn hình thức..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
                   <SelectItem value="transfer">Chuyển khoản</SelectItem>
                   <SelectItem value="cash">Tiền mặt</SelectItem>
                   <SelectItem value="both">Cả hai</SelectItem>
@@ -572,28 +581,28 @@ export default function EditDepositContractPage() {
 
             {paymentType !== 'cash' && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="bank_name">Tên Ngân hàng nhận cọc</Label>
-                  <Input id="bank_name" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="bank_name" className="text-ink font-semibold text-xs uppercase tracking-wider">Tên Ngân hàng nhận cọc</Label>
+                  <Input id="bank_name" value={bankName} onChange={(e) => setBankName(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bank_account_number">Số tài khoản</Label>
-                  <Input id="bank_account_number" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="bank_account_number" className="text-ink font-semibold text-xs uppercase tracking-wider">Số tài khoản</Label>
+                  <Input id="bank_account_number" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-mono" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bank_account_owner">Chủ tài khoản</Label>
-                  <Input id="bank_account_owner" value={bankAccountOwner} onChange={(e) => setBankAccountOwner(e.target.value)} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="bank_account_owner" className="text-ink font-semibold text-xs uppercase tracking-wider">Chủ tài khoản</Label>
+                  <Input id="bank_account_owner" value={bankAccountOwner} onChange={(e) => setBankAccountOwner(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent uppercase font-bold" />
                 </div>
-                <div className="space-y-2 md:col-span-3">
-                  <Label htmlFor="transfer_content">Nội dung chuyển khoản mẫu</Label>
-                  <Input id="transfer_content" value={transferContent} onChange={(e) => setTransferContent(e.target.value)} />
+                <div className="space-y-1.5 md:col-span-3">
+                  <Label htmlFor="transfer_content" className="text-ink font-semibold text-xs uppercase tracking-wider">Nội dung chuyển khoản mẫu</Label>
+                  <Input id="transfer_content" value={transferContent} onChange={(e) => setTransferContent(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-mono" />
                 </div>
               </>
             )}
 
-            <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 mt-2">
+            <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-border pt-4 mt-2">
               <div className="space-y-2">
-                <Label className="font-semibold text-slate-700">Ảnh Sale dẫn khách xem phòng</Label>
+                <Label className="text-ink font-semibold text-xs uppercase tracking-wider block mb-1">Ảnh Sale dẫn khách xem phòng</Label>
                 <ImageUpload 
                   value={leadViewImageUrl} 
                   onChange={setLeadViewImageUrl} 
@@ -601,7 +610,7 @@ export default function EditDepositContractPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="font-semibold text-slate-700">Ảnh hóa đơn chuyển khoản đặt cọc</Label>
+                <Label className="text-ink font-semibold text-xs uppercase tracking-wider block mb-1">Ảnh hóa đơn chuyển khoản đặt cọc</Label>
                 <ImageUpload 
                   value={transferProofUrl} 
                   onChange={setTransferProofUrl} 
@@ -610,19 +619,19 @@ export default function EditDepositContractPage() {
               </div>
             </div>
 
-            <div className="space-y-2 md:col-span-3">
-              <Label htmlFor="note">Ghi chú thêm</Label>
-              <Textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Các thỏa thuận bổ sung..." rows={3} />
+            <div className="space-y-1.5 md:col-span-3">
+              <Label htmlFor="note" className="text-ink font-semibold text-xs uppercase tracking-wider">Ghi chú thêm</Label>
+              <Textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Các thỏa thuận bổ sung..." rows={3} className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
           </CardContent>
         </Card>
 
         {/* Nút hành động */}
-        <div className="flex items-center justify-end gap-3">
-          <Button type="button" variant="outline" asChild>
+        <div className="flex items-center justify-end gap-3 pt-2">
+          <Button type="button" variant="ghost" asChild className="text-ink hover:bg-bg-subtle rounded-lg font-semibold">
             <Link href={`${pathPrefix}/contracts`}>Hủy bỏ</Link>
           </Button>
-          <Button type="submit" className="bg-slate-900 text-white hover:bg-slate-800" disabled={submitting}>
+          <Button type="submit" className="bg-accent hover:bg-accent-500 text-white font-semibold rounded-lg shadow-none" disabled={submitting}>
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

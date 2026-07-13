@@ -165,7 +165,7 @@ export function AdminSidebar() {
 
   const SidebarContent = () => (
     <>
-      <div className="flex items-center px-6 h-16 border-b border-slate-800 flex-shrink-0">
+      <div className="flex items-center px-6 h-16 border-b border-border-subtle flex-shrink-0">
         <img src="/logo.png" alt="RealHome Logo" className="h-16 w-auto object-contain" />
       </div>
 
@@ -184,8 +184,8 @@ export function AdminSidebar() {
                   className={cn(
                     'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     groupActive
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-accent-soft text-ink font-semibold'
+                      : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -205,8 +205,8 @@ export function AdminSidebar() {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive(item.href)
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
+                      : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                   )}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
@@ -215,7 +215,7 @@ export function AdminSidebar() {
               )}
 
               {hasChildren && isExpanded && item.children && (
-                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
+                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border-subtle pl-3">
                   {item.children
                     .filter((child) => !child.permission || hasPermission(child.permission))
                     .map((child) => {
@@ -228,8 +228,8 @@ export function AdminSidebar() {
                           className={cn(
                             'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
                             pathname === child.href || pathname.startsWith(child.href + '/')
-                              ? 'bg-slate-700 text-white'
-                              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                              ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
+                              : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                           )}
                         >
                           {ChildIcon && <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />}
@@ -258,7 +258,7 @@ export function AdminSidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-white transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col',
+          'fixed inset-y-0 left-0 z-40 w-64 bg-bg-subtle text-ink border-r border-border-subtle transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >

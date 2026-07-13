@@ -236,241 +236,260 @@ export function RoomListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý Căn hộ/Phòng</h1>
-          <p className="text-slate-500">Quản lý căn hộ và phòng riêng lẻ</p>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản lý Căn hộ/Phòng</h1>
+          <p className="text-ink-muted text-sm">Quản lý căn hộ và phòng riêng lẻ</p>
         </div>
         {role !== 'sales_agent' && (
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openAdd}><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
-            <DialogHeader className="flex-shrink-0 px-6 pt-6">
-              <DialogTitle>{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto flex-1 px-6 py-4">
-            <form onSubmit={handleSave} className="space-y-4 py-1">
-              <div className="grid grid-cols-4 gap-4">
-                <div><Label htmlFor="code">Mã phòng</Label><Input id="code" name="code" defaultValue={editItem?.code} required /></div>
-                <div>
-                  <Label htmlFor="building_id">Tòa nhà</Label>
-                  <select id="building_id" name="building_id" defaultValue={editItem?.building_id ?? ''} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option value="">Chọn tòa nhà</option>
-                    {buildings.map((b) => <option key={b.id} value={b.code}>{b.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="room_type">Loại phòng</Label>
-                  <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" required>
-                    <option value="">Chọn loại</option>
-                    {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                  </select>
-                </div>
-                <div><Label htmlFor="floor">Tầng</Label><Input id="floor" name="floor" type="number" defaultValue={editItem?.floor} required /></div>
-              </div>
-              
-              <div className="grid grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="status">Trạng thái</Label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    required
-                  >
-                    <option value="available">Còn trống</option>
-                    <option value="soon_available">Sắp trống</option>
-                    <option value="rented">Đã cho thuê</option>
-                    <option value="maintenance">Bảo trì</option>
-                    <option value="reserved">Đặt trước / Đang giữ</option>
-                  </select>
-                </div>
-                <div><Label htmlFor="size">Diện tích (m²)</Label><Input id="size" name="size" type="number" defaultValue={editItem?.size ?? ''} /></div>
-                <div>
-                  <Label htmlFor="price">Giá (đ)</Label>
-                  <Input
-                    id="price"
-                    type="text"
-                    inputMode="numeric"
-                    value={displayPrice}
-                    onChange={handlePriceChange}
-                    placeholder="0"
-                    required
-                  />
-                  <input type="hidden" name="price" value={displayPrice.replace(/\./g, '')} />
-                </div>
-                <div>
-                  <Label htmlFor="min_contract_months">Hợp đồng tối thiểu (tháng)</Label>
-                  <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={editItem?.min_contract_months ?? 12} required />
-                </div>
-              </div>
-
-              {selectedStatus === 'soon_available' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5 col-span-2">
-                    <Label htmlFor="soon_date">Ngày trống dự kiến</Label>
-                    <FormattedDateInput
-                      id="soon_date"
-                      name="soon_date"
-                      value={soonDate}
-                      onChange={setSoonDate}
-                      required
-                    />
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white shadow-lg">
+              <DialogHeader className="flex-shrink-0 px-6 pt-6">
+                <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
+              </DialogHeader>
+              <div className="overflow-y-auto flex-1 px-6 pb-6">
+                <form onSubmit={handleSave} className="space-y-4 py-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng</Label>
+                      <Input id="code" name="code" defaultValue={editItem?.code} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="building_id" className="text-ink font-semibold text-xs uppercase tracking-wider">Tòa nhà</Label>
+                      <select id="building_id" name="building_id" defaultValue={editItem?.building_id ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
+                        <option value="">Chọn tòa nhà</option>
+                        {buildings.map((b) => <option key={b.id} value={b.code}>{b.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng</Label>
+                      <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent" required>
+                        <option value="">Chọn loại</option>
+                        {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Tầng</Label>
+                      <Input id="floor" name="floor" type="number" defaultValue={editItem?.floor} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
                   </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-5 gap-4">
-                <div><Label htmlFor="bedrooms">Phòng ngủ</Label><Input id="bedrooms" name="bedrooms" type="number" defaultValue={editItem?.bedrooms} required /></div>
-                <div><Label htmlFor="bathrooms">Phòng tắm</Label><Input id="bathrooms" name="bathrooms" type="number" defaultValue={editItem?.bathrooms} required /></div>
-                <div>
-                  <Label htmlFor="has_private_balcony">Ban công riêng</Label>
-                  <select id="has_private_balcony" name="has_private_balcony" defaultValue={editItem ? String(editItem.has_private_balcony) : 'false'} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
-                    <option value="false">Không có</option>
-                    <option value="true">Có ban công riêng</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="max_occupants">Số người tối đa</Label>
-                  <Input id="max_occupants" name="max_occupants" type="number" defaultValue={editItem?.max_occupants ?? 2} required />
-                </div>
-                <div>
-                  <Label htmlFor="max_vehicles_per_room">Số xe tối đa</Label>
-                  <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={editItem?.max_vehicles_per_room ?? 2} required />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label htmlFor="description">Mô tả</Label><Input id="description" name="description" defaultValue={editItem?.description ?? ''} /></div>
-                <div><Label htmlFor="rose">Hoa hồng (ví dụ: 40% cho hợp đồng 6 tháng, 50% cho 12 tháng)</Label><Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." /></div>
-              </div>
-
-              {/* Quản lý ảnh phòng trực tiếp trong Dialog Sửa hoặc Thêm */}
-              <div className="border-t pt-4 space-y-3">
-                <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                  <LucideImage className="h-4 w-4 text-indigo-600" />
-                  Hình ảnh phòng ({(editItem ? images : tempImages).length})
-                </Label>
-
-                {(editItem ? images : tempImages).length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-slate-200 rounded-lg text-slate-400 bg-slate-50/50">
-                    <LucideImage className="h-5 w-5 mx-auto mb-1 opacity-45" />
-                    <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border rounded-lg bg-slate-50/30">
-                    {(editItem ? images : tempImages).map((img) => (
-                      <div
-                        key={img.id}
-                        className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-slate-200'
-                          }`}
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái</Label>
+                      <select
+                        id="status"
+                        name="status"
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                        className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent"
+                        required
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={img.url}
-                          alt="Room preview"
-                          className="object-cover w-14 h-10 rounded border border-slate-100 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 select-none">
-                              <input
-                                type="radio"
-                                name="dialog_list_thumbnail_radio"
-                                checked={img.is_thumbnail}
-                                onChange={() => {
-                                  if (editItem) {
-                                    makeThumbnail(img.id);
-                                  } else {
-                                    setTempImages(prev => prev.map(item => ({
-                                      ...item,
-                                      is_thumbnail: item.id === img.id
-                                    })));
-                                  }
-                                }}
-                                className="w-3.5 h-3.5 text-amber-500 border-slate-300 focus:ring-amber-400 focus:ring-offset-0 cursor-pointer"
-                              />
-                              Ảnh chính
-                            </label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                if (editItem) {
-                                  handleRemoveImage(img.id, img.url);
-                                } else {
-                                  handleRemoveTempImage(img.id, img.url);
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[11px]">
-                            <span className="text-slate-400 font-medium">Ưu tiên:</span>
-                            <input
-                              type="number"
-                              value={img.priority}
-                              onChange={(e) => {
-                                const val = Number(e.target.value);
-                                if (editItem) {
-                                  updatePriority(img.id, val);
-                                } else {
-                                  setTempImages(prev => prev.map(item =>
-                                    item.id === img.id ? { ...item, priority: val } : item
-                                  ).sort((a, b) => a.priority - b.priority));
-                                }
-                              }}
-                              className="w-10 h-5 border border-slate-200 rounded text-center font-mono text-[10px]"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                        <option value="available">Còn trống</option>
+                        <option value="soon_available">Sắp trống</option>
+                        <option value="rented">Đã cho thuê</option>
+                        <option value="maintenance">Bảo trì</option>
+                        <option value="reserved">Đặt trước / Đang giữ</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="size" className="text-ink font-semibold text-xs uppercase tracking-wider">Diện tích (m²)</Label>
+                      <Input id="size" name="size" type="number" defaultValue={editItem?.size ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê (đ)</Label>
+                      <Input
+                        id="price"
+                        type="text"
+                        inputMode="numeric"
+                        value={displayPrice}
+                        onChange={handlePriceChange}
+                        placeholder="0"
+                        required
+                        className="rounded-lg border-border focus-visible:ring-accent"
+                      />
+                      <input type="hidden" name="price" value={displayPrice.replace(/\./g, '')} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">Hợp đồng tối thiểu (tháng)</Label>
+                      <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={editItem?.min_contract_months ?? 12} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
                   </div>
-                )}
 
-                {/* Image Upload Component inside Dialog */}
-                <div className="pt-1">
-                  <ImageUpload
-                     value={null}
-                     onChange={handleImageUploaded}
-                     bucket="room_images"
-                     multiple={true}
-                     className="w-full"
-                  />
-                </div>
+                  {selectedStatus === 'soon_available' && (
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1.5 col-span-2">
+                        <Label htmlFor="soon_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày trống dự kiến</Label>
+                        <FormattedDateInput
+                          id="soon_date"
+                          name="soon_date"
+                          value={soonDate}
+                          onChange={setSoonDate}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ</Label>
+                      <Input id="bedrooms" name="bedrooms" type="number" defaultValue={editItem?.bedrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm</Label>
+                      <Input id="bathrooms" name="bathrooms" type="number" defaultValue={editItem?.bathrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="has_private_balcony" className="text-ink font-semibold text-xs uppercase tracking-wider">Ban công riêng</Label>
+                      <select id="has_private_balcony" name="has_private_balcony" defaultValue={editItem ? String(editItem.has_private_balcony) : 'false'} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
+                        <option value="false">Không có</option>
+                        <option value="true">Có ban công riêng</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa</Label>
+                      <Input id="max_occupants" name="max_occupants" type="number" defaultValue={editItem?.max_occupants ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa</Label>
+                      <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={editItem?.max_vehicles_per_room ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="description" className="text-ink font-semibold text-xs uppercase tracking-wider">Mô tả</Label>
+                      <Input id="description" name="description" defaultValue={editItem?.description ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="rose" className="text-ink font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới</Label>
+                      <Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                  </div>
+
+                  {/* Quản lý ảnh phòng trực tiếp trong Dialog Sửa hoặc Thêm */}
+                  <div className="border-t border-border pt-4 space-y-3">
+                    <Label className="text-ink font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
+                      <LucideImage className="h-4 w-4 text-accent" />
+                      Hình ảnh phòng ({(editItem ? images : tempImages).length})
+                    </Label>
+
+                    {(editItem ? images : tempImages).length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-border rounded-lg text-ink-muted bg-bg-base/30">
+                        <LucideImage className="h-5 w-5 mx-auto mb-1 opacity-45" />
+                        <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border border-border rounded-lg bg-bg-subtle/20">
+                        {(editItem ? images : tempImages).map((img) => (
+                          <div
+                            key={img.id}
+                            className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-border'
+                              }`}
+                          >
+                            <img
+                              src={img.url}
+                              alt="Room preview"
+                              className="object-cover w-14 h-10 rounded border border-border shrink-0"
+                            />
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-ink select-none">
+                                  <input
+                                    type="radio"
+                                    name="dialog_list_thumbnail_radio"
+                                    checked={img.is_thumbnail}
+                                    onChange={() => {
+                                      if (editItem) {
+                                        makeThumbnail(img.id);
+                                      } else {
+                                        setTempImages(prev => prev.map(item => ({
+                                          ...item,
+                                          is_thumbnail: item.id === img.id
+                                        })));
+                                      }
+                                    }}
+                                    className="w-3.5 h-3.5 text-amber-500 border-border focus:ring-amber-450 focus:ring-offset-0 cursor-pointer"
+                                  />
+                                  Ảnh chính
+                                </label>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 text-danger hover:text-danger hover:bg-danger/10"
+                                  onClick={() => {
+                                    if (editItem) {
+                                      handleRemoveImage(img.id, img.url);
+                                    } else {
+                                      handleRemoveTempImage(img.id, img.url);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+                                <span className="font-semibold text-[10px] uppercase">Ưu tiên:</span>
+                                <input
+                                  type="number"
+                                  value={img.priority}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (editItem) {
+                                      updatePriority(img.id, val);
+                                    } else {
+                                      setTempImages(prev => prev.map(item =>
+                                        item.id === img.id ? { ...item, priority: val } : item
+                                      ).sort((a, b) => a.priority - b.priority));
+                                    }
+                                  }}
+                                  className="w-10 h-5 border border-border rounded text-center font-mono text-[10px] text-ink bg-white"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="pt-1">
+                      <ImageUpload
+                        value={null}
+                        onChange={handleImageUploaded}
+                        bucket="room_images"
+                        multiple={true}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white rounded-lg mt-2 font-semibold" disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Lưu phòng
+                  </Button>
+                </form>
               </div>
-
-
-              <Button type="submit" className="w-full" disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Lưu
-              </Button>
-            </form>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
 
-      <Card>
-        <CardHeader>
+      <Card className="border-border rounded-lg shadow-none bg-white">
+        <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input placeholder="Tìm theo mã phòng, tòa nhà hoặc mã chủ nhà..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input placeholder="Tìm theo mã phòng, tòa nhà hoặc mã chủ nhà..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
             </div>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
               <option value="">Tất cả trạng thái</option>
               <option value="available">Còn trống</option>
               <option value="rented">Đã cho thuê</option>
@@ -479,39 +498,39 @@ export function RoomListPage() {
             </select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border-t border-border overflow-hidden">
               {/* Desktop view */}
-              <table className="w-full text-sm hidden md:table">
-                <thead className="bg-slate-50">
+              <table className="w-full text-sm hidden md:table border-collapse">
+                <thead className="bg-bg-subtle border-b border-border">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Mã</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Mã Chủ Nhà</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Tòa nhà</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Loại</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Diện tích</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Giá</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Trạng thái</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Thao tác</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã Chủ Nhà</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Tòa nhà</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Loại</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Diện tích</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Giá</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-border text-ink">
                   {filtered.map((item) => (
                     <tr
                       key={item.id}
                       onClick={() => openView(item)}
-                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                      className="hover:bg-bg-subtle/50 cursor-pointer transition-colors"
                     >
-                      <td className="px-4 py-3 font-mono text-slate-600">{item.code}</td>
-                      <td className="px-4 py-3 font-mono text-slate-600">{item.landlord_code ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-800">{item.buildings?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.room_type ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.size ? `${item.size}m²` : '—'}</td>
-                      <td className="px-4 py-3 font-medium text-slate-800">{item.price.toLocaleString('vi-VN')}đ</td>
-                      <td className="px-4 py-3">
+                      <td className="px-6 py-4 font-mono font-medium text-ink-muted text-xs">{item.code}</td>
+                      <td className="px-6 py-4 font-mono text-ink-muted text-sm">{item.landlord_code ?? '—'}</td>
+                      <td className="px-6 py-4 font-bold text-ink text-sm">{item.buildings?.name ?? '—'}</td>
+                      <td className="px-6 py-4 text-ink-muted text-sm font-semibold">{item.room_type ?? '—'}</td>
+                      <td className="px-6 py-4 font-mono text-ink-muted text-sm">{item.size ? `${item.size}m²` : '—'}</td>
+                      <td className="px-6 py-4 font-mono font-bold text-accent text-sm">{item.price.toLocaleString('vi-VN')}đ</td>
+                      <td className="px-6 py-4">
                         {(() => {
                           const ds = getRoomDisplayStatus(item, contracts);
                           const activeDeposit = item.status === 'reserved'
@@ -519,21 +538,21 @@ export function RoomListPage() {
                             : null;
                           return (
                             <div className="flex flex-col items-start gap-1">
-                              <span className={`inline-block px-2 py-0.5 rounded text-xs border ${ds.colorClass}`}>
+                              <Badge className={`${ds.colorClass} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
                                 {ds.label}
-                              </span>
+                              </Badge>
                               {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
                             </div>
                           );
                         })()}
                       </td>
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openView(item)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md" onClick={() => openView(item)} title="Xem chi tiết"><Eye className="h-4 w-4" /></Button>
                           {role !== 'sales_agent' && (
                             <>
-                              <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md" onClick={() => openEdit(item)} title="Chỉnh sửa"><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md" onClick={() => remove(item.id)} title="Xóa"><Trash2 className="h-4 w-4" /></Button>
                             </>
                           )}
                         </div>
@@ -544,15 +563,15 @@ export function RoomListPage() {
               </table>
 
               {/* Mobile Card View */}
-              <div className="md:hidden divide-y">
+              <div className="md:hidden divide-y divide-border bg-white">
                 {filtered.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => openView(item)}
-                    className="p-4 hover:bg-slate-50 cursor-pointer transition-colors space-y-3"
+                    className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-slate-800 text-base">Phòng {item.code}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono font-bold text-ink text-sm">Phòng {item.code}</span>
                       {(() => {
                         const ds = getRoomDisplayStatus(item, contracts);
                         const activeDeposit = item.status === 'reserved'
@@ -560,42 +579,42 @@ export function RoomListPage() {
                           : null;
                         return (
                           <div className="flex flex-col items-end gap-1">
-                            <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold border ${ds.colorClass}`}>
+                            <Badge className={`${ds.colorClass} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
                               {ds.label}
-                            </span>
+                            </Badge>
                             {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
                           </div>
                         );
                       })()}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
                       <div>
-                        <span className="font-medium text-slate-400">Tòa nhà:</span>{' '}
-                        <span className="text-slate-700 font-semibold">{item.buildings?.name ?? '—'}</span>
+                        <span className="font-medium text-ink-muted">Tòa nhà:</span>{' '}
+                        <span className="text-ink font-bold">{item.buildings?.name ?? '—'}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-slate-400">Mã chủ nhà:</span>{' '}
-                        <span className="text-slate-700 font-semibold">{item.landlord_code ?? '—'}</span>
+                        <span className="font-medium text-ink-muted">Mã chủ nhà:</span>{' '}
+                        <span className="text-ink font-semibold font-mono">{item.landlord_code ?? '—'}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-slate-400">Loại:</span>{' '}
-                        <span className="text-slate-700 font-semibold">{item.room_type ?? '—'}</span>
+                        <span className="font-medium text-ink-muted">Loại:</span>{' '}
+                        <span className="text-ink font-semibold">{item.room_type ?? '—'}</span>
                       </div>
                       <div>
-                        <span className="font-medium text-slate-400">Diện tích:</span>{' '}
-                        <span className="text-slate-700 font-semibold">{item.size ? `${item.size}m²` : '—'}</span>
+                        <span className="font-medium text-ink-muted">Diện tích:</span>{' '}
+                        <span className="text-ink font-semibold font-mono">{item.size ? `${item.size}m²` : '—'}</span>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                      <span className="text-sm font-bold text-indigo-600">
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                      <span className="text-sm font-bold text-accent font-mono">
                         {item.price.toLocaleString('vi-VN')}đ/tháng
                       </span>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" onClick={() => openView(item)}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md" onClick={() => openView(item)}><Eye className="h-4 w-4" /></Button>
                         {role !== 'sales_agent' && (
                           <>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button>
                           </>
                         )}
                       </div>
@@ -605,8 +624,8 @@ export function RoomListPage() {
               </div>
 
               {filtered.length === 0 && (
-                <div className="text-center py-10 text-slate-400">
-                  <DoorOpen className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <div className="text-center py-12 text-ink-muted">
+                  <DoorOpen className="h-10 w-10 mx-auto mb-2 opacity-35" />
                   <p className="text-sm">Chưa có phòng nào</p>
                 </div>
               )}
@@ -614,59 +633,56 @@ export function RoomListPage() {
           )}
         </CardContent>
       </Card>
-
+ 
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-lg border border-border bg-white shadow-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DoorOpen className="h-5 w-5" />Chi tiết phòng
+            <DialogTitle className="flex items-center gap-2 font-heading text-lg font-bold text-ink">
+              <DoorOpen className="h-5 w-5 text-accent" />Chi tiết phòng
             </DialogTitle>
           </DialogHeader>
           {viewItem && (
-            <div className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-slate-500">Mã:</span> <span className="font-mono">{viewItem.code}</span></div>
-                <div><span className="text-slate-500">Mã chủ nhà:</span> <span className="font-mono">{viewItem.landlord_code ?? '—'}</span></div>
-                <div><span className="text-slate-500">Tòa nhà:</span> {viewItem.buildings?.name ?? '—'}</div>
-                <div><span className="text-slate-500">Tầng:</span> {viewItem.floor}</div>
-                <div><span className="text-slate-500">Loại:</span> {viewItem.room_type ?? '—'}</div>
-                <div>
-                  <span className="text-slate-500">Trạng thái:</span>{' '}
-                  {(() => {
-                    const ds = getRoomDisplayStatus(viewItem, contracts);
-                    const activeDeposit = viewItem.status === 'reserved'
-                      ? depositContracts.find((c) => c.room_id === viewItem.id && c.status === 'active')
-                      : null;
-                    return (
-                      <div className="flex flex-col items-start gap-1">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs border ${ds.colorClass}`}>
-                          {ds.label}
-                        </span>
-                        {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div><span className="text-slate-500">Diện tích:</span> {viewItem.size ? `${viewItem.size}m²` : '—'}</div>
-                <div><span className="text-slate-500">Giá:</span> {viewItem.price.toLocaleString('vi-VN')}đ</div>
-                <div><span className="text-slate-500">Phòng ngủ:</span> {viewItem.bedrooms}</div>
-                <div><span className="text-slate-500">Phòng tắm:</span> {viewItem.bathrooms}</div>
-                <div><span className="text-slate-500">Ban công riêng:</span> {viewItem.has_private_balcony ? 'Có' : 'Không'}</div>
-                <div><span className="text-slate-500">Số người tối đa:</span> {viewItem.max_occupants} người</div>
-                <div><span className="text-slate-500">Số xe tối đa:</span> {viewItem.max_vehicles_per_room} xe</div>
-                <div><span className="text-slate-500">Hợp đồng tối thiểu:</span> {viewItem.min_contract_months} tháng</div>
-                {viewItem.rose && <div><span className="text-slate-500">Hoa hồng:</span> <span className="font-semibold text-emerald-600">{viewItem.rose}</span></div>}
+            <div className="space-y-2.5 pt-4 text-sm text-ink-muted">
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã phòng:</strong> <span className="font-mono text-ink font-semibold">{viewItem.code}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã chủ nhà:</strong> <span className="font-mono text-ink font-semibold">{viewItem.landlord_code ?? '—'}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tòa nhà:</strong> <span className="text-ink font-bold">{viewItem.buildings?.name ?? '—'}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tầng:</strong> <span className="text-ink font-semibold">{viewItem.floor}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Loại:</strong> <span className="text-ink font-semibold">{viewItem.room_type ?? '—'}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50">
+                <strong>Trạng thái:</strong>{' '}
+                {(() => {
+                  const ds = getRoomDisplayStatus(viewItem, contracts);
+                  const activeDeposit = viewItem.status === 'reserved'
+                    ? depositContracts.find((c) => c.room_id === viewItem.id && c.status === 'active')
+                    : null;
+                  return (
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={`${ds.colorClass} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
+                        {ds.label}
+                      </Badge>
+                      {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                    </div>
+                  );
+                })()}
               </div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Diện tích:</strong> <span className="font-mono text-ink font-semibold">{viewItem.size ? `${viewItem.size}m²` : '—'}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Giá thuê:</strong> <span className="font-mono text-accent font-bold">{viewItem.price.toLocaleString('vi-VN')}đ</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Cấu trúc:</strong> <span className="text-ink font-semibold">{viewItem.bedrooms} PN · {viewItem.bathrooms} WC</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Ban công riêng:</strong> <span className="text-ink font-semibold">{viewItem.has_private_balcony ? 'Có' : 'Không'}</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số người tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_occupants} người</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số xe tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_vehicles_per_room} xe</span></div>
+              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hợp đồng tối thiểu:</strong> <span className="text-ink font-semibold">{viewItem.min_contract_months} tháng</span></div>
+              {viewItem.rose && <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hoa hồng:</strong> <span className="font-bold text-emerald-600">{viewItem.rose}</span></div>}
               {(() => {
                 const ds = getRoomDisplayStatus(viewItem, contracts);
                 return ds.expectedEmptyDate && (
-                  <div className="text-sm">
-                    <span className="text-slate-500">Ngày trống dự kiến:</span>{' '}
-                    <span className="font-semibold text-amber-600">{formatDateDisplay(ds.expectedEmptyDate)}</span>
+                  <div className="flex justify-between border-b pb-2 border-border/50">
+                    <strong>Ngày trống dự kiến:</strong>{' '}
+                    <span className="font-bold text-warn">{formatDateDisplay(ds.expectedEmptyDate)}</span>
                   </div>
                 );
               })()}
-              <div className="text-sm"><span className="text-slate-500">Mô tả:</span> {viewItem.description}</div>
+              {viewItem.description && <div className="pt-2 text-xs text-ink-muted bg-bg-subtle/50 p-2.5 rounded-lg border border-border"><strong>Mô tả:</strong> {viewItem.description}</div>}
             </div>
           )}
         </DialogContent>

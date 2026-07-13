@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import { getServiceReadings, getPreviousReading, saveServiceReading } from '@/src/features/rooms/services/service_readings';
 import { getRentalContracts } from '@/src/features/finance/services/rental_contracts';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -196,29 +197,29 @@ export default function ServiceReadingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Chỉ Số Dịch Vụ Định Kỳ</h1>
-          <p className="text-slate-500">Chốt chỉ số điện/nước tiêu thụ hàng tháng của các phòng đang thuê</p>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Chỉ Số Dịch Vụ Định Kỳ</h1>
+          <p className="text-ink-muted text-sm mt-0.5">Chốt chỉ số điện/nước tiêu thụ hàng tháng của các phòng đang thuê</p>
         </div>
-        <Button onClick={handleSaveAll} disabled={loading || rows.filter(r => r.isRented).length === 0} className="bg-indigo-650 hover:bg-indigo-700 text-white shadow-sm">
+        <Button onClick={handleSaveAll} disabled={loading || rows.filter(r => r.isRented).length === 0} className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none">
           <Save className="h-4 w-4 mr-2" /> Lưu tất cả
         </Button>
       </div>
 
       {/* Bộ lọc */}
-      <Card className="border-slate-200 shadow-sm">
+      <Card className="border-border shadow-none rounded-lg bg-white">
         <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5"><Building2 className="h-4 w-4 text-slate-400" /> Chọn tòa nhà</Label>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider"><Building2 className="h-4 w-4 text-ink-muted" /> Chọn tòa nhà</Label>
             {buildingsLoading ? (
-              <div className="h-10 border rounded flex items-center px-3 text-slate-400"><Loader2 className="h-4 w-4 animate-spin mr-2" /> Đang tải tòa nhà...</div>
+              <div className="h-10 border border-border rounded-lg flex items-center px-3 text-ink-muted bg-bg-subtle/50 text-sm"><Loader2 className="h-4 w-4 animate-spin mr-2 text-accent" /> Đang tải tòa nhà...</div>
             ) : (
               <select
                 value={selectedBuildingId}
                 onChange={(e) => setSelectedBuildingId(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 <option value="" disabled>-- Chọn tòa nhà --</option>
                 {buildings.map((b) => (
@@ -227,26 +228,27 @@ export default function ServiceReadingsPage() {
               </select>
             )}
           </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1.5"><Calendar className="h-4 w-4 text-slate-400" /> Kỳ chốt (Tháng/Năm)</Label>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider"><Calendar className="h-4 w-4 text-ink-muted" /> Kỳ chốt (Tháng/Năm)</Label>
             <Input
               type="month"
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
+              className="rounded-lg border-border focus-visible:ring-accent"
             />
           </div>
         </CardContent>
       </Card>
 
       {/* Bảng ghi nhận chỉ số */}
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="bg-slate-50/50 border-b">
+      <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+        <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base font-semibold text-slate-800">Bảng nhập chỉ số</CardTitle>
-              <CardDescription>Ghi nhận chỉ số điện nước cho kỳ {selectedPeriod}</CardDescription>
+              <CardTitle className="text-base font-heading font-bold text-ink">Bảng nhập chỉ số</CardTitle>
+              <CardDescription className="text-xs text-ink-muted mt-0.5">Ghi nhận chỉ số điện nước cho kỳ {selectedPeriod}</CardDescription>
             </div>
-            <span className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-medium flex items-center gap-1">
+            <span className="text-[10px] bg-accent/10 border border-accent/20 text-accent px-2.5 py-1 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5" /> Tự động lấy số cũ
             </span>
           </div>
@@ -254,78 +256,78 @@ export default function ServiceReadingsPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-650" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50/75 border-b text-slate-700 font-medium">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-bg-subtle border-b border-border text-ink-muted font-bold text-xs uppercase tracking-wider">
                   <tr>
                     <th className="px-6 py-3.5 text-left">Phòng</th>
                     <th className="px-6 py-3.5 text-left">Trạng thái / Khách thuê</th>
-                    <th className="px-6 py-3.5 text-center bg-yellow-50/30">Điện cũ (Số)</th>
-                    <th className="px-6 py-3.5 text-center bg-yellow-50/30">Điện mới (Số)</th>
-                    <th className="px-6 py-3.5 text-center bg-blue-50/30">Nước cũ (Khối/Số)</th>
-                    <th className="px-6 py-3.5 text-center bg-blue-50/30">Nước mới (Khối/Số)</th>
+                    <th className="px-6 py-3.5 text-center bg-yellow-50/10">Điện cũ (Số)</th>
+                    <th className="px-6 py-3.5 text-center bg-yellow-50/20">Điện mới (Số)</th>
+                    <th className="px-6 py-3.5 text-center bg-blue-50/10">Nước cũ (Khối)</th>
+                    <th className="px-6 py-3.5 text-center bg-blue-50/20">Nước mới (Khối)</th>
                     <th className="px-6 py-3.5 text-right">Hành động</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y text-slate-700">
+                <tbody className="divide-y divide-border text-ink">
                   {rows.map((row, index) => (
-                    <tr key={row.roomId} className={`hover:bg-slate-50/50 transition-colors ${!row.isRented ? 'opacity-60 bg-slate-50/30' : ''}`}>
-                      <td className="px-6 py-4 font-semibold text-slate-900">Phòng {row.roomCode}</td>
+                    <tr key={row.roomId} className={`hover:bg-bg-subtle/50 transition-colors ${!row.isRented ? 'opacity-55 bg-bg-subtle/30' : ''}`}>
+                      <td className="px-6 py-4 font-bold text-ink text-sm">Phòng {row.roomCode}</td>
                       <td className="px-6 py-4">
                         {row.isRented ? (
-                          <div className="space-y-0.5">
-                            <span className="text-xs bg-green-50 text-green-700 font-semibold px-2 py-0.5 rounded-full border border-green-200">Đang thuê</span>
-                            <p className="text-sm font-medium text-slate-800 mt-1">{row.tenantName}</p>
+                          <div className="space-y-1">
+                            <Badge className="bg-green-50 text-green-700 border-green-250 border font-bold text-[9px] rounded-full uppercase tracking-wider" variant="outline">Đang thuê</Badge>
+                            <p className="text-xs font-semibold text-ink mt-0.5">{row.tenantName}</p>
                           </div>
                         ) : (
-                          <span className="text-xs bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full border">Trống / Bảo trì</span>
+                          <Badge className="bg-bg-subtle text-ink-muted border-border border font-bold text-[9px] rounded-full uppercase tracking-wider" variant="outline">Trống / Bảo trì</Badge>
                         )}
                       </td>
                       
                       {/* Điện cũ */}
-                      <td className="px-4 py-4 bg-yellow-50/10">
+                      <td className="px-4 py-4 bg-yellow-50/5 text-center">
                         <Input
                           type="number"
                           value={row.electricityOld}
                           onChange={(e) => handleRowChange(index, 'electricityOld', Number(e.target.value))}
                           disabled={!row.isRented || row.saving}
-                          className="w-24 mx-auto text-center font-mono"
+                          className="w-24 mx-auto text-center font-mono rounded-lg border-border focus-visible:ring-accent"
                         />
                       </td>
 
                       {/* Điện mới */}
-                      <td className="px-4 py-4 bg-yellow-50/15">
+                      <td className="px-4 py-4 bg-yellow-50/10 text-center">
                         <Input
                           type="number"
                           value={row.electricityNew}
                           onChange={(e) => handleRowChange(index, 'electricityNew', Number(e.target.value))}
                           disabled={!row.isRented || row.saving}
-                          className="w-28 mx-auto text-center font-semibold font-mono border-indigo-200"
+                          className="w-28 mx-auto text-center font-bold font-mono border-accent/40 focus-visible:ring-accent rounded-lg"
                         />
                       </td>
 
                       {/* Nước cũ */}
-                      <td className="px-4 py-4 bg-blue-50/10">
+                      <td className="px-4 py-4 bg-blue-50/5 text-center">
                         <Input
                           type="number"
                           value={row.waterOld}
                           onChange={(e) => handleRowChange(index, 'waterOld', Number(e.target.value))}
                           disabled={!row.isRented || row.saving}
-                          className="w-24 mx-auto text-center font-mono"
+                          className="w-24 mx-auto text-center font-mono rounded-lg border-border focus-visible:ring-accent"
                         />
                       </td>
 
                       {/* Nước mới */}
-                      <td className="px-4 py-4 bg-blue-50/15">
+                      <td className="px-4 py-4 bg-blue-50/10 text-center">
                         <Input
                           type="number"
                           value={row.waterNew}
                           onChange={(e) => handleRowChange(index, 'waterNew', Number(e.target.value))}
                           disabled={!row.isRented || row.saving}
-                          className="w-28 mx-auto text-center font-semibold font-mono border-indigo-200"
+                          className="w-28 mx-auto text-center font-bold font-mono border-accent/40 focus-visible:ring-accent rounded-lg"
                         />
                       </td>
 
@@ -336,23 +338,24 @@ export default function ServiceReadingsPage() {
                             size="sm"
                             onClick={() => handleSaveRow(index)}
                             disabled={row.saving}
-                            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
+                            className="bg-bg-subtle text-ink hover:bg-accent hover:text-white rounded-lg border border-border transition-colors h-9 w-9 p-0 flex items-center justify-center mx-auto"
+                            variant="ghost"
                           >
                             {row.saving ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin text-accent" />
                             ) : (
-                              <Save className="h-3.5 w-3.5" />
+                              <Save className="h-4 w-4" />
                             )}
                           </Button>
                         ) : (
-                          <span className="text-slate-400 text-xs">—</span>
+                          <span className="text-ink-muted text-xs block text-center">—</span>
                         )}
                       </td>
                     </tr>
                   ))}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-10 text-center text-slate-400 bg-white">
+                      <td colSpan={7} className="px-6 py-10 text-center text-ink-muted bg-white">
                         <ClipboardCheck className="h-10 w-10 mx-auto mb-2 opacity-35" />
                         Tòa nhà này hiện không có phòng nào.
                       </td>

@@ -111,19 +111,22 @@ export default function AdminDashboardPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {statCards.map((stat) => {
+        {statCards.map((stat, idx) => {
           const Icon = stat.icon;
+          const isAccent = idx === 2; // Leads đang xử lý
           return (
             <Link key={stat.title} href={stat.href}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500">{stat.title}</p>
-                      <p className="text-2xl font-bold text-slate-800 mt-1">{stat.value}</p>
-                    </div>
-                    <div className={`p-2.5 rounded-lg ${stat.color}`}>
-                      <Icon className="h-5 w-5" />
+              <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border-subtle rounded-lg shadow-none">
+                <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+                  <div>
+                    <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">{stat.title}</p>
+                    <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stat.value}</p>
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <div className={`p-1.5 rounded-md ${
+                      isAccent ? 'bg-accent-soft text-accent' : 'bg-bg-subtle text-ink-muted'
+                    }`}>
+                      <Icon className="h-4 w-4" />
                     </div>
                   </div>
                 </CardContent>

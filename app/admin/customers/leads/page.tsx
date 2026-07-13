@@ -252,13 +252,17 @@ export default function LeadsPage() {
 
       <div className="flex flex-wrap gap-2">
         {isSale && (
-          <div className="w-full text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-2 rounded-lg mb-2 flex items-center gap-1.5 border border-indigo-100">
-            <AlertCircle className="h-4 w-4 flex-shrink-0 text-indigo-500" /> Chỉ hiển thị Leads được phân công cho bạn
+          <div className="w-full text-xs font-bold text-accent bg-accent-soft px-4 py-2.5 rounded-lg mb-4 flex items-center gap-2 border border-accent/20">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 text-accent" /> Chỉ hiển thị Leads được phân công cho bạn
           </div>
         )}
         <button
           onClick={() => setStatusFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${statusFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all border ${
+            statusFilter === 'all'
+              ? 'bg-accent text-white border-accent'
+              : 'bg-bg-subtle text-ink-muted border-border-subtle hover:bg-bg-subtle/80 hover:text-ink'
+          }`}
         >
           Tất cả ({visibleLeads.length})
         </button>
@@ -266,7 +270,11 @@ export default function LeadsPage() {
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${statusFilter === s ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all border ${
+              statusFilter === s
+                ? 'bg-accent text-white border-accent'
+                : 'bg-bg-subtle text-ink-muted border-border-subtle hover:bg-bg-subtle/80 hover:text-ink'
+            }`}
           >
             {statusConfig[s]?.label} ({counts[s] || 0})
           </button>
@@ -284,26 +292,26 @@ export default function LeadsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[750px]">
-                <thead className="bg-slate-50">
+            <div className="border border-border-subtle rounded-lg overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm min-w-[750px] border-collapse">
+                <thead className="bg-bg-subtle border-b border-border-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Khách hàng</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Trạng thái</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Quan tâm</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Sale phụ trách</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Nguồn</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Ngân sách</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Thao tác</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Quan tâm</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Sale phụ trách</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nguồn</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Ngân sách</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-border-subtle text-ink">
                   {filtered.map((item) => {
                     const sc = statusConfig[item.status] || statusConfig.new;
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-slate-50 cursor-pointer"
+                        className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                         onClick={(e) => {
                           if ((e.target as HTMLElement).closest('button')) return;
                           setSelectedLeadId(item.id);
@@ -311,36 +319,61 @@ export default function LeadsPage() {
                         }}
                       >
                         <td className="px-4 py-3">
-                          <div className="font-medium text-slate-800">{item.full_name}</div>
-                          <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
-                            <Phone className="h-3 w-3" />{item.phone}
+                          <div className="font-semibold text-ink">{item.full_name}</div>
+                          <div className="flex items-center gap-1 text-xs text-ink-muted mt-0.5 font-mono">
+                            <Phone className="h-3 w-3 text-ink-muted" />{item.phone}
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${sc.color}`}>{sc.label}</span>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
                         </td>
-                        <td className="px-4 py-3 text-slate-600">
-                          <div className="text-sm">{item.preferred_room_type || '—'}</div>
-                          <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-3 w-3" />{item.preferred_area || '—'}
+                        <td className="px-4 py-3 text-ink-muted">
+                          <div className="text-sm font-medium text-ink">{item.preferred_room_type || '—'}</div>
+                          <div className="text-xs text-ink-muted flex items-center gap-1 mt-0.5">
+                            <MapPin className="h-3 w-3 text-ink-muted" />{item.preferred_area || '—'}
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border">
+                          <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
                             {getAssigneeName(item.assigned_to)}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-xs text-slate-500">{sourceConfig[item.source] || item.source}</span>
+                          <span className="text-xs text-ink-muted">{sourceConfig[item.source] || item.source}</span>
                         </td>
-                        <td className="px-4 py-3 text-right text-slate-700 font-medium">
+                        <td className="px-4 py-3 text-right text-ink font-mono font-bold">
                           {item.budget.toLocaleString('vi-VN')}đ
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditItem(item); setIsFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
+                              onClick={() => { setSelectedLeadId(item.id); setIsDetailOpen(true); }}
+                              title="Xem chi tiết"
+                            >
+                              <Search className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
+                              onClick={() => { setEditItem(item); setIsFormOpen(true); }}
+                              title="Chỉnh sửa"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             {role !== 'sales_agent' && (
-                              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); remove(item.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
+                                onClick={() => remove(item.id)}
+                                title="Xóa"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
                         </td>
@@ -350,8 +383,8 @@ export default function LeadsPage() {
                 </tbody>
               </table>
               {filtered.length === 0 && (
-                <div className="text-center py-10 text-slate-400">
-                  <UserSearch className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                <div className="text-center py-12 text-ink-muted bg-white">
+                  <UserSearch className="h-10 w-10 mx-auto mb-2 opacity-35" />
                   <p>Không tìm thấy lead nào</p>
                 </div>
               )}

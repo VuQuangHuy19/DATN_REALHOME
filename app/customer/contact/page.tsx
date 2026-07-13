@@ -110,11 +110,11 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <div className="container mx-auto px-4 py-12 bg-bg-base min-h-screen">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-slate-800 mb-3">Liên Hệ Với Chúng Tôi</h1>
-          <p className="text-slate-500 text-lg max-w-xl mx-auto">
+          <h1 className="text-4xl font-bold font-heading text-ink mb-3">Liên Hệ Với Chúng Tôi</h1>
+          <p className="text-ink-muted text-lg max-w-xl mx-auto">
             Đội ngũ chuyên viên của chúng tôi luôn sẵn sàng hỗ trợ bạn tìm kiếm bất động sản phù hợp.
           </p>
         </div>
@@ -123,19 +123,19 @@ export default function ContactPage() {
           {/* Contact Info */}
           <div className="space-y-4">
             {contactInfo.map(({ icon: Icon, label, value, href }) => (
-              <Card key={label}>
+              <Card key={label} className="border border-border-subtle shadow-none rounded-lg bg-white">
                 <CardContent className="p-5 flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    <Icon className="h-5 w-5 text-slate-600" />
+                  <div className="h-10 w-10 rounded-lg bg-accent-soft flex items-center justify-center flex-shrink-0">
+                    <Icon className="h-5 w-5 text-accent" />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">{label}</p>
+                    <p className="text-xs text-ink-muted font-bold uppercase tracking-wide mb-0.5">{label}</p>
                     {href ? (
-                      <a href={href} className="text-slate-800 font-medium hover:text-slate-600 transition-colors">
+                      <a href={href} className="text-ink font-semibold hover:text-accent transition-colors">
                         {value}
                       </a>
                     ) : (
-                      <p className="text-slate-800 font-medium">{value}</p>
+                      <p className="text-ink font-semibold">{value}</p>
                     )}
                   </div>
                 </CardContent>
@@ -145,47 +145,49 @@ export default function ContactPage() {
 
           {/* Contact Form */}
           <div className="lg:col-span-2">
-            <Card>
+            <Card className="border border-border-subtle shadow-none rounded-lg bg-white">
               <CardContent className="p-6">
                 {submitted ? (
                   <div className="text-center py-12">
-                    <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-slate-800 mb-2">Gửi thành công!</h3>
-                    <p className="text-slate-500">Chúng tôi sẽ phản hồi bạn trong vòng 24 giờ làm việc.</p>
-                    <Button variant="outline" className="mt-6" onClick={() => setSubmitted(false)}>
+                    <div className="h-16 w-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="h-10 w-10 text-green-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold font-heading text-ink mb-2">Gửi thành công!</h3>
+                    <p className="text-ink-muted text-sm max-w-sm mx-auto mb-6">Chúng tôi sẽ phản hồi yêu cầu của bạn trong vòng 24 giờ làm việc. Cảm ơn bạn đã quan tâm.</p>
+                    <Button variant="outline" className="shadow-none border-border-subtle text-ink" onClick={() => setSubmitted(false)}>
                       Gửi tin nhắn khác
                     </Button>
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
-                    <h2 className="text-xl font-bold text-slate-800 mb-2">Gửi Tin Nhắn</h2>
+                    <h2 className="text-xl font-bold font-heading text-ink mb-2">Gửi Tin Nhắn</h2>
 
                     {error && (
-                      <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                      <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
                         <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
                       </div>
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="fullName">Họ và tên *</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="fullName" className="text-xs font-bold text-ink uppercase tracking-wider">Họ và tên *</Label>
                         <Input id="fullName" name="fullName" placeholder="Nguyễn Văn A" required className="mt-1" />
                       </div>
-                      <div>
-                        <Label htmlFor="phone">Số điện thoại *</Label>
+                      <div className="space-y-1">
+                        <Label htmlFor="phone" className="text-xs font-bold text-ink uppercase tracking-wider">Số điện thoại *</Label>
                         <Input id="phone" name="phone" placeholder="0912 345 678" required className="mt-1" />
                       </div>
                     </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="email" className="text-xs font-bold text-ink uppercase tracking-wider">Email</Label>
                       <Input id="email" name="email" type="email" placeholder="email@example.com" className="mt-1" />
                     </div>
-                    <div>
-                      <Label htmlFor="subject">Chủ đề</Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="subject" className="text-xs font-bold text-ink uppercase tracking-wider">Chủ đề</Label>
                       <Input id="subject" name="subject" placeholder="Tôi muốn hỏi về..." className="mt-1" />
                     </div>
-                    <div>
-                      <Label htmlFor="message">Nội dung *</Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="message" className="text-xs font-bold text-ink uppercase tracking-wider">Nội dung *</Label>
                       <Textarea
                         id="message"
                         name="message"
@@ -195,7 +197,7 @@ export default function ContactPage() {
                         className="mt-1 resize-none"
                       />
                     </div>
-                    <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                    <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white font-semibold shadow-none" size="lg" disabled={loading}>
                       {loading ? (
                         <span className="flex items-center gap-2">
                           <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

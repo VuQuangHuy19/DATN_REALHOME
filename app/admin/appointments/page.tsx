@@ -238,55 +238,55 @@ export default function AppointmentsPage() {
               <Loader2 className="h-8 w-8 animate-spin text-indigo-650" />
             </div>
           ) : (
-            <div className="overflow-x-auto border rounded-lg border-slate-200">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b text-slate-700 font-semibold">
+            <div className="overflow-x-auto border border-border-subtle rounded-lg">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-bg-subtle border-b border-border-subtle">
                   <tr>
-                    <th className="px-6 py-3.5 text-left">Khách hàng</th>
-                    <th className="px-6 py-3.5 text-left">Mã chủ nhà</th>
-                    <th className="px-6 py-3.5 text-left">Mã tòa nhà</th>
-                    <th className="px-6 py-3.5 text-left">Bất động sản</th>
-                    <th className="px-6 py-3.5 text-left">Ngày</th>
-                    <th className="px-6 py-3.5 text-left">Giờ</th>
-                    <th className="px-6 py-3.5 text-left">Khu vực</th>
-                    <th className="px-6 py-3.5 text-left">Trạng thái</th>
-                    <th className="px-6 py-3.5 text-right">Thao tác</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã chủ nhà</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã tòa nhà</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Bất động sản</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Ngày</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Giờ</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khu vực</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y text-slate-700">
+                <tbody className="divide-y divide-border-subtle text-ink">
                   {sortedAndFiltered.map((item) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                      className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                       onClick={() => openView(item)}
                     >
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-800">{item.customer_name}</div>
-                        <div className="text-xs text-slate-500 font-mono mt-0.5">{item.customer_phone}</div>
+                        <div className="font-semibold text-ink">{item.customer_name}</div>
+                        <div className="text-xs text-ink-muted font-mono mt-0.5">{item.customer_phone}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 font-mono">
                         {item.landlord_code ? (
-                          <span className="inline-block px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-amber-50 border border-amber-200 text-amber-700">
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-bg-subtle border border-border-subtle text-ink-muted">
                             {item.landlord_code}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">{item.landlord_name ?? '—'}</span>
+                          <span className="text-ink-muted text-xs">{item.landlord_name ?? '—'}</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 font-mono">
                         {item.building_id ? (
-                          <span className="inline-block px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-blue-50 border border-blue-200 text-blue-700">
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-bg-subtle border border-border-subtle text-ink-muted">
                             {item.building_id}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">—</span>
+                          <span className="text-ink-muted text-xs">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium text-slate-700">{item.room_title ?? '—'}</td>
-                      <td className="px-6 py-4 text-slate-650">{formatDate(item.date)}</td>
-                      <td className="px-6 py-4 text-slate-600">{item.time}</td>
+                      <td className="px-6 py-4 font-medium text-ink">{item.room_title ?? '—'}</td>
+                      <td className="px-6 py-4 text-ink-muted font-mono">{formatDate(item.date)}</td>
+                      <td className="px-6 py-4 text-ink-muted font-mono">{item.time}</td>
                       <td className="px-6 py-4">
-                        {item.area ? <Badge variant="outline">{item.area}</Badge> : '—'}
+                        {item.area ? <Badge variant="outline" className="border-border-subtle text-ink-muted">{item.area}</Badge> : '—'}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-wrap gap-1.5 max-w-[280px]">
@@ -299,7 +299,7 @@ export default function AppointmentsPage() {
                                 className={`px-2 py-0.5 rounded-full text-xs font-semibold border transition-all ${
                                   isCurrent
                                     ? statusColors[s] || 'bg-slate-100 text-slate-700 border-slate-200'
-                                    : 'bg-white text-slate-400 border-slate-200 hover:text-slate-650 hover:bg-slate-50 hover:border-slate-300'
+                                    : 'bg-white text-ink-muted border-border-subtle hover:text-ink hover:bg-bg-subtle'
                                 }`}
                               >
                                 {statusLabels[s] || s}
@@ -313,15 +313,16 @@ export default function AppointmentsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-indigo-650 hover:text-indigo-800 hover:bg-slate-100"
+                            className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
                             onClick={() => openView(item)}
                             title="Xem chi tiết"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost" size="icon"
-                            className="h-8 w-8 text-emerald-600 hover:text-emerald-800 hover:bg-slate-100"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
                             onClick={() => handleShare(item)}
                             title="Copy thông tin gửi chủ nhà"
                           >
@@ -330,7 +331,7 @@ export default function AppointmentsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-slate-100"
+                            className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
                             onClick={() => handleStatusChange(item.id, 'Cancel')}
                             title="Hủy"
                           >
@@ -343,7 +344,7 @@ export default function AppointmentsPage() {
                 </tbody>
               </table>
               {filtered.length === 0 && (
-                <div className="text-center py-12 text-slate-400 bg-white">
+                <div className="text-center py-12 text-ink-muted bg-white">
                   <CalendarDays className="h-10 w-10 mx-auto mb-2 opacity-35" />
                   Không tìm thấy lịch hẹn nào
                 </div>
