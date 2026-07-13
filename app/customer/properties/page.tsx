@@ -133,18 +133,17 @@ function BuildingCard({
       : `${group.minPrice.toLocaleString('vi-VN')} – ${group.maxPrice.toLocaleString('vi-VN')}đ`;
 
   return (
-    <div className="rounded-lg overflow-hidden bg-white border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col">
-      <Link href={`/customer/properties/${group.representativeRoom.id}`} className="block">
-        <ImageSlider images={group.allImages} alt={group.buildingName} />
-      </Link>
+    <Link
+      href={`/customer/properties/${group.buildingId}`}
+      className="rounded-lg overflow-hidden bg-white border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col cursor-pointer group"
+    >
+      <ImageSlider images={group.allImages} alt={group.buildingName} />
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Tên tòa nhà */}
-        <Link href={`/customer/properties/${group.representativeRoom.id}`}>
-          <h3 className="text-base font-bold text-ink leading-snug hover:text-accent font-heading transition-colors line-clamp-1">
-            {group.buildingName}
-          </h3>
-        </Link>
+        <h3 className="text-base font-bold text-ink leading-snug group-hover:text-accent font-heading transition-colors line-clamp-1">
+          {group.buildingName}
+        </h3>
 
         {/* Khu vực */}
         <div className="flex items-center gap-1 text-sm text-ink-muted">
@@ -179,7 +178,11 @@ function BuildingCard({
             variant="outline"
             size="sm"
             className="flex-1 h-9 text-sm"
-            onClick={() => onBook(group)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBook(group);
+            }}
           >
             <Calendar className="h-3.5 w-3.5 mr-1.5" />
             Hẹn xem
@@ -187,14 +190,18 @@ function BuildingCard({
           <Button
             size="sm"
             className="flex-1 h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
-            onClick={onContact}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onContact();
+            }}
           >
             <Phone className="h-3.5 w-3.5 mr-1.5" />
             Liên hệ
           </Button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 

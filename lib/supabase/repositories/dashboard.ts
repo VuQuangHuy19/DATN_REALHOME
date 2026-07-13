@@ -123,6 +123,17 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       });
     }
 
+    let recentInvoices: any[] = [];
+    if (roomIds.length > 0) {
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('id, invoice_code, period, total_amount, status, payment_date, room_id, rooms(code)')
+        .in('room_id', roomIds)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      recentInvoices = invoices ?? [];
+    }
+
     return {
       totalBuildings: landlordBuildings.length,
       totalRooms,
@@ -135,7 +146,6 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       recentAppointments,
       recentLeads: [],
       totalLandlords: 0,
-      // Landlord specific fields
       isLandlord: true,
       monthlyRevenue,
       activeContractsCount,
@@ -143,10 +153,33 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       buildingsList,
       roomsList: roomRows,
       contractsList: activeContractsList,
+      recentInvoices,
     };
   }
 
-  const [buildings, rooms, leads, appointments, consultations, notifications, landlords] = await Promise.all([
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const currentPeriod = today.toISOString().substring(0, 7); // 'YYYY-MM'
+  const in30Days = new Date();
+  in30Days.setDate(today.getDate() + 30);
+  const in30DaysStr = in30Days.toISOString().slice(0, 10);
+
+  const [
+    buildings,
+    rooms,
+    leads,
+    appointments,
+    consultations,
+    notifications,
+    landlords,
+    paidInvoices,
+    expiringContracts,
+    pendingApptsToday,
+    unassignedConsults,
+    overdueInvs,
+    revenueData,
+    topEmployees,
+  ] = await Promise.all([
     supabase.from('buildings').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
     supabase.from('rooms').select('id, status', { count: 'exact' }).eq('company_id', companyId),
     supabase.from('leads').select('id, status', { count: 'exact' }).eq('company_id', companyId),
@@ -154,17 +187,40 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new'),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_read', false),
     supabase.from('landlords').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+    supabase.from('invoices').select('total_amount').eq('company_id', companyId).eq('status', 'paid').eq('period', currentPeriod),
+    supabase.from('rental_contracts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active').gte('end_date', todayStr).lte('end_date', in30DaysStr),
+    supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['Pending', 'pending']).eq('date', todayStr),
+    supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new').is('assigned_to', null),
+    supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'overdue'),
+    supabase.from('invoices').select('period, total_amount').eq('company_id', companyId).eq('status', 'paid').order('period', { ascending: true }),
+    supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
   ]);
 
   const roomRows = (rooms.data ?? []) as { id: string; status: string }[];
   const leadRows = (leads.data ?? []) as { id: string; status: string }[];
   const recentAppointments = (appointments.data ?? []) as any[];
 
+  const totalRooms = roomRows.length;
+  const rentedRooms = roomRows.filter((r) => r.status === 'rented').length;
+  const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
+
+  const monthlyRevenue = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0);
+
+  // revenueHistory logic
+  const periodMap = (revenueData.data ?? []).reduce((acc: Record<string, number>, inv: any) => {
+    acc[inv.period] = (acc[inv.period] || 0) + (inv.total_amount || 0);
+    return acc;
+  }, {});
+  const revenueHistory = Object.entries(periodMap)
+    .map(([period, amount]) => ({ period, amount }))
+    .sort((a, b) => a.period.localeCompare(b.period))
+    .slice(-6);
+
   return {
     totalBuildings: buildings.count ?? 0,
-    totalRooms: roomRows.length,
+    totalRooms,
     availableRooms: roomRows.filter((r) => r.status === 'available').length,
-    rentedRooms: roomRows.filter((r) => r.status === 'rented').length,
+    rentedRooms,
     totalLeads: leadRows.length,
     newLeads: leadRows.filter((l) => ['new', 'contacted', 'consulting'].includes(l.status)).length,
     newConsultations: consultations.count ?? 0,
@@ -173,19 +229,26 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     recentLeads: leadRows.slice(0, 5),
     totalLandlords: landlords.count ?? 0,
     isLandlord: false,
-    monthlyRevenue: 0,
-    activeContractsCount: 0,
-    occupancyRate: 0,
+    monthlyRevenue,
+    activeContractsCount: roomRows.filter((r) => r.status === 'rented').length, // active count
+    occupancyRate,
     buildingsList: [],
     roomsList: [],
     contractsList: [],
+    expiringContractsCount: expiringContracts.count ?? 0,
+    pendingAppointmentsToday: pendingApptsToday.count ?? 0,
+    unassignedConsultations: unassignedConsults.count ?? 0,
+    overdueInvoices: overdueInvs.count ?? 0,
+    revenueHistory,
+    topEmployees: topEmployees.data ?? [],
   };
 }
 
 export async function getSalesDashboardStats(companyId: string, saleId: string) {
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
-  const startOfMonth = now.toISOString().slice(0, 7) + '-01';
+  const currentPeriod = now.toISOString().slice(0, 7); // 'YYYY-MM'
+  const startOfMonth = currentPeriod + '-01';
 
   const [
     myLeads,
@@ -193,11 +256,12 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     myContracts,
     availableRooms,
     notifications,
+    employeeKpis,
   ] = await Promise.all([
     // Leads được giao cho sale này
     supabase
       .from('leads')
-      .select('id, status, full_name, phone, created_at, assigned_to, source')
+      .select('id, status, full_name, phone, created_at, assigned_to, source, last_contacted_at')
       .eq('company_id', companyId)
       .eq('assigned_to', saleId)
       .order('created_at', { ascending: false }),
@@ -231,6 +295,14 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .eq('company_id', companyId)
       .eq('recipient_id', saleId)
       .eq('is_read', false),
+    // KPI của sale trong tháng này
+    supabase
+      .from('employee_kpis')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('employee_id', saleId)
+      .eq('period', currentPeriod)
+      .maybeSingle(),
   ]);
 
   const leadsData = (myLeads.data ?? []) as any[];
@@ -279,6 +351,8 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     availableRooms: roomsData,
     // Notifications
     unreadNotifications: notifications.count ?? 0,
+    // KPI
+    employeeKpis: employeeKpis.data || null,
   };
 }
 

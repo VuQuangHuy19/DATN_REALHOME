@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import {
 import {
   Building2, Home, DollarSign, CalendarDays, Percent, FileText,
   CheckCircle, ShieldAlert, Clock, User, Phone, MapPin,
+  ExternalLink, ArrowRight, Activity, Calendar
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -26,6 +27,7 @@ interface LandlordDashboardProps {
     buildingsList: any[];
     roomsList: any[];
     contractsList: any[];
+    recentInvoices?: any[];
   };
 }
 
@@ -56,7 +58,6 @@ const statusLabels: Record<string, string> = {
   reserved: 'Đang giữ',
 };
 
-/* ─── Appointment Status ─────────────────────────────────────────── */
 const apptStatusStyle: Record<string, string> = {
   confirmed: 'bg-[hsl(142,60%,92%)] text-[hsl(142,52%,28%)] border-[hsl(142,45%,78%)]',
   pending: 'bg-[hsl(38,90%,92%)] text-[hsl(38,72%,30%)] border-[hsl(38,72%,76%)]',
@@ -91,112 +92,186 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
 
   const roomStatusSafe = (s: string) => statusStyle[s] ?? statusStyle.maintenance;
 
+  // Lọc phòng đang trống để hiển thị ở danh sách phòng trống cần cho thuê
+  const vacantRooms = useMemo(() => {
+    return (stats.roomsList || []).filter((room: any) => room.status === 'available');
+  }, [stats.roomsList]);
+
   return (
     <div className="space-y-6">
-      {/* ── Page Header ──────────────────────────────────────────────── */}
+      {/* Page Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-extrabold font-heading text-ink tracking-tight">
-            Tổng quan vận hành
+            Tổng quan vận hành Chủ nhà
           </h1>
           <p className="text-ink-muted mt-1 text-sm">
-            Hệ thống báo cáo và quản lý trực quan dành cho Chủ nhà
+            Quản lý tài sản, doanh thu dòng tiền và tình trạng thuê phòng của bạn
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-accent-soft border border-accent/20 px-4 py-2 rounded-xl text-accent text-sm font-semibold">
-          <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-          Vai trò Chủ nhà
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl text-emerald-700 text-sm font-semibold">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          Chủ nhà
         </div>
       </div>
 
-      {/* ── KPI Cards ────────────────────────────────────────────────── */}
+      {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Rooms */}
-        <Card className="border-border shadow-none rounded-lg hover:bg-bg-subtle/50 transition-colors group">
-          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[108px]">
+        {/* Tòa nhà */}
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
             <div>
-              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tổng số phòng</p>
-              <p className="text-3xl font-bold font-heading text-ink mt-1.5 tracking-tight tabular-nums">
-                {stats.totalRooms}
-              </p>
-              <p className="text-xs text-ink-muted mt-1 font-medium">
-                Phân bố tại {stats.totalBuildings} BĐS
-              </p>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tòa nhà sở hữu</p>
+              <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.totalBuildings}</p>
             </div>
             <div className="flex justify-end mt-2">
-              <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted group-hover:text-ink transition-colors">
+              <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
+                <Building2 className="h-4 w-4" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tổng số phòng */}
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
+            <div>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tổng số phòng</p>
+              <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.totalRooms}</p>
+            </div>
+            <div className="flex justify-end mt-2">
+              <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
                 <Home className="h-4 w-4" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Occupancy Rate */}
-        <Card className="border-border shadow-none rounded-lg hover:bg-bg-subtle/50 transition-colors group">
-          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[108px]">
+        {/* Số phòng đang trống */}
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
             <div>
-              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tỷ lệ lấp đầy</p>
-              <p className="text-3xl font-bold font-heading text-ink mt-1.5 tracking-tight tabular-nums">
-                {stats.occupancyRate}%
-              </p>
-              <p className="text-xs text-ink-muted mt-1 font-medium">
-                {stats.rentedRooms} phòng đã thuê
-              </p>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Phòng đang trống</p>
+              <p className="text-3xl font-bold font-heading text-amber-600 mt-1 tracking-tight">{stats.availableRooms}</p>
             </div>
             <div className="flex justify-end mt-2">
-              <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted group-hover:text-ink transition-colors">
-                <Percent className="h-4 w-4" />
+              <div className="p-1.5 rounded-md bg-amber-50 text-amber-650">
+                <ShieldAlert className="h-4 w-4" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Monthly Revenue */}
-        <Card className="border-border shadow-none rounded-lg hover:bg-bg-subtle/50 transition-colors group">
-          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[108px]">
+        {/* Doanh thu tháng này */}
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
             <div>
               <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu tháng này</p>
-              <p className="text-2xl font-bold font-heading text-accent mt-1.5 tracking-tight truncate max-w-[180px] tabular-nums">
+              <p className="text-xl font-bold font-mono text-emerald-600 mt-2 truncate tabular-nums">
                 {formatCurrency(stats.monthlyRevenue)}
               </p>
-              <p className="text-xs text-ink-muted mt-1 font-medium">Từ các hóa đơn đã thanh toán</p>
             </div>
             <div className="flex justify-end mt-2">
-              <div className="p-1.5 rounded-md bg-accent-soft text-accent">
+              <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
                 <DollarSign className="h-4 w-4" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Active Contracts */}
-        <Card className="border-border shadow-none rounded-lg hover:bg-bg-subtle/50 transition-colors group">
-          <CardContent className="p-5 flex flex-col justify-between h-full min-h-[108px]">
-            <div>
-              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Hợp đồng hiệu lực</p>
-              <p className="text-3xl font-bold font-heading text-ink mt-1.5 tracking-tight tabular-nums">
-                {stats.activeContractsCount}
-              </p>
-              <p className="text-xs text-ink-muted mt-1 font-medium">Đang mang lại thu nhập</p>
-            </div>
-            <div className="flex justify-end mt-2">
-              <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted group-hover:text-ink transition-colors">
-                <FileText className="h-4 w-4" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* ── Main Body: Buildings List + Room Map ─────────────────────── */}
+      {/* Buildings list + Room Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Buildings List */}
+        {/* Sơ đồ trạng thái phòng */}
+        <div className="lg:col-span-8 space-y-6">
+          <Card className="border-border shadow-none rounded-lg bg-white">
+            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
+                <Home className="h-4.5 w-4.5 text-ink-muted" />
+                Sơ đồ trạng thái phòng
+              </CardTitle>
+              {/* Legend */}
+              <div className="flex items-center gap-3 text-xs flex-wrap">
+                {Object.entries(statusLabels).map(([s, label]) => (
+                  <div key={s} className="flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${statusStyle[s]?.dot ?? 'bg-bg-subtle'}`} />
+                    <span className="text-ink-muted font-medium">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent className="p-5">
+              {stats.buildingsList.length === 0 ? (
+                <div className="text-center py-12 text-ink-muted">
+                  <p className="text-sm">Chưa có dữ liệu phòng để hiển thị sơ đồ</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {stats.buildingsList.map((building) => {
+                    const buildingRooms = stats.roomsList.filter((r) => r.building_id === building.code);
+                    const floors = Array.from(new Set(buildingRooms.map((r) => r.floor))).sort((a: any, b: any) => b - a);
+                    return (
+                      <div key={building.id} className="space-y-4">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-border">
+                          <h3 className="font-bold text-ink text-sm flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-ink-muted" />
+                            {building.name}
+                            <span className="text-ink-muted font-normal">({buildingRooms.length} phòng)</span>
+                          </h3>
+                        </div>
+                        {buildingRooms.length === 0 ? (
+                          <p className="text-xs text-ink-muted py-2 italic">
+                            Tòa nhà này chưa được thiết lập phòng nào.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {floors.map((floor: any) => {
+                              const floorRooms = buildingRooms
+                                .filter((r) => r.floor === floor)
+                                .sort((a, b) => a.code.localeCompare(b.code));
+                              return (
+                                <div key={floor} className="flex items-start gap-4">
+                                  <div className="w-14 text-[11px] font-bold text-ink-muted pt-2.5 flex-shrink-0 uppercase tracking-wide">
+                                    Tầng {floor}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 flex-1">
+                                    {floorRooms.map((room) => (
+                                      <button
+                                        key={room.id}
+                                        onClick={() => handleRoomClick(room)}
+                                        className={`w-16 h-12 rounded-xl flex flex-col items-center justify-center text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${roomStatusSafe(room.status).btn}`}
+                                        title={`Phòng ${room.code} – ${statusLabels[room.status]}`}
+                                      >
+                                        <span className="text-[11px] font-mono tracking-tight leading-none">
+                                          {room.code}
+                                        </span>
+                                        <span className="text-[9px] font-normal opacity-80 mt-0.5 leading-none tabular-nums">
+                                          {(room.price / 1_000_000).toFixed(1)}M
+                                        </span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Danh sách Bất động sản lấp đầy */}
         <div className="lg:col-span-4 space-y-6">
           <Card className="border-border shadow-none rounded-lg bg-white">
             <CardHeader className="pb-3 border-b border-border">
               <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-ink-muted" />
-                Danh sách Bất động sản
+                <Building2 className="h-4.5 w-4.5 text-ink-muted" />
+                Danh sách tòa nhà
               </CardTitle>
             </CardHeader>
             <CardContent className="p-5">
@@ -212,16 +287,16 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
                       ? Math.round((building.rentedRooms / building.totalRooms) * 100)
                       : 0;
                     const barColor = pct >= 80
-                      ? 'bg-[hsl(142,52%,42%)]'
+                      ? 'bg-emerald-600'
                       : pct >= 50
                       ? 'bg-accent'
-                      : 'bg-[hsl(38,72%,46%)]';
+                      : 'bg-amber-500';
                     return (
                       <div key={building.id} className="space-y-2.5 pb-4 border-b border-border last:border-0 last:pb-0">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="font-semibold text-ink text-sm truncate hover:text-accent transition-colors">
-                              <Link href="/landlord/buildings">{building.name}</Link>
+                              {building.name}
                             </p>
                             <p className="text-xs text-ink-muted mt-0.5 flex items-center gap-1">
                               <MapPin className="h-3 w-3 flex-shrink-0" />
@@ -257,81 +332,47 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
             </CardContent>
           </Card>
         </div>
+      </div>
 
-        {/* Room Status Grid */}
-        <div className="lg:col-span-8 space-y-6">
+      {/* Vacant rooms list for Renting */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Phòng trống cần cho thuê */}
+        <div className="lg:col-span-6 space-y-6">
           <Card className="border-border shadow-none rounded-lg bg-white">
-            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between flex-wrap gap-2">
+            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
               <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
-                <Home className="h-4 w-4 text-ink-muted" />
-                Sơ đồ trạng thái phòng
+                <ShieldAlert className="h-4.5 w-4.5 text-amber-500" />
+                Phòng trống cần cho thuê ({vacantRooms.length})
               </CardTitle>
-              {/* Legend */}
-              <div className="flex items-center gap-3 text-xs flex-wrap">
-                {Object.entries(statusLabels).map(([s, label]) => (
-                  <div key={s} className="flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${statusStyle[s]?.dot ?? 'bg-bg-subtle'}`} />
-                    <span className="text-ink-muted font-medium">{label}</span>
-                  </div>
-                ))}
-              </div>
             </CardHeader>
-            <CardContent className="p-5">
-              {stats.buildingsList.length === 0 ? (
-                <div className="text-center py-12 text-ink-muted">
-                  <p className="text-sm">Chưa có dữ liệu phòng để hiển thị sơ đồ</p>
+            <CardContent className="px-5 py-4">
+              {vacantRooms.length === 0 ? (
+                <div className="text-center py-8 text-ink-muted text-sm">
+                  Tuyệt vời! Toàn bộ phòng thuộc tòa nhà của bạn đã được thuê hết.
                 </div>
               ) : (
-                <div className="space-y-8">
-                  {stats.buildingsList.map((building) => {
-                    const buildingRooms = stats.roomsList.filter((r) => r.building_id === building.id);
-                    const floors = Array.from(new Set(buildingRooms.map((r) => r.floor))).sort((a, b) => b - a);
+                <div className="divide-y divide-border max-h-[300px] overflow-y-auto pr-1">
+                  {vacantRooms.map((room: any) => {
+                    const bld = stats.buildingsList.find(b => b.code === room.building_id);
                     return (
-                      <div key={building.id} className="space-y-4">
-                        <div className="flex items-center justify-between pb-1.5 border-b border-border">
-                          <h3 className="font-bold text-ink text-sm flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-ink-muted" />
-                            {building.name}
-                            <span className="text-ink-muted font-normal">({buildingRooms.length} phòng)</span>
-                          </h3>
-                        </div>
-                        {buildingRooms.length === 0 ? (
-                          <p className="text-xs text-ink-muted py-2 italic">
-                            Tòa nhà này chưa được lập phòng nào.
+                      <div key={room.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-ink text-sm">Phòng {room.code} (Tầng {room.floor})</p>
+                          <p className="text-xs text-ink-muted truncate mt-0.5">
+                            {bld?.name || 'Tòa nhà'} · {room.bedrooms} PN, {room.bathrooms} WC
                           </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {floors.map((floor) => {
-                              const floorRooms = buildingRooms
-                                .filter((r) => r.floor === floor)
-                                .sort((a, b) => a.code.localeCompare(b.code));
-                              return (
-                                <div key={floor} className="flex items-start gap-4">
-                                  <div className="w-14 text-[11px] font-bold text-ink-muted pt-2.5 flex-shrink-0 uppercase tracking-wide">
-                                    T.{floor}
-                                  </div>
-                                  <div className="flex flex-wrap gap-2 flex-1">
-                                    {floorRooms.map((room) => (
-                                      <button
-                                        key={room.id}
-                                        onClick={() => handleRoomClick(room)}
-                                        className={`w-16 h-12 rounded-xl flex flex-col items-center justify-center text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer ${roomStatusSafe(room.status).btn}`}
-                                        title={`Phòng ${room.code} – ${statusLabels[room.status]}`}
-                                      >
-                                        <span className="text-[11px] font-mono tracking-tight leading-none">
-                                          {room.code}
-                                        </span>
-                                        <span className="text-[9px] font-normal opacity-80 mt-0.5 leading-none tabular-nums">
-                                          {(room.price / 1_000_000).toFixed(1)}M
-                                        </span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold font-mono text-accent tabular-nums">
+                            {formatCurrency(room.price)}
+                          </span>
+                          <Link href={`/customer/properties/${bld?.id || room.building_id}`} target="_blank">
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                              Xem trang khách
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     );
                   })}
@@ -340,23 +381,20 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
             </CardContent>
           </Card>
         </div>
-      </div>
 
-      {/* ── Bottom Grid: Appointments + Contracts ────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Appointments */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Lịch hẹn xem phòng */}
+        <div className="lg:col-span-6 space-y-6">
           <Card className="border-border shadow-none rounded-lg bg-white">
             <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
               <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-ink-muted" />
-                Lịch xem phòng sắp tới
+                <CalendarDays className="h-4.5 w-4.5 text-ink-muted" />
+                Lịch hẹn xem phòng sắp tới
               </CardTitle>
             </CardHeader>
             <CardContent className="px-5 py-4">
               {stats.recentAppointments.length === 0 ? (
-                <div className="text-center py-10 text-ink-muted text-sm">
-                  Chưa có lịch hẹn nào của khách hàng
+                <div className="text-center py-8 text-ink-muted text-sm">
+                  Chưa có lịch hẹn nào của khách hàng xem phòng của bạn.
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -364,12 +402,12 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
                     <div key={apt.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink text-sm truncate">{apt.customer_name}</p>
-                        <p className="text-xs text-ink-muted truncate max-w-[180px] mt-0.5">{apt.room_title}</p>
+                        <p className="text-xs text-ink-muted truncate max-w-[200px] mt-0.5">{apt.room_title}</p>
                       </div>
                       <div className="text-right flex-shrink-0 pl-3">
                         <p className="text-xs font-mono text-ink tabular-nums">{apt.date} {apt.time}</p>
                         <span
-                          className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${apptStatusStyle[apt.status] ?? 'bg-bg-subtle text-ink-muted border-border'}`}
+                          className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${apptStatusStyle[apt.status] ?? 'bg-bg-subtle text-ink-muted border-border'}`}
                         >
                           {apptStatusLabels[apt.status] ?? apt.status}
                         </span>
@@ -381,74 +419,67 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
             </CardContent>
           </Card>
         </div>
-
-        {/* Contracts Table */}
-        <div className="lg:col-span-7 space-y-6">
-          <Card className="border-border shadow-none rounded-lg bg-white">
-            <CardHeader className="pb-3 border-b border-border">
-              <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
-                <FileText className="h-4 w-4 text-ink-muted" />
-                Hợp đồng đang hoạt động
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {stats.contractsList.length === 0 ? (
-                <div className="text-center py-10 text-ink-muted text-sm px-5">
-                  Hiện chưa có hợp đồng thuê nào đang hoạt động
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead className="bg-bg-subtle text-ink-muted font-bold uppercase tracking-wider border-b border-border">
-                      <tr>
-                        <th className="px-4 py-3">Mã HĐ</th>
-                        <th className="px-4 py-3">Khách thuê</th>
-                        <th className="px-4 py-3 text-right">Giá thuê</th>
-                        <th className="px-4 py-3">Thời hạn</th>
-                        <th className="px-4 py-3 text-right">Còn lại</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border text-ink">
-                      {stats.contractsList.slice(0, 5).map((contract) => {
-                        const daysLeft = getDaysRemaining(contract.end_date);
-                        return (
-                          <tr key={contract.id} className="hover:bg-bg-subtle/60 transition-colors">
-                            <td className="px-4 py-3.5 font-mono font-bold text-ink-muted text-[11px]">
-                              {contract.contract_code}
-                            </td>
-                            <td className="px-4 py-3.5 font-medium text-ink">{contract.party_b_name}</td>
-                            <td className="px-4 py-3.5 font-mono font-bold text-accent text-right tabular-nums">
-                              {formatCurrency(contract.rent_price)}
-                            </td>
-                            <td className="px-4 py-3.5 text-ink-muted font-mono text-[11px] tabular-nums">
-                              {new Date(contract.start_date).toLocaleDateString('vi-VN')}
-                              {' – '}
-                              {new Date(contract.end_date).toLocaleDateString('vi-VN')}
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
-                              {daysLeft === 0 ? (
-                                <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-[hsl(4,72%,93%)] text-[hsl(4,60%,36%)] border border-[hsl(4,55%,78%)]">
-                                  Hết hạn
-                                </span>
-                              ) : (
-                                <span className={`font-mono font-semibold tabular-nums ${daysLeft <= 30 ? 'text-[hsl(4,60%,45%)]' : 'text-ink'}`}>
-                                  {daysLeft}d
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
-      {/* ── Room Details Dialog ──────────────────────────────────────── */}
+      {/* Lịch sử hóa đơn thanh toán */}
+      <Card className="border-border shadow-none rounded-lg bg-white">
+        <CardHeader className="pb-3 border-b border-border">
+          <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
+            <FileText className="h-4.5 w-4.5 text-ink-muted" />
+            Lịch sử hóa đơn &amp; Thanh toán phòng
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {!stats.recentInvoices || stats.recentInvoices.length === 0 ? (
+            <div className="text-center py-10 text-ink-muted text-sm px-5">
+              Chưa ghi nhận hóa đơn thanh toán nào phát sinh.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-bg-subtle text-ink-muted font-bold uppercase tracking-wider border-b border-border">
+                  <tr>
+                    <th className="px-5 py-3">Mã Hóa đơn</th>
+                    <th className="px-5 py-3">Phòng</th>
+                    <th className="px-5 py-3">Kỳ đóng phí</th>
+                    <th className="px-5 py-3 text-right">Tổng tiền</th>
+                    <th className="px-5 py-3">Trạng thái</th>
+                    <th className="px-5 py-3 text-right">Ngày thanh toán</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-ink">
+                  {stats.recentInvoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-bg-subtle/55 transition-colors">
+                      <td className="px-5 py-3 font-mono font-bold text-ink-muted">{inv.invoice_code}</td>
+                      <td className="px-5 py-3 font-semibold">Phòng {inv.rooms?.code || '—'}</td>
+                      <td className="px-5 py-3 font-mono">{inv.period}</td>
+                      <td className="px-5 py-3 font-mono font-bold text-accent text-right tabular-nums">
+                        {formatCurrency(inv.total_amount)}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                          inv.status === 'paid'
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : inv.status === 'unpaid'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {inv.status === 'paid' ? 'Đã thu' : inv.status === 'unpaid' ? 'Chưa thu' : 'Quá hạn'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right font-mono text-ink-muted tabular-nums">
+                        {inv.payment_date ? new Date(inv.payment_date).toLocaleDateString('vi-VN') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Room Details Dialog */}
       <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
         <DialogContent className="max-w-md border border-border shadow-xl rounded-2xl bg-white">
           <DialogHeader className="pb-3 border-b border-border">
@@ -521,7 +552,7 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
               ) : selectedRoom.status === 'rented' ? (
                 <div className="flex items-center gap-2 p-3 bg-[hsl(38,90%,96%)] border border-[hsl(38,72%,76%)] rounded-xl text-[hsl(38,72%,30%)] text-xs font-semibold">
                   <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-                  <span>Phòng đánh dấu "Đã thuê" nhưng hệ thống chưa liên kết hợp đồng thuê active.</span>
+                  <span>Phòng được đánh dấu "Đã thuê" nhưng hệ thống chưa có hợp đồng thuê hoạt động.</span>
                 </div>
               ) : null}
             </div>

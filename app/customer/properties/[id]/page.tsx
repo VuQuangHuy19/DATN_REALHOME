@@ -1,31 +1,101 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
-import { usePublicListing } from '@/lib/hooks/usePublicListings';
-import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
-import { formatDateDisplay } from '@/lib/room-status';
-import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, ChevronLeft, ChevronRight, Check, X, Zap, PawPrint, Globe, Award, Layers } from 'lucide-react';
+import { usePublicBuilding, usePublicListingsByBuilding } from '@/lib/hooks/usePublicListings';
+import { PLACEHOLDER_LISTING_IMAGE } from '@/lib/customer/constants';
+import { getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
+import { useAuth } from '@/lib/auth/AuthContext';
+import {
+  MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2,
+  ChevronLeft, ChevronRight, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign
+} from 'lucide-react';
 
-export default function PropertyDetailPage() {
+const statusLabels: Record<string, string> = {
+  available: 'Còn trống',
+  soon_available: 'Sắp trống',
+  rented: 'Đã cho thuê',
+  maintenance: 'Bảo trì',
+  reserved: 'Đặt trước',
+};
+
+export default function BuildingDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const router = useRouter();
+  const buildingId = params.id as string;
   const { company } = useCustomerCompany();
-  const { listing: property, loading, error } = usePublicListing(id);
+  const { role } = useAuth();
+  
+  // Logged-in users or sales agents can see all rooms (including rented/maintenance)
+  const showAll = !!role;
+
+  const { building, loading: buildingLoading, error: buildingError } = usePublicBuilding(buildingId);
+  const { listings: rooms, loading: roomsLoading, error: roomsError } = usePublicListingsByBuilding(buildingId, showAll);
+
   const [isMapOpen, setIsMapOpen] = useState(false);
-  const [isViewingOpen, setIsViewingOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
+  // Dialog for viewing request targets a specific room
+  const [isViewingOpen, setIsViewingOpen] = useState(false);
+  const [selectedRoomForViewing, setSelectedRoomForViewing] = useState<any | null>(null);
+
+  // Filters for rooms list
+  const [filterFloor, setFilterFloor] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+
   const hotline = company?.phone || '(028) 1234-5678';
   const hotlineHref = company?.phone ? `tel:${company.phone.replace(/\D/g, '')}` : 'tel:02812345678';
+
+  const loading = buildingLoading || roomsLoading;
+  const error = buildingError || roomsError;
+
+  // Reset indices or filters on loading finished
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [buildingId]);
+
+  // Unique floors array for dropdown filter
+  const floorOptions = useMemo(() => {
+    const list = rooms.map((r) => r.floor).filter(Boolean);
+    return Array.from(new Set(list)).sort((a, b) => a - b);
+  }, [rooms]);
+
+  // Client-side filtering of rooms
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((room) => {
+      const matchFloor = filterFloor === 'all' || String(room.floor) === filterFloor;
+      const matchStatus = filterStatus === 'all' || room.status === filterStatus;
+      return matchFloor && matchStatus;
+    });
+  }, [rooms, filterFloor, filterStatus]);
+
+  // Dynanmic price and size range based on loaded rooms
+  const priceRangeStr = useMemo(() => {
+    if (rooms.length === 0) return 'Liên hệ';
+    const prices = rooms.map(r => r.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    if (minPrice === maxPrice) return `${minPrice.toLocaleString('vi-VN')}đ`;
+    return `${minPrice.toLocaleString('vi-VN')}đ - ${maxPrice.toLocaleString('vi-VN')}đ`;
+  }, [rooms]);
+
+  const sizeRangeStr = useMemo(() => {
+    if (rooms.length === 0) return '—';
+    const sizes = rooms.map(r => r.size);
+    const minSize = Math.min(...sizes);
+    const maxSize = Math.max(...sizes);
+    if (minSize === maxSize) return `${minSize}m²`;
+    return `${minSize}m² - ${maxSize}m²`;
+  }, [rooms]);
 
   if (loading) {
     return (
@@ -35,17 +105,23 @@ export default function PropertyDetailPage() {
     );
   }
 
-  if (!property || error) {
+  if (!building || error) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-slate-800">Không tìm thấy bất động sản</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Không tìm thấy tòa nhà hoặc bất động sản</h1>
       </div>
     );
   }
 
-  const imagesList = property.imageUrls && property.imageUrls.length > 0
-    ? property.imageUrls
-    : [property.imageUrl];
+  // Combine building main image and room images
+  const roomImages = rooms.flatMap((r) => r.imageUrls || []).filter(Boolean);
+  const uniqueRoomImages = Array.from(new Set(roomImages));
+  let imagesList = [building.image_url || PLACEHOLDER_LISTING_IMAGE];
+  if (building.image_url) {
+    imagesList = [building.image_url, ...uniqueRoomImages.filter(img => img !== building.image_url)];
+  } else if (uniqueRoomImages.length > 0) {
+    imagesList = uniqueRoomImages;
+  }
 
   const handleNextImage = () => {
     setActiveImageIndex((prev) => (prev + 1) % imagesList.length);
@@ -55,13 +131,31 @@ export default function PropertyDetailPage() {
     setActiveImageIndex((prev) => (prev - 1 + imagesList.length) % imagesList.length);
   };
 
+  const handleOpenViewingRequest = (e: React.MouseEvent, room: any) => {
+    e.stopPropagation();
+    setSelectedRoomForViewing(room);
+    setIsViewingOpen(true);
+  };
+
+  const handleOpenContact = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsContactOpen(true);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 pb-24 lg:pb-8 bg-bg-base">
+      {/* Back button */}
+      <div className="mb-4">
+        <Link href="/customer/properties" className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-hover transition-colors">
+          <ChevronLeft className="h-4 w-4" /> Quay lại danh sách
+        </Link>
+      </div>
+
       {/* Image Slider / Carousel */}
       <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle">
         <Image
           src={imagesList[activeImageIndex]}
-          alt={`${property.title} - Ảnh ${activeImageIndex + 1}`}
+          alt={`${building.name} - Ảnh ${activeImageIndex + 1}`}
           fill
           className="object-contain transition-all duration-500 ease-in-out"
           priority
@@ -104,75 +198,71 @@ export default function PropertyDetailPage() {
             ))}
           </div>
         )}
-
-        <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1.5">
-          <Badge variant={property.status === 'available' ? 'default' : 'secondary'} className="text-sm px-3 py-1 shadow-none">
-            {LISTING_STATUS_LABELS[property.status]}
-          </Badge>
-          {property.status === 'soon_available' && property.expectedAvailableDate && (
-            <span className="text-xs font-semibold px-2.5 py-1 rounded bg-accent-900/80 text-white backdrop-blur-sm shadow-sm select-none">
-              Trống từ: {formatDateDisplay(property.expectedAvailableDate)}
-            </span>
-          )}
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-8">
+          {/* Header & Title */}
           <div>
-            <h1 className="text-3xl font-bold font-heading text-ink">{property.title}</h1>
+            <h1 className="text-3xl font-bold font-heading text-ink">{building.name}</h1>
             <div className="flex items-center gap-2 mt-2 text-ink-muted">
               <MapPin className="h-5 w-5 text-accent" />
-              {property.address}
+              {building.address}
             </div>
           </div>
 
+          {/* Quick specs */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-muted py-3 border-y border-border-subtle font-medium">
             <span className="flex items-center gap-1.5">
-              <Bed className="h-4 w-4 text-accent" />
-              <span>{property.bedrooms} Phòng ngủ</span>
+              <Layers className="h-4 w-4 text-accent" />
+              <span>{building.total_floors || '—'} Tầng</span>
             </span>
             <span className="text-border">•</span>
             <span className="flex items-center gap-1.5">
-              <Bath className="h-4 w-4 text-accent" />
-              <span>{property.bathrooms} Phòng tắm</span>
+              <Layers className="h-4 w-4 text-accent" />
+              <span>{building.total_rooms || '—'} Phòng</span>
             </span>
             <span className="text-border">•</span>
             <span className="flex items-center gap-1.5">
               <Square className="h-4 w-4 text-accent" />
-              <span>{property.size}m² Diện tích</span>
+              <span>Diện tích phòng: {sizeRangeStr}</span>
             </span>
-            <span className="text-border">•</span>
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 text-accent" />
-              <span>Tầng {property.floor}</span>
-            </span>
+            {building.year_built && (
+              <>
+                <span className="text-border">•</span>
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4 text-accent" />
+                  <span>Xây dựng: {building.year_built}</span>
+                </span>
+              </>
+            )}
           </div>
 
+          {/* Description */}
           <div>
-            <h2 className="text-xl font-bold font-heading text-ink mb-3">Mô tả</h2>
-            <p className="text-ink-muted leading-relaxed whitespace-pre-line">{property.description}</p>
+            <h2 className="text-xl font-bold font-heading text-ink mb-3">Mô tả tòa nhà</h2>
+            <p className="text-ink-muted leading-relaxed whitespace-pre-line">{building.description || 'Chưa có mô tả chi tiết cho tòa nhà này.'}</p>
           </div>
 
           {/* Nội thất */}
           {(() => {
             const activeFurniture = [
-              { key: 'hasAirConditioner', label: 'Điều hòa' },
-              { key: 'hasWaterHeater', label: 'Nóng lạnh' },
-              { key: 'hasBed', label: 'Giường ngủ' },
-              { key: 'hasWardrobe', label: 'Tủ quần áo' },
-              { key: 'hasKitchenCabinet', label: 'Tủ bếp' },
-              { key: 'hasRefrigerator', label: 'Tủ lạnh' },
-              { key: 'hasHood', label: 'Máy hút mùi' },
-              { key: 'hasDressingTable', label: 'Bàn trang điểm' }
-            ].filter((item) => property[item.key as keyof typeof property] === true);
+              { key: 'has_air_conditioner', label: 'Điều hòa' },
+              { key: 'has_water_heater', label: 'Nóng lạnh' },
+              { key: 'has_bed', label: 'Giường ngủ' },
+              { key: 'has_wardrobe', label: 'Tủ quần áo' },
+              { key: 'has_kitchen_cabinet', label: 'Tủ bếp' },
+              { key: 'has_refrigerator', label: 'Tủ lạnh' },
+              { key: 'has_hood', label: 'Máy hút mùi' },
+              { key: 'has_dressing_table', label: 'Bàn trang điểm' }
+            ].filter((item) => building[item.key] === true);
 
             if (activeFurniture.length === 0) return null;
 
             return (
               <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
                 <CardHeader className="pb-3 border-b border-border-subtle">
-                  <CardTitle className="text-base font-bold font-heading text-ink">Nội thất</CardTitle>
+                  <CardTitle className="text-base font-bold font-heading text-ink">Trang bị sẵn có của tòa nhà</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm pt-4">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -193,7 +283,7 @@ export default function PropertyDetailPage() {
           {/* Tiện ích */}
           <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
             <CardHeader className="pb-3 border-b border-border-subtle">
-              <CardTitle className="text-base font-bold font-heading text-ink">Tiện ích</CardTitle>
+              <CardTitle className="text-base font-bold font-heading text-ink">Tiện ích tòa nhà</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-sm pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -202,7 +292,7 @@ export default function PropertyDetailPage() {
                     <Layers className="h-4 w-4 text-accent" />
                     <span className="text-ink text-xs font-semibold">Thang máy</span>
                   </div>
-                  {property.hasElevator !== false ? (
+                  {building.has_elevator !== false ? (
                     <Badge variant="default" className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200 border flex items-center gap-1 text-[10px] py-0.5 font-bold shadow-none">
                       <Check className="h-3 w-3" /> Có thang máy
                     </Badge>
@@ -218,7 +308,7 @@ export default function PropertyDetailPage() {
                     <Award className="h-4 w-4 text-accent" />
                     <span className="text-ink text-xs font-semibold">Hệ thống PCCC</span>
                   </div>
-                  {property.pcccCertified !== false ? (
+                  {building.pccc_certified !== false ? (
                     <Badge variant="default" className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200 border flex items-center gap-1 text-[10px] py-0.5 font-bold shadow-none">
                       <Check className="h-3 w-3" /> Đạt chuẩn PCCC
                     </Badge>
@@ -228,28 +318,12 @@ export default function PropertyDetailPage() {
                     </Badge>
                   )}
                 </div>
-
-                <div className="flex items-center justify-between p-2.5 border border-border-subtle rounded-lg bg-bg-base sm:col-span-2">
-                  <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-accent" />
-                    <span className="text-ink text-xs font-semibold">Xe điện VinFast</span>
-                  </div>
-                  {property.allowVinfastElectric !== false ? (
-                    <Badge variant="default" className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200 border flex items-center gap-1 text-[10px] py-0.5 font-bold shadow-none">
-                      <Check className="h-3 w-3" /> Nhận & sạc điện
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="bg-bg-subtle text-ink-muted flex items-center gap-1 text-[10px] py-0.5 font-medium border-border-subtle border shadow-none">
-                      <X className="h-3 w-3" /> Không nhận xe điện
-                    </Badge>
-                  )}
-                </div>
               </div>
               
-              {property.commonDryingArea && (
+              {building.common_drying_area && (
                 <div className="p-3 bg-bg-subtle border border-border-subtle rounded-lg text-ink-muted text-xs">
                   <span className="font-bold text-ink-muted uppercase block mb-1">Chỗ phơi đồ chung</span>
-                  <span className="font-medium text-ink">{property.commonDryingArea}</span>
+                  <span className="font-medium text-ink">{building.common_drying_area}</span>
                 </div>
               )}
             </CardContent>
@@ -260,97 +334,226 @@ export default function PropertyDetailPage() {
             <CardHeader className="pb-3 border-b border-border-subtle">
               <CardTitle className="text-base font-bold font-heading text-ink">Quy định thuê</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 text-sm pt-4">
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <Square className="h-4.5 w-4.5 text-accent flex-shrink-0" />
-                <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Ban công riêng</div>
-                  <div className="font-semibold text-ink text-xs">{property.hasPrivateBalcony ? 'Có ban công riêng' : 'Không có'}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <Calendar className="h-4.5 w-4.5 text-accent flex-shrink-0" />
-                <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Hợp đồng tối thiểu</div>
-                  <div className="font-semibold text-ink text-xs"><span className="font-mono">{property.minContractMonths ?? 12}</span> tháng</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <Bed className="h-4.5 w-4.5 text-accent flex-shrink-0" />
-                <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Số người tối đa</div>
-                  <div className="font-semibold text-ink text-xs"><span className="font-mono">{property.maxOccupants ?? 2}</span> người/phòng</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <Bath className="h-4.5 w-4.5 text-accent flex-shrink-0" />
-                <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Số xe tối đa</div>
-                  <div className="font-semibold text-ink text-xs"><span className="font-mono">{property.maxVehiclesPerRoom ?? 2}</span> xe/phòng</div>
-                </div>
-              </div>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm pt-4">
               <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
                 <PawPrint className="h-4.5 w-4.5 text-accent flex-shrink-0" />
                 <div>
                   <div className="text-[10px] text-ink-muted uppercase font-medium">Nuôi thú cưng</div>
-                  <div className="font-semibold text-ink text-xs">{property.allowPet ? 'Cho phép nuôi' : 'Không cho nuôi'}</div>
+                  <div className="font-semibold text-ink text-xs">{building.allow_pet ? 'Cho phép nuôi' : 'Không cho nuôi'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
                 <Globe className="h-4.5 w-4.5 text-accent flex-shrink-0" />
                 <div>
                   <div className="text-[10px] text-ink-muted uppercase font-medium">Người nước ngoài</div>
-                  <div className="font-semibold text-ink text-xs">{property.allowForeigners ? 'Nhận nước ngoài' : 'Chỉ khách Việt'}</div>
+                  <div className="font-semibold text-ink text-xs">{building.allow_foreigners ? 'Nhận nước ngoài' : 'Chỉ khách Việt'}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
+                <Zap className="h-4.5 w-4.5 text-accent flex-shrink-0" />
+                <div>
+                  <div className="text-[10px] text-ink-muted uppercase font-medium">Xe điện VinFast</div>
+                  <div className="font-semibold text-ink text-xs">{building.allow_vinfast_electric !== false ? 'Nhận & sạc điện' : 'Không nhận xe điện'}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
+
+          {/* Rooms List Section */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-xl font-bold font-heading text-ink">Danh sách phòng trong tòa</h2>
+              
+              {/* Filter controls */}
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={filterFloor}
+                  onChange={(e) => setFilterFloor(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs bg-white text-ink font-semibold"
+                >
+                  <option value="all">Tất cả các tầng</option>
+                  {floorOptions.map((f) => (
+                    <option key={f} value={String(f)}>Tầng {f}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs bg-white text-ink font-semibold"
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="available">Còn trống</option>
+                  <option value="soon_available">Sắp trống</option>
+                  {showAll && (
+                    <>
+                      <option value="rented">Đã cho thuê</option>
+                      <option value="maintenance">Bảo trì</option>
+                      <option value="reserved">Đặt trước</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {filteredRooms.length === 0 ? (
+              <div className="text-center py-12 border border-dashed border-border-subtle rounded-lg bg-white text-ink-muted text-sm">
+                Không tìm thấy phòng nào phù hợp bộ lọc
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {filteredRooms.map((room) => {
+                  const ds = getRoomDisplayStatus({
+                    id: room.id,
+                    status: room.status === 'soon_available' ? 'rented' : room.status,
+                    description: room.description,
+                  } as any);
+
+                  return (
+                    <Link
+                      href={`/customer/properties/rooms/${room.id}`}
+                      key={room.id}
+                      className="group border border-border-subtle rounded-lg overflow-hidden bg-white hover:border-accent transition-all flex flex-col"
+                    >
+                      {/* Room Card Thumbnail */}
+                      <div className="relative h-44 w-full bg-slate-100">
+                        <Image
+                          src={room.imageUrl}
+                          alt={room.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1">
+                          <Badge className={`${ds.colorClass} text-[10px] font-bold px-2 py-0.5 border rounded-full`}>
+                            {statusLabels[room.status] || ds.label}
+                          </Badge>
+                          {room.status === 'soon_available' && room.expectedAvailableDate && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-accent text-white select-none">
+                              Trống từ: {formatDateDisplay(room.expectedAvailableDate)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Room Card Info */}
+                      <div className="p-4 flex-1 flex flex-col justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold font-mono text-ink">Phòng {room.title.split('—')[1]?.trim() || room.id}</span>
+                            <span className="text-xs text-ink-muted font-medium">Tầng {room.floor}</span>
+                          </div>
+                          <div className="text-xs text-ink-muted flex gap-2">
+                            <span>{room.roomType}</span>
+                            <span>•</span>
+                            <span>{room.size}m²</span>
+                          </div>
+                          {room.description && (
+                            <p className="text-xs text-ink-muted line-clamp-2 mt-1">{room.description}</p>
+                          )}
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between">
+                          <div className="font-mono font-bold text-accent text-base">
+                            {room.price.toLocaleString('vi-VN')}đ<span className="text-[10px] font-normal text-ink-muted">/tháng</span>
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              className="h-7 px-2.5 text-[10px] font-bold bg-accent hover:bg-accent-500 text-white rounded"
+                              onClick={(e) => handleOpenViewingRequest(e, room)}
+                            >
+                              Hẹn xem
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2.5 text-[10px] font-bold text-ink border-border-subtle rounded hover:bg-bg-subtle"
+                              onClick={handleOpenContact}
+                            >
+                              Liên hệ
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
+        {/* Sidebar Info & Map */}
         <div className="space-y-6 lg:sticky lg:top-24">
           <Card className="border border-border-subtle bg-white shadow-none rounded-lg">
             <CardContent className="p-6 space-y-5">
               <div>
-                <span className="text-xs text-ink-muted uppercase font-semibold block mb-1">Giá thuê phòng</span>
-                <div className="text-3xl font-bold text-ink font-mono tracking-tight">
-                  {property.price.toLocaleString('vi-VN')}đ<span className="text-sm font-normal text-ink-muted">/tháng</span>
+                <span className="text-xs text-ink-muted uppercase font-semibold block mb-1">Khoảng giá tòa nhà</span>
+                <div className="text-2xl font-bold text-ink font-mono tracking-tight">
+                  {priceRangeStr}
                 </div>
               </div>
 
-              {/* Table of costs */}
-              <div className="border border-border-subtle rounded-lg overflow-hidden text-sm">
-                <div className="flex justify-between p-3 border-b border-border-subtle bg-bg-subtle">
-                  <span className="text-ink-muted font-medium">Đặt cọc:</span>
-                  <span className="font-semibold text-ink text-right">{property.depositTerms || 'Liên hệ thương lượng'}</span>
+              {/* Cost specifications */}
+              <div className="border-t border-border-subtle pt-4 space-y-3">
+                <span className="text-xs font-semibold text-ink-muted block uppercase tracking-wider">Chi phí & dịch vụ</span>
+                <div className="border border-border-subtle rounded-lg overflow-hidden bg-white text-xs">
+                  <div className="flex justify-between p-2.5 border-b border-border-subtle bg-bg-subtle/50">
+                    <span className="text-ink-muted font-medium">Giá điện:</span>
+                    <span className="font-bold text-ink font-mono">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</span>
+                  </div>
+                  <div className="flex justify-between p-2.5 border-b border-border-subtle">
+                    <span className="text-ink-muted font-medium">Giá nước:</span>
+                    <span className="font-bold text-ink font-mono">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</span>
+                  </div>
+                  <div className="flex justify-between p-2.5 border-b border-border-subtle bg-bg-subtle/50">
+                    <span className="text-ink-muted font-medium">Internet:</span>
+                    <span className="font-bold text-ink font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</span>
+                  </div>
+                  <div className="flex justify-between p-2.5 border-b border-border-subtle">
+                    <span className="text-ink-muted font-medium">Dịch vụ chung:</span>
+                    <span className="font-bold text-ink font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</span>
+                  </div>
+                  <div className="flex justify-between p-2.5">
+                    <span className="text-ink-muted font-medium">Phí sạc xe điện:</span>
+                    <span className="font-bold text-ink font-mono">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</span>
+                  </div>
                 </div>
-                <div className="flex justify-between p-3 border-b border-border-subtle">
-                  <span className="text-ink-muted font-medium">Hợp đồng tối thiểu:</span>
-                  <span className="font-semibold text-ink text-right"><span className="font-mono">{property.minContractMonths ?? 12}</span> tháng</span>
-                </div>
-                <div className="flex justify-between p-3">
-                  <span className="text-ink-muted font-medium">Số người ở tối đa:</span>
-                  <span className="font-semibold text-ink text-right"><span className="font-mono">{property.maxOccupants ?? 2}</span> người/phòng</span>
-                </div>
+                {building.common_service_description && (
+                  <p className="text-[10px] text-ink-muted leading-tight font-medium">
+                    * Dịch vụ chung: {building.common_service_description}
+                  </p>
+                )}
+                {building.fingerprint_lock_desc && (
+                  <p className="text-[10px] text-ink-muted leading-tight font-medium">
+                    * Khóa vân tay: {building.fingerprint_lock_desc}
+                  </p>
+                )}
+                {building.deposit_terms && (
+                  <p className="text-[10px] text-ink-muted leading-tight font-medium">
+                    * Quy định cọc: {building.deposit_terms}
+                  </p>
+                )}
               </div>
 
+              {/* Contact Button */}
               <div className="space-y-3 pt-2">
-                <Button className="w-full bg-accent hover:bg-accent-500 text-white font-semibold shadow-none" size="lg" disabled={!company} onClick={() => setIsViewingOpen(true)}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Đặt Lịch Hẹn
-                </Button>
-                <Button variant="outline" className="w-full text-ink border-border-subtle shadow-none" size="lg" onClick={() => setIsContactOpen(true)}>
+                <Button variant="outline" className="w-full text-ink border-border-subtle shadow-none rounded-lg" size="lg" onClick={handleOpenContact}>
                   <Phone className="h-4 w-4 mr-2" />
                   Liên Hệ Môi Giới
                 </Button>
 
+                {/* Minimap preview card */}
                 <div
                   className="mt-1 rounded-lg overflow-hidden border border-border-subtle cursor-pointer group relative"
                   onClick={() => setIsMapOpen(true)}
                 >
                   <div className="relative h-40">
                     <iframe
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(property.address)}&output=embed&z=16`}
-                      className="w-full h-full pointer-events-none"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(building.address)}&output=embed&z=16`}
+                      className="w-full h-full pointer-events-none animate-fade-in"
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
                       title="Vị trí trên bản đồ"
@@ -364,13 +567,14 @@ export default function PropertyDetailPage() {
                   </div>
                   <div className="px-3 py-2 bg-white flex items-center gap-1.5 text-xs text-ink-muted border-t border-border-subtle">
                     <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-accent" />
-                    <span className="truncate">{property.address}</span>
+                    <span className="truncate">{building.address}</span>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Expanded Map Dialog */}
           <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
             <DialogContent className="max-w-3xl p-0 overflow-hidden">
               <DialogHeader className="px-6 pt-5 pb-3">
@@ -378,11 +582,11 @@ export default function PropertyDetailPage() {
                   <MapPin className="h-5 w-5 text-accent" />
                   Vị trí bất động sản
                 </DialogTitle>
-                <p className="text-sm text-ink-muted mt-0.5">{property.address}</p>
+                <p className="text-sm text-ink-muted mt-0.5">{building.address}</p>
               </DialogHeader>
               <div className="h-[420px] relative">
                 <iframe
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(property.address)}&output=embed&z=16`}
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(building.address)}&output=embed&z=16`}
                   className="w-full h-full border-0"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
@@ -390,10 +594,10 @@ export default function PropertyDetailPage() {
                 />
               </div>
               <div className="px-6 py-4 flex justify-between items-center border-t border-border-subtle bg-bg-subtle">
-                <span className="text-sm text-ink-muted">{property.address}</span>
+                <span className="text-sm text-ink-muted">{building.address}</span>
                 <Button size="sm" className="bg-accent hover:bg-accent-500 text-white font-semibold shadow-none" asChild>
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(property.address)}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(building.address)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -407,26 +611,7 @@ export default function PropertyDetailPage() {
         </div>
       </div>
 
-      {/* Sticky Bottom Bar for Mobile */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-border-subtle p-4 flex items-center justify-between z-30 shadow-none pb-safe">
-        <div>
-          <div className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">Giá thuê</div>
-          <div className="text-base font-bold text-ink font-mono">
-            {property.price.toLocaleString('vi-VN')}đ/tháng
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" className="h-9 px-3 bg-accent hover:bg-accent-500 text-white font-semibold" disabled={!company} onClick={() => setIsViewingOpen(true)}>
-            <Calendar className="h-4 w-4 mr-1.5" />
-            Hẹn xem
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 px-3 text-ink border-border-subtle" onClick={() => setIsContactOpen(true)}>
-            <Phone className="h-4 w-4 mr-1.5" />
-            Liên hệ
-          </Button>
-        </div>
-      </div>
-
+      {/* Hotline contact dialog */}
       <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -447,16 +632,17 @@ export default function PropertyDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {property && (
+      {/* Viewing request dialog */}
+      {selectedRoomForViewing && (
         <ViewingRequestDialog
           open={isViewingOpen}
           onOpenChange={setIsViewingOpen}
-          companyId={property.companyId}
+          companyId={selectedRoomForViewing.companyId}
           property={{
-            id: property.id,
-            title: property.title,
-            address: property.address,
-            area: property.area,
+            id: selectedRoomForViewing.id,
+            title: selectedRoomForViewing.title,
+            address: selectedRoomForViewing.address,
+            area: selectedRoomForViewing.area,
           }}
         />
       )}

@@ -133,3 +133,45 @@ export async function getPublicListingsByIds(ids: string[], companyId?: string |
     .filter((item: CustomerListing | null): item is CustomerListing => item !== null);
 }
 
+export async function getPublicListingsByBuilding(buildingId: string, showAll: boolean = false): Promise<CustomerListing[]> {
+  const { data: buildingData, error: bError } = await supabase
+    .from('buildings')
+    .select('code')
+    .eq('id', buildingId)
+    .maybeSingle();
+
+  if (bError) throw bError;
+  if (!buildingData) return [];
+
+  const loggedIn = await isUserLoggedIn();
+  const selectFields = loggedIn
+    ? '*, buildings(*), room_images(*), rental_contracts(*)'
+    : '*, buildings(*), room_images(*)';
+
+  const { data, error } = await supabase
+    .from('rooms')
+    .select(selectFields)
+    .eq('building_id', buildingData.code)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .filter((row: any) => showAll || filterPublicListing(row))
+    .map((row: Parameters<typeof mapRoomToListing>[0]) => mapRoomToListing(row))
+    .filter((item: CustomerListing | null): item is CustomerListing => item !== null);
+}
+
+export async function getPublicBuilding(id: string): Promise<any | null> {
+  const { data, error } = await supabase
+    .from('buildings')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+
+
