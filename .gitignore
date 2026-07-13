@@ -62,3 +62,4 @@ next-env.d.ts
 # database migrations
 *.sql
 
+*.md
