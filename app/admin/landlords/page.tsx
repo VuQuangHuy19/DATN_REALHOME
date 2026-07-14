@@ -130,21 +130,21 @@ export default function LandlordsPage() {
             <form onSubmit={handleSave} className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ tên</Label>
+                  <Label htmlFor="name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ tên <span className="text-red-500">*</span></Label>
                   <Input id="name" name="name" defaultValue={editItem?.name} required className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
                 </div>
                 <div>
-                  <Label htmlFor="phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại</Label>
+                  <Label htmlFor="phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại <span className="text-red-500">*</span></Label>
                   <Input id="phone" name="phone" defaultValue={editItem?.phone ?? ''} className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email</Label>
+                  <Label htmlFor="email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email <span className="text-red-500">*</span></Label>
                   <Input id="email" name="email" type="email" defaultValue={editItem?.email ?? ''} className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
                 </div>
                 <div>
-                  <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã Chủ Nhà</Label>
+                  <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã Chủ Nhà <span className="text-red-500">*</span></Label>
                   <Input id="code" name="code" defaultValue={editItem?.code ?? ''} placeholder="Ví dụ: DH01" required className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
                 </div>
               </div>

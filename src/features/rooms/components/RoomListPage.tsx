@@ -252,32 +252,32 @@ export function RoomListPage() {
                 <form onSubmit={handleSave} className="space-y-4 py-1">
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng</Label>
+                      <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng <span className="text-red-500">*</span></Label>
                       <Input id="code" name="code" defaultValue={editItem?.code} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="building_id" className="text-ink font-semibold text-xs uppercase tracking-wider">Tòa nhà</Label>
+                      <Label htmlFor="building_id" className="text-ink font-semibold text-xs uppercase tracking-wider">Tòa nhà <span className="text-red-500">*</span></Label>
                       <select id="building_id" name="building_id" defaultValue={editItem?.building_id ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
                         <option value="">Chọn tòa nhà</option>
                         {buildings.map((b) => <option key={b.id} value={b.code}>{b.name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng</Label>
+                      <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng <span className="text-red-500">*</span></Label>
                       <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent" required>
                         <option value="">Chọn loại</option>
                         {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Tầng</Label>
+                      <Label htmlFor="floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Tầng <span className="text-red-500">*</span></Label>
                       <Input id="floor" name="floor" type="number" defaultValue={editItem?.floor} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái</Label>
+                      <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái <span className="text-red-500">*</span></Label>
                       <select
                         id="status"
                         name="status"
@@ -294,11 +294,11 @@ export function RoomListPage() {
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="size" className="text-ink font-semibold text-xs uppercase tracking-wider">Diện tích (m²)</Label>
+                      <Label htmlFor="size" className="text-ink font-semibold text-xs uppercase tracking-wider">Diện tích (m²) <span className="text-red-500">*</span></Label>
                       <Input id="size" name="size" type="number" defaultValue={editItem?.size ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê (đ)</Label>
+                      <Label htmlFor="price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê (đ) <span className="text-red-500">*</span></Label>
                       <Input
                         id="price"
                         type="text"
@@ -312,7 +312,7 @@ export function RoomListPage() {
                       <input type="hidden" name="price" value={displayPrice.replace(/\./g, '')} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">Hợp đồng tối thiểu (tháng)</Label>
+                      <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">Hợp đồng tối thiểu (tháng) <span className="text-red-500">*</span></Label>
                       <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={editItem?.min_contract_months ?? 12} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                   </div>
@@ -334,11 +334,11 @@ export function RoomListPage() {
 
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ</Label>
+                      <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ <span className="text-red-500">*</span></Label>
                       <Input id="bedrooms" name="bedrooms" type="number" defaultValue={editItem?.bedrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm</Label>
+                      <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm <span className="text-red-500">*</span></Label>
                       <Input id="bathrooms" name="bathrooms" type="number" defaultValue={editItem?.bathrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="space-y-1.5">
@@ -349,11 +349,11 @@ export function RoomListPage() {
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa</Label>
+                      <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa <span className="text-red-500">*</span></Label>
                       <Input id="max_occupants" name="max_occupants" type="number" defaultValue={editItem?.max_occupants ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa</Label>
+                      <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa <span className="text-red-500">*</span></Label>
                       <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={editItem?.max_vehicles_per_room ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                   </div>
@@ -364,7 +364,7 @@ export function RoomListPage() {
                       <Input id="description" name="description" defaultValue={editItem?.description ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="rose" className="text-ink font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới</Label>
+                      <Label htmlFor="rose" className="text-ink font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới <span className="text-red-500">*</span></Label>
                       <Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                   </div>

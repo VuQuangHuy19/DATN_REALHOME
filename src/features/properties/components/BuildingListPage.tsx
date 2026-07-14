@@ -274,18 +274,18 @@ export function BuildingListPage() {
                     {/* 1. Thông tin cơ bản */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Mã tòa nhà</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Mã tòa nhà <span className="text-red-500">*</span></Label>
                         <Input name="code" defaultValue={editItem?.code} required className="rounded-lg border-border focus-visible:ring-accent" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Tên tòa nhà</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Tên tòa nhà <span className="text-red-500">*</span></Label>
                         <Input name="name" defaultValue={editItem?.name} required className="rounded-lg border-border focus-visible:ring-accent" />
                       </div>
                     </div>
                     {/* Location cascade: Tỉnh → Huyện → Xã */}
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Tỉnh / Thành phố</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Tỉnh / Thành phố <span className="text-red-500">*</span></Label>
                         <select
                           value={selectedProvinceId}
                           onChange={e => setSelectedProvinceId(e.target.value)}
@@ -296,7 +296,7 @@ export function BuildingListPage() {
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Quận / Huyện</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Quận / Huyện <span className="text-red-500">*</span></Label>
                         <select
                           value={selectedDistrictId}
                           onChange={e => setSelectedDistrictId(e.target.value)}
@@ -308,7 +308,7 @@ export function BuildingListPage() {
                         </select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Phường / Xã</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Phường / Xã <span className="text-red-500">*</span></Label>
                         <select
                           value={selectedWardId}
                           onChange={e => setSelectedWardId(e.target.value)}
@@ -349,7 +349,7 @@ export function BuildingListPage() {
                       </div>
                     )}
                     <div className="space-y-1.5">
-                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-ink-muted font-normal text-xs">(Số nhà, tên đường...)</span></Label>
+                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-red-500">*</span> <span className="text-ink-muted font-normal text-xs">(Số nhà, tên đường...)</span></Label>
                       <Input name="address" defaultValue={editItem?.address ?? ''} placeholder="Ví dụ: 123 Nguyễn Trãi" className="rounded-lg border-border focus-visible:ring-accent" />
                     </div>
                     <div className="grid grid-cols-3 gap-4">
@@ -358,11 +358,11 @@ export function BuildingListPage() {
                         <Input name="year_built" type="number" defaultValue={editItem?.year_built ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Số tầng</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Số tầng <span className="text-red-500">*</span></Label>
                         <Input name="total_floors" type="number" defaultValue={editItem?.total_floors ?? 0} required className="rounded-lg border-border focus-visible:ring-accent" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Số phòng</Label>
+                        <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Số phòng <span className="text-red-500">*</span></Label>
                         <Input name="total_rooms" type="number" defaultValue={editItem?.total_rooms ?? 0} required className="rounded-lg border-border focus-visible:ring-accent" />
                       </div>
                     </div>
@@ -372,14 +372,14 @@ export function BuildingListPage() {
                       <span className="text-xs font-bold text-ink block uppercase tracking-wider">Tiện ích & Quy định chung</span>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1">
-                          <Label htmlFor="has_elevator" className="text-[11px] font-semibold text-ink-muted uppercase">Thang máy</Label>
+                          <Label htmlFor="has_elevator" className="text-[11px] font-semibold text-ink-muted uppercase">Thang máy <span className="text-red-500">*</span></Label>
                           <select id="has_elevator" name="has_elevator" defaultValue={editItem ? String(editItem.has_elevator) : 'true'} className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent">
                             <option value="true">Có thang máy</option>
                             <option value="false">Không thang máy</option>
                           </select>
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="pccc_certified" className="text-[11px] font-semibold text-ink-muted uppercase">Hệ thống PCCC & Thoát hiểm</Label>
+                          <Label htmlFor="pccc_certified" className="text-[11px] font-semibold text-ink-muted uppercase">Hệ thống PCCC & Thoát hiểm <span className="text-red-500">*</span></Label>
                           <select id="pccc_certified" name="pccc_certified" defaultValue={editItem ? String(editItem.pccc_certified) : 'true'} className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent">
                             <option value="true">Đảm bảo an toàn</option>
                             <option value="false">Chưa hoàn thiện</option>
@@ -396,21 +396,21 @@ export function BuildingListPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="space-y-1">
-                          <Label htmlFor="allow_pet" className="text-[11px] font-semibold text-ink-muted uppercase">Nuôi thú cưng</Label>
+                          <Label htmlFor="allow_pet" className="text-[11px] font-semibold text-ink-muted uppercase">Nuôi thú cưng <span className="text-red-500">*</span></Label>
                           <select id="allow_pet" name="allow_pet" defaultValue={editItem ? String(editItem.allow_pet) : 'false'} className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent">
                             <option value="false">Không cho phép</option>
                             <option value="true">Cho phép</option>
                           </select>
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="allow_foreigners" className="text-[11px] font-semibold text-ink-muted uppercase">Người nước ngoài</Label>
+                          <Label htmlFor="allow_foreigners" className="text-[11px] font-semibold text-ink-muted uppercase">Người nước ngoài <span className="text-red-500">*</span></Label>
                           <select id="allow_foreigners" name="allow_foreigners" defaultValue={editItem ? String(editItem.allow_foreigners) : 'false'} className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent">
                             <option value="false">Chỉ khách Việt</option>
                             <option value="true">Cho phép</option>
                           </select>
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="allow_vinfast_electric" className="text-[11px] font-semibold text-ink-muted uppercase">Xe điện VinFast</Label>
+                          <Label htmlFor="allow_vinfast_electric" className="text-[11px] font-semibold text-ink-muted uppercase">Xe điện VinFast <span className="text-red-500">*</span></Label>
                           <select id="allow_vinfast_electric" name="allow_vinfast_electric" defaultValue={editItem ? String(editItem.allow_vinfast_electric) : 'true'} className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent">
                             <option value="true">Nhận & sạc điện</option>
                             <option value="false">Không nhận</option>
@@ -491,19 +491,19 @@ export function BuildingListPage() {
                       <span className="text-xs font-bold text-ink block uppercase tracking-wider">Định mức chi phí dịch vụ & Phụ thu</span>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div className="space-y-1">
-                          <Label htmlFor="electricity_price" className="text-[11px] font-semibold text-ink-muted uppercase">Giá điện (VND/kWh)</Label>
+                          <Label htmlFor="electricity_price" className="text-[11px] font-semibold text-ink-muted uppercase">Giá điện (VND/kWh) <span className="text-red-500">*</span></Label>
                           <Input id="electricity_price" name="electricity_price" value={electricityPrice} onChange={handlePriceChange(setElectricityPrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent" />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="water_price" className="text-[11px] font-semibold text-ink-muted uppercase">Giá nước (VND/m³)</Label>
+                          <Label htmlFor="water_price" className="text-[11px] font-semibold text-ink-muted uppercase">Giá nước (VND/m³) <span className="text-red-500">*</span></Label>
                           <Input id="water_price" name="water_price" value={waterPrice} onChange={handlePriceChange(setWaterPrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent" />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="internet_price" className="text-[11px] font-semibold text-ink-muted uppercase">Giá Internet (VND/phòng)</Label>
+                          <Label htmlFor="internet_price" className="text-[11px] font-semibold text-ink-muted uppercase">Giá Internet (VND/phòng) <span className="text-red-500">*</span></Label>
                           <Input id="internet_price" name="internet_price" value={internetPrice} onChange={handlePriceChange(setInternetPrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent" />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="common_service_price" className="text-[11px] font-semibold text-ink-muted uppercase">Dịch vụ chung (VND/người)</Label>
+                          <Label htmlFor="common_service_price" className="text-[11px] font-semibold text-ink-muted uppercase">Dịch vụ chung (VND/người) <span className="text-red-500">*</span></Label>
                           <Input id="common_service_price" name="common_service_price" value={commonServicePrice} onChange={handlePriceChange(setCommonServicePrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent" />
                         </div>
                       </div>

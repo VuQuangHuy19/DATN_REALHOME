@@ -304,7 +304,8 @@ export async function POST(request: Request) {
         const {
           code, name, landlord_id, area, address, total_floors, total_rooms,
           year_built, has_elevator, pccc_certified, allow_pet, allow_foreigners,
-          allow_vinfast_electric, image_url, deposit_terms, washing_machine_type
+          allow_vinfast_electric, image_url, deposit_terms, washing_machine_type,
+          electricity_price, water_price, internet_price, common_service_price
         } = building;
 
         if (!code || !name || !area) {
@@ -346,6 +347,10 @@ export async function POST(request: Request) {
           image_url: processedImageUrl,
           deposit_terms: deposit_terms ? normalizeAreaText(deposit_terms) : null,
           washing_machine_type: washing_machine_type || 'chung',
+          electricity_price: electricity_price ? Number(electricity_price) : 4000,
+          water_price: water_price ? Number(water_price) : 35000,
+          internet_price: internet_price ? Number(internet_price) : 100000,
+          common_service_price: common_service_price ? Number(common_service_price) : 200000,
           updated_at: new Date().toISOString()
         };
 

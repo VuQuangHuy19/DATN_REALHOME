@@ -38,7 +38,22 @@ export default function ExcelImportPage() {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [importResults, setImportResults] = useState<any | null>(null);
 
-  // Helpers and downloadTemplate are defined below to keep code organized
+  // Helper to parse service prices (e.g. "100k/phòng", "200k/người", "150.000") to numeric values
+  const parseServicePrice = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    const str = String(val).toLowerCase().trim();
+    if (!str) return 0;
+    
+    const match = str.match(/(\d+(?:\.\d+)?)\s*k/);
+    if (match) {
+      const num = Number(match[1].replace(/\./g, ''));
+      return num * 1000;
+    }
+    
+    const digitsOnly = str.replace(/[^\d]/g, '');
+    return Number(digitsOnly) || 0;
+  };
 
   // Helper to parse room type abbreviations like 2n1k or studio
   const parseRoomType = (typeStr: string): string => {
@@ -337,6 +352,12 @@ export default function ExcelImportPage() {
           let sizeColIdx = 4;
           let bedroomColIdx = -1;
           let bathroomColIdx = -1;
+          let pcccColIdx = -1;
+          let petColIdx = -1;
+          let foreignersColIdx = -1;
+          let vinfastColIdx = -1;
+          let internetColIdx = -1;
+          let dvcColIdx = -1;
           let elevatorColIdx = -1;
           let xeColIdx = 5;
           let nguoiColIdx = 6;
@@ -361,6 +382,12 @@ export default function ExcelImportPage() {
             else if (cellStr.includes('phòng ngủ') || cellStr.includes('phong ngu')) bedroomColIdx = idx;
             else if (cellStr.includes('phòng tắm') || cellStr.includes('wc') || cellStr.includes('tắm') || cellStr.includes('phong tam')) bathroomColIdx = idx;
             else if (cellStr.includes('thang máy') || cellStr.includes('thang may') || cellStr.includes('elevator')) elevatorColIdx = idx;
+            else if (cellStr.includes('pccc')) pcccColIdx = idx;
+            else if (cellStr.includes('pet') || cellStr.includes('nuôi') || cellStr.includes('thú cưng')) petColIdx = idx;
+            else if (cellStr.includes('nước ngoài') || cellStr.includes('foreigner')) foreignersColIdx = idx;
+            else if (cellStr.includes('vinfast') || cellStr.includes('xe điện')) vinfastColIdx = idx;
+            else if (cellStr.includes('internet') || cellStr.includes('mạng')) internetColIdx = idx;
+            else if (cellStr.includes('dvc') || cellStr.includes('dịch vụ chung')) dvcColIdx = idx;
             else if (cellStr.includes('số xe') || cellStr.includes('xe')) xeColIdx = idx;
             else if (cellStr.includes('số người') || cellStr.includes('người')) nguoiColIdx = idx;
             else if (cellStr.includes('thanh toán') || cellStr.includes('đóng') || cellStr.includes('cọc')) depositColIdx = idx;
@@ -442,7 +469,11 @@ export default function ExcelImportPage() {
                   allow_vinfast_electric: true,
                   image_url: '',
                   deposit_terms: row[depositColIdx] ? String(row[depositColIdx]).trim() : '',
-                  washing_machine_type: 'chung'
+                  washing_machine_type: 'chung',
+                  electricity_price: 4000,
+                  water_price: 35000,
+                  internet_price: 100000,
+                  common_service_price: 200000
                 });
               }
             } else {
@@ -539,19 +570,74 @@ export default function ExcelImportPage() {
                                      rowStr.includes('mg rieng') || 
                                      rowStr.includes('giặt riêng') || 
                                      rowStr.includes('giat rieng');
-            if (hasPrivateWashing && lastBuildingCode) {
+            if (lastBuildingCode) {
               const bld = buildings.find(b => b.code === lastBuildingCode);
               if (bld) {
-                bld.washing_machine_type = 'riêng';
-              }
-            }
+                if (hasPrivateWashing) {
+                  bld.washing_machine_type = 'riêng';
+                }
 
-            // Quét trong hàng để cập nhật trạng thái thang máy của tòa nhà
-            if (elevatorColIdx !== -1 && row[elevatorColIdx] && lastBuildingCode) {
-              const rawElevator = String(row[elevatorColIdx]).trim().toLowerCase();
-              if (rawElevator === 'y' || rawElevator === 'yes' || rawElevator.includes('có') || rawElevator === '1') {
-                const bld = buildings.find(b => b.code === lastBuildingCode);
-                if (bld) bld.has_elevator = true;
+                // 1. Thang máy
+                if (elevatorColIdx !== -1 && row[elevatorColIdx] !== undefined && row[elevatorColIdx] !== null && String(row[elevatorColIdx]).trim() !== '') {
+                  const rawElevator = String(row[elevatorColIdx]).trim().toLowerCase();
+                  if (rawElevator === 'y' || rawElevator === 'yes' || rawElevator.includes('có') || rawElevator === '1') {
+                    bld.has_elevator = true;
+                  } else if (rawElevator === 'n' || rawElevator === 'no' || rawElevator.includes('không') || rawElevator === '0') {
+                    bld.has_elevator = false;
+                  }
+                }
+
+                // 2. PCCC
+                if (pcccColIdx !== -1 && row[pcccColIdx] !== undefined && row[pcccColIdx] !== null && String(row[pcccColIdx]).trim() !== '') {
+                  const rawPccc = String(row[pcccColIdx]).trim().toLowerCase();
+                  if (rawPccc === 'y' || rawPccc === 'yes' || rawPccc.includes('có') || rawPccc === '1') {
+                    bld.pccc_certified = true;
+                  } else if (rawPccc === 'n' || rawPccc === 'no' || rawPccc.includes('không') || rawPccc === '0') {
+                    bld.pccc_certified = false;
+                  }
+                }
+
+                // 3. Nuôi thú cưng (Pet)
+                if (petColIdx !== -1 && row[petColIdx] !== undefined && row[petColIdx] !== null && String(row[petColIdx]).trim() !== '') {
+                  const rawPet = String(row[petColIdx]).trim().toLowerCase();
+                  if (rawPet === 'y' || rawPet === 'yes' || rawPet.includes('có') || rawPet === '1') {
+                    bld.allow_pet = true;
+                  } else if (rawPet === 'n' || rawPet === 'no' || rawPet.includes('không') || rawPet === '0') {
+                    bld.allow_pet = false;
+                  }
+                }
+
+                // 4. Người nước ngoài
+                if (foreignersColIdx !== -1 && row[foreignersColIdx] !== undefined && row[foreignersColIdx] !== null && String(row[foreignersColIdx]).trim() !== '') {
+                  const rawForeigners = String(row[foreignersColIdx]).trim().toLowerCase();
+                  if (rawForeigners === 'y' || rawForeigners === 'yes' || rawForeigners.includes('có') || rawForeigners === '1') {
+                    bld.allow_foreigners = true;
+                  } else if (rawForeigners === 'n' || rawForeigners === 'no' || rawForeigners.includes('không') || rawForeigners === '0') {
+                    bld.allow_foreigners = false;
+                  }
+                }
+
+                // 5. Xe điện Vinfast
+                if (vinfastColIdx !== -1 && row[vinfastColIdx] !== undefined && row[vinfastColIdx] !== null && String(row[vinfastColIdx]).trim() !== '') {
+                  const rawVinfast = String(row[vinfastColIdx]).trim().toLowerCase();
+                  if (rawVinfast === 'y' || rawVinfast === 'yes' || rawVinfast.includes('có') || rawVinfast === '1') {
+                    bld.allow_vinfast_electric = true;
+                  } else if (rawVinfast === 'n' || rawVinfast === 'no' || rawVinfast.includes('không') || rawVinfast === '0') {
+                    bld.allow_vinfast_electric = false;
+                  }
+                }
+
+                // 6. Internet
+                if (internetColIdx !== -1 && row[internetColIdx] !== undefined && row[internetColIdx] !== null && String(row[internetColIdx]).trim() !== '') {
+                  const parsedInt = parseServicePrice(row[internetColIdx]);
+                  if (parsedInt > 0) bld.internet_price = parsedInt;
+                }
+
+                // 7. DVC
+                if (dvcColIdx !== -1 && row[dvcColIdx] !== undefined && row[dvcColIdx] !== null && String(row[dvcColIdx]).trim() !== '') {
+                  const parsedDvc = parseServicePrice(row[dvcColIdx]);
+                  if (parsedDvc > 0) bld.common_service_price = parsedDvc;
+                }
               }
             }
 
