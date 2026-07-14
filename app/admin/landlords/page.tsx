@@ -185,8 +185,9 @@ export default function LandlordsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
           ) : (
-            <div className="overflow-x-auto border-t border-border">
-              <table className="w-full text-sm border-collapse">
+            <div className="overflow-hidden border-t border-border">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table border-collapse">
                 <thead className="bg-bg-subtle border-b border-border">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã</th>
@@ -264,14 +265,101 @@ export default function LandlordsPage() {
                       </tr>
                     );
                   })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-ink-muted bg-white">
+                        <User className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                        <p className="text-sm">Chưa có chủ nhà nào</p>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-              {filtered.length === 0 && (
-                <div className="text-center py-12 text-ink-muted bg-white">
-                  <User className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                  <p className="text-sm">Chưa có chủ nhà nào</p>
-                </div>
-              )}
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item) => {
+                  const ownedBuildings = getLandlordBuildings(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => openBuildings(item)}
+                      className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          {item.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.image_url} alt={item.name} className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-border" />
+                          ) : (
+                            <div className="h-9 w-9 rounded-full bg-bg-subtle flex items-center justify-center flex-shrink-0 border border-border">
+                              <User className="h-5 w-5 text-ink-muted" />
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-bold text-ink text-sm block">{item.name}</span>
+                            <span className="text-[10px] font-mono text-ink-muted bg-bg-subtle border border-border px-1.5 py-0.5 rounded inline-block mt-0.5">{item.code || '—'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                        <div>
+                          <span className="font-medium text-ink-muted">SĐT:</span>{' '}
+                          <span className="text-ink font-mono">{item.phone ?? '—'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Email:</span>{' '}
+                          <span className="text-ink truncate block max-w-[145px]">{item.email ?? '—'}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="font-medium text-ink-muted">Tòa nhà:</span>{' '}
+                          <span className="text-ink font-semibold">{ownedBuildings.length} tòa</span>
+                          {ownedBuildings.length > 0 && (
+                            <span className="text-ink-muted text-xs block pl-1 mt-0.5">
+                              ({ownedBuildings.map((b) => b.name).join(', ')})
+                            </span>
+                          )}
+                        </div>
+                        {item.address && (
+                          <div className="col-span-2">
+                            <span className="font-medium text-ink-muted">Địa chỉ:</span>{' '}
+                            <span className="text-ink">{item.address}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {item.notes && (
+                        <div className="text-xs text-ink-muted italic bg-bg-subtle/50 p-2 rounded-lg border border-border/50">
+                          Ghi chú: {item.notes}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-accent font-semibold">Bấm để xem các tòa nhà</span>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md"
+                            onClick={() => openEdit(item)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md"
+                            onClick={() => remove(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </CardContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getInvoices, updateInvoice, batchGenerateInvoices, deleteInvoice } from '@/src/features/finance/services/invoices';
 import { Button } from '@/components/ui/button';
@@ -36,23 +36,24 @@ export default function InvoicesPage() {
   const [payMethod, setPayMethod] = useState<string>('transfer');
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     if (!company?.id) return;
     setLoading(true);
     try {
       const landlordId = role === 'landlord' ? (profile?.landlord_id || undefined) : undefined;
       const data = await getInvoices(company.id, selectedPeriod, landlordId);
       setInvoices(data);
-    } catch (err: any) {
-      toast.error('Lỗi khi tải hóa đơn: ' + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error('Lỗi khi tải hóa đơn: ' + msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [company?.id, selectedPeriod, role, profile?.landlord_id]);
 
   useEffect(() => {
     loadInvoices();
-  }, [company?.id, selectedPeriod]);
+  }, [loadInvoices]);
 
   // Filters
   const filtered = invoices.filter((item) => {
@@ -127,7 +128,7 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 w-full">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản Lý Hóa Đơn Tháng</h1>
@@ -185,8 +186,9 @@ export default function InvoicesPage() {
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table border-collapse">
                 <thead className="bg-bg-subtle border-b border-border text-ink-muted">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Mã hóa đơn</th>
@@ -208,7 +210,7 @@ export default function InvoicesPage() {
                     if (item.status === 'overdue') statusColor = 'bg-red-50 text-red-750 border-red-250';
                     
                     return (
-                      <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors">
+                      <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors cursor-pointer" onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}>
                         <td className="px-6 py-4 font-mono font-bold text-xs">{item.invoice_code}</td>
                         <td className="px-6 py-4 font-bold text-accent">Phòng {item.rooms?.code || '—'}</td>
                         <td className="px-6 py-4 font-semibold">{item.rental_contracts?.party_b_name || 'Khách thuê lẻ'}</td>
@@ -217,12 +219,12 @@ export default function InvoicesPage() {
                           {Number(item.total_amount).toLocaleString('vi-VN')}đ
                         </td>
                         <td className="px-6 py-4 text-center text-xs font-mono text-ink-muted">{new Date(item.due_date).toLocaleDateString('vi-VN')}</td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <Badge className={`${statusColor} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant={badge.variant}>
                             {badge.label}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -246,6 +248,70 @@ export default function InvoicesPage() {
                   )}
                 </tbody>
               </table>
+              
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item) => {
+                  const badge = statusBadges[item.status] || { label: item.status, variant: 'outline' };
+                  let statusColor = 'bg-bg-subtle text-ink-muted border-border';
+                  if (item.status === 'paid') statusColor = 'bg-green-50 text-green-700 border-green-250';
+                  if (item.status === 'unpaid') statusColor = 'bg-amber-50 text-amber-700 border-amber-250';
+                  if (item.status === 'overdue') statusColor = 'bg-red-50 text-red-750 border-red-250';
+                  
+                  return (
+                    <div 
+                      key={item.id} 
+                      onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}
+                      className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-accent text-sm">Phòng {item.rooms?.code || '—'}</span>
+                        <Badge className={`${statusColor} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant={badge.variant}>
+                          {badge.label}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                        <div>
+                          <span className="font-medium text-ink-muted">Mã HĐ:</span>{' '}
+                          <span className="text-ink font-mono font-bold">{item.invoice_code}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Khách thuê:</span>{' '}
+                          <span className="text-ink font-semibold">{item.rental_contracts?.party_b_name || 'Khách thuê lẻ'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Kỳ đóng:</span>{' '}
+                          <span className="text-ink font-mono">{item.period}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Hạn thanh toán:</span>{' '}
+                          <span className="text-ink font-mono">{new Date(item.due_date).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                        <span className="text-sm font-bold text-accent font-mono">
+                          {Number(item.total_amount).toLocaleString('vi-VN')}đ
+                        </span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={(e) => { e.stopPropagation(); setViewInvoice(item); setIsViewOpen(true); }}
+                          className="text-accent hover:text-accent-500 hover:bg-bg-subtle rounded-lg font-semibold text-xs h-7 px-2"
+                        >
+                          Chi tiết
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <div className="text-center py-12 text-ink-muted bg-white">
+                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                    <p className="text-sm font-semibold">Không tìm thấy hóa đơn nào trong kỳ này.</p>
+                    <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Lập hóa đơn hàng loạt&quot; để tạo tự động.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

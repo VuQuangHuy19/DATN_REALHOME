@@ -32,6 +32,9 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
         totalLandlords: 0,
         isLandlord: true,
         monthlyRevenue: 0,
+        companyRevenue: 0,
+        landlordRevenue: 0,
+        totalCollectedAmount: 0,
         activeContractsCount: 0,
         occupancyRate: 0,
         buildingsList: [],
@@ -70,16 +73,27 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
 
     // 4. Calculate monthly revenue
     const currentPeriod = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
-    let monthlyRevenue = 0;
+    let landlordRevenue = 0;
+    let companyRevenue = 0;
+    let totalCollectedAmount = 0;
     if (roomIds.length > 0) {
       const { data: paidInvoices } = await supabase
         .from('invoices')
-        .select('total_amount')
+        .select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount')
         .eq('company_id', companyId)
         .eq('status', 'paid')
         .eq('period', currentPeriod)
         .in('room_id', roomIds);
-      monthlyRevenue = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0);
+      
+      landlordRevenue = (paidInvoices ?? []).reduce((sum: number, inv: any) => {
+        const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
+          ? Number(inv.landlord_payout_amount)
+          : Number(inv.rent_amount || 0);
+        return sum + payout;
+      }, 0);
+
+      companyRevenue = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
+      totalCollectedAmount = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
     }
 
     // 5. Fetch appointments related to those rooms
@@ -107,12 +121,18 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       if (bRoomIds.length > 0) {
         const { data: bInvoices } = await supabase
           .from('invoices')
-          .select('total_amount')
+          .select('total_amount, rent_amount, landlord_payout_amount')
           .eq('company_id', companyId)
           .eq('status', 'paid')
           .eq('period', currentPeriod)
           .in('room_id', bRoomIds);
-        bRevenue = (bInvoices ?? []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0);
+        
+        bRevenue = (bInvoices ?? []).reduce((sum: number, inv: any) => {
+          const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
+            ? Number(inv.landlord_payout_amount)
+            : Number(inv.rent_amount || 0);
+          return sum + payout;
+        }, 0);
       }
 
       buildingsList.push({
@@ -147,7 +167,10 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       recentLeads: [],
       totalLandlords: 0,
       isLandlord: true,
-      monthlyRevenue,
+      monthlyRevenue: landlordRevenue,
+      companyRevenue,
+      landlordRevenue,
+      totalCollectedAmount,
       activeContractsCount,
       occupancyRate,
       buildingsList,
@@ -187,12 +210,12 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new'),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_read', false),
     supabase.from('landlords').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
-    supabase.from('invoices').select('total_amount').eq('company_id', companyId).eq('status', 'paid').eq('period', currentPeriod),
+    supabase.from('invoices').select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount').eq('company_id', companyId).eq('status', 'paid').eq('period', currentPeriod),
     supabase.from('rental_contracts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active').gte('end_date', todayStr).lte('end_date', in30DaysStr),
     supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['Pending', 'pending']).eq('date', todayStr),
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new').is('assigned_to', null),
     supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'overdue'),
-    supabase.from('invoices').select('period, total_amount').eq('company_id', companyId).eq('status', 'paid').order('period', { ascending: true }),
+    supabase.from('invoices').select('period, total_amount, management_fee_amount').eq('company_id', companyId).eq('status', 'paid').order('period', { ascending: true }),
     supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
   ]);
 
@@ -204,15 +227,33 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   const rentedRooms = roomRows.filter((r) => r.status === 'rented').length;
   const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
 
-  const monthlyRevenue = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0);
+  const totalCollectedAmount = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
+  const companyRevenue = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
+  const landlordRevenue = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => {
+    const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
+      ? Number(inv.landlord_payout_amount)
+      : Number(inv.rent_amount || 0);
+    return sum + payout;
+  }, 0);
 
   // revenueHistory logic
-  const periodMap = (revenueData.data ?? []).reduce((acc: Record<string, number>, inv: any) => {
-    acc[inv.period] = (acc[inv.period] || 0) + (inv.total_amount || 0);
+  const periodMap = (revenueData.data ?? []).reduce((acc: Record<string, { total: number; company: number }>, inv: any) => {
+    if (!acc[inv.period]) {
+      acc[inv.period] = { total: 0, company: 0 };
+    }
+    acc[inv.period].total += Number(inv.total_amount) || 0;
+    acc[inv.period].company += Number(inv.management_fee_amount) || 0;
     return acc;
   }, {});
   const revenueHistory = Object.entries(periodMap)
-    .map(([period, amount]) => ({ period, amount }))
+    .map(([period, val]) => {
+      const dataVal = val as { total: number; company: number };
+      return { 
+        period, 
+        amount: dataVal.company, 
+        totalCollected: dataVal.total 
+      };
+    })
     .sort((a, b) => a.period.localeCompare(b.period))
     .slice(-6);
 
@@ -229,7 +270,10 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     recentLeads: leadRows.slice(0, 5),
     totalLandlords: landlords.count ?? 0,
     isLandlord: false,
-    monthlyRevenue,
+    monthlyRevenue: companyRevenue,
+    companyRevenue,
+    landlordRevenue,
+    totalCollectedAmount,
     activeContractsCount: roomRows.filter((r) => r.status === 'rented').length, // active count
     occupancyRate,
     buildingsList: [],

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useRooms } from '@/lib/hooks/useEntities';
+import { supabase } from '@/lib/supabase/client';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { authFetch } from '@/lib/supabase/auth-fetch';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2, FileText, Landmark, User, Building, Settings, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
+import { calculateCommissionAmount } from '@/src/features/finance/services/commission';
 
 const formatNumber = (num: number | string): string => {
   if (!num && num !== 0) return '';
@@ -30,7 +32,7 @@ const parseNumber = (str: string): number => {
 };
 
 export default function CreateDepositContractPage() {
-  const { company } = useAuth();
+  const { company, profile } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
@@ -41,6 +43,26 @@ export default function CreateDepositContractPage() {
 
   // Form State
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [leads, setLeads] = useState<any[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('');
+
+  useEffect(() => {
+    if (!company?.id) return;
+    setLeadsLoading(true);
+    supabase
+      .from('leads')
+      .select('*')
+      .eq('company_id', company.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }: any) => {
+        if (!error && data) {
+          setLeads(data);
+        }
+        setLeadsLoading(false);
+      });
+  }, [company?.id]);
+
   const [rentPrice, setRentPrice] = useState<number>(0);
   const [depositAmount, setDepositAmount] = useState<number>(0);
   const [signLocation, setSignLocation] = useState<string>('');
@@ -129,6 +151,20 @@ export default function CreateDepositContractPage() {
       laundry: `${laundryPrice.toLocaleString('vi-VN')}đ/phòng`
     };
 
+    const room = rooms.find((r) => r.id === selectedRoomId);
+    const roomRose = room?.rose || null;
+    const calculatedCommission = roomRose 
+      ? calculateCommissionAmount(rentPrice, roomRose, leaseDuration) 
+      : 0;
+
+    let finalSalesAgentId = profile?.id || null;
+    if (selectedLeadId && selectedLeadId !== 'none') {
+      const selectedLeadObj = leads.find((l: any) => l.id === selectedLeadId);
+      if (selectedLeadObj?.assigned_to) {
+        finalSalesAgentId = selectedLeadObj.assigned_to;
+      }
+    }
+
     const payload = {
       company_id: company.id,
       room_id: selectedRoomId,
@@ -136,6 +172,10 @@ export default function CreateDepositContractPage() {
       status: 'active' as const,
       agreement_date: formData.get('agreement_date') as string,
       sign_location: signLocation,
+      commission_rate_raw: roomRose,
+      commission_amount: calculatedCommission,
+      sales_agent_id: finalSalesAgentId,
+      lead_id: selectedLeadId || null,
 
       // Bên A (Bên cho thuê)
       party_a_name: formData.get('party_a_name') as string,
@@ -255,7 +295,7 @@ export default function CreateDepositContractPage() {
                 </Select>
               )}
             </div>
-            <div className="space-y-1.5">
+             <div className="space-y-1.5">
               <Label htmlFor="agreement_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày lập hợp đồng *</Label>
               <FormattedDateInput 
                 id="agreement_date" 
@@ -265,7 +305,31 @@ export default function CreateDepositContractPage() {
                 required 
               />
             </div>
-            <div className="space-y-1.5 md:col-span-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="lead_select" className="text-ink font-semibold text-xs uppercase tracking-wider">Liên kết với Lead (Không bắt buộc)</Label>
+              {leadsLoading ? (
+                <div className="flex items-center gap-2 h-10 border border-border rounded-lg px-3 text-ink-muted bg-bg-subtle/50 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải danh sách Lead...
+                </div>
+              ) : (
+                <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
+                  <SelectTrigger id="lead_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
+                    <SelectValue placeholder="Chọn lead liên kết..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
+                    <SelectItem value="none">-- Không liên kết --</SelectItem>
+                    {leads
+                      .filter((l: any) => ['new', 'consulting', 'appointment', 'viewed', 'deposited', 'contacted', 'qualified', 'negotiating'].includes(l.status))
+                      .map((l: any) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.full_name} ({l.phone})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="sign_location" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi ký hợp đồng đặt cọc</Label>
               <Input 
                 id="sign_location" 

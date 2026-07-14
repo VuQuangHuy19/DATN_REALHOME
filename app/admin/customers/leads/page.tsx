@@ -17,6 +17,7 @@ import {
 import { useLeads, useLeadDetail } from '@/lib/hooks/useLeads';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBLead, DBLeadActivity } from '@/lib/supabase/types';
+import { toast } from 'sonner';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   new:         { label: 'Mới',          color: 'bg-slate-100 text-slate-700' },
@@ -57,10 +58,17 @@ function LeadDetail({ leadId, onClose, currentUserId, currentUserName }: {
   currentUserId: string;
   currentUserName: string;
 }) {
-  const { lead, activities, addActivity, changeStatus } = useLeadDetail(leadId);
+  const { lead, activities, addActivity, changeStatus, changeAssignee } = useLeadDetail(leadId);
   const [newActivityContent, setNewActivityContent] = useState('');
   const [newActivityType, setNewActivityType] = useState<'call' | 'meeting' | 'zalo' | 'email' | 'note'>('call');
   const [newStatus, setNewStatus] = useState('');
+  const { company, role } = useAuth();
+  const { items: profiles } = useProfiles(company?.id || undefined);
+  const [newAssignee, setNewAssignee] = useState('');
+
+  const assignableProfiles = useMemo(() => {
+    return profiles.filter((p) => p.role !== 'landlord');
+  }, [profiles]);
 
   if (!lead) return <div className="py-8 text-center text-slate-400"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div>;
 
@@ -108,6 +116,40 @@ function LeadDetail({ leadId, onClose, currentUserId, currentUserName }: {
         </select>
         <Button size="sm" onClick={handleChangeStatus} disabled={!newStatus}>Cập nhật</Button>
       </div>
+
+      {role !== 'sales_agent' && changeAssignee && (
+        <div className="space-y-1">
+          <Label className="text-xs font-semibold text-slate-500">Phân công nhân viên phụ trách</Label>
+          <div className="flex items-center gap-2">
+            <select 
+              value={newAssignee || lead.assigned_to || ''} 
+              onChange={(e) => setNewAssignee(e.target.value)} 
+              className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">-- Chưa phân công --</option>
+              {assignableProfiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+              ))}
+            </select>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={async () => {
+                const toastId = toast.loading('Đang phân công...');
+                try {
+                  await changeAssignee(newAssignee || null);
+                  toast.success('Phân công thành công!', { id: toastId });
+                } catch (e: any) {
+                  toast.error(`Lỗi: ${e.message}`, { id: toastId });
+                }
+              }} 
+              disabled={(newAssignee || (lead.assigned_to ?? '')) === (lead.assigned_to ?? '')}
+            >
+              Phân công
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <h3 className="font-semibold text-slate-800 text-sm">Ghi nhận hoạt động</h3>
@@ -292,8 +334,9 @@ export default function LeadsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="border border-border-subtle rounded-lg overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[750px] border-collapse">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table min-w-[750px] border-collapse">
                 <thead className="bg-bg-subtle border-b border-border-subtle">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
@@ -313,7 +356,7 @@ export default function LeadsPage() {
                         key={item.id}
                         className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                         onClick={(e) => {
-                          if ((e.target as HTMLElement).closest('button')) return;
+                          if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('select')) return;
                           setSelectedLeadId(item.id);
                           setIsDetailOpen(true);
                         }}
@@ -324,7 +367,7 @@ export default function LeadsPage() {
                             <Phone className="h-3 w-3 text-ink-muted" />{item.phone}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
                         </td>
                         <td className="px-4 py-3 text-ink-muted">
@@ -333,10 +376,34 @@ export default function LeadsPage() {
                             <MapPin className="h-3 w-3 text-ink-muted" />{item.preferred_area || '—'}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
-                            {getAssigneeName(item.assigned_to)}
-                          </span>
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          {isSale ? (
+                            <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
+                              {getAssigneeName(item.assigned_to)}
+                            </span>
+                          ) : (
+                            <select
+                              value={item.assigned_to ?? ''}
+                              onChange={async (e) => {
+                                const newAssignVal = e.target.value || null;
+                                const toastId = toast.loading('Đang phân công...');
+                                const res = await update(item.id, { assigned_to: newAssignVal });
+                                if (res) {
+                                  toast.success('Phân công thành công!', { id: toastId });
+                                } else {
+                                  toast.error('Lỗi phân công!', { id: toastId });
+                                }
+                              }}
+                              className="text-xs font-semibold text-ink bg-white border border-border-subtle rounded-md px-2 py-1 max-w-[150px] outline-none focus:border-accent"
+                            >
+                              <option value="">-- Chưa phân công --</option>
+                              {assignableProfiles.map((p: any) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.full_name || p.email}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-xs text-ink-muted">{sourceConfig[item.source] || item.source}</span>
@@ -380,14 +447,131 @@ export default function LeadsPage() {
                       </tr>
                     );
                   })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-ink-muted bg-white">
+                        <UserSearch className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                        <p>Không tìm thấy lead nào</p>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-              {filtered.length === 0 && (
-                <div className="text-center py-12 text-ink-muted bg-white">
-                  <UserSearch className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                  <p>Không tìm thấy lead nào</p>
-                </div>
-              )}
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item) => {
+                  const sc = statusConfig[item.status] || statusConfig.new;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setSelectedLeadId(item.id);
+                        setIsDetailOpen(true);
+                      }}
+                      className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-ink text-sm">{item.full_name}</span>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                        <div>
+                          <span className="font-medium text-ink-muted">SĐT:</span>{' '}
+                          <span className="text-ink font-mono">{item.phone}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Ngân sách:</span>{' '}
+                          <span className="text-ink font-mono font-bold">{item.budget.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Quan tâm:</span>{' '}
+                          <span className="text-ink font-semibold">{item.preferred_room_type || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Khu vực:</span>{' '}
+                          <span className="text-ink font-semibold">{item.preferred_area || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Nguồn:</span>{' '}
+                          <span className="text-ink font-semibold">{sourceConfig[item.source] || item.source}</span>
+                        </div>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <span className="font-medium text-ink-muted block mb-0.5">Sale:</span>
+                          {isSale ? (
+                            <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2 py-0.5 rounded border border-border-subtle inline-block">
+                              {getAssigneeName(item.assigned_to)}
+                            </span>
+                          ) : (
+                            <select
+                              value={item.assigned_to ?? ''}
+                              onChange={async (e) => {
+                                const newAssignVal = e.target.value || null;
+                                const toastId = toast.loading('Đang phân công...');
+                                const res = await update(item.id, { assigned_to: newAssignVal });
+                                if (res) {
+                                  toast.success('Phân công thành công!', { id: toastId });
+                                } else {
+                                  toast.error('Lỗi phân công!', { id: toastId });
+                                }
+                              }}
+                              className="text-xs font-semibold text-ink bg-white border border-border-subtle rounded-md px-1.5 py-0.5 max-w-[140px] outline-none focus:border-accent"
+                            >
+                              <option value="">-- Chưa phân công --</option>
+                              {assignableProfiles.map((p: any) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.full_name || p.email}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                        <div className="text-xs text-ink-muted truncate max-w-[180px] font-mono">
+                          {item.email || '—'}
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
+                            onClick={() => { setSelectedLeadId(item.id); setIsDetailOpen(true); }}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
+                            onClick={() => { setEditItem(item); setIsFormOpen(true); }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {role !== 'sales_agent' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
+                              onClick={() => remove(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <div className="text-center py-12 text-ink-muted bg-white">
+                    <UserSearch className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                    <p>Không tìm thấy lead nào</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

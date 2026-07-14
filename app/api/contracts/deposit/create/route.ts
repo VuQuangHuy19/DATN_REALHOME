@@ -51,6 +51,10 @@ export async function POST(request: Request) {
       note,
       lead_view_image_url,
       transfer_proof_url,
+      commission_rate_raw,
+      commission_amount,
+      sales_agent_id,
+      lead_id,
     } = body;
 
     // 1. Kiểm tra đầu vào hợp lệ
@@ -60,6 +64,23 @@ export async function POST(request: Request) {
 
     if (auth.profile.company_id !== company_id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Determine final sales agent ID from lead if assigned
+    let finalSalesAgentId = sales_agent_id || auth.userId || null;
+    if (lead_id && lead_id !== 'none') {
+      try {
+        const { data: leadData } = await supabaseAdmin
+          .from('leads')
+          .select('assigned_to')
+          .eq('id', lead_id)
+          .single();
+        if (leadData?.assigned_to) {
+          finalSalesAgentId = leadData.assigned_to;
+        }
+      } catch (err) {
+        console.error('Error fetching lead assigned_to:', err);
+      }
     }
 
     // 2. Lấy thông tin phòng và chủ nhà liên quan
@@ -121,6 +142,9 @@ export async function POST(request: Request) {
         note,
         lead_view_image_url,
         transfer_proof_url,
+        commission_rate_raw: commission_rate_raw || null,
+        commission_amount: commission_amount || 0,
+        sales_agent_id: finalSalesAgentId,
         created_by: auth.userId,
       })
       .select()
@@ -128,6 +152,21 @@ export async function POST(request: Request) {
 
     if (contractErr || !contract) {
       return NextResponse.json({ error: 'Lỗi ghi hợp đồng cọc: ' + contractErr?.message }, { status: 400 });
+    }
+
+    // Update lead status and details if linked
+    if (lead_id && lead_id !== 'none') {
+      const { error: leadUpdateErr } = await supabaseAdmin
+        .from('leads')
+        .update({
+          status: 'deposited',
+          converted_to_contract_id: contract.id,
+          converted_at: new Date().toISOString(),
+        })
+        .eq('id', lead_id);
+      if (leadUpdateErr) {
+        console.error('Lỗi cập nhật Lead sau khi tạo hợp đồng cọc:', leadUpdateErr);
+      }
     }
 
     // 4. Cập nhật trạng thái phòng thành 'reserved' (Đã cọc)

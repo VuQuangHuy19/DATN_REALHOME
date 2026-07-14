@@ -72,7 +72,7 @@ export default function ChangePasswordPage() {
 
 
   return (
-    <div className="max-w-md mx-auto mt-10">
+    <div className="max-w-md mx-auto mt-10 px-4">
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl font-bold text-slate-800">

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client';
+import { normalizePhoneVN } from '@/lib/phone';
 import type { DBLead, DBLeadActivity } from '@/lib/supabase/types';
 
 export type LeadInsert = Omit<DBLead, 'id' | 'created_at' | 'updated_at'>;
@@ -78,11 +79,12 @@ export async function updateLead(id: string, updates: LeadUpdate): Promise<DBLea
       }
 
       if (Object.keys(aptPatch).length > 0) {
+        // So khớp sau khi normalize cả 2 vế để tránh lỗi format phone
         await supabase
           .from('appointments')
           .update({ ...aptPatch, updated_at: new Date().toISOString() })
           .eq('company_id', lead.company_id)
-          .eq('customer_phone', lead.phone);
+          .eq('customer_phone', normalizePhoneVN(lead.phone));
       }
     }
   } catch (syncErr) {

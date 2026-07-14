@@ -20,6 +20,24 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import Pagination from '@/components/Pagination';
 import { supabase } from '@/lib/supabase/client';
 
+// Helper format rút gọn khu vực
+function formatArea(area: string): string {
+  if (!area) return '';
+  const parts = area.split(',').map(p => p.trim());
+  if (parts.length >= 2) {
+    let ward = parts[0]
+      .replace(/^(phường|phường|xã|xã|thị trấn|thị trấn)\s+/i, '')
+      .trim();
+    let district = parts[1]
+      .replace(/^(quận|quận|huyện|huyện|thị xã|thị xã|thành phố|thành phố)\s+/i, '')
+      .trim();
+    if (ward && district) {
+      return `${ward} - ${district}`;
+    }
+  }
+  return area;
+}
+
 // ─── Kiểu dữ liệu nhóm theo tòa nhà ─────────────────────────────────────────
 interface BuildingGroup {
   buildingId: string;
@@ -148,7 +166,7 @@ function BuildingCard({
         {/* Khu vực */}
         <div className="flex items-center gap-1 text-sm text-ink-muted">
           <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-          <span className="line-clamp-1">{group.area}</span>
+          <span className="line-clamp-1">{formatArea(group.area)}</span>
         </div>
 
         {/* Phòng trống */}
@@ -208,7 +226,7 @@ function BuildingCard({
 // ─── Location Filter 3 cấp thật (vn_provinces → vn_districts → vn_wards) ────
 interface VnProvince { id: string; name: string; }
 interface VnDistrict { id: string; name: string; province_id: string; }
-interface VnWard    { id: string; name: string; level: string; district_id: string; }
+interface VnWard { id: string; name: string; level: string; district_id: string; }
 
 function LocationFilter({
   selectedProvinceId,
@@ -355,6 +373,7 @@ export default function PropertiesPage() {
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
   const [selectedWardId, setSelectedWardId] = useState('');
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
   const [priceSlider, setPriceSlider] = useState<number[]>([500000, 100000000]);
   const [priceRange, setPriceRange] = useState<number[]>([500000, 100000000]);
@@ -367,10 +386,15 @@ export default function PropertiesPage() {
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [viewingGroup, setViewingGroup] = useState<BuildingGroup | null>(null);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedProvinceId, selectedDistrictId, selectedWardId, priceRange, sizeRange, selectedRoomTypes, sortBy]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedProvinceId, selectedDistrictId, selectedWardId, selectedAreas, priceRange, sizeRange, selectedRoomTypes, sortBy]);
 
   const roomTypeOptions = useMemo(
     () => Array.from(new Set(listings.map((p) => p.roomType).filter(Boolean))).sort(),
+    [listings]
+  );
+
+  const areaOptions = useMemo(
+    () => Array.from(new Set(listings.map((p) => p.area).filter(Boolean))).sort(),
     [listings]
   );
 
@@ -421,14 +445,15 @@ export default function PropertiesPage() {
         (!g.representativeRoom.districtId && !selectedDistrictId)
       );
       const matchWard = !selectedWardId || g.representativeRoom.wardId === selectedWardId;
+      const matchArea = selectedAreas.length === 0 || selectedAreas.includes(g.area);
       const isPriceActive = priceRange[0] !== 500000 || priceRange[1] !== 100000000;
       const matchPrice = !isPriceActive || (g.minPrice <= priceRange[1] && g.maxPrice >= priceRange[0]);
       const isSizeActive = sizeRange[0] !== 0 || sizeRange[1] !== 500;
       const matchSize = !isSizeActive || g.rooms.some((r) => r.size >= sizeRange[0] && r.size <= sizeRange[1]);
       const matchRoomType = selectedRoomTypes.length === 0 || g.rooms.some((r) => selectedRoomTypes.includes(r.roomType));
-      return matchSearch && matchDistrict && matchWard && matchPrice && matchSize && matchRoomType;
+      return matchSearch && matchDistrict && matchWard && matchArea && matchPrice && matchSize && matchRoomType;
     });
-  }, [buildingGroups, searchQuery, selectedDistrictId, selectedWardId, priceRange, sizeRange, selectedRoomTypes]);
+  }, [buildingGroups, searchQuery, selectedDistrictId, selectedWardId, selectedAreas, priceRange, sizeRange, selectedRoomTypes]);
 
   // Sắp xếp
   const sortedGroups = useMemo(() => {
@@ -450,6 +475,7 @@ export default function PropertiesPage() {
     setSelectedProvinceId('');
     setSelectedDistrictId('');
     setSelectedWardId('');
+    setSelectedAreas([]);
     setSelectedRoomTypes([]);
     setPriceSlider([500000, 100000000]);
     setPriceRange([500000, 100000000]);
@@ -464,6 +490,7 @@ export default function PropertiesPage() {
 
   const hasActiveFilters =
     !!searchQuery || !!selectedProvinceId || !!selectedDistrictId || !!selectedWardId ||
+    selectedAreas.length > 0 ||
     selectedRoomTypes.length > 0 ||
     priceRange[0] > 500000 || priceRange[1] < 100000000 ||
     sizeRange[0] > 0 || sizeRange[1] < 500;
@@ -518,9 +545,8 @@ export default function PropertiesPage() {
           <button
             type="button"
             onClick={() => setSelectedRoomTypes([])}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-              selectedRoomTypes.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
-            }`}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+              }`}
           >
             Tất cả
           </button>
@@ -533,15 +559,45 @@ export default function PropertiesPage() {
                   prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
                 )
               }
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                selectedRoomTypes.includes(type) ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
-              }`}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.includes(type) ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+                }`}
             >
               {type}
             </button>
           ))}
         </div>
       </div>
+
+      {areaOptions.length > 0 && (
+        <div>
+          <h3 className="font-semibold font-heading text-ink mb-3">Khu vực nhanh</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedAreas([])}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+                }`}
+            >
+              Tất cả
+            </button>
+            {areaOptions.map((area) => (
+              <button
+                key={area}
+                type="button"
+                onClick={() =>
+                  setSelectedAreas((prev) =>
+                    prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
+                  )
+                }
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.includes(area) ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+                  }`}
+              >
+                {formatArea(area)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {hasActiveFilters && (
         <Button variant="outline" className="w-full" onClick={clearFilters}>

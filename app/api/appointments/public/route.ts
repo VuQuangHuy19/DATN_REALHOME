@@ -2,14 +2,50 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { normalizePhoneVN, isValidVNPhone } from '@/lib/phone';
+import { isValidCustomerName } from '@/lib/validators';
 
 export async function POST(request: Request) {
+  // ── 1. Rate limit: 5 request / 10 phút / IP ──────────────────────────────
+  const rl = checkRateLimit(request, 'appointments-public', {
+    limit: 5,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Bạn thao tác quá nhanh, vui lòng thử lại sau.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     const { companyId, customerName, customerPhone, property, viewingDate, viewingTime } = body;
 
     if (!companyId || !customerName || !customerPhone || !property || !viewingDate || !viewingTime) {
       return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
+    }
+
+    // ── 2. Validate tên khách hàng ──────────────────────────────────────────
+    if (!isValidCustomerName(customerName)) {
+      return NextResponse.json(
+        { error: 'Tên khách hàng không hợp lệ. Vui lòng nhập tên thật.' },
+        { status: 400 }
+      );
+    }
+
+    // ── 3. Normalize + validate số điện thoại ──────────────────────────────
+    const normalizedPhone = normalizePhoneVN(customerPhone);
+    if (!isValidVNPhone(normalizedPhone)) {
+      return NextResponse.json(
+        { error: 'Số điện thoại không đúng định dạng Việt Nam (ví dụ: 0912345678).' },
+        { status: 400 }
+      );
     }
 
     // Chuẩn hóa định dạng ngày về YYYY-MM-DD đề phòng client gửi chuỗi dd/mm/yyyy
@@ -41,7 +77,7 @@ export async function POST(request: Request) {
       .insert({
         company_id: companyId,
         customer_name: customerName,
-        customer_phone: customerPhone,
+        customer_phone: normalizedPhone,     // Đã normalize
         customer_email: null,
         room_id: property.id,
         room_title: property.title,
@@ -63,13 +99,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: aptError.message }, { status: 400 });
     }
 
-    // 2. Tạo lead mới bằng admin client (bypass RLS)
+    // 3. Tạo lead mới bằng admin client (bypass RLS)
     const { data: lead, error: leadError } = await supabaseAdmin
       .from('leads')
       .insert({
         company_id: companyId,
         full_name: customerName,
-        phone: customerPhone,
+        phone: normalizedPhone,              // Đã normalize
         email: null,
         source: 'website',
         status: 'new',
@@ -90,7 +126,7 @@ export async function POST(request: Request) {
       // Không trả về lỗi chặn vì lịch hẹn đã được tạo thành công
     }
 
-    // 3. Tạo lead activity nếu lead được tạo thành công
+    // 4. Tạo lead activity nếu lead được tạo thành công
     if (lead) {
       const { error: actError } = await supabaseAdmin
         .from('lead_activities')
@@ -111,8 +147,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, appointment }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Internal server error';
     console.error('Lỗi API đặt lịch hẹn:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2, FileText, Landmark, User, Building, Settings, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
+import { calculateCommissionAmount } from '@/src/features/finance/services/commission';
 
 const formatNumber = (num: number | string): string => {
   if (!num && num !== 0) return '';
@@ -48,6 +49,26 @@ function CreateRentalContractPage() {
   const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
   const depositId = searchParams.get('deposit_id');
   const { items: rooms, loading: roomsLoading } = useRooms(company?.id);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('');
+
+  useEffect(() => {
+    if (!company?.id) return;
+    setLeadsLoading(true);
+    supabase
+      .from('leads')
+      .select('*')
+      .eq('company_id', company.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }: any) => {
+        if (!error && data) {
+          setLeads(data);
+        }
+        setLeadsLoading(false);
+      });
+  }, [company?.id]);
+
   const [submitting, setSubmitting] = useState(false);
 
   // Form State
@@ -206,6 +227,29 @@ function CreateRentalContractPage() {
       payment_day_of_month: paymentDay,
       handover_date: handoverDate || null,
 
+      // Commission calculations
+      commission_rate_raw: (() => {
+        const room = rooms.find((r) => r.id === selectedRoomId);
+        return room?.rose || null;
+      })(),
+      commission_amount: (() => {
+        const room = rooms.find((r) => r.id === selectedRoomId);
+        const roomRose = room?.rose || null;
+        return roomRose 
+          ? calculateCommissionAmount(rentPrice, roomRose, leaseDuration) 
+          : 0;
+      })(),
+      sales_agent_id: (() => {
+        let finalSalesAgentId = profile?.id || null;
+        if (selectedLeadId && selectedLeadId !== 'none') {
+          const selectedLeadObj = leads.find((l: any) => l.id === selectedLeadId);
+          if (selectedLeadObj?.assigned_to) {
+            finalSalesAgentId = selectedLeadObj.assigned_to;
+          }
+        }
+        return finalSalesAgentId;
+      })(),
+
       // Bên A
       party_a_name: partyAName,
       party_a_dob: partyADob || null,
@@ -240,7 +284,7 @@ function CreateRentalContractPage() {
 
     try {
       // 1. Tạo hợp đồng thuê chính thức
-      await createRentalContract(payload);
+      const newContract = await createRentalContract(payload);
 
       // 2. Nếu chuyển đổi từ hợp đồng cọc, cập nhật trạng thái cọc thành 'converted'
       if (depositId) {
@@ -249,6 +293,21 @@ function CreateRentalContractPage() {
 
       // 3. Cập nhật trạng thái phòng sang 'rented'
       await updateRoom(selectedRoomId, { status: 'rented' });
+
+      // 4. Nếu liên kết với Lead, cập nhật Lead thành 'won'
+      if (selectedLeadId && selectedLeadId !== 'none') {
+        const { error: leadUpdateErr } = await supabase
+          .from('leads')
+          .update({
+            status: 'won',
+            converted_to_contract_id: newContract.id,
+            converted_at: new Date().toISOString(),
+          })
+          .eq('id', selectedLeadId);
+        if (leadUpdateErr) {
+          console.error('Lỗi cập nhật Lead sau khi tạo hợp đồng thuê:', leadUpdateErr);
+        }
+      }
 
       toast.success('Lập hợp đồng thuê chính thức thành công!');
       router.push(`${pathPrefix}/contracts`);
@@ -360,6 +419,30 @@ function CreateRentalContractPage() {
                 placeholder="Địa chỉ ký kết hợp đồng" 
                 className="rounded-lg border-border focus-visible:ring-accent text-sm"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lead_select" className="text-ink font-semibold text-xs uppercase tracking-wider">Liên kết với Lead (Không bắt buộc)</Label>
+              {leadsLoading ? (
+                <div className="flex items-center gap-2 h-10 border border-border rounded-lg px-3 text-ink-muted bg-bg-subtle/50 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải danh sách Lead...
+                </div>
+              ) : (
+                <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
+                  <SelectTrigger id="lead_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
+                    <SelectValue placeholder="Chọn lead liên kết..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
+                    <SelectItem value="none">-- Không liên kết --</SelectItem>
+                    {leads
+                      .filter((l: any) => ['new', 'consulting', 'appointment', 'viewed', 'deposited', 'contacted', 'qualified', 'negotiating'].includes(l.status))
+                      .map((l: any) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.full_name} ({l.phone})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </CardContent>
         </Card>

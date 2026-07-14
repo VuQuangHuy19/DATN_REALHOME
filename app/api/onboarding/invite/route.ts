@@ -5,8 +5,25 @@ export const runtime = 'nodejs';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { generateOnboardingToken } from '@/lib/auth/onboarding-token';
 import { sendEmail } from '@/lib/mail';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
+  // Rate limit: 10 request / giờ / IP — ngăn spam tạo công ty
+  const rl = checkRateLimit(request, 'onboarding-invite', {
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  });
+
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Bạn thao tác quá nhanh, vui lòng thử lại sau.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rl.retryAfterSeconds) },
+      }
+    );
+  }
+
   try {
     const body = await request.json();
     const { name, plan, owner_name, owner_email, phone, address, status: _ignoredStatus, code, logo_url, jwt_duration } = body;

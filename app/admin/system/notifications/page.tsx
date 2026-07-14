@@ -35,7 +35,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Thông báo</h1>
           <p className="text-slate-500">
@@ -43,7 +43,7 @@ export default function NotificationsPage() {
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" onClick={markAllRead}>
+          <Button variant="outline" onClick={markAllRead} className="w-full sm:w-auto">
             <CheckCheck className="h-4 w-4 mr-2" />Đánh dấu tất cả đã đọc
           </Button>
         )}
@@ -93,27 +93,27 @@ export default function NotificationsPage() {
                 <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${tc.bg}`}>
                   <Icon className={`h-5 w-5 ${tc.color}`} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                     <div>
-                      <p className={`font-medium ${notif.is_read ? 'text-slate-700' : 'text-slate-900'}`}>{notif.title}</p>
-                      <p className="text-sm text-slate-500 mt-0.5">{notif.body}</p>
+                      <p className={`font-medium text-sm ${notif.is_read ? 'text-slate-700' : 'text-slate-900'}`}>{notif.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{notif.body}</p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(notif.created_at)}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
+                      <span className="text-[10px] text-slate-400 font-mono">{formatDate(notif.created_at)}</span>
                       {!notif.is_read && (
-                        <button onClick={() => markRead(notif.id)} className="text-blue-600 hover:text-blue-700" title="Đánh dấu đã đọc">
-                          <Check className="h-4 w-4" />
+                        <button onClick={() => markRead(notif.id)} className="text-blue-600 hover:text-blue-700 p-1 bg-blue-100/50 rounded-full" title="Đánh dấu đã đọc">
+                          <Check className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mt-2">
-                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${tc.bg} ${tc.color}`}>
+                    <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${tc.bg} ${tc.color} font-bold uppercase tracking-wider`}>
                       <Icon className="h-3 w-3" />{tc.label}
                     </span>
                     {notif.link && (
-                      <Link href={notif.link} className="text-xs text-blue-600 hover:underline">Xem chi tiết →</Link>
+                      <Link href={notif.link} className="text-xs text-blue-600 hover:underline font-semibold">Xem chi tiết →</Link>
                     )}
                   </div>
                 </div>

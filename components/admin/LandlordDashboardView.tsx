@@ -162,11 +162,11 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Doanh thu tháng này */}
+        {/* Doanh thu thực nhận */}
         <Card className="border-border shadow-none rounded-lg bg-white">
           <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
             <div>
-              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu tháng này</p>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu thực nhận (Chủ nhà)</p>
               <p className="text-xl font-bold font-mono text-emerald-600 mt-2 truncate tabular-nums">
                 {formatCurrency(stats.monthlyRevenue)}
               </p>
@@ -552,7 +552,7 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
               ) : selectedRoom.status === 'rented' ? (
                 <div className="flex items-center gap-2 p-3 bg-[hsl(38,90%,96%)] border border-[hsl(38,72%,76%)] rounded-xl text-[hsl(38,72%,30%)] text-xs font-semibold">
                   <ShieldAlert className="h-4 w-4 flex-shrink-0" />
-                  <span>Phòng được đánh dấu "Đã thuê" nhưng hệ thống chưa có hợp đồng thuê hoạt động.</span>
+                  <span>Phòng được đánh dấu &quot;Đã thuê&quot; nhưng hệ thống chưa có hợp đồng thuê hoạt động.</span>
                 </div>
               ) : null}
             </div>

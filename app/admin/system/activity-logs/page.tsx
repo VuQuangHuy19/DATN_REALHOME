@@ -84,8 +84,9 @@ export default function ActivityLogsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table min-w-[700px]">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Thời gian</th>
@@ -101,10 +102,10 @@ export default function ActivityLogsPage() {
                   {filtered.map((log) => {
                     const ac = actionConfig[log.action] || { label: log.action, color: 'bg-slate-100 text-slate-600' };
                     return (
-                      <tr key={log.id} className="hover:bg-slate-50">
+                      <tr key={log.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => { setViewItem(log); setIsViewOpen(true); }}>
                         <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{formatDate(log.created_at)}</td>
                         <td className="px-4 py-3 font-medium text-slate-800">{log.user_name}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ac.color}`}>{ac.label}</span>
                         </td>
                         <td className="px-4 py-3">
@@ -115,7 +116,7 @@ export default function ActivityLogsPage() {
                           <p className="truncate text-sm">{log.detail}</p>
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-400 font-mono">{log.ip_address}</td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => { setViewItem(log); setIsViewOpen(true); }}
                             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -128,6 +129,59 @@ export default function ActivityLogsPage() {
                   })}
                 </tbody>
               </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((log) => {
+                  const ac = actionConfig[log.action] || { label: log.action, color: 'bg-slate-100 text-slate-600' };
+                  return (
+                    <div
+                      key={log.id}
+                      onClick={() => {
+                        setViewItem(log);
+                        setIsViewOpen(true);
+                      }}
+                      className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-ink text-sm">{log.user_name}</span>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${ac.color}`}>{ac.label}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                        <div className="col-span-2">
+                          <span className="font-medium text-ink-muted">Đối tượng:</span>{' '}
+                          <span className="text-ink font-semibold">{log.entity_label}</span>{' '}
+                          <span className="text-xs text-ink-muted">({log.entity})</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">Thời gian:</span>{' '}
+                          <span className="text-ink font-mono">{formatDate(log.created_at)}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-ink-muted">IP:</span>{' '}
+                          <span className="text-ink font-mono">{log.ip_address}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-ink bg-bg-subtle/50 p-2.5 rounded-lg border border-border/50">
+                        <p className="line-clamp-2">{log.detail}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-xs text-accent font-semibold">Bấm để xem chi tiết</span>
+                        <button
+                          onClick={() => { setViewItem(log); setIsViewOpen(true); }}
+                          className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
               {filtered.length === 0 && (
                 <div className="text-center py-10 text-slate-400">
                   <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-40" />

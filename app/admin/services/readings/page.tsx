@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useBuildings } from '@/lib/hooks/useEntities';
 import { supabase } from '@/lib/supabase/client';
@@ -46,7 +46,7 @@ export default function ServiceReadingsPage() {
     }
   }, [buildings, selectedBuildingId]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!company?.id || !selectedBuildingId || !selectedPeriod) return;
     setLoading(true);
     try {
@@ -105,17 +105,18 @@ export default function ServiceReadingsPage() {
       }
 
       setRows(computedRows);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
       console.error('Error loading service readings:', err);
-      toast.error('Lỗi khi tải dữ liệu: ' + err.message);
+      toast.error('Lỗi khi tải dữ liệu: ' + msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [company?.id, selectedBuildingId, selectedPeriod, role, profile?.landlord_id]);
 
   useEffect(() => {
     loadData();
-  }, [selectedBuildingId, selectedPeriod, company?.id]);
+  }, [loadData]);
 
   const handleRowChange = (index: number, field: 'electricityNew' | 'waterNew' | 'electricityOld' | 'waterOld', value: number) => {
     setRows((prev) => {
@@ -197,7 +198,7 @@ export default function ServiceReadingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 w-full">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Chỉ Số Dịch Vụ Định Kỳ</h1>
@@ -259,8 +260,9 @@ export default function ServiceReadingsPage() {
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table border-collapse">
                 <thead className="bg-bg-subtle border-b border-border text-ink-muted font-bold text-xs uppercase tracking-wider">
                   <tr>
                     <th className="px-6 py-3.5 text-left">Phòng</th>
@@ -363,6 +365,97 @@ export default function ServiceReadingsPage() {
                   )}
                 </tbody>
               </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {rows.map((row, index) => (
+                  <div key={row.roomId} className={`p-4 space-y-3.5 ${!row.isRented ? 'bg-bg-subtle/20' : ''}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-ink text-sm">Phòng {row.roomCode}</span>
+                      {row.isRented ? (
+                        <div className="flex flex-col items-end">
+                          <Badge className="bg-green-50 text-green-700 border-green-250 border font-bold text-[9px] rounded-full uppercase tracking-wider" variant="outline">Đang thuê</Badge>
+                        </div>
+                      ) : (
+                        <Badge className="bg-bg-subtle text-ink-muted border-border border font-bold text-[9px] rounded-full uppercase tracking-wider" variant="outline">Trống / Bảo trì</Badge>
+                      )}
+                    </div>
+
+                    {row.isRented ? (
+                      <>
+                        <p className="text-xs font-semibold text-ink-muted">Khách thuê: <span className="text-ink font-bold">{row.tenantName}</span></p>
+                        
+                        <div className="grid grid-cols-2 gap-3 pt-1">
+                          <div className="space-y-1 bg-yellow-50/5 p-2 rounded-lg border border-yellow-250/20">
+                            <Label className="text-[10px] font-bold text-ink-muted uppercase">Điện cũ (Số)</Label>
+                            <Input
+                              type="number"
+                              value={row.electricityOld}
+                              onChange={(e) => handleRowChange(index, 'electricityOld', Number(e.target.value))}
+                              disabled={row.saving}
+                              className="text-center font-mono rounded-lg border-border focus-visible:ring-accent h-8 text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1 bg-yellow-50/10 p-2 rounded-lg border border-yellow-250/40">
+                            <Label className="text-[10px] font-bold text-ink-muted uppercase">Điện mới (Số)</Label>
+                            <Input
+                              type="number"
+                              value={row.electricityNew}
+                              onChange={(e) => handleRowChange(index, 'electricityNew', Number(e.target.value))}
+                              disabled={row.saving}
+                              className="text-center font-bold font-mono border-accent/40 focus-visible:ring-accent rounded-lg h-8 text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1 bg-blue-50/5 p-2 rounded-lg border border-blue-250/20">
+                            <Label className="text-[10px] font-bold text-ink-muted uppercase">Nước cũ (Khối)</Label>
+                            <Input
+                              type="number"
+                              value={row.waterOld}
+                              onChange={(e) => handleRowChange(index, 'waterOld', Number(e.target.value))}
+                              disabled={row.saving}
+                              className="text-center font-mono rounded-lg border-border focus-visible:ring-accent h-8 text-xs"
+                            />
+                          </div>
+                          <div className="space-y-1 bg-blue-50/10 p-2 rounded-lg border border-blue-250/40">
+                            <Label className="text-[10px] font-bold text-ink-muted uppercase">Nước mới (Khối)</Label>
+                            <Input
+                              type="number"
+                              value={row.waterNew}
+                              onChange={(e) => handleRowChange(index, 'waterNew', Number(e.target.value))}
+                              disabled={row.saving}
+                              className="text-center font-bold font-mono border-accent/40 focus-visible:ring-accent rounded-lg h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveRow(index)}
+                            disabled={row.saving}
+                            className="w-full bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold h-8 text-xs"
+                          >
+                            {row.saving ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                            ) : (
+                              <Save className="h-3 w-3 mr-1.5" />
+                            )}
+                            Lưu chỉ số phòng {row.roomCode}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-ink-muted italic py-1">Phòng trống — không cần ghi nhận chỉ số dịch vụ.</p>
+                    )}
+                  </div>
+                ))}
+                {rows.length === 0 && (
+                  <div className="text-center py-10 text-ink-muted bg-white">
+                    <ClipboardCheck className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                    Tòa nhà này hiện không có phòng nào.
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

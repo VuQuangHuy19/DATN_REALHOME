@@ -189,8 +189,9 @@ export default function EmployeesPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Họ tên</th>
@@ -221,10 +222,10 @@ export default function EmployeesPage() {
                         </Badge>
                       </td>
                       {hasPermission('employees.write') && (
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); if (confirm('Bạn có chắc chắn muốn xóa nhân viên này?')) remove(item.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => { if (confirm('Bạn có chắc chắn muốn xóa nhân viên này?')) remove(item.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                           </div>
                         </td>
                       )}
@@ -232,6 +233,56 @@ export default function EmployeesPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => openView(item)}
+                    className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-ink text-sm">{item.name}</span>
+                      <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
+                        {statusLabels[item.status]}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                      <div>
+                        <span className="font-medium text-ink-muted">Phòng ban:</span>{' '}
+                        <span className="text-ink font-semibold">{item.department ?? '—'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">Chức vụ:</span>{' '}
+                        <span className="text-ink font-semibold">{item.position ?? '—'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">SĐT:</span>{' '}
+                        <span className="text-ink font-mono">{item.phone ?? '—'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">Ngày vào:</span>{' '}
+                        <span className="text-ink font-mono">{item.join_date ?? '—'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                      <div className="text-xs text-ink-muted truncate max-w-[180px] font-mono">
+                        {item.email ?? '—'}
+                      </div>
+                      {hasPermission('employees.write') && (
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => { if (confirm('Bạn có chắc chắn muốn xóa nhân viên này?')) remove(item.id); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               {filtered.length === 0 && (
                 <div className="text-center py-10 text-slate-400">
                   <User className="h-8 w-8 mx-auto mb-2 opacity-40" />

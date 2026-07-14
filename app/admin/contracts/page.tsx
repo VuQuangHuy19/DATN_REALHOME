@@ -21,6 +21,7 @@ import type { DBContractTemplate } from '@/lib/supabase/types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
+import { getContractTermMonths, calculateCommissionAmount } from '@/src/features/finance/services/commission';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,106 +47,6 @@ const formatDateDisplay = (dateStr?: string | null): string => {
   }
 };
 
-const getContractTermMonths = (startDateStr?: string | null, endDateStr?: string | null): number => {
-  if (!startDateStr || !endDateStr) return 12; // default fallback
-  const start = new Date(startDateStr);
-  const end = new Date(endDateStr);
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 12;
-  
-  const yearsDiff = end.getFullYear() - start.getFullYear();
-  const monthsDiff = end.getMonth() - start.getMonth();
-  const totalMonths = yearsDiff * 12 + monthsDiff;
-  return Math.max(1, Math.round(totalMonths));
-};
-
-const calculateCommissionAmount = (price: number, roseStr?: string | null, termMonths: number = 12): number => {
-  if (!roseStr) return 0;
-  const clean = roseStr.trim();
-  if (!clean) return 0;
-
-  // Smart parser to pick matching rate based on contract term (months)
-  // Splits text by comma, semicolon, or newlines
-  const parts = clean.split(/[,;\n]/);
-  let targetRateStr = clean;
-
-  if (parts.length > 1) {
-    const candidates: { months: number; valueStr: string }[] = [];
-    for (const part of parts) {
-      // Look for a term number like "6 tháng", "6th", "6t", "6T", "hđ 6"
-      const monthMatch = part.match(/(\d+)\s*(?:tháng|thang|th|t|m|months?)/i) || part.match(/(?:hđ|hd|hợp đồng)\s*(\d+)/i);
-      const months = monthMatch ? parseInt(monthMatch[1], 10) : null;
-
-      let ratePart = part;
-      if (monthMatch) {
-        ratePart = part.replace(monthMatch[0], '');
-      }
-
-      // Look for percentage or rate in this part
-      const pctMatch = ratePart.match(/(\d+(?:\.\d+)?)\s*%/);
-      const multMatch = ratePart.match(/(\d+(?:\.\d+)?)\s*(?:tháng|thang|th|t)/i);
-
-      let valStr = '';
-      if (pctMatch) {
-        valStr = pctMatch[0];
-      } else if (multMatch) {
-        valStr = multMatch[0];
-      } else {
-        const fallbackMatch = ratePart.match(/(\d+(?:\.\d+)?\s*%?)/);
-        if (fallbackMatch) {
-          valStr = fallbackMatch[1].trim();
-        }
-      }
-
-      if (months !== null && valStr) {
-        candidates.push({ months, valueStr: valStr });
-      }
-    }
-
-    if (candidates.length > 0) {
-      // Find candidate closest to termMonths
-      candidates.sort((a, b) => a.months - b.months);
-      let bestMatch = candidates[0];
-      let minDiff = Math.abs(candidates[0].months - termMonths);
-      for (const cand of candidates) {
-        const diff = Math.abs(cand.months - termMonths);
-        if (diff < minDiff) {
-          minDiff = diff;
-          bestMatch = cand;
-        } else if (diff === minDiff && cand.months <= termMonths) {
-          bestMatch = cand;
-        }
-      }
-      targetRateStr = bestMatch.valueStr;
-    }
-  }
-
-  // Parse the selected commission string
-  const cleanTarget = targetRateStr.toLowerCase().trim();
-
-  if (cleanTarget.includes('%')) {
-    const num = parseFloat(cleanTarget.replace(/[^\d.]/g, ''));
-    if (!isNaN(num)) {
-      return price * (num / 100);
-    }
-  }
-
-  if (cleanTarget.includes('tháng') || cleanTarget.includes('thang')) {
-    const num = parseFloat(cleanTarget.replace(/[^\d.]/g, ''));
-    if (!isNaN(num)) {
-      return price * num;
-    }
-  }
-
-  const num = parseFloat(cleanTarget);
-  if (!isNaN(num)) {
-    if (num > 1) {
-      return price * (num / 100);
-    }
-    return price * num;
-  }
-
-  return 0;
-};
 
 export default function ContractsPage() {
   const { company, role } = useAuth();
@@ -306,7 +207,7 @@ export default function ContractsPage() {
   const openViewTemplate = (item: DBContractTemplate) => { setViewItem(item); setIsViewOpen(true); };
 
   return (
-    <div className="space-y-6 max-w-7xl">
+    <div className="space-y-6 w-full">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản lý hợp đồng</h1>
@@ -485,9 +386,12 @@ export default function ContractsPage() {
                             <span className="font-mono font-bold text-accent text-sm">
                               {Number(item.deposit_amount).toLocaleString('vi-VN')}đ
                             </span>
-                            {item.rooms?.rose && (
+                            {(item.commission_rate_raw || item.rooms?.rose) && (
                               <p className="text-[10px] text-emerald-600 font-bold mt-0.5 whitespace-nowrap">
-                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose, item.lease_duration_months).toLocaleString('vi-VN')}đ ({item.rooms.rose})
+                                Hoa hồng: {(item.commission_amount !== undefined && item.commission_amount !== null && Number(item.commission_amount) > 0
+                                  ? Number(item.commission_amount)
+                                  : calculateCommissionAmount(item.rooms?.price || 0, item.rooms?.rose || '', item.lease_duration_months)
+                                ).toLocaleString('vi-VN')}đ ({item.commission_rate_raw || item.rooms?.rose})
                               </p>
                             )}
                           </td>
@@ -678,9 +582,12 @@ export default function ContractsPage() {
                             <span className="font-mono font-bold text-accent text-sm">
                               {Number(item.rent_price).toLocaleString('vi-VN')}đ/th
                             </span>
-                            {item.rooms?.rose && (
+                            {(item.commission_rate_raw || item.rooms?.rose) && (
                               <p className="text-[10px] text-emerald-600 font-bold mt-0.5 whitespace-nowrap">
-                                Hoa hồng: {calculateCommissionAmount(item.rooms.price, item.rooms.rose, getContractTermMonths(item.start_date, item.end_date)).toLocaleString('vi-VN')}đ ({item.rooms.rose})
+                                Hoa hồng: {(item.commission_amount !== undefined && item.commission_amount !== null && Number(item.commission_amount) > 0
+                                  ? Number(item.commission_amount)
+                                  : calculateCommissionAmount(item.rooms?.price || 0, item.rooms?.rose || '', getContractTermMonths(item.start_date, item.end_date))
+                                ).toLocaleString('vi-VN')}đ ({item.commission_rate_raw || item.rooms?.rose})
                               </p>
                             )}
                           </td>
@@ -881,11 +788,14 @@ export default function ContractsPage() {
                   {viewDeposit.sign_location && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nơi ký hợp đồng:</span> <span className="text-ink">{viewDeposit.sign_location}</span></p>}
                   <p><span className="text-ink-muted text-xs font-medium">Giá thuê dự kiến:</span> <span className="font-semibold font-mono text-ink">{Number(viewDeposit.rent_price).toLocaleString('vi-VN')}đ/tháng</span></p>
                   <p><span className="text-ink-muted text-xs font-medium">Số tiền đặt cọc:</span> <span className="font-bold font-mono text-accent">{Number(viewDeposit.deposit_amount).toLocaleString('vi-VN')}đ</span></p>
-                  {viewDeposit.rooms?.rose && (
+                  {(viewDeposit.commission_rate_raw || viewDeposit.rooms?.rose) && (
                     <p>
                       <span className="text-ink-muted text-xs font-medium">Hoa hồng Sale:</span>{' '}
                       <span className="font-bold font-mono text-emerald-600">
-                        {calculateCommissionAmount(viewDeposit.rooms.price, viewDeposit.rooms.rose, viewDeposit.lease_duration_months).toLocaleString('vi-VN')}đ ({viewDeposit.rooms.rose})
+                        {(viewDeposit.commission_amount !== undefined && viewDeposit.commission_amount !== null && Number(viewDeposit.commission_amount) > 0
+                          ? Number(viewDeposit.commission_amount)
+                          : calculateCommissionAmount(viewDeposit.rooms?.price || 0, viewDeposit.rooms?.rose || '', viewDeposit.lease_duration_months)
+                        ).toLocaleString('vi-VN')}đ ({viewDeposit.commission_rate_raw || viewDeposit.rooms?.rose})
                       </span>
                     </p>
                   )}
@@ -1040,11 +950,14 @@ export default function ContractsPage() {
                   {viewRental.sign_location && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nơi ký hợp đồng:</span> <span className="text-ink">{viewRental.sign_location}</span></p>}
                   <p><span className="text-ink-muted text-xs font-medium">Giá thuê hàng tháng:</span> <span className="font-bold font-mono text-ink">{Number(viewRental.rent_price).toLocaleString('vi-VN')}đ</span></p>
                   <p><span className="text-ink-muted text-xs font-medium">Số tiền cọc đã đóng:</span> <span className="font-bold font-mono text-accent">{Number(viewRental.deposit_amount).toLocaleString('vi-VN')}đ</span></p>
-                  {viewRental.rooms?.rose && (
+                  {(viewRental.commission_rate_raw || viewRental.rooms?.rose) && (
                     <p>
                       <span className="text-ink-muted text-xs font-medium">Hoa hồng Sale:</span>{' '}
                       <span className="font-bold font-mono text-emerald-600">
-                        {calculateCommissionAmount(viewRental.rooms.price, viewRental.rooms.rose, getContractTermMonths(viewRental.start_date, viewRental.end_date)).toLocaleString('vi-VN')}đ ({viewRental.rooms.rose})
+                        {(viewRental.commission_amount !== undefined && viewRental.commission_amount !== null && Number(viewRental.commission_amount) > 0
+                          ? Number(viewRental.commission_amount)
+                          : calculateCommissionAmount(viewRental.rooms?.price || 0, viewRental.rooms?.rose || '', getContractTermMonths(viewRental.start_date, viewRental.end_date))
+                        ).toLocaleString('vi-VN')}đ ({viewRental.commission_rate_raw || viewRental.rooms?.rose})
                       </span>
                     </p>
                   )}

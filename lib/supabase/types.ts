@@ -102,6 +102,8 @@ export interface Database {
           updated_at: string;
           created_by?: string | null;
           updated_by?: string | null;
+          converted_to_contract_id?: string | null;
+          converted_at?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['leads']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['leads']['Insert']>;
@@ -238,6 +240,8 @@ export interface Database {
           updated_at: string;
           created_by?: string | null;
           updated_by?: string | null;
+          auto_calculated?: boolean;
+          commission_earned?: number;
         };
         Insert: Omit<Database['public']['Tables']['employee_kpis']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['employee_kpis']['Insert']>;
@@ -287,6 +291,7 @@ export interface Database {
           washing_machine_type: string;
           dryer_type: string;
           electric_vehicle_fee: number;
+          management_fee_rate?: number;
         };
         Insert: Omit<Database['public']['Tables']['buildings']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
@@ -511,6 +516,9 @@ export interface Database {
           updated_at: string;
           created_by?: string | null;
           updated_by?: string | null;
+          commission_rate_raw?: string | null;
+          commission_amount?: number;
+          sales_agent_id?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['deposit_contracts']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['deposit_contracts']['Insert']>;
@@ -583,6 +591,9 @@ export interface Database {
           updated_at: string;
           created_by?: string | null;
           updated_by?: string | null;
+          commission_rate_raw?: string | null;
+          commission_amount?: number;
+          sales_agent_id?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['rental_contracts']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['rental_contracts']['Insert']>;
@@ -628,6 +639,9 @@ export interface Database {
           other_amount: number;
           other_details: string | null;
           total_amount: number;
+          management_fee_rate?: number | null;
+          management_fee_amount?: number;
+          landlord_payout_amount?: number;
           payment_date: string | null;
           payment_method: string | null;
           note: string | null;

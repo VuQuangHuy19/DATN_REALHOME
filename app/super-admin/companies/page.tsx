@@ -223,8 +223,9 @@ export default function SuperAdminCompaniesPage() {
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[760px]">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table min-w-[760px]">
                 <thead className="bg-bg-subtle border-b border-border">
                   <tr>
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-ink-muted uppercase tracking-wider">Công ty</th>
@@ -308,25 +309,25 @@ export default function SuperAdminCompaniesPage() {
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-right">
+                      <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-ink-muted hover:text-ink hover:bg-bg-subtle rounded-lg"
-                            onClick={(e) => { e.stopPropagation(); openView(item); }} title="Xem chi tiết">
+                            onClick={() => openView(item)} title="Xem chi tiết">
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-ink-muted hover:text-ink hover:bg-bg-subtle rounded-lg"
-                            onClick={(e) => { e.stopPropagation(); openEdit(item); }} title="Chỉnh sửa">
+                            onClick={() => openEdit(item)} title="Chỉnh sửa">
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"
                             title={item.status === 'suspended' ? 'Mở khóa' : 'Khóa'}
-                            onClick={(e) => { e.stopPropagation(); toggleStatus(item.id); }}>
+                            onClick={() => toggleStatus(item.id)}>
                             {item.status === 'suspended'
                               ? <Unlock className="h-4 w-4 text-[hsl(142,52%,42%)]" />
                               : <Lock className="h-4 w-4 text-[hsl(4,60%,45%)]" />}
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-[hsl(4,60%,45%)] hover:bg-[hsl(4,72%,96%)] rounded-lg"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}>
+                            onClick={() => handleDelete(item.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -335,6 +336,83 @@ export default function SuperAdminCompaniesPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item: any) => (
+                  <div
+                    key={item.id}
+                    onClick={() => openView(item)}
+                    className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-lg bg-bg-subtle border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {item.logo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.logo_url} alt="Logo" className="object-cover w-full h-full" />
+                          ) : (
+                            <Building2 className="h-4 w-4 text-ink-muted" />
+                          )}
+                        </div>
+                        <div>
+                          <span className="font-bold text-ink text-sm block">{item.name}</span>
+                          <span className="text-[10px] font-mono text-ink-muted bg-bg-subtle border border-border px-1.5 py-0.5 rounded inline-block mt-0.5">{item.code || '—'}</span>
+                        </div>
+                      </div>
+                      <StatusPill item={item} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                      <div>
+                        <span className="font-medium text-ink-muted">Chủ sở hữu:</span>{' '}
+                        <span className="text-ink font-semibold">{item.owner_name}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">Gói:</span>{' '}
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${planStyle[item.plan] ?? planStyle.starter}`}>
+                          {planLabel[item.plan] ?? item.plan}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">Users / BĐS:</span>{' '}
+                        <span className="text-ink font-semibold font-mono">{item.total_users || 0} / {item.total_properties || 0}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">Ngày tạo:</span>{' '}
+                        <span className="text-ink font-mono">{formatDate(item.created_at)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                      <div className="text-xs text-ink-muted truncate max-w-[140px] font-mono">
+                        {item.owner_email}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-ink-muted hover:text-ink hover:bg-bg-subtle rounded-lg"
+                          onClick={() => openView(item)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-ink-muted hover:text-ink hover:bg-bg-subtle rounded-lg"
+                          onClick={() => openEdit(item)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"
+                          onClick={() => toggleStatus(item.id)}>
+                          {item.status === 'suspended'
+                            ? <Unlock className="h-4 w-4 text-[hsl(142,52%,42%)]" />
+                            : <Lock className="h-4 w-4 text-[hsl(4,60%,45%)]" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-[hsl(4,60%,45%)] hover:bg-[hsl(4,72%,96%)] rounded-lg"
+                          onClick={() => handleDelete(item.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               {filtered.length === 0 && (
                 <div className="text-center py-14 text-ink-muted">
                   <Building2 className="h-10 w-10 mx-auto mb-2 opacity-25" />

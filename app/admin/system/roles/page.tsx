@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -81,7 +81,7 @@ export default function RolesPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
 
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async () => {
     if (!company?.id) return;
     setLoading(true);
     setError(null);
@@ -93,16 +93,17 @@ export default function RolesPage() {
       }
       const data = await res.json();
       setRoleList(data ?? []);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [company?.id]);
 
   useEffect(() => {
     fetchRoles();
-  }, [company?.id]);
+  }, [fetchRoles]);
 
   const filtered = roleList.filter((r) =>
     r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -238,7 +239,7 @@ export default function RolesPage() {
                 return (
                   <div
                     key={item.id}
-                    className="flex items-start justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={(e) => { if ((e.target as HTMLElement).closest('button')) return; openView(item); }}
                   >
                     <div className="flex items-start gap-3">
@@ -269,7 +270,7 @@ export default function RolesPage() {
                       </div>
                     </div>
                     {!item.is_system && hasPermission('roles.write') && (
-                      <div className="flex items-center gap-1 ml-4">
+                      <div className="flex items-center gap-1 ml-auto sm:ml-0">
                         <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); openEdit(item); }}><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleDelete(item.id, item.is_system); }}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </div>
@@ -344,7 +345,7 @@ export default function RolesPage() {
                 {ALL_PERMISSIONS.map((group) => (
                   <div key={group.group}>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{group.group}</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {group.items.map((perm) => (
                         <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
                           <input

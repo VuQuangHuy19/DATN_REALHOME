@@ -75,9 +75,39 @@ export async function getInvoice(id: string): Promise<InvoiceWithRoomAndContract
  * Tạo mới hóa đơn.
  */
 export async function createInvoice(invoice: InvoiceInsert): Promise<DBInvoice> {
+  const finalInvoice = { ...invoice } as any;
+
+  if (
+    finalInvoice.management_fee_rate === undefined ||
+    finalInvoice.management_fee_amount === undefined ||
+    finalInvoice.landlord_payout_amount === undefined
+  ) {
+    try {
+      if (finalInvoice.room_id) {
+        const { data: roomData } = await supabase
+          .from('rooms')
+          .select('buildings(management_fee_rate)')
+          .eq('id', finalInvoice.room_id)
+          .maybeSingle();
+
+        const building = (roomData as any)?.buildings;
+        const rate = Number(building?.management_fee_rate) || 0;
+        const rent = Number(finalInvoice.rent_amount) || 0;
+        const fee = rent * rate / 100;
+        const payout = rent - fee;
+
+        if (finalInvoice.management_fee_rate === undefined) finalInvoice.management_fee_rate = rate;
+        if (finalInvoice.management_fee_amount === undefined) finalInvoice.management_fee_amount = fee;
+        if (finalInvoice.landlord_payout_amount === undefined) finalInvoice.landlord_payout_amount = payout;
+      }
+    } catch (err) {
+      console.error('Error calculating management fee for single invoice:', err);
+    }
+  }
+
   const { data, error } = await supabase
     .from('invoices')
-    .insert(invoice as any)
+    .insert(finalInvoice)
     .select()
     .single();
 
@@ -130,7 +160,7 @@ export async function batchGenerateInvoices(
   // 1. Lấy tất cả hợp đồng thuê đang có hiệu lực (active)
   let contractQuery = supabase
     .from('rental_contracts')
-    .select('*, rooms!inner(buildings!inner(landlord_id))')
+    .select('*, rooms!inner(buildings!inner(id, landlord_id, management_fee_rate))')
     .eq('company_id', companyId)
     .eq('status', 'active');
 
@@ -228,6 +258,13 @@ export async function batchGenerateInvoices(
     const rentAmount = Number(contract.rent_price);
     const totalAmount = rentAmount + electricityAmount + waterAmount + serviceAmount + otherAmount;
 
+    // Fetch management fee rate from room -> building
+    const roomObj = contract.rooms as any;
+    const buildingObj = roomObj?.buildings as any;
+    const managementFeeRate = Number(buildingObj?.management_fee_rate) || 0;
+    const managementFeeAmount = rentAmount * managementFeeRate / 100;
+    const landlordPayoutAmount = rentAmount - managementFeeAmount;
+
     // Hạn thanh toán mặc định là ngày đóng tiền hàng tháng
     const paymentDay = Number(contract.payment_day_of_month) || 5;
     const [year, month] = period.split('-');
@@ -251,6 +288,9 @@ export async function batchGenerateInvoices(
       other_amount: otherAmount,
       other_details: 'Internet + Máy giặt/sấy',
       total_amount: totalAmount,
+      management_fee_rate: managementFeeRate,
+      management_fee_amount: managementFeeAmount,
+      landlord_payout_amount: landlordPayoutAmount,
     } as any);
 
     successCount++;

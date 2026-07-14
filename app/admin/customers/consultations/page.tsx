@@ -127,8 +127,9 @@ export default function ConsultationsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Khách hàng</th>
@@ -180,6 +181,64 @@ export default function ConsultationsPage() {
                   })}
                 </tbody>
               </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item) => {
+                  const sc = statusConfig[item.status];
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => {
+                        setViewItem(item);
+                        setIsViewOpen(true);
+                      }}
+                      className="p-4 hover:bg-slate-50 cursor-pointer transition-colors space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-800 text-sm">{item.full_name}</span>
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                        <div>
+                          <span className="font-medium">SĐT:</span>{' '}
+                          <span className="text-slate-700 font-mono">{item.phone}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Nguồn:</span>{' '}
+                          <span className="text-slate-700 font-semibold">{sourceLabels[item.source] ?? item.source}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Phân công:</span>{' '}
+                          <span className="text-slate-700 font-semibold">{item.assigned_to_name ?? '—'}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Ngày tạo:</span>{' '}
+                          <span className="text-slate-700 font-mono">{formatDate(item.created_at)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border">
+                        <span className="font-bold text-slate-400 text-[10px] uppercase block mb-1">Nội dung yêu cầu</span>
+                        <p className="line-clamp-2">{item.message}</p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+                        <div className="text-xs text-slate-400 truncate max-w-[180px] font-mono">
+                          {item.email || '—'}
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => { setViewItem(item); setIsViewOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setEditItem(item); setIsFormOpen(true); }}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
               {filtered.length === 0 && (
                 <div className="text-center py-10 text-slate-400">
                   <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />

@@ -60,7 +60,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
 
   // Personalized KPIs
   const revenueGenerated = stats.employeeKpis?.revenue_generated || 0;
-  const targetRevenue = stats.employeeKpis?.target_revenue || 5000000;
+  const targetRevenue = stats.employeeKpis?.target_revenue || 0;
   const targetPercentage = targetRevenue > 0 ? Math.round((revenueGenerated / targetRevenue) * 100) : 0;
 
   // Lịch hẹn hôm nay / ngày mai
@@ -180,7 +180,9 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
                 <p className="text-xl font-bold font-mono text-emerald-600 mt-2 truncate tabular-nums">
                   {formatVND(revenueGenerated)}
                 </p>
-                <p className="text-xs text-ink-muted mt-1 font-medium">Mục tiêu: {formatVND(targetRevenue)}</p>
+                <p className="text-xs text-ink-muted mt-1 font-medium">
+                  Mục tiêu: {targetRevenue > 0 ? formatVND(targetRevenue) : 'Chưa đặt mục tiêu'}
+                </p>
               </div>
               <div className="flex justify-end mt-2">
                 <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
@@ -196,9 +198,11 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
           <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
             <div>
               <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">% Hoàn thành chỉ tiêu</p>
-              <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{targetPercentage}%</p>
+              <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">
+                {targetRevenue > 0 ? `${targetPercentage}%` : '—'}
+              </p>
               <div className="h-1.5 bg-bg-subtle rounded-full overflow-hidden border border-border mt-2">
-                <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${Math.min(100, targetPercentage)}%` }} />
+                <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${targetRevenue > 0 ? Math.min(100, targetPercentage) : 0}%` }} />
               </div>
             </div>
             <div className="flex justify-end mt-2">

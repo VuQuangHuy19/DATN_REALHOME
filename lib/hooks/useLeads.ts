@@ -168,5 +168,18 @@ export function useLeadDetail(leadId: string) {
     return data;
   };
 
-  return { lead, activities, loading, addActivity, changeStatus };
+  const changeAssignee = async (newAssigneeId: string | null) => {
+    if (!lead) return null;
+    const { data, error } = await supabase
+      .from('leads')
+      .update({ assigned_to: newAssigneeId, updated_at: new Date().toISOString() })
+      .eq('id', leadId)
+      .select()
+      .single();
+    if (error) throw error;
+    setLead((prev) => prev ? { ...prev, assigned_to: newAssigneeId } : prev);
+    return data;
+  };
+
+  return { lead, activities, loading, addActivity, changeStatus, changeAssignee };
 }

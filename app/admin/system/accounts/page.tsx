@@ -79,8 +79,9 @@ export default function AccountsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="overflow-hidden">
+              {/* Desktop view */}
+              <table className="w-full text-sm hidden md:table">
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium text-slate-600">Họ tên</th>
@@ -115,7 +116,7 @@ export default function AccountsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-slate-600">{item.created_at.split('T')[0]}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" title={item.is_active ? 'Khóa tài khoản' : 'Mở khóa'}>
                             {item.is_active ? <Lock className="h-4 w-4 text-orange-500" /> : <Unlock className="h-4 w-4 text-green-500" />}
@@ -126,6 +127,54 @@ export default function AccountsPage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-border bg-white">
+                {filtered.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => {
+                      setViewItem(item);
+                      setIsViewOpen(true);
+                    }}
+                    className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-ink text-sm">{item.full_name ?? '(chưa đặt tên)'}</span>
+                      <Badge variant={item.is_active ? 'default' : 'destructive'}>
+                        {item.is_active ? 'Hoạt động' : 'Đã khóa'}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                      <div>
+                        <span className="font-medium text-ink-muted">SĐT:</span>{' '}
+                        <span className="text-ink font-mono">{item.phone ?? '—'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium text-ink-muted">Ngày tạo:</span>{' '}
+                        <span className="text-ink font-mono">{item.created_at.split('T')[0]}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium text-ink-muted">Vai trò:</span>{' '}
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${roleColors[item.role] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {roleLabels[item.role] ?? item.role}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-xs text-accent font-semibold">Bấm để xem chi tiết</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" title={item.is_active ? 'Khóa tài khoản' : 'Mở khóa'}>
+                          {item.is_active ? <Lock className="h-4 w-4 text-orange-500" /> : <Unlock className="h-4 w-4 text-green-500" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               {filtered.length === 0 && (
                 <div className="text-center py-10 text-slate-400">
                   <Shield className="h-8 w-8 mx-auto mb-2 opacity-40" />

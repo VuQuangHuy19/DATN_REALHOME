@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { PermissionGate } from '@/components/ui/PermissionGate';
-import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage, ArrowUpDown, ShieldCheck, ShieldAlert, PawPrint, Globe, Zap, Check, X } from 'lucide-react';
+import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage, ArrowUpDown, ShieldCheck, ShieldAlert, PawPrint, Globe, Zap, Check, X, Settings } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { useRoomsFeature } from '@/src/features/rooms/hooks/useRoomsFeature';
@@ -45,9 +45,37 @@ export function BuildingDetailPage() {
   const buildingId = params.id as string;
   const { company, role } = useAuth();
   const pathname = usePathname();
-  const { items: buildingList, loading: buildingLoading } = usePropertiesFeature(company?.id);
+  const { items: buildingList, loading: buildingLoading, refetch: refetchBuildings } = usePropertiesFeature(company?.id);
   const building = useMemo(() => buildingList.find((b) => b.id === buildingId), [buildingList, buildingId]);
   const { items: roomList, loading: roomLoading, error: roomError, add: addRoom, update: updateRoom, remove: removeRoom } = useRoomsFeature(building?.code, company?.id);
+
+  const [managementFeeRate, setManagementFeeRate] = useState<number>(0);
+  const [updatingFee, setUpdatingFee] = useState(false);
+
+  useEffect(() => {
+    if (building) {
+      setManagementFeeRate(Number((building as any).management_fee_rate) || 0);
+    }
+  }, [building]);
+
+  const handleSaveFeeRate = async () => {
+    if (!building) return;
+    setUpdatingFee(true);
+    try {
+      const { error } = await supabase
+        .from('buildings')
+        .update({ management_fee_rate: managementFeeRate })
+        .eq('id', building.id);
+      
+      if (error) throw error;
+      toast.success('Đã cập nhật tỷ lệ phí quản lý thành công!');
+      refetchBuildings();
+    } catch (e: any) {
+      toast.error(`Lỗi cập nhật: ${e.message}`);
+    } finally {
+      setUpdatingFee(false);
+    }
+  };
   const { items: contracts } = useRentalContracts(company?.id);
   const { items: depositContracts } = useDepositContracts(company?.id);
   const { items: roomTypes } = useRoomTypesCatalog(company?.id);
@@ -759,6 +787,44 @@ export function BuildingDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Configuration for company management fee */}
+        <PermissionGate roles={['company_admin', 'manager']}>
+          <Card className="border-border rounded-lg shadow-none bg-white border-t-2 border-t-indigo-600">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold font-heading flex items-center gap-1.5 text-ink">
+                <Settings className="h-4.5 w-4.5 text-indigo-600" />Phí quản lý công ty
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="management_fee_rate" className="text-xs font-semibold text-ink-muted">Tỉ lệ phí quản lý (%)</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="management_fee_rate" 
+                    type="number" 
+                    min="0" 
+                    max="100" 
+                    step="0.1"
+                    value={managementFeeRate} 
+                    onChange={(e) => setManagementFeeRate(Number(e.target.value))} 
+                    className="rounded-lg border-border focus-visible:ring-accent font-mono"
+                  />
+                  <Button 
+                    onClick={handleSaveFeeRate} 
+                    disabled={updatingFee} 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs"
+                  >
+                    {updatingFee ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Lưu'}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-ink-muted leading-tight">
+                  Tỉ lệ phí quản lý này sẽ được áp dụng khi lập hóa đơn cho các phòng thuộc tòa nhà này. Phí quản lý = tiền thuê * tỷ lệ %.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </PermissionGate>
       </div>
 
       <div className="space-y-4">

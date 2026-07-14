@@ -154,10 +154,15 @@ export default function AdminDashboardPage() {
           <Card className="border-border shadow-none rounded-lg">
             <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
               <div>
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu tháng</p>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu công ty (Phí QL)</p>
                 <p className="text-xl font-bold font-mono text-emerald-600 mt-2 truncate tabular-nums">
-                  {formatCurrency(stats.monthlyRevenue)}
+                  {formatCurrency(stats.companyRevenue !== undefined ? stats.companyRevenue : stats.monthlyRevenue)}
                 </p>
+                {stats.totalCollectedAmount !== undefined && (
+                  <p className="text-[10px] text-ink-muted mt-1 font-medium">
+                    Tổng thu hộ: {formatCurrency(stats.totalCollectedAmount)}
+                  </p>
+                )}
               </div>
               <div className="flex justify-end mt-2">
                 <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
@@ -295,7 +300,21 @@ export default function AdminDashboardPage() {
                           borderRadius: '0.5rem',
                           fontSize: '12px'
                         }}
-                        formatter={(val: number) => [formatCurrency(val), 'Doanh thu']}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="p-2.5 bg-white border border-border rounded-lg shadow-sm space-y-1">
+                                <p className="text-xs font-bold text-ink">{data.period}</p>
+                                <p className="text-xs text-emerald-600 font-semibold">Doanh thu phí QL: {formatCurrency(data.amount)}</p>
+                                {data.totalCollected !== undefined && (
+                                  <p className="text-[10px] text-ink-muted">Tổng thu hộ: {formatCurrency(data.totalCollected)}</p>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
                       />
                       <Area
                         type="monotone"
