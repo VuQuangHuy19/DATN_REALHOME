@@ -76,6 +76,9 @@ export async function fetchUserSessionData(userId: string) {
     return { profile: null, company: null, permissions: [] };
   }
 
+  // Bảo mật: Xóa mật khẩu đã băm (password_hash) trước khi gửi về client
+  delete (profile as any).password_hash;
+
   // 2. Lấy thông tin company
   let company = null;
   if (profile.company_id) {

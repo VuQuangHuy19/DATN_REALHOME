@@ -224,7 +224,7 @@ export default function ExcelImportPage() {
     return null;
   };
 
-  // Programmatic XLSX Template generation
+  // Programmatic XLSX Template generation (Single sheet consolidated layout matching user requirement)
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
 
@@ -244,51 +244,54 @@ export default function ExcelImportPage() {
       });
     };
 
-    // Sheet 1: BangHang (Đơn giản - Gộp dòng từ ảnh của người dùng)
     const bangHangData = [
-      ['Mã chủ nhà (*)', 'Chủ nhà (Tên)', 'SĐT chủ nhà', 'Email chủ nhà', 'Tòa nhà (Địa chỉ) (*)', 'Khu vực', 'Phòng trống (*)', 'Giá Phòng (*)', 'Loại Phòng', 'Diện tích', 'Phòng ngủ', 'Phòng tắm', 'Thang máy', 'Số xe', 'Số người', 'Thanh toán', 'Internet', 'DVC', 'Trạng thái', 'Link ảnh + video', 'Hoa hồng (rose) (*)', 'Hợp đồng tối thiểu'],
-      ['TH01', 'Võ Quang Huy', { v: '0857844999', t: 's' }, 'huy@realhome.vn', '24 ngách 24 ngõ Thổ Quan - Phố Khâm Thiên', 'Đống Đa', '501', '8.500.000', '2n1k', '55m2', 2, 1, 'Y', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267', '0.5 tháng', 12],
-      ['', '', '', '', '', '', '602', '8.000.000', 'studio', '30m2', 1, 1, 'Y', 2, 2, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', '', '', 12],
-      ['TH02', 'Nguyễn Đức Minh', { v: '0912345678', t: 's' }, 'minh@realhome.vn', '9 nghách 20 ngõ 102 Pháo Đài Láng', 'Đống Đa', '301', '4.800.000', 'studio', '50m2', 1, 1, 'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', '10/7', 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00', '0.5 tháng', 12],
-      ['', '', '', '', '', '', '203', '8.500.000', '2n1k', '50m2', 2, 1, 'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người', 'Ở luôn', '', '', 12]
+      [
+        'Mã chủ nhà (*)', 'Chủ nhà (Tên)(*)', 'SĐT chủ nhà(*)', 'Email chủ nhà(*)', 
+        'Tòa nhà (Địa chỉ) (*)', 'Khu vực(*)', 'Phòng trống (*)', 'Giá Phòng (*)', 
+        'Loại Phòng(*)', 'Diện tích(*)', 'Phòng ngủ', 'Phòng tắm', 
+        'Thang máy (Y/N)(*)', 'PCCC (Y/N)(*)', 'Nuôi Pet (Y/N)(*)', 'Khách nước ngoài (Y/N)(*)', 'Xe điện VinFast (Y/N)(*)',
+        'Thang máy(*)', 'Số xe(*)', 'Số người(*)', 'Thanh toán(*)', 'Internet(*)', 'DVC(*)', 
+        'Trạng thái(*)', 'Link ảnh + video(*)', 'Hoa hồng (rose) (*)', 'Hợp đồng tối thiểu(*)'
+      ],
+      [
+        'TH01', 'Nguyễn Đình Hải', '0963509359', 'buiconglam03022004@gmail.com',
+        '24 ngách 24 ngõ Thổ Quan - Phố Khâm Thiên', 'Đống Đa', '501', '8.500.000',
+        '2n1k', '55m2', 2, 1,
+        'Y', 'Y', 'N', 'N', 'Y',
+        'Y', 3, 4, '1 cọc 1', '100k/phòng', '200k/người',
+        'Ở luôn', 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267', '40% - 6tr, 60% - 12th', 6
+      ],
+      [
+        '', '', '', '',
+        '', '', '602', '8.000.000',
+        'studio', '30m2', 1, 1,
+        '', '', '', '', '',
+        'Y', 2, 2, '1 cọc 1', '100k/phòng', '200k/người',
+        'Ở luôn', '', '', 6
+      ],
+      [
+        'TH02', 'Nguyễn Đức Minh', '0912345678', 'minh@realhome.vn',
+        '9 nghách 20 ngõ 102 Pháo Đài Láng', 'Đống Đa', '301', '4.800.000',
+        'studio', '50m2', 1, 1,
+        'N', 'Y', 'Y', 'Y', 'Y',
+        'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người',
+        '10/7', 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00', '40% - 6tr, 60% - 12th', 12
+      ],
+      [
+        '', '', '', '',
+        '', '', '203', '8.500.000',
+        '2n1k', '50m2', 2, 1,
+        '', '', '', '', '',
+        'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người',
+        'Ở luôn', '', '', 12
+      ]
     ];
     const wsBangHang = XLSX.utils.aoa_to_sheet(bangHangData);
     wsBangHang['!cols'] = getColWidths(bangHangData);
-    XLSX.utils.book_append_sheet(wb, wsBangHang, 'BangHang');
-
-    // Sheet 2: ChuNha (Mẫu 3 sheet chuẩn)
-    const chuNhaData = [
-      ['Mã chủ nhà (*)', 'Tên chủ nhà (*)', 'Số điện thoại (*)', 'Email', 'Địa chỉ', 'Ghi chú'],
-      ['CN-HUY', 'Võ Quang Huy', { v: '0857844999', t: 's' }, 'huy@realhome.vn', 'Hà Nội', 'Chủ nhà lớn khu vực Cầu Giấy'],
-      ['CN-MINH', 'Nguyễn Đức Minh', { v: '0912345678', t: 's' }, 'minh@realhome.vn', 'Hà Đông, Hà Nội', '']
-    ];
-    const wsChuNha = XLSX.utils.aoa_to_sheet(chuNhaData);
-    wsChuNha['!cols'] = getColWidths(chuNhaData);
-    XLSX.utils.book_append_sheet(wb, wsChuNha, 'ChuNha');
-
-    // Sheet 3: ToaNha (Mẫu 3 sheet chuẩn)
-    const toaNhaData = [
-      ['Mã tòa nhà (*)', 'Tên tòa nhà (*)', 'Mã chủ nhà (*)', 'Quận/Huyện/Tỉnh (*)', 'Địa chỉ chi tiết', 'Số tầng', 'Số phòng', 'Thang máy (Y/N)', 'PCCC (Y/N)', 'Nuôi Pet (Y/N)', 'Khách nước ngoài (Y/N)', 'Xe điện VinFast (Y/N)', 'Hình ảnh (Link)'],
-      ['TN-GN04', 'Chung cư Giáp Nhất 04', 'CN-HUY', 'Thanh Xuân, Hà Nội', 'Số 4 ngõ 43 Giáp Nhất', 7, 25, 'Y', 'Y', 'N', 'N', 'Y', 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00'],
-      ['TN-HD02', 'Căn hộ Hà Đông 02', 'CN-MINH', 'Hà Đông, Hà Nội', 'Số 10 Ao Sen', 5, 12, 'N', 'Y', 'Y', 'Y', 'Y', '']
-    ];
-    const wsToaNha = XLSX.utils.aoa_to_sheet(toaNhaData);
-    wsToaNha['!cols'] = getColWidths(toaNhaData);
-    XLSX.utils.book_append_sheet(wb, wsToaNha, 'ToaNha');
-
-    // Sheet 4: Phong (Mẫu 3 sheet chuẩn)
-    const phongData = [
-      ['Mã tòa nhà (*)', 'Số tầng', 'Mã phòng (*)', 'Loại phòng', 'Diện tích (m²)', 'Giá thuê (đ/tháng)', 'Phòng ngủ', 'Phòng tắm', 'Trạng thái (available/rented/maintenance/reserved)', 'Giới hạn số người', 'Giới hạn số xe', 'Hợp đồng tối thiểu (tháng)', 'Hình ảnh (Link)', 'Hoa hồng (rose) (*)'],
-      ['TN-GN04', 1, 'P101', 'Studio', 25, 4500000, 1, 1, 'available', 2, 2, 12, 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267,https://images.unsplash.com/photo-1502672260266-1c1ef2d93688', '0.5 tháng'],
-      ['TN-GN04', 1, 'P102', '1PN', 30, 5000000, 1, 1, 'available', 2, 2, 12, '', '0.5 tháng'],
-      ['TN-HD02', 1, 'P101', 'Studio', 20, 3500000, 1, 1, 'available', 2, 1, 6, '', '1 tháng']
-    ];
-    const wsPhong = XLSX.utils.aoa_to_sheet(phongData);
-    wsPhong['!cols'] = getColWidths(phongData);
-    XLSX.utils.book_append_sheet(wb, wsPhong, 'Phong');
+    XLSX.utils.book_append_sheet(wb, wsBangHang, 'Bảng hàng');
 
     XLSX.writeFile(wb, 'RealHome_Template_Import.xlsx');
-    toast.success('Đã tải xuống file template mẫu!');
+    toast.success('Đã tải xuống file template mẫu đơn giản (1 Tab)!');
   };
 
   // Parsing file uploaded
@@ -358,7 +361,7 @@ export default function ExcelImportPage() {
           let vinfastColIdx = -1;
           let internetColIdx = -1;
           let dvcColIdx = -1;
-          let elevatorColIdx = -1;
+          let elevatorColIdxs: number[] = [];
           let xeColIdx = 5;
           let nguoiColIdx = 6;
           let depositColIdx = 7;
@@ -381,7 +384,9 @@ export default function ExcelImportPage() {
             else if (cellStr.includes('diện tích') || cellStr.includes('m2')) sizeColIdx = idx;
             else if (cellStr.includes('phòng ngủ') || cellStr.includes('phong ngu')) bedroomColIdx = idx;
             else if (cellStr.includes('phòng tắm') || cellStr.includes('wc') || cellStr.includes('tắm') || cellStr.includes('phong tam')) bathroomColIdx = idx;
-            else if (cellStr.includes('thang máy') || cellStr.includes('thang may') || cellStr.includes('elevator')) elevatorColIdx = idx;
+            else if (cellStr.includes('thang máy') || cellStr.includes('thang may') || cellStr.includes('elevator')) {
+              elevatorColIdxs.push(idx);
+            }
             else if (cellStr.includes('pccc')) pcccColIdx = idx;
             else if (cellStr.includes('pet') || cellStr.includes('nuôi') || cellStr.includes('thú cưng')) petColIdx = idx;
             else if (cellStr.includes('nước ngoài') || cellStr.includes('foreigner')) foreignersColIdx = idx;
@@ -578,13 +583,19 @@ export default function ExcelImportPage() {
                 }
 
                 // 1. Thang máy
-                if (elevatorColIdx !== -1 && row[elevatorColIdx] !== undefined && row[elevatorColIdx] !== null && String(row[elevatorColIdx]).trim() !== '') {
-                  const rawElevator = String(row[elevatorColIdx]).trim().toLowerCase();
-                  if (rawElevator === 'y' || rawElevator === 'yes' || rawElevator.includes('có') || rawElevator === '1') {
-                    bld.has_elevator = true;
-                  } else if (rawElevator === 'n' || rawElevator === 'no' || rawElevator.includes('không') || rawElevator === '0') {
-                    bld.has_elevator = false;
+                let hasElevatorVal = false;
+                let elevatorColFound = false;
+                for (const colIdx of elevatorColIdxs) {
+                  if (colIdx !== -1 && row[colIdx] !== undefined && row[colIdx] !== null && String(row[colIdx]).trim() !== '') {
+                    const rawElevator = String(row[colIdx]).trim().toLowerCase();
+                    elevatorColFound = true;
+                    if (rawElevator === 'y' || rawElevator === 'yes' || rawElevator.includes('có') || rawElevator === '1') {
+                      hasElevatorVal = true;
+                    }
                   }
+                }
+                if (elevatorColFound) {
+                  bld.has_elevator = hasElevatorVal;
                 }
 
                 // 2. PCCC

@@ -27,6 +27,12 @@ const statusLabels: Record<string, string> = {
   reserved: 'Đặt trước',
 };
 
+const isVideoUrl = (url: string) => {
+  if (!url) return false;
+  const cleanUrl = url.toLowerCase().split('?')[0];
+  return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.webm');
+};
+
 export default function BuildingDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -152,14 +158,22 @@ export default function BuildingDetailPage() {
       </div>
 
       {/* Image Slider / Carousel */}
-      <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle">
-        <Image
-          src={imagesList[activeImageIndex]}
-          alt={`${building.name} - Ảnh ${activeImageIndex + 1}`}
-          fill
-          className="object-contain transition-all duration-500 ease-in-out"
-          priority
-        />
+      <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle flex items-center justify-center">
+        {isVideoUrl(imagesList[activeImageIndex]) ? (
+          <video
+            src={imagesList[activeImageIndex]}
+            controls
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <Image
+            src={imagesList[activeImageIndex]}
+            alt={`${building.name} - Ảnh ${activeImageIndex + 1}`}
+            fill
+            className="object-contain transition-all duration-500 ease-in-out"
+            priority
+          />
+        )}
         
         {/* Navigation Arrows */}
         {imagesList.length > 1 && (

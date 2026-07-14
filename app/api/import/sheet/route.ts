@@ -50,7 +50,7 @@ async function getGoogleDriveFolderFileIds(folderUrl: string): Promise<string[]>
   }
 }
 
-// Helper to download image from Google Drive and upload to Supabase Storage
+// Helper to download image/video from Google Drive and upload to Supabase Storage
 async function uploadDriveFileToStorage(fileId: string): Promise<string | null> {
   try {
     const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
@@ -58,26 +58,83 @@ async function uploadDriveFileToStorage(fileId: string): Promise<string | null> 
     if (!downloadRes.ok) return null;
 
     const contentType = downloadRes.headers.get('content-type') || '';
-    if (!contentType.startsWith('image/')) {
-      console.warn(`File ${fileId} không phải là hình ảnh (kiểu: ${contentType}), bỏ qua.`);
+    const isImageOrVideoOrStream = 
+      contentType.startsWith('image/') || 
+      contentType.startsWith('video/') || 
+      contentType === 'application/octet-stream';
+
+    if (!isImageOrVideoOrStream) {
+      console.warn(`File ${fileId} không phải là hình ảnh/video (kiểu: ${contentType}), bỏ qua.`);
       return null;
     }
 
     const arrayBuffer = await downloadRes.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    let bufferToUpload = buffer;
     let fileExt = 'jpg';
-    if (contentType.includes('png')) fileExt = 'png';
-    if (contentType.includes('webp')) fileExt = 'webp';
-    if (contentType.includes('gif')) fileExt = 'gif';
+    let finalContentType = contentType;
+
+    const isHeic = (buf: Buffer) => {
+      if (buf.length < 12) return false;
+      const brand = buf.toString('ascii', 8, 12);
+      return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+    };
+
+    const isMp4OrMov = (buf: Buffer) => {
+      if (buf.length < 8) return false;
+      return buf.toString('ascii', 4, 8) === 'ftyp';
+    };
+
+    // 1. Check if HEIC image
+    if (isHeic(buffer) || contentType === 'image/heic' || fileId.toLowerCase().endsWith('.heic')) {
+      try {
+        const heicConvert = require('heic-convert');
+        const converted = await heicConvert({
+          buffer: buffer,
+          format: 'JPEG',
+          quality: 0.85
+        });
+        bufferToUpload = Buffer.from(converted);
+        finalContentType = 'image/jpeg';
+        fileExt = 'jpg';
+      } catch (err) {
+        console.error(`Lỗi chuyển đổi HEIC cho file ${fileId}:`, err);
+        finalContentType = 'image/jpeg';
+        fileExt = 'jpg';
+      }
+    }
+    // 2. Check if video
+    else if (isMp4OrMov(buffer) || contentType.startsWith('video/') || fileId.toLowerCase().endsWith('.mov') || fileId.toLowerCase().endsWith('.mp4')) {
+      if (fileId.toLowerCase().endsWith('.mov') || contentType.includes('quicktime')) {
+        fileExt = 'mov';
+        finalContentType = 'video/quicktime';
+      } else {
+        fileExt = 'mp4';
+        finalContentType = 'video/mp4';
+      }
+    }
+    // 3. Normal images
+    else {
+      if (contentType.includes('png')) {
+        fileExt = 'png';
+      } else if (contentType.includes('webp')) {
+        fileExt = 'webp';
+      } else if (contentType.includes('gif')) {
+        fileExt = 'gif';
+      } else {
+        fileExt = 'jpg';
+        finalContentType = 'image/jpeg';
+      }
+    }
 
     const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('room_images')
-      .upload(filePath, buffer, {
-        contentType,
+      .upload(filePath, bufferToUpload, {
+        contentType: finalContentType,
         duplex: 'half'
       } as any);
 
@@ -89,7 +146,7 @@ async function uploadDriveFileToStorage(fileId: string): Promise<string | null> 
 
     return publicUrl;
   } catch (error) {
-    console.error(`Lỗi tải ảnh Drive ${fileId} lên storage:`, error);
+    console.error(`Lỗi tải ảnh/video Drive ${fileId} lên storage:`, error);
     return null;
   }
 }
@@ -344,7 +401,7 @@ export async function POST(request: Request) {
           allow_pet: allow_pet === true || allow_pet === 'Y' || allow_pet === 'Yes',
           allow_foreigners: allow_foreigners === true || allow_foreigners === 'Y' || allow_foreigners === 'Yes',
           allow_vinfast_electric: allow_vinfast_electric === true || allow_vinfast_electric === 'Y' || allow_vinfast_electric === 'Yes',
-          image_url: processedImageUrl,
+          image_url: processedImageUrl || '',
           deposit_terms: deposit_terms ? normalizeAreaText(deposit_terms) : null,
           washing_machine_type: washing_machine_type || 'chung',
           electricity_price: electricity_price ? Number(electricity_price) : 4000,

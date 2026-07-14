@@ -14,6 +14,12 @@ import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, ChevronLeft, ChevronRight, Check, X, Zap, PawPrint, Globe, Award, Layers } from 'lucide-react';
 
+const isVideoUrl = (url: string) => {
+  if (!url) return false;
+  const cleanUrl = url.toLowerCase().split('?')[0];
+  return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.webm');
+};
+
 export default function RoomDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -58,14 +64,22 @@ export default function RoomDetailPage() {
   return (
     <div className="container mx-auto px-4 py-8 pb-24 lg:pb-8 bg-bg-base">
       {/* Image Slider / Carousel */}
-      <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle">
-        <Image
-          src={imagesList[activeImageIndex]}
-          alt={`${property.title} - Ảnh ${activeImageIndex + 1}`}
-          fill
-          className="object-contain transition-all duration-500 ease-in-out"
-          priority
-        />
+      <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle flex items-center justify-center">
+        {isVideoUrl(imagesList[activeImageIndex]) ? (
+          <video
+            src={imagesList[activeImageIndex]}
+            controls
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <Image
+            src={imagesList[activeImageIndex]}
+            alt={`${property.title} - Ảnh ${activeImageIndex + 1}`}
+            fill
+            className="object-contain transition-all duration-500 ease-in-out"
+            priority
+          />
+        )}
         
         {/* Navigation Arrows */}
         {imagesList.length > 1 && (

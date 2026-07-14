@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ['heic-convert', 'heic-decode', 'libheif-js'],
+  },
   images: {
     unoptimized: true,
     // Cho phép load ảnh từ các domain bên ngoài
