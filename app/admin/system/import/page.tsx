@@ -250,7 +250,7 @@ export default function ExcelImportPage() {
         'Tòa nhà (Địa chỉ) (*)', 'Khu vực(*)', 'Phòng trống (*)', 'Giá Phòng (*)', 
         'Loại Phòng(*)', 'Diện tích(*)', 'Phòng ngủ', 'Phòng tắm', 
         'Thang máy (Y/N)(*)', 'PCCC (Y/N)(*)', 'Nuôi Pet (Y/N)(*)', 'Khách nước ngoài (Y/N)(*)', 'Xe điện VinFast (Y/N)(*)',
-        'Thang máy(*)', 'Số xe(*)', 'Số người(*)', 'Thanh toán(*)', 'Internet(*)', 'DVC(*)', 
+        'Ban Công Riêng(Y/N)(*)', 'Số xe(*)', 'Số người(*)', 'Thanh toán(*)', 'Internet(*)', 'DVC(*)', 
         'Trạng thái(*)', 'Link ảnh + video(*)', 'Hoa hồng (rose) (*)', 'Hợp đồng tối thiểu(*)'
       ],
       [
@@ -362,6 +362,7 @@ export default function ExcelImportPage() {
           let internetColIdx = -1;
           let dvcColIdx = -1;
           let elevatorColIdxs: number[] = [];
+          let balconyColIdx = -1;
           let xeColIdx = 5;
           let nguoiColIdx = 6;
           let depositColIdx = 7;
@@ -386,6 +387,9 @@ export default function ExcelImportPage() {
             else if (cellStr.includes('phòng tắm') || cellStr.includes('wc') || cellStr.includes('tắm') || cellStr.includes('phong tam')) bathroomColIdx = idx;
             else if (cellStr.includes('thang máy') || cellStr.includes('thang may') || cellStr.includes('elevator')) {
               elevatorColIdxs.push(idx);
+            }
+            else if (cellStr.includes('ban công') || cellStr.includes('ban cong') || cellStr.includes('balcony')) {
+              balconyColIdx = idx;
             }
             else if (cellStr.includes('pccc')) pcccColIdx = idx;
             else if (cellStr.includes('pet') || cellStr.includes('nuôi') || cellStr.includes('thú cưng')) petColIdx = idx;
@@ -688,6 +692,14 @@ export default function ExcelImportPage() {
             const rose = roseColIdx !== -1 && row[roseColIdx] !== undefined && row[roseColIdx] !== null ? String(row[roseColIdx]).trim() : '';
             const minContractMonths = minContractColIdx !== -1 && row[minContractColIdx] !== undefined && row[minContractColIdx] !== null ? Number(String(row[minContractColIdx]).replace(/[^\d]/g, '')) : 12;
  
+            let hasPrivateBalcony = false;
+            if (balconyColIdx !== -1 && row[balconyColIdx] !== undefined && row[balconyColIdx] !== null && String(row[balconyColIdx]).trim() !== '') {
+              const rawBalcony = String(row[balconyColIdx]).trim().toLowerCase();
+              if (rawBalcony === 'y' || rawBalcony === 'yes' || rawBalcony.includes('có') || rawBalcony === '1') {
+                hasPrivateBalcony = true;
+              }
+            }
+
             rooms.push({
               rowIndex: i + 1,
               building_code: lastBuildingCode,
@@ -705,7 +717,8 @@ export default function ExcelImportPage() {
               image_urls: rawImages,
               deposit_terms: normalizeAreaText(depositTerms),
               rose: normalizeAreaText(rose),
-              description: normalizeAreaText(description)
+              description: normalizeAreaText(description),
+              has_private_balcony: hasPrivateBalcony
             });
           }
 
@@ -803,6 +816,14 @@ export default function ExcelImportPage() {
                 }
               }
 
+              let hasPrivateBalcony = false;
+              if (row[14] !== undefined && row[14] !== null && String(row[14]).trim() !== '') {
+                const rawBalcony = String(row[14]).trim().toLowerCase();
+                if (rawBalcony === 'y' || rawBalcony === 'yes' || rawBalcony.includes('có') || rawBalcony === '1') {
+                  hasPrivateBalcony = true;
+                }
+              }
+
               rooms.push({
                 rowIndex: i + 1,
                 building_code: lastBuildingCode,
@@ -819,7 +840,8 @@ export default function ExcelImportPage() {
                 min_contract_months: row[11] ? Number(row[11]) : 12,
                 image_urls: getCellHyperlink(wsPhong, i, 12) || (row[12] ? String(row[12]).trim() : ''),
                 rose: normalizeAreaText(row[13]),
-                description: normalizeAreaText(description)
+                description: normalizeAreaText(description),
+                has_private_balcony: hasPrivateBalcony
               });
             }
           }

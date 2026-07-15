@@ -438,7 +438,8 @@ export async function POST(request: Request) {
         const {
           building_code, code, floor, size, price, bedrooms, bathrooms, status,
           max_occupants, max_vehicles_per_room, min_contract_months,
-          image_urls, room_type, deposit_terms, rose, description
+          image_urls, room_type, deposit_terms, rose, description,
+          has_private_balcony
         } = room;
 
         if (!building_code || !code) {
@@ -481,6 +482,7 @@ export async function POST(request: Request) {
           deposit_terms: deposit_terms ? normalizeAreaText(deposit_terms) : null,
           rose: rose ? normalizeAreaText(rose) : null,
           description: description ? normalizeAreaText(description) : null,
+          has_private_balcony: has_private_balcony === true || has_private_balcony === 'Y' || has_private_balcony === 'Yes',
           updated_at: new Date().toISOString()
         };
 
