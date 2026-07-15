@@ -1,7 +1,7 @@
 'use client';
 
-import CreateRentalContractPageWrapper from '@/app/admin/contracts/create-rental/page';
+import { CreateRentalContractPageWrapper } from '@/src/features/finance/components/CreateRentalContractPage';
 
-export default function LandlordCreateRentalContractPage() {
+export default function Page() {
   return <CreateRentalContractPageWrapper />;
 }

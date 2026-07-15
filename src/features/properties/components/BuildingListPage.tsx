@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Image from 'next/image';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -608,7 +610,7 @@ export function BuildingListPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           {item.image_url ? (
-                            <img src={item.image_url} alt={item.name} className="w-10 h-10 object-cover rounded-lg border border-border flex-shrink-0" />
+                            <Image src={item.image_url} alt={item.name} width={40} height={40} className="w-10 h-10 object-cover rounded-lg border border-border flex-shrink-0" />
                           ) : (
                             <div className="w-10 h-10 bg-bg-subtle rounded-lg border border-border flex items-center justify-center text-ink-muted flex-shrink-0">
                               <Building2 className="h-5 w-5" />
@@ -670,7 +672,7 @@ export function BuildingListPage() {
                   >
                     <div className="flex items-start gap-3">
                       {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-14 h-14 object-cover rounded-lg border border-border flex-shrink-0" />
+                        <Image src={item.image_url} alt={item.name} width={56} height={56} className="w-14 h-14 object-cover rounded-lg border border-border flex-shrink-0" />
                       ) : (
                         <div className="w-14 h-14 bg-bg-subtle rounded-lg border border-border flex items-center justify-center text-ink-muted flex-shrink-0">
                           <Building2 className="h-6 w-6" />

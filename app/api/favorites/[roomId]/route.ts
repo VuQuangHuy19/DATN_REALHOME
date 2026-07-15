@@ -1,22 +1,16 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSessionUser } from '@/lib/session';
 
 export const runtime = 'nodejs';
-import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function DELETE(
   request: Request,
   { params }: { params: { roomId: string } }
 ) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.slice(7);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
+    const user = await getSessionUser(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -25,7 +19,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Thiếu roomId' }, { status: 400 });
     }
 
-    // Thực hiện xóa phòng khỏi danh sách yêu thích của user
     const { error } = await supabaseAdmin
       .from('favorites')
       .delete()

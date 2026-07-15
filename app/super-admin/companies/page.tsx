@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -349,8 +350,7 @@ export default function SuperAdminCompaniesPage() {
                       <div className="flex items-center gap-2.5">
                         <div className="h-9 w-9 rounded-lg bg-bg-subtle border border-border flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {item.logo_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.logo_url} alt="Logo" className="object-cover w-full h-full" />
+                            <Image src={item.logo_url} alt="Logo" width={36} height={36} className="object-cover" />
                           ) : (
                             <Building2 className="h-4 w-4 text-ink-muted" />
                           )}
@@ -431,8 +431,7 @@ export default function SuperAdminCompaniesPage() {
             <DialogTitle className="flex items-center gap-3 font-heading text-ink">
               <div className="h-10 w-10 rounded-xl bg-bg-subtle border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                 {viewItem?.logo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={viewItem.logo_url} alt="Logo" className="object-cover w-full h-full" />
+                  <Image src={viewItem.logo_url} alt="Logo" width={40} height={40} className="object-cover" />
                 ) : (
                   <Building2 className="h-5 w-5 text-ink-muted" />
                 )}

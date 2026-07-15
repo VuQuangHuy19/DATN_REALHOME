@@ -1,7 +1,7 @@
 'use client';
 
-import PrintDepositContractPage from '@/app/admin/contracts/[id]/print/page';
+import { PrintContractPage } from '@/src/features/finance/components/PrintContractPage';
 
-export default function LandlordPrintDepositContractPage({ params }: { params: { id: string } }) {
-  return <PrintDepositContractPage params={params} />;
+export default function Page({ params }: { params: { id: string } }) {
+  return <PrintContractPage params={params} />;
 }

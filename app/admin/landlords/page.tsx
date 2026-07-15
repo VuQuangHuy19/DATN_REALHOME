@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -214,8 +215,7 @@ export default function LandlordsPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             {item.image_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={item.image_url} alt={item.name} className="h-8 w-8 rounded-full object-cover flex-shrink-0 border border-border" />
+                              <Image src={item.image_url} alt={item.name} width={32} height={32} className="rounded-full object-cover flex-shrink-0 border border-border" />
                             ) : (
                               <div className="h-8 w-8 rounded-full bg-bg-subtle flex items-center justify-center flex-shrink-0 border border-border">
                                 <User className="h-4 w-4 text-ink-muted" />
@@ -289,8 +289,7 @@ export default function LandlordsPage() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-3">
                           {item.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.image_url} alt={item.name} className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-border" />
+                            <Image src={item.image_url} alt={item.name} width={36} height={36} className="rounded-full object-cover flex-shrink-0 border border-border" />
                           ) : (
                             <div className="h-9 w-9 rounded-full bg-bg-subtle flex items-center justify-center flex-shrink-0 border border-border">
                               <User className="h-5 w-5 text-ink-muted" />
@@ -370,8 +369,7 @@ export default function LandlordsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-heading text-lg text-ink font-bold">
               {selectedLandlord?.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={selectedLandlord.image_url} alt={selectedLandlord.name} className="h-6 w-6 rounded-full object-cover border border-border" />
+                <Image src={selectedLandlord.image_url} alt={selectedLandlord.name} width={24} height={24} className="rounded-full object-cover border border-border" />
               ) : (
                 <User className="h-5 w-5 text-ink-muted" />
               )}

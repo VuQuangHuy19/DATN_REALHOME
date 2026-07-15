@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth/AuthContext';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
@@ -75,7 +76,7 @@ function LandlordSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; s
         )}
       >
         <div className="flex items-center gap-3 px-6 h-16 border-b border-border-subtle flex-shrink-0">
-          <img src="/logo.png" alt="RealHome Logo" className="h-14 w-auto object-contain" />
+          <Image src="/logo.png" alt="RealHome Logo" width={140} height={56} className="h-14 w-auto object-contain" />
           <span className="text-[10px] font-bold uppercase tracking-wider bg-accent-soft text-accent px-2 py-0.5 rounded-full">Chủ nhà</span>
         </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -335,11 +336,14 @@ export function RoomDetailPage() {
                         className={`relative group rounded-lg overflow-hidden border bg-bg-subtle aspect-video flex flex-col justify-between transition-all ${img.is_thumbnail ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-border'
                           }`}
                       >
-                        <img
-                          src={img.url}
-                          alt="Room"
-                          className="object-cover w-full h-16 border-b border-border"
-                        />
+                        <div className="relative w-full h-16 border-b border-border">
+                          <Image
+                            src={img.url}
+                            alt="Room"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
                         {img.is_thumbnail && (
                           <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400 text-amber-950 shadow-sm uppercase tracking-wider">
                             ★ Ảnh chính
@@ -578,10 +582,12 @@ export function RoomDetailPage() {
                         className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-border'
                           }`}
                       >
-                        <img
+                        <Image
                           src={img.url}
                           alt="Room preview"
-                          className="object-cover w-14 h-10 rounded border border-border shrink-0"
+                          width={56}
+                          height={40}
+                          className="object-cover rounded border border-border shrink-0"
                         />
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center justify-between">

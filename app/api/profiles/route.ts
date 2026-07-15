@@ -3,6 +3,7 @@ import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/profiles?company_id=xxx

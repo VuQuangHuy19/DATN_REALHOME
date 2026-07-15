@@ -3,6 +3,7 @@ import { verifyJWT } from '@/lib/auth-utils';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 function parseCookie(cookieString: string, key: string): string | null {
   const pairs = cookieString.split(';');

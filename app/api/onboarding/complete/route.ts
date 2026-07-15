@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { hashRawToken } from '@/lib/auth/onboarding-token';
-import { hashPassword } from '@/lib/auth-utils';
+import { hashPassword } from '@/lib/password-utils';
 
 export async function POST(request: Request) {
   try {

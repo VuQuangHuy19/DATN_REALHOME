@@ -1,7 +1,7 @@
 'use client';
 
-import ContractsPage from '@/app/admin/contracts/page';
+import { ContractsPage } from '@/src/features/finance/components/ContractsPage';
 
-export default function LandlordContractsPage() {
+export default function Page() {
   return <ContractsPage />;
 }

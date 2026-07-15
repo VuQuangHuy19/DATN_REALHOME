@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -11,39 +12,69 @@ import { usePublicListingsByIds } from '@/lib/hooks/usePublicListings';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { Heart, MapPin, Bed, Bath, Square, Trash2, Loader2 } from 'lucide-react';
+import { getFavoritesClient, removeFavoriteClient } from '@/src/features/customer/services/favorites.client';
+import { toast } from 'sonner';
 
 function useFavorites() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  const fetchFavorites = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await getFavoritesClient();
+      setFavorites(new Set(data));
+    } catch (err: any) {
+      if (err.message === 'Unauthorized') {
+        toast.error('Vui lòng đăng nhập để xem danh sách yêu thích');
+        router.push('/login?redirectTo=/customer/favorites');
+      } else {
+        toast.error('Không thể tải danh sách yêu thích');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('property-favorites');
-      if (stored) setFavorites(new Set(JSON.parse(stored)));
-    } catch {}
-  }, []);
+    fetchFavorites();
+  }, [fetchFavorites]);
 
-  const remove = useCallback((id: string) => {
+  const remove = useCallback(async (id: string) => {
     setFavorites((prev) => {
       const next = new Set(prev);
       next.delete(id);
-      try {
-        localStorage.setItem('property-favorites', JSON.stringify(Array.from(next)));
-      } catch {}
       return next;
     });
-  }, []);
 
-  return { favorites, remove };
+    try {
+      await removeFavoriteClient(id);
+      toast.success('Đã xóa khỏi danh sách yêu thích');
+    } catch (err: any) {
+      if (err.message === 'Unauthorized') {
+        toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        router.push('/login?redirectTo=/customer/favorites');
+      } else {
+        toast.error('Không thể xóa yêu thích. Vui lòng thử lại.');
+        fetchFavorites();
+      }
+    }
+  }, [fetchFavorites, router]);
+
+  return { favorites, remove, loading: isLoading };
 }
 
 export default function FavoritesPage() {
   const { company, companies } = useCustomerCompany();
-  const { favorites, remove } = useFavorites();
+  const { favorites, remove, loading: favLoading } = useFavorites();
   const favoriteIds = Array.from(favorites);
-  const { listings: favoriteProperties, loading } = usePublicListingsByIds(
+  const { listings: favoriteProperties, loading: propertiesLoading } = usePublicListingsByIds(
     favoriteIds,
     useMemo(() => companies.map((c) => c.id), [companies])
   );
+
+  const loading = favLoading || propertiesLoading;
 
   return (
     <div className="container mx-auto px-4 py-10 bg-bg-base min-h-screen">

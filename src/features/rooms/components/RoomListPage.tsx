@@ -21,6 +21,7 @@ import type { RoomWithBuilding } from '@/src/features/rooms/services/rooms';
 import type { DBRoom } from '@/lib/supabase/types';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
 
 const statusLabels: Record<string, string> = {
@@ -389,10 +390,12 @@ export function RoomListPage() {
                             className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-border'
                               }`}
                           >
-                            <img
+                            <Image
                               src={img.url}
                               alt="Room preview"
-                              className="object-cover w-14 h-10 rounded border border-border shrink-0"
+                              width={56}
+                              height={40}
+                              className="object-cover rounded border border-border shrink-0"
                             />
                             <div className="flex-1 min-w-0 space-y-1">
                               <div className="flex items-center justify-between">

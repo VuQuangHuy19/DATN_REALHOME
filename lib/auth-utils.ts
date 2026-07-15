@@ -1,28 +1,5 @@
 import * as jose from 'jose';
 
-/**
- * Hỗ trợ băm mật khẩu bằng thuật toán SHA-256 kết hợp với muối AUTH_SALT.
- * AUTH_SALT được cấu hình ở môi trường server-side (.env.local) để ngăn chặn
- * việc dò quét rainbow table và bảo mật mật khẩu lưu trong cơ sở dữ liệu.
- */
-export async function hashPassword(password: string): Promise<string> {
-  const salt = process.env.AUTH_SALT || '';
-  if (!salt) {
-    console.warn('CẢNH BÁO: AUTH_SALT chưa được định nghĩa trong môi trường!');
-  }
-  
-  const encoder = new TextEncoder();
-  // Kết hợp mật khẩu gốc với muối AUTH_SALT trước khi băm
-  const data = encoder.encode(password + salt);
-  
-  // Sử dụng Web Crypto API (được hỗ trợ ở cả Node.js và Edge Runtime)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  
-  // Chuyển sang dạng chuỗi thập lục phân (hex string)
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 // JWT_SECRET dùng để ký và xác thực token JWT, phải được bảo mật ở phía Server
 const getJWTSecret = () => {
   const secret = process.env.JWT_SECRET;

@@ -1,7 +1,7 @@
 'use client';
 
-import CreateDepositContractPage from '@/app/admin/contracts/create/page';
+import { CreateDepositContractPage } from '@/src/features/finance/components/CreateDepositContractPage';
 
-export default function LandlordCreateDepositContractPage() {
+export default function Page() {
   return <CreateDepositContractPage />;
 }

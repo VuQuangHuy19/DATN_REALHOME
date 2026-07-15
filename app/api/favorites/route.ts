@@ -1,19 +1,37 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getSessionUser } from '@/lib/session';
 
 export const runtime = 'nodejs';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const user = await getSessionUser(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.slice(7);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data, error } = await supabaseAdmin
+      .from('favorites')
+      .select('room_id')
+      .eq('user_id', user.id);
 
-    if (authError || !user) {
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const roomIds = data.map((item: any) => item.room_id);
+    return NextResponse.json(roomIds);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await getSessionUser(request);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -24,7 +42,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Thiếu roomId' }, { status: 400 });
     }
 
-    // Thực hiện thêm phòng vào danh sách yêu thích
     const { data, error } = await supabaseAdmin
       .from('favorites')
       .insert({
@@ -35,7 +52,6 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      // Trường hợp trùng lặp (đã yêu thích trước đó)
       if (error.code === '23505') {
         return NextResponse.json({ message: 'Phòng đã được thêm vào danh sách yêu thích trước đó' }, { status: 200 });
       }

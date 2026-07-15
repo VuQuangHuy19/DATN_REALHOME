@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { cn } from '@/lib/utils';
@@ -166,7 +167,7 @@ export function AdminSidebar() {
   const SidebarContent = () => (
     <>
       <div className="flex items-center px-6 h-16 border-b border-border-subtle flex-shrink-0">
-        <img src="/logo.png" alt="RealHome Logo" className="h-16 w-auto object-contain" />
+        <Image src="/logo.png" alt="RealHome Logo" width={150} height={64} className="h-16 w-auto object-contain" />
       </div>
 
       <nav className="p-3 space-y-0.5 overflow-y-auto flex-1">

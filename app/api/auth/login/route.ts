@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { hashPassword, signJWT, fetchUserSessionData } from '@/lib/auth-utils';
+import { signJWT, fetchUserSessionData } from '@/lib/auth-utils';
+import { hashPassword, verifyPassword } from '@/lib/password-utils';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -9,6 +11,19 @@ export const runtime = 'nodejs';
  * Xác thực thông tin người dùng với cơ sở dữ liệu và cấp phát JWT token qua Cookie.
  */
 export async function POST(request: Request) {
+  // Rate limit: 5 lần / 15 phút / IP — chống brute-force dò mật khẩu.
+  const rl = checkRateLimit(request, 'auth-login', {
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau ít phút.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -52,15 +67,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Kiểm tra tính chính xác của mật khẩu bằng hashPassword
-    // Lệnh này băm mật khẩu đầu vào kết hợp muối AUTH_SALT để đối chiếu với password_hash lưu trong DB
-    const inputHash = await hashPassword(password);
+    // 3. Kiểm tra tính chính xác của mật khẩu bằng verifyPassword
+    const { valid, needsRehash } = await verifyPassword(password, profile.password_hash);
     
-    if (inputHash !== profile.password_hash) {
+    if (!valid) {
       return NextResponse.json(
         { error: 'Email hoặc mật khẩu không chính xác' },
         { status: 401 }
       );
+    }
+
+    // Nâng cấp ngầm: nếu mật khẩu vẫn đang lưu ở định dạng SHA-256 cũ, băm lại bằng bcrypt
+    // và cập nhật DB ngay khi xác thực đúng — user không nhận thấy gì khác biệt.
+    if (needsRehash) {
+      const upgradedHash = await hashPassword(password);
+      const { error: rehashError } = await supabaseAdmin
+        .from('profiles')
+        .update({ password_hash: upgradedHash })
+        .eq('id', profile.id);
+      if (rehashError) {
+        console.error('Không thể nâng cấp password_hash sang bcrypt:', rehashError);
+      }
     }
 
     // 4. Khởi tạo JWT payload

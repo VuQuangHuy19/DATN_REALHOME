@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Building2, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +38,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md mx-auto">
           {/* Logo */}
           <div className="flex flex-col items-start mb-8">
-            <img src="/logo.png" alt="RealHome Logo" className="h-16 w-auto object-contain -ml-2" />
+            <Image src="/logo.png" alt="RealHome Logo" width={150} height={64} className="h-16 w-auto object-contain -ml-2" />
           </div>
 
           <div className="mb-6">

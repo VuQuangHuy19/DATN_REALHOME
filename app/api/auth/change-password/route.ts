@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { verifyJWT, hashPassword } from '@/lib/auth-utils';
+import { verifyJWT } from '@/lib/auth-utils';
+import { hashPassword } from '@/lib/password-utils';
+
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
