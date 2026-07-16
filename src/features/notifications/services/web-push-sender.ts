@@ -2,9 +2,9 @@ import webpush from 'web-push';
 import { deleteSubscription, PushSubscriptionRow } from './push-subscriptions';
 
 // Cấu hình VAPID keys từ biến môi trường
-const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
-let vapidSubject = process.env.NEXT_PUBLIC_SITE_URL || 'mailto:admin@example.com';
+const vapidPublicKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '').replace(/^["']|["']$/g, '');
+const vapidPrivateKey = (process.env.VAPID_PRIVATE_KEY || '').replace(/^["']|["']$/g, '');
+let vapidSubject = (process.env.NEXT_PUBLIC_SITE_URL || 'mailto:admin@example.com').replace(/^["']|["']$/g, '');
 if (!vapidSubject.startsWith('https:') && !vapidSubject.startsWith('mailto:')) {
   vapidSubject = 'mailto:admin@example.com';
 }
