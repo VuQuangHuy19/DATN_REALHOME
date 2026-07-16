@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyJWT, fetchUserSessionData } from '@/lib/auth-utils';
+import { verifyJWT } from '@/lib/auth-utils';
+import { fetchUserSessionData } from '@/lib/auth-session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

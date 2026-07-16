@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { signJWT, fetchUserSessionData } from '@/lib/auth-utils';
+import { signJWT } from '@/lib/auth-utils';
+import { fetchUserSessionData } from '@/lib/auth-session';
 import { hashPassword, verifyPassword } from '@/lib/password-utils';
 import { checkRateLimit } from '@/lib/rate-limit';
 
