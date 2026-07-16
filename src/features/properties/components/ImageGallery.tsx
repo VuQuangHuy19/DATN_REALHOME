@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type GalleryItem = {
@@ -173,12 +173,23 @@ export default function ImageGallery({
       >
         {/* Current media */}
         {isVideo ? (
-          <div className="relative w-full h-full">
+          <div 
+            onClick={openLightbox}
+            className="relative w-full h-full cursor-zoom-in flex items-center justify-center bg-black"
+          >
             <video
               src={current.url}
-              controls
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain pointer-events-none"
+              muted
+              playsInline
+              loop
             />
+            {/* Play overlay button */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/25 hover:bg-black/40 transition-colors z-10">
+              <div className="w-12 h-12 rounded-full bg-white/95 flex items-center justify-center text-ink shadow-md">
+                <Play className="h-5 w-5 fill-current ml-0.5" />
+              </div>
+            </div>
           </div>
         ) : (
           <Image
@@ -195,19 +206,6 @@ export default function ImageGallery({
             onClick={openLightbox}
           />
         )}
-
-        {/* Maximize overlay button */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            openLightbox();
-          }}
-          className="absolute top-3 right-3 bg-black/50 hover:bg-black/75 text-white rounded-full p-2 z-10 transition-colors flex items-center justify-center shadow-lg"
-          title="Phóng to"
-        >
-          <Maximize2 className="h-4.5 w-4.5" />
-        </button>
 
         {/* Navigation arrows */}
         {items.length > 1 && (
