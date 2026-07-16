@@ -48,7 +48,7 @@ export default function CustomerHomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/20" />
         </div>
         <div className="relative z-10 container mx-auto px-4 text-center text-white">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-heading tracking-tight mb-6 drop-shadow-sm">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-heading tracking-tight mb-6 drop-shadow-sm text-white">
             Tìm Bất Động Sản Mơ Ước
           </h1>
           <p className="text-base md:text-lg mb-8 max-w-xl mx-auto text-white/90 leading-relaxed">
