@@ -85,7 +85,9 @@ function BuildingCard({
       href={`/customer/properties/${group.buildingId}`}
       className="rounded-lg overflow-hidden bg-white border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col cursor-pointer group"
     >
-      <ImageGallery items={group.allImages} alt={group.buildingName} />
+      <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+        <ImageGallery items={group.allImages} alt={group.buildingName} />
+      </div>
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Tên tòa nhà */}
