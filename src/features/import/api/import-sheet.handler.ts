@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import crypto from 'crypto';
+import sharp from 'sharp';
 import { generateOnboardingToken } from '@/lib/auth/onboarding-token';
 import { sendEmail } from '@/lib/mail';
 
@@ -48,8 +49,14 @@ async function getGoogleDriveFolderFileIds(folderUrl: string): Promise<string[]>
   }
 }
 
-// Helper to download image/video from Google Drive and upload to Supabase Storage
-async function uploadDriveFileToStorage(fileId: string): Promise<string | null> {
+type ProcessedMedia = {
+  url: string;
+  thumbnail_url: string | null;
+  media_type: string;
+};
+
+// Helper to download image/video from Google Drive, create checksum & upload to Supabase Storage
+async function uploadDriveFileToStorage(fileId: string): Promise<ProcessedMedia | null> {
   try {
     const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
     const downloadRes = await fetch(downloadUrl);
@@ -126,23 +133,88 @@ async function uploadDriveFileToStorage(fileId: string): Promise<string | null> 
       }
     }
 
-    const fileName = `${Math.random().toString(36).substring(2, 15)}-${Date.now()}.${fileExt}`;
+    // Dùng nội dung file (buffer) để tạo mã MD5 thay cho việc random tên
+    const hash = crypto.createHash('md5').update(bufferToUpload as any).digest('hex');
+    const fileName = `${hash}.${fileExt}`;
     const filePath = `${fileName}`;
+    let thumbPath: string | null = null;
+    let thumbBuffer: Buffer | null = null;
+    
+    let isVideo = finalContentType.startsWith('video/');
 
+    // Kiểm tra xem file này đã tồn tại trên Storage chưa
+    // Thay vì download, ta thử lấy publicUrl (tuy nó luôn trả về string nhưng ta kiểm tra DB xem checksum này có ai dùng chưa)
+    // Hoặc ta query list files từ storage (chậm hơn chút nhưng chính xác vật lý)
+    // Để tối ưu, ta cứ upload với upsert = false, nếu trùng sẽ bắn lỗi Duplicate.
+    // Lỗi Duplicate báo hiệu file ĐÃ CÓ trên bucket -> chỉ việc dùng lại URL
+    let fileUploadedOk = false;
+    
     const { error: uploadError } = await supabaseAdmin.storage
       .from('room_images')
       .upload(filePath, bufferToUpload, {
         contentType: finalContentType,
-        duplex: 'half'
+        upsert: false // QUAN TRỌNG: Nếu trùng file hash sẽ báo lỗi
       } as any);
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      if (uploadError.message.toLowerCase().includes('duplicate') || uploadError.message.includes('already exists')) {
+        // File đã tồn tại -> Không sao cả, dùng luôn!
+        fileUploadedOk = true;
+      } else {
+        throw uploadError; // Lỗi thật sự
+      }
+    } else {
+      fileUploadedOk = true;
+    }
+
+    // Xử lý tạo Thumbnail nếu là ảnh và file vừa được up mới (hoặc ta up lại cả thumb nếu muốn)
+    if (!isVideo) {
+      thumbPath = `${hash}-thumb.${fileExt}`;
+      // Chỉ tạo thumb nếu file gốc chưa có (uploadError rỗng) HOẶC ta cứ tạo đè upsert: false
+      try {
+        thumbBuffer = await sharp(bufferToUpload)
+          .resize(300, null, { withoutEnlargement: true })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+        
+        let thumbContentType = 'image/jpeg';
+        if (fileExt === 'png') thumbContentType = 'image/png';
+        else if (fileExt === 'webp') thumbContentType = 'image/webp';
+        else if (fileExt === 'gif') thumbContentType = 'image/gif';
+
+        const { error: thumbUploadError } = await supabaseAdmin.storage
+          .from('room_images')
+          .upload(thumbPath, thumbBuffer, {
+            contentType: thumbContentType,
+            upsert: false
+          });
+          
+        if (thumbUploadError && !(thumbUploadError.message.toLowerCase().includes('duplicate') || thumbUploadError.message.includes('already exists'))) {
+           console.warn(`Lỗi tạo thumbnail cho ${fileId}:`, thumbUploadError.message);
+        }
+      } catch (sharpErr) {
+        console.warn(`Lỗi sharp resize cho ${fileId}:`, sharpErr);
+        thumbPath = null;
+      }
+    }
 
     const { data: { publicUrl } } = supabaseAdmin.storage
       .from('room_images')
       .getPublicUrl(filePath);
+      
+    let thumbnailPublicUrl = null;
+    if (thumbPath) {
+      const { data: thumbData } = supabaseAdmin.storage
+        .from('room_images')
+        .getPublicUrl(thumbPath);
+      thumbnailPublicUrl = thumbData.publicUrl;
+    }
 
-    return publicUrl;
+    return {
+      url: publicUrl,
+      thumbnail_url: thumbnailPublicUrl,
+      media_type: isVideo ? 'video' : 'image'
+    };
   } catch (error) {
     console.error(`Lỗi tải ảnh/video Drive ${fileId} lên storage:`, error);
     return null;
@@ -150,20 +222,20 @@ async function uploadDriveFileToStorage(fileId: string): Promise<string | null> 
 }
 
 // Process an arbitrary link (normal direct image link, Google Drive file, or Google Drive folder)
-async function processImageLink(url: string, maxImages = 10): Promise<string[]> {
+async function processImageLink(url: string, maxImages = 10): Promise<ProcessedMedia[]> {
   const trimmedUrl = url.trim();
   if (!trimmedUrl) return [];
 
   // Case 1: Google Drive Folder
   if (trimmedUrl.includes('drive.google.com') && trimmedUrl.includes('folders/')) {
     const fileIds = await getGoogleDriveFolderFileIds(trimmedUrl);
-    const uploadedUrls: string[] = [];
+    const uploadedMedias: ProcessedMedia[] = [];
     const limitedFileIds = fileIds.slice(0, maxImages);
     for (const fileId of limitedFileIds) {
-      const publicUrl = await uploadDriveFileToStorage(fileId);
-      if (publicUrl) uploadedUrls.push(publicUrl);
+      const media = await uploadDriveFileToStorage(fileId);
+      if (media) uploadedMedias.push(media);
     }
-    return uploadedUrls;
+    return uploadedMedias;
   }
 
   // Case 2: Google Drive Single File Link
@@ -175,14 +247,19 @@ async function processImageLink(url: string, maxImages = 10): Promise<string[]> 
       fileId = trimmedUrl.split('id=')[1]?.split('&')[0];
     }
     if (fileId) {
-      const publicUrl = await uploadDriveFileToStorage(fileId);
-      if (publicUrl) return [publicUrl];
+      const media = await uploadDriveFileToStorage(fileId);
+      if (media) return [media];
     }
   }
 
   // Case 3: Regular direct URL
   if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
-    return [trimmedUrl];
+    let isVideo = trimmedUrl.toLowerCase().endsWith('.mp4') || trimmedUrl.toLowerCase().endsWith('.mov') || trimmedUrl.toLowerCase().endsWith('.webm');
+    return [{
+      url: trimmedUrl,
+      thumbnail_url: null,
+      media_type: isVideo ? 'video' : 'image'
+    }];
   }
   return [];
 }
@@ -360,7 +437,8 @@ export async function handleImportSheet(request: Request) {
           code, name, landlord_id, area, address, total_floors, total_rooms,
           year_built, has_elevator, pccc_certified, allow_pet, allow_foreigners,
           allow_vinfast_electric, image_url, deposit_terms, washing_machine_type,
-          electricity_price, water_price, internet_price, common_service_price
+          electricity_price, water_price, internet_price, common_service_price,
+          latitude, longitude, electric_vehicle_fee
         } = building;
 
         if (!code || !name || !area) {
@@ -377,10 +455,12 @@ export async function handleImportSheet(request: Request) {
           .maybeSingle();
 
         let processedImageUrl = image_url || null;
+        let processedThumbnailUrl = null;
         if (image_url) {
           const processedList = await processImageLink(image_url, 1);
           if (processedList.length > 0) {
-            processedImageUrl = processedList[0];
+            processedImageUrl = processedList[0].url;
+            processedThumbnailUrl = processedList[0].thumbnail_url || processedList[0].url;
           }
         }
 
@@ -400,12 +480,16 @@ export async function handleImportSheet(request: Request) {
           allow_foreigners: allow_foreigners === true || allow_foreigners === 'Y' || allow_foreigners === 'Yes',
           allow_vinfast_electric: allow_vinfast_electric === true || allow_vinfast_electric === 'Y' || allow_vinfast_electric === 'Yes',
           image_url: processedImageUrl || '',
+          thumbnail_url: processedThumbnailUrl || null,
           deposit_terms: deposit_terms ? normalizeAreaText(deposit_terms) : null,
           washing_machine_type: washing_machine_type || 'chung',
           electricity_price: electricity_price ? Number(electricity_price) : 4000,
           water_price: water_price ? Number(water_price) : 35000,
           internet_price: internet_price ? Number(internet_price) : 100000,
           common_service_price: common_service_price ? Number(common_service_price) : 200000,
+          electric_vehicle_fee: electric_vehicle_fee ? Number(electric_vehicle_fee) : 0,
+          latitude: latitude !== undefined ? latitude : null,
+          longitude: longitude !== undefined ? longitude : null,
           updated_at: new Date().toISOString()
         };
 
@@ -428,7 +512,7 @@ export async function handleImportSheet(request: Request) {
     }
 
     // Cache to prevent downloading and uploading same Google Drive folders/files multiple times
-    const linkCache = new Map<string, string[]>();
+    const linkCache = new Map<string, ProcessedMedia[]>();
 
     // 3. IMPORT ROOMS (Phòng)
     for (const room of rooms) {
@@ -513,46 +597,48 @@ export async function handleImportSheet(request: Request) {
           }
         }
 
-        // Import room images from links (Chỉ chạy khi phòng chưa có ảnh)
-        if (!hasImages && image_urls && roomId) {
-          const urlList = String(image_urls).split(',').map((u) => u.trim()).filter(Boolean);
-          let imgIndex = 0;
-          for (const rawUrl of urlList) {
-            let processedList: string[] = [];
-            if (linkCache.has(rawUrl)) {
-              processedList = linkCache.get(rawUrl)!;
-            } else {
-              processedList = await processImageLink(rawUrl, 10);
-              linkCache.set(rawUrl, processedList);
-            }
-            for (const finalUrl of processedList) {
-              const { data: existingImg } = await supabaseAdmin
-                .from('room_images')
-                .select('id')
-                .eq('room_id', roomId)
-                .eq('url', finalUrl)
-                .maybeSingle();
-
-              if (!existingImg) {
-                const { error: imgError } = await supabaseAdmin
-                  .from('room_images')
-                  .insert({
-                    company_id: companyId,
-                    room_id: roomId,
-                    url: finalUrl,
-                    is_thumbnail: imgIndex === 0, // Đặt ảnh đầu tiên làm ảnh đại diện
-                    priority: imgIndex,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                  });
-                if (imgError) {
-                  console.error(`Lỗi chèn ảnh phòng ${code}:`, imgError.message);
-                }
+          // Import room images from links (Chỉ chạy khi phòng chưa có ảnh)
+          if (!hasImages && image_urls && roomId) {
+            const urlList = String(image_urls).split(',').map((u) => u.trim()).filter(Boolean);
+            let imgIndex = 0;
+            for (const rawUrl of urlList) {
+              let processedList: ProcessedMedia[] = [];
+              if (linkCache.has(rawUrl)) {
+                processedList = linkCache.get(rawUrl)!;
+              } else {
+                processedList = await processImageLink(rawUrl, 10);
+                linkCache.set(rawUrl, processedList);
               }
-              imgIndex++;
+              for (const media of processedList) {
+                const { data: existingImg } = await supabaseAdmin
+                  .from('room_images')
+                  .select('id')
+                  .eq('room_id', roomId)
+                  .eq('url', media.url)
+                  .maybeSingle();
+  
+                if (!existingImg) {
+                  const { error: imgError } = await supabaseAdmin
+                    .from('room_images')
+                    .insert({
+                      company_id: companyId,
+                      room_id: roomId,
+                      url: media.url,
+                      thumbnail_url: media.thumbnail_url,
+                      media_type: media.media_type,
+                      is_thumbnail: imgIndex === 0, // Đặt ảnh đầu tiên làm ảnh đại diện
+                      priority: imgIndex,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString()
+                    });
+                  if (imgError) {
+                    console.error(`Lỗi chèn ảnh phòng ${code}:`, imgError.message);
+                  }
+                }
+                imgIndex++;
+              }
             }
           }
-        }
 
         results.roomsImported++;
       } catch (err: any) {

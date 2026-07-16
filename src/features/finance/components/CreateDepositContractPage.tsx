@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useRooms } from '@/lib/hooks/useEntities';
@@ -40,6 +40,33 @@ export function CreateDepositContractPage() {
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const queryRoomId = searchParams?.get('room_id') || '';
+  const queryBuildingId = searchParams?.get('building_id') || '';
+
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((r) => {
+      if (r.status !== 'available') return false;
+      if (queryBuildingId && r.buildings?.id !== queryBuildingId) return false;
+      return true;
+    });
+  }, [rooms, queryBuildingId]);
+
+  const contextName = useMemo(() => {
+    if (roomsLoading || !rooms.length) return '';
+    if (queryRoomId) {
+      const room = rooms.find((r) => r.id === queryRoomId);
+      if (room) {
+        const landlordCode = room.buildings?.landlord_id || room.landlord_code || '—';
+        return `phòng ${room.code} [${landlordCode} - ${room.buildings?.name || ''}]`;
+      }
+    } else if (queryBuildingId) {
+      const roomInBuilding = rooms.find((r) => r.buildings?.id === queryBuildingId);
+      if (roomInBuilding) {
+        const landlordCode = roomInBuilding.buildings?.landlord_id || roomInBuilding.landlord_code || '—';
+        return `tòa nhà [${landlordCode} - ${roomInBuilding.buildings?.name || ''}]`;
+      }
+    }
+    return '';
+  }, [queryRoomId, queryBuildingId, rooms, roomsLoading]);
 
   // Form State
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
@@ -72,7 +99,7 @@ export function CreateDepositContractPage() {
   const [electricityPrice, setElectricityPrice] = useState<number>(4000);
   const [waterPrice, setWaterPrice] = useState<string>('150000/người/tháng');
   const [servicePrice, setServicePrice] = useState<string>('200000/người/tháng');
-  const [internetPrice, setInternetPrice] = useState<number>(180000);
+  const [internetPrice, setInternetPrice] = useState<number>(100000);
   const [laundryPrice, setLaundryPrice] = useState<number>(100000);
   const [tenantCount, setTenantCount] = useState<number>(4);
   const [leaseDuration, setLeaseDuration] = useState<number>(9);
@@ -117,9 +144,33 @@ export function CreateDepositContractPage() {
       }
 
       // Tự động sinh nội dung chuyển khoản
-      const cleanBuilding = buildingName.replace(/Tòa nhà|Chung cư/gi, '').trim();
       const code = room.code;
-      setTransferContent(`${code} ${cleanBuilding} coc phong`);
+      setTransferContent(`coc phong ${code} - ${address}`);
+
+      // Tự động điền giá dịch vụ từ tòa nhà
+      if (room.buildings) {
+        if (room.buildings.electricity_price !== undefined && room.buildings.electricity_price !== null) {
+          setElectricityPrice(room.buildings.electricity_price);
+        }
+        if (room.buildings.water_price !== undefined && room.buildings.water_price !== null) {
+          const unit = room.buildings.water_price > 50000 ? '/người/tháng' : '/khối';
+          setWaterPrice(`${room.buildings.water_price}${unit}`);
+        }
+        if (room.buildings.internet_price !== undefined && room.buildings.internet_price !== null) {
+          setInternetPrice(room.buildings.internet_price);
+        }
+        if (room.buildings.common_service_price !== undefined && room.buildings.common_service_price !== null) {
+          const unit = room.buildings.common_service_price > 50000 ? '/người/tháng' : '/người/tháng';
+          setServicePrice(`${room.buildings.common_service_price}${unit}`);
+        }
+        const wm = room.buildings.washing_machine_type;
+        const dt = room.buildings.dryer_type;
+        if (!wm || wm === 'không có' || !dt || dt === 'không có') {
+          setLaundryPrice(0);
+        } else {
+          setLaundryPrice(100000);
+        }
+      }
     }
   }, [selectedRoomId, rooms]);
   
@@ -262,6 +313,19 @@ export function CreateDepositContractPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Context banner */}
+        {(queryBuildingId || queryRoomId) && (
+          <div className="bg-accent/10 border border-accent/20 text-accent text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+            <Building className="h-4 w-4 shrink-0" />
+            <span>
+              Đang soạn cọc từ{' '}
+              <strong className="font-semibold">
+                {contextName || (queryRoomId ? 'phòng đang chọn' : 'tòa nhà đang chọn')}
+              </strong>
+            </span>
+          </div>
+        )}
+
         {/* Khối 1: Chọn phòng */}
         <Card className="border-border shadow-none rounded-lg bg-white border-t-2 border-t-accent">
           <CardHeader className="bg-bg-subtle/20 border-b border-border pb-4">
@@ -279,20 +343,25 @@ export function CreateDepositContractPage() {
                   <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải danh sách phòng...
                 </div>
               ) : (
-                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
-                  <SelectTrigger id="room_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
-                    <SelectValue placeholder="Chọn phòng..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
-                    {rooms
-                      .filter((r) => r.status === 'available')
-                      .map((r) => (
+                <>
+                  <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                    <SelectTrigger id="room_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
+                      <SelectValue placeholder="Chọn phòng..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
+                      {filteredRooms.map((r) => (
                         <SelectItem key={r.id} value={r.id}>
                           Phòng {r.code} - {r.buildings?.name || 'Khu vực khác'} ({Number(r.price).toLocaleString('vi-VN')}đ/tháng)
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                  {queryBuildingId && filteredRooms.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1.5 font-medium">
+                      Tòa nhà này hiện không còn phòng trống, vui lòng chọn tòa/phòng khác
+                    </p>
+                  )}
+                </>
               )}
             </div>
              <div className="space-y-1.5">
@@ -542,7 +611,7 @@ export function CreateDepositContractPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="termination_notice" className="text-ink font-semibold text-xs uppercase tracking-wider">Báo trước khi đòi nhà (ngày)</Label>
+              <Label htmlFor="termination_notice" className="text-ink font-semibold text-xs uppercase tracking-wider">Báo trước khi đòi nhà hoặc chuyển đi (ngày)</Label>
               <Input 
                 type="number" 
                 id="termination_notice" 

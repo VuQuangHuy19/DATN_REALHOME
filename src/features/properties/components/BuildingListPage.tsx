@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
+
+const LocationPickerDynamic = dynamic(() => import('./LocationPicker'), { ssr: false, loading: () => <div className="h-[300px] w-full rounded-md border bg-slate-100 animate-pulse flex items-center justify-center text-sm text-slate-500">Đang tải bản đồ...</div> });
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +44,9 @@ export function BuildingListPage() {
   const [saving, setSaving] = useState(false);
   const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   const [electricityPrice, setElectricityPrice] = useState('');
   const [waterPrice, setWaterPrice] = useState('');
@@ -173,7 +179,8 @@ export function BuildingListPage() {
       total_floors: Number(formData.get('total_floors')) || 0,
       total_rooms: Number(formData.get('total_rooms')) || 0,
       description: (formData.get('description') as string) || null,
-      image_url: imageUrl,
+      image_url: imageUrl || '',
+      thumbnail_url: thumbnailUrl || '',
       landlord_id: role === 'landlord' ? currentLandlordCode : ((formData.get('landlord_id') as string) || null),
       manager_ids: selectedManagers,
       has_elevator: formData.get('has_elevator') === 'true',
@@ -201,6 +208,8 @@ export function BuildingListPage() {
       washing_machine_type: (formData.get('washing_machine_type') as string) || 'chung',
       dryer_type: (formData.get('dryer_type') as string) || 'chung',
       electric_vehicle_fee: parseNumber(electricVehicleFee),
+      latitude,
+      longitude,
     };
 
     if (editItem) {
@@ -212,18 +221,22 @@ export function BuildingListPage() {
     setIsDialogOpen(false);
     setEditItem(null);
     setImageUrl(null);
+    setThumbnailUrl(null);
   };
 
   const openAdd = () => {
     setEditItem(null);
     setSelectedManagers([]);
     setImageUrl(null);
+    setThumbnailUrl(null);
     setElectricityPrice('4.000');
     setWaterPrice('35.000');
     setInternetPrice('100.000');
     setCommonServicePrice('200.000');
     setExtraOccupantFee('0');
     setElectricVehicleFee('0');
+    setLatitude(null);
+    setLongitude(null);
     setSelectedProvinceId('');
     setSelectedDistrictId('');
     setSelectedWardId('');
@@ -236,12 +249,15 @@ export function BuildingListPage() {
     setEditItem(item);
     setSelectedManagers(item.manager_ids || []);
     setImageUrl(item.image_url || null);
+    setThumbnailUrl(item.thumbnail_url || null);
     setElectricityPrice(formatNumber(item.electricity_price ?? 4000));
     setWaterPrice(formatNumber(item.water_price ?? 35000));
     setInternetPrice(formatNumber(item.internet_price ?? 100000));
     setCommonServicePrice(formatNumber(item.common_service_price ?? 200000));
     setExtraOccupantFee(formatNumber(item.extra_occupant_fee ?? 0));
     setElectricVehicleFee(formatNumber(item.electric_vehicle_fee ?? 0));
+    setLatitude(item.latitude ?? null);
+    setLongitude(item.longitude ?? null);
     // Reset location selects — user can re-select if they want to change area
     setSelectedProvinceId('');
     setSelectedDistrictId('');
@@ -353,6 +369,10 @@ export function BuildingListPage() {
                     <div className="space-y-1.5">
                       <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-red-500">*</span> <span className="text-ink-muted font-normal text-xs">(Số nhà, tên đường...)</span></Label>
                       <Input name="address" defaultValue={editItem?.address ?? ''} placeholder="Ví dụ: 123 Nguyễn Trãi" className="rounded-lg border-border focus-visible:ring-accent" />
+                    </div>
+                    <div className="space-y-1.5 mt-2">
+                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Tọa độ trên bản đồ</Label>
+                      <LocationPickerDynamic latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1.5">
@@ -543,7 +563,7 @@ export function BuildingListPage() {
 
                     <div className="space-y-1.5">
                       <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Hình ảnh tòa nhà</Label>
-                      <ImageUpload value={imageUrl} onChange={setImageUrl} />
+                      <ImageUpload allowVideo={true} value={imageUrl} onChange={(url, thumbUrl) => { setImageUrl(url); setThumbnailUrl(thumbUrl); }} />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Quản lý tòa nhà</Label>
@@ -609,8 +629,8 @@ export function BuildingListPage() {
                       <td className="px-6 py-4 font-mono font-medium text-ink-muted text-xs">{item.code}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          {item.image_url ? (
-                            <Image src={item.image_url} alt={item.name} width={40} height={40} className="w-10 h-10 object-cover rounded-lg border border-border flex-shrink-0" />
+                          {item.thumbnail_url || item.image_url ? (
+                            <Image src={item.thumbnail_url || item.image_url || ''} alt={item.name} width={40} height={40} className="w-10 h-10 object-cover rounded-lg border border-border flex-shrink-0" />
                           ) : (
                             <div className="w-10 h-10 bg-bg-subtle rounded-lg border border-border flex items-center justify-center text-ink-muted flex-shrink-0">
                               <Building2 className="h-5 w-5" />
@@ -671,8 +691,8 @@ export function BuildingListPage() {
                     className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3.5"
                   >
                     <div className="flex items-start gap-3">
-                      {item.image_url ? (
-                        <Image src={item.image_url} alt={item.name} width={56} height={56} className="w-14 h-14 object-cover rounded-lg border border-border flex-shrink-0" />
+                      {item.thumbnail_url || item.image_url ? (
+                        <Image src={item.thumbnail_url || item.image_url || ''} alt={item.name} width={56} height={56} className="w-14 h-14 object-cover rounded-lg border border-border flex-shrink-0" />
                       ) : (
                         <div className="w-14 h-14 bg-bg-subtle rounded-lg border border-border flex items-center justify-center text-ink-muted flex-shrink-0">
                           <Building2 className="h-6 w-6" />

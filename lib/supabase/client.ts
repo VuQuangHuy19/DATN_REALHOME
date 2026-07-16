@@ -38,8 +38,29 @@ async function getAccessToken(): Promise<string | null> {
   if (!tokenPromise) {
     tokenPromise = (async () => {
       try {
-        const res = await fetch('/api/auth/session');
+        const localToken = typeof window !== 'undefined' ? localStorage.getItem('bds_auth_token') : null;
+        const headers: Record<string, string> = {};
+        if (localToken) {
+          headers['Authorization'] = `Bearer ${localToken}`;
+        }
+        
+        const res = await fetch('/api/auth/session', { headers });
         if (!res.ok) {
+          if (localToken) {
+            // Fallback to local token if API fails (e.g. offline or cross-origin issues)
+            try {
+              const payload = JSON.parse(atob(localToken.split('.')[1]));
+              if (Date.now() < payload.exp * 1000) {
+                cachedToken = localToken;
+                tokenExpiresAt = payload.exp * 1000;
+                return cachedToken;
+              } else {
+                localStorage.removeItem('bds_auth_token');
+              }
+            } catch {
+              // ignore
+            }
+          }
           cachedToken = null;
           tokenExpiresAt = 0;
           return null;
@@ -47,6 +68,9 @@ async function getAccessToken(): Promise<string | null> {
         const data = await res.json();
         if (data.token) {
           cachedToken = data.token;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('bds_auth_token', data.token);
+          }
           // Giải mã payload JWT (không cần verify vì chỉ lấy exp để cache ở client)
           try {
             const payload = JSON.parse(atob(data.token.split('.')[1]));
@@ -58,10 +82,27 @@ async function getAccessToken(): Promise<string | null> {
         } else {
           cachedToken = null;
           tokenExpiresAt = 0;
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('bds_auth_token');
+          }
         }
         return cachedToken;
       } catch (error) {
         console.error('Lỗi khi tải token cho Supabase client:', error);
+        
+        // Offline fallback
+        const localToken = typeof window !== 'undefined' ? localStorage.getItem('bds_auth_token') : null;
+        if (localToken) {
+          try {
+            const payload = JSON.parse(atob(localToken.split('.')[1]));
+            if (Date.now() < payload.exp * 1000) {
+              cachedToken = localToken;
+              tokenExpiresAt = payload.exp * 1000;
+              return cachedToken;
+            }
+          } catch {}
+        }
+        
         return null;
       } finally {
         tokenPromise = null;

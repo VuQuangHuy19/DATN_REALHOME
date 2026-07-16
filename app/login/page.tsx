@@ -32,19 +32,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-base flex">
-      {/* Left Column: Login Form */}
-      <div className="w-full lg:w-[480px] xl:w-[540px] flex flex-col justify-center px-6 sm:px-12 py-12 bg-white border-r border-border-subtle">
-        <div className="w-full max-w-md mx-auto">
-          {/* Logo */}
-          <div className="flex flex-col items-start mb-8">
-            <Image src="/logo.png" alt="RealHome Logo" width={150} height={64} className="h-16 w-auto object-contain -ml-2" />
-          </div>
+    <div className="min-h-screen bg-bg-subtle flex flex-col justify-center items-center p-4 sm:p-6">
+      <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-xl shadow-slate-200/40 border border-border-subtle p-6 sm:p-8">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <Image src="/logo.png" alt="RealHome Logo" width={160} height={68} className="h-16 w-auto object-contain" />
+        </div>
 
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold font-heading text-ink">Đăng nhập hệ thống</h2>
-            <p className="text-ink-muted text-sm mt-1">Nhập tài khoản của bạn để truy cập vào trình quản lý.</p>
-          </div>
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl font-bold font-heading text-ink">Đăng nhập hệ thống</h2>
+          <p className="text-ink-muted text-sm mt-1.5">Nhập tài khoản của bạn để truy cập vào trình quản lý.</p>
+        </div>
 
           {error && (
             <div className="rounded-lg bg-danger/10 border border-danger/20 p-4 mb-5 text-sm text-danger font-medium leading-relaxed">
@@ -107,37 +105,15 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-8 pt-5 border-t border-border-subtle text-left">
-            <p className="text-xs text-ink-muted leading-relaxed">
-              Bạn chưa có tài khoản hoặc quên mật khẩu? Vui lòng liên hệ với Super Admin hoặc quản trị viên hệ thống của bạn để nhận sự trợ giúp.
-            </p>
-          </div>
-
-          <p className="text-left text-xs text-ink-muted mt-8">
-            RealHome &copy; {new Date().getFullYear()}. Bảo lưu mọi quyền.
+        <div className="mt-8 pt-5 border-t border-border-subtle text-center">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Bạn chưa có tài khoản hoặc quên mật khẩu? Vui lòng liên hệ với Super Admin hoặc quản trị viên hệ thống của bạn để nhận sự trợ giúp.
           </p>
         </div>
-      </div>
 
-      {/* Right Column: Premium Brand/Illustration */}
-      <div className="hidden lg:flex flex-1 relative bg-gradient-to-br from-accent-900 to-indigo-950 items-center justify-center p-12 text-white overflow-hidden">
-        {/* Decorative Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-        <div className="absolute -left-1/4 -top-1/4 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute -right-1/4 -bottom-1/4 w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="relative z-10 max-w-lg text-center space-y-6">
-          <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm font-semibold select-none">
-            <Building2 className="h-4 w-4 text-accent-500" />
-            Giải pháp Quản lý Bất động sản
-          </div>
-          <h2 className="text-4xl text-white/80 font-extrabold font-heading leading-tight tracking-tight">
-            Quản lý Bất động sản Tinh Gọn, Hiệu Quả & Hiện Đại
-          </h2>
-          <p className="text-white/80 leading-relaxed text-base">
-            Hệ thống quản lý chuỗi phòng trọ và căn hộ dịch vụ toàn diện. Theo dõi phòng trống, quản lý hóa đơn, đặt lịch hẹn và hợp đồng thuê tự động chỉ trên một nền tảng duy nhất.
-          </p>
-        </div>
+        <p className="text-center text-xs text-ink-muted mt-6">
+          RealHome &copy; {new Date().getFullYear()}. Bảo lưu mọi quyền.
+        </p>
       </div>
     </div>
   );

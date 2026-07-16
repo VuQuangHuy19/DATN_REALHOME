@@ -9,3 +9,6 @@ export const LISTING_STATUS_LABELS: Record<string, string> = {
   reserved: 'Đang giữ',
   soon_available: 'Sắp trống',
 };
+
+export const DEPOSIT_COMPOSER_ROLES = ['sales_agent', 'company_admin', 'manager', 'landlord'] as const;
+

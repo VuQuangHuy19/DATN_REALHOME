@@ -9,6 +9,8 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Home, Search, Heart, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { CompareProvider } from '@/src/lib/customer/RoomCompareContext';
+import { RoomComparisonDrawer } from '@/src/features/properties/components/RoomComparisonDrawer';
 
 function MobileBottomNav() {
   const pathname = usePathname();
@@ -58,10 +60,13 @@ function MobileBottomNav() {
 function CustomerShell({ children }: { children: React.ReactNode }) {
   return (
     <CustomerCompanyProvider>
-      <CustomerHeader />
-      <main className="flex-1 pb-16 lg:pb-0">{children}</main>
-      <MobileBottomNav />
-      <CustomerFooter />
+      <CompareProvider>
+        <CustomerHeader />
+        <main className="flex-1 pb-16 lg:pb-0">{children}</main>
+        <MobileBottomNav />
+        <RoomComparisonDrawer />
+        <CustomerFooter />
+      </CompareProvider>
     </CustomerCompanyProvider>
   );
 }

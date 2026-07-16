@@ -39,13 +39,13 @@ export function SuperAdminSidebar() {
 
       <aside className={cn(
         'fixed inset-y-0 left-0 z-40 w-64 flex flex-col',
-        'bg-[hsl(var(--accent-900))] border-r border-white/8 transition-transform duration-300 ease-in-out md:translate-x-0',
+        'bg-accent-900 border-r border-white/8 transition-transform duration-300 ease-in-out md:translate-x-0',
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         {/* Brand header */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10 bg-white/5">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-[hsl(var(--accent-500))]/20 flex-shrink-0">
-            <Shield className="h-4.5 w-4.5 text-[hsl(var(--accent-500))]" />
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-[#3E7CC2]/20 flex-shrink-0">
+            <Shield className="h-4.5 w-4.5 text-accent-500" />
           </div>
           <div>
             <span className="text-sm font-bold text-white block leading-tight tracking-tight">Super Admin</span>
@@ -66,11 +66,11 @@ export function SuperAdminSidebar() {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-150 rounded-r-lg rounded-l-none',
                   active
-                    ? 'bg-white/10 text-white font-semibold border-l-2 border-[hsl(var(--accent-500))] pl-2.5'
+                    ? 'bg-white/10 text-white font-semibold border-l-2 border-accent-500 pl-2.5'
                     : 'text-white/60 hover:bg-white/6 hover:text-white/90 rounded-lg border-l-2 border-transparent pl-2.5'
                 )}
               >
-                <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-[hsl(var(--accent-500))]' : 'text-white/40')} />
+                <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-accent-500' : 'text-white/40')} />
                 {item.label}
               </Link>
             );

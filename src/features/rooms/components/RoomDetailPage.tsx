@@ -97,19 +97,26 @@ export function RoomDetailPage() {
     updatePriority
   } = useRoomImages(roomId);
 
-  const handleImageUploaded = async (urls: string | string[] | null) => {
+  const handleImageUploaded = async (urls: string | string[] | null, thumbUrls?: string | string[] | null, mediaTypes?: string | string[] | null) => {
     if (!urls || !room) return;
     const urlList = Array.isArray(urls) ? urls : [urls];
+    const thumbList = Array.isArray(thumbUrls) ? thumbUrls : (thumbUrls ? [thumbUrls] : []);
+    const mediaTypeList = Array.isArray(mediaTypes) ? mediaTypes : (mediaTypes ? [mediaTypes] : []);
     try {
       let currentLength = images.length;
-      for (const url of urlList) {
+      for (let i = 0; i < urlList.length; i++) {
+        const url = urlList[i];
+        const thumbnail_url = thumbList[i] || url;
+        const media_type = mediaTypeList[i] || 'image';
         const isFirst = currentLength === 0;
         await addImg({
           company_id: company?.id ?? null,
           room_id: room.id,
           url,
+          thumbnail_url,
           is_thumbnail: isFirst,
           priority: currentLength,
+          media_type,
         });
         currentLength++;
       }
@@ -125,7 +132,10 @@ export function RoomDetailPage() {
       const urlParts = url.split(`/storage/v1/object/public/room_images/`);
       if (urlParts.length === 2) {
         const filePath = urlParts[1];
-        await supabase.storage.from('room_images').remove([filePath]);
+        const fileExt = filePath.split('.').pop();
+        const baseName = filePath.replace(/\.[^/.]+$/, '');
+        const thumbPath = `${baseName}-thumb.${fileExt}`;
+        await supabase.storage.from('room_images').remove([filePath, thumbPath]);
       }
       await removeImg(imgId);
       toast.success('Đã xóa hình ảnh phòng');
@@ -338,9 +348,10 @@ export function RoomDetailPage() {
                       >
                         <div className="relative w-full h-16 border-b border-border">
                           <Image
-                            src={img.url}
+                            src={img.thumbnail_url || img.url}
                             alt="Room"
                             fill
+                            sizes="(max-width: 768px) 50vw, 200px"
                             className="object-cover"
                           />
                         </div>
@@ -385,7 +396,7 @@ export function RoomDetailPage() {
                 )}
 
                 <div className="border-t border-border pt-4">
-                  <ImageUpload
+                  <ImageUpload allowVideo={true}
                     value={null}
                     onChange={handleImageUploaded}
                     bucket="room_images"
@@ -583,7 +594,7 @@ export function RoomDetailPage() {
                           }`}
                       >
                         <Image
-                          src={img.url}
+                          src={img.thumbnail_url || img.url}
                           alt="Room preview"
                           width={56}
                           height={40}
@@ -627,7 +638,7 @@ export function RoomDetailPage() {
                 )}
 
                 <div className="pt-1">
-                  <ImageUpload
+                  <ImageUpload allowVideo={true}
                     value={null}
                     onChange={handleImageUploaded}
                     bucket="room_images"

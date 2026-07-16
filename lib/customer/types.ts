@@ -16,6 +16,8 @@ export interface CustomerListing {
   yearBuilt: number | null;
   imageUrl: string;
   imageUrls?: string[];
+  thumbnailUrl: string;
+  thumbnailUrls?: string[];
   companyId: string;
   hasElevator?: boolean;
   pcccCertified?: boolean;
@@ -41,6 +43,8 @@ export interface CustomerListing {
   depositTerms?: string | null;
   districtId?: string | null;
   wardId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface PublicCompany {

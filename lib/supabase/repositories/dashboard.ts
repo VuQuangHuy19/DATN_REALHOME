@@ -293,6 +293,10 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   const todayStr = now.toISOString().slice(0, 10);
   const currentPeriod = now.toISOString().slice(0, 7); // 'YYYY-MM'
   const startOfMonth = currentPeriod + '-01';
+  
+  const in30Days = new Date(now);
+  in30Days.setDate(in30Days.getDate() + 30);
+  const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
   const [
     myLeads,
@@ -301,6 +305,7 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     availableRooms,
     notifications,
     employeeKpis,
+    expiringContracts,
   ] = await Promise.all([
     // Leads được giao cho sale này
     supabase
@@ -347,12 +352,28 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .eq('employee_id', saleId)
       .eq('period', currentPeriod)
       .maybeSingle(),
+    // Hợp đồng sắp hết hạn trong 30 ngày tới do sale phụ trách
+    supabase
+      .from('rental_contracts')
+      .select('id, contract_code, party_b_name, party_b_phone, end_date, room_id, rooms(id, code, building_id, buildings(name))')
+      .eq('company_id', companyId)
+      .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
+      .eq('status', 'active')
+      .gte('end_date', todayStr)
+      .lte('end_date', in30DaysStr)
+      .order('end_date', { ascending: true }),
   ]);
 
   const leadsData = (myLeads.data ?? []) as any[];
   const appointmentsData = (myAppointments.data ?? []) as any[];
   const contractsData = (myContracts.data ?? []) as any[];
   const roomsData = (availableRooms.data ?? []) as any[];
+  
+  if (expiringContracts?.error) {
+    console.error('Error fetching expiring contracts:', expiringContracts.error);
+  }
+  const expiringContractsData = (expiringContracts?.data ?? []) as any[];
+  const roomsEndingSoon = expiringContractsData.map((c: any) => c.rooms).filter(Boolean);
 
   // Phân loại leads theo trạng thái CRM
   const newLeads = leadsData.filter(l => l.status === 'new').length;
@@ -397,6 +418,9 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     unreadNotifications: notifications.count ?? 0,
     // KPI
     employeeKpis: employeeKpis.data || null,
+    // Expiring contracts
+    expiringContracts: expiringContractsData,
+    roomsEndingSoon,
   };
 }
 

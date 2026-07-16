@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,12 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicBuilding, usePublicListingsByBuilding } from '@/lib/hooks/usePublicListings';
-import { PLACEHOLDER_LISTING_IMAGE } from '@/lib/customer/constants';
+import { PLACEHOLDER_LISTING_IMAGE, DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import { getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useCompare } from '@/src/lib/customer/RoomCompareContext';
 import {
   MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2,
-  ChevronLeft, ChevronRight, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign
+  ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText
 } from 'lucide-react';
 
 const statusLabels: Record<string, string> = {
@@ -27,11 +28,7 @@ const statusLabels: Record<string, string> = {
   reserved: 'Đặt trước',
 };
 
-const isVideoUrl = (url: string) => {
-  if (!url) return false;
-  const cleanUrl = url.toLowerCase().split('?')[0];
-  return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.webm');
-};
+import ImageGallery from '@/src/features/properties/components/ImageGallery';
 
 export default function BuildingDetailPage() {
   const params = useParams();
@@ -39,16 +36,18 @@ export default function BuildingDetailPage() {
   const buildingId = params.id as string;
   const { company } = useCustomerCompany();
   const { role } = useAuth();
+  const { rooms: compareRooms, addRoom, removeRoom } = useCompare();
   
   // Logged-in users or sales agents can see all rooms (including rented/maintenance)
   const showAll = !!role;
+  const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
+  const contractsBasePath = role === 'landlord' ? '/landlord' : '/admin';
 
   const { building, loading: buildingLoading, error: buildingError } = usePublicBuilding(buildingId);
   const { listings: rooms, loading: roomsLoading, error: roomsError } = usePublicListingsByBuilding(buildingId, showAll);
 
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Dialog for viewing request targets a specific room
   const [isViewingOpen, setIsViewingOpen] = useState(false);
@@ -64,10 +63,7 @@ export default function BuildingDetailPage() {
   const loading = buildingLoading || roomsLoading;
   const error = buildingError || roomsError;
 
-  // Reset indices or filters on loading finished
-  useEffect(() => {
-    setActiveImageIndex(0);
-  }, [buildingId]);
+
 
   // Unique floors array for dropdown filter
   const floorOptions = useMemo(() => {
@@ -129,13 +125,7 @@ export default function BuildingDetailPage() {
     imagesList = uniqueRoomImages;
   }
 
-  const handleNextImage = () => {
-    setActiveImageIndex((prev) => (prev + 1) % imagesList.length);
-  };
 
-  const handlePrevImage = () => {
-    setActiveImageIndex((prev) => (prev - 1 + imagesList.length) % imagesList.length);
-  };
 
   const handleOpenViewingRequest = (e: React.MouseEvent, room: any) => {
     e.stopPropagation();
@@ -157,61 +147,9 @@ export default function BuildingDetailPage() {
         </Link>
       </div>
 
-      {/* Image Slider / Carousel */}
-      <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle flex items-center justify-center">
-        {isVideoUrl(imagesList[activeImageIndex]) ? (
-          <video
-            src={imagesList[activeImageIndex]}
-            controls
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <Image
-            src={imagesList[activeImageIndex]}
-            alt={`${building.name} - Ảnh ${activeImageIndex + 1}`}
-            fill
-            className="object-contain transition-all duration-500 ease-in-out"
-            priority
-          />
-        )}
-        
-        {/* Navigation Arrows */}
-        {imagesList.length > 1 && (
-          <>
-            <button
-              onClick={handlePrevImage}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
-              aria-label="Ảnh trước"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-            <button
-              onClick={handleNextImage}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
-              aria-label="Ảnh sau"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-          </>
-        )}
-
-        {/* Indicators Dots */}
-        {imagesList.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-            {imagesList.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveImageIndex(index)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  index === activeImageIndex
-                    ? 'bg-white w-4'
-                    : 'bg-white/50 hover:bg-white/80'
-                }`}
-                aria-label={`Chuyển đến ảnh ${index + 1}`}
-              />
-            ))}
-          </div>
-        )}
+      {/* Image Gallery */}
+      <div className="mb-8">
+        <ImageGallery items={imagesList} alt={building.name} aspectRatio="detail" priority />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -422,6 +360,7 @@ export default function BuildingDetailPage() {
                     status: room.status === 'soon_available' ? 'rented' : room.status,
                     description: room.description,
                   } as any);
+                  const isComparing = compareRooms.some(r => r.id === room.id);
 
                   return (
                     <Link
@@ -432,9 +371,10 @@ export default function BuildingDetailPage() {
                       {/* Room Card Thumbnail */}
                       <div className="relative h-44 w-full bg-slate-100">
                         <Image
-                          src={room.imageUrl}
+                          src={room.thumbnailUrl || room.imageUrl}
                           alt={room.title}
                           fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 350px"
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1">
@@ -474,19 +414,27 @@ export default function BuildingDetailPage() {
                           {/* Actions */}
                           <div className="flex gap-1">
                             <Button
+                              variant="outline"
+                              size="sm"
+                              className={`h-7 px-2 text-[10px] font-bold rounded ${isComparing ? 'border-accent text-accent bg-accent/10' : 'text-ink border-border-subtle hover:bg-bg-subtle'}`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (isComparing) {
+                                  removeRoom(room.id);
+                                } else {
+                                  addRoom(room);
+                                }
+                              }}
+                            >
+                              {isComparing ? 'Đã so sánh' : '+ So sánh'}
+                            </Button>
+                            <Button
                               size="sm"
                               className="h-7 px-2.5 text-[10px] font-bold bg-accent hover:bg-accent-500 text-white rounded"
                               onClick={(e) => handleOpenViewingRequest(e, room)}
                             >
                               Hẹn xem
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2.5 text-[10px] font-bold text-ink border-border-subtle rounded hover:bg-bg-subtle"
-                              onClick={handleOpenContact}
-                            >
-                              Liên hệ
                             </Button>
                           </div>
                         </div>
@@ -554,6 +502,16 @@ export default function BuildingDetailPage() {
 
               {/* Contact Button */}
               <div className="space-y-3 pt-2">
+                {canComposeDeposit && (
+                  <Button
+                    className="w-full bg-accent hover:bg-accent-500 text-white font-semibold rounded-lg"
+                    size="lg"
+                    onClick={() => router.push(`${contractsBasePath}/contracts/create?building_id=${buildingId}`)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Soạn cọc
+                  </Button>
+                )}
                 <Button variant="outline" className="w-full text-ink border-border-subtle shadow-none rounded-lg" size="lg" onClick={handleOpenContact}>
                   <Phone className="h-4 w-4 mr-2" />
                   Liên Hệ Môi Giới

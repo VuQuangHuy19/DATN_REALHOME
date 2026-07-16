@@ -23,7 +23,13 @@ export async function middleware(request: NextRequest) {
 
   // 2. Đọc token JWT tùy chỉnh từ HTTP-only cookie
   // Cookie JWT_SECRET được dùng ở server-side để giải mã và kiểm tra chữ ký ở hàm verifyJWT
-  const token = request.cookies.get('auth_token')?.value;
+  let token = request.cookies.get('auth_token')?.value;
+  if (!token) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
   const user = token ? await verifyJWT(token) : null;
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));

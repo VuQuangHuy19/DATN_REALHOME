@@ -372,7 +372,8 @@ export function ContractsPage() {
                           </td>
                           <td className="px-4 py-3">
                             {(() => {
-                              const saleProfile = item.created_by ? profilesMap.get(item.created_by) : null;
+                              const agentId = item.sales_agent_id || item.created_by;
+                              const saleProfile = agentId ? profilesMap.get(agentId) : null;
                               if (!saleProfile) return <span className="font-semibold text-ink-muted text-xs">Hệ thống</span>;
                               return (
                                 <>
@@ -568,7 +569,8 @@ export function ContractsPage() {
                           </td>
                           <td className="px-4 py-3">
                             {(() => {
-                              const saleProfile = item.created_by ? profilesMap.get(item.created_by) : null;
+                              const agentId = item.sales_agent_id || item.created_by;
+                              const saleProfile = agentId ? profilesMap.get(agentId) : null;
                               if (!saleProfile) return <span className="font-semibold text-ink-muted text-xs">Hệ thống</span>;
                               return (
                                 <>
@@ -739,7 +741,8 @@ export function ContractsPage() {
                 <div>
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Nhân viên Sale:</span>
                   {(() => {
-                    const saleProfile = viewDeposit.created_by ? profilesMap.get(viewDeposit.created_by) : null;
+                    const agentId = viewDeposit.sales_agent_id || viewDeposit.created_by;
+                    const saleProfile = agentId ? profilesMap.get(agentId) : null;
                     if (!saleProfile) return <span className="font-semibold text-ink text-xs">Hệ thống</span>;
                     return (
                       <>
@@ -836,7 +839,7 @@ export function ContractsPage() {
                       <div className="space-y-1">
                         <span className="text-ink-muted block text-xs font-medium">Ảnh dẫn khách xem phòng:</span>
                         <a href={viewDeposit.lead_view_image_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90 transition-opacity relative w-full h-[250px]">
-                          <Image src={viewDeposit.lead_view_image_url} alt="Ảnh dẫn khách" fill className="object-cover" />
+                          <Image src={viewDeposit.lead_view_image_url} alt="Ảnh dẫn khách" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
                         </a>
                       </div>
                     )}
@@ -844,7 +847,7 @@ export function ContractsPage() {
                       <div className="space-y-1">
                         <span className="text-ink-muted block text-xs font-medium">Ảnh hóa đơn chuyển khoản đặt cọc:</span>
                         <a href={viewDeposit.transfer_proof_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90 transition-opacity relative w-full h-[250px]">
-                          <Image src={viewDeposit.transfer_proof_url} alt="Ảnh chuyển khoản cọc" fill className="object-cover" />
+                          <Image src={viewDeposit.transfer_proof_url} alt="Ảnh chuyển khoản cọc" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
                         </a>
                       </div>
                     )}
@@ -901,7 +904,8 @@ export function ContractsPage() {
                 <div>
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Nhân viên Sale:</span>
                   {(() => {
-                    const saleProfile = viewRental.created_by ? profilesMap.get(viewRental.created_by) : null;
+                    const agentId = viewRental.sales_agent_id || viewRental.created_by;
+                    const saleProfile = agentId ? profilesMap.get(agentId) : null;
                     if (!saleProfile) return <span className="font-semibold text-ink text-xs">Hệ thống</span>;
                     return (
                       <>

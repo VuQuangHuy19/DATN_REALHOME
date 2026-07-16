@@ -28,6 +28,7 @@ type RoomRow = {
     address: string | null;
     year_built: number | null;
     image_url: string | null;
+    thumbnail_url?: string | null;
     description: string | null;
     deposit_terms?: string | null;
     has_elevator?: boolean | null;
@@ -46,8 +47,10 @@ type RoomRow = {
     has_dressing_table?: boolean | null;
     district_id?: string | null;
     ward_id?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
   } | null;
-  room_images?: { url: string; is_thumbnail: boolean; priority: number }[] | null;
+  room_images?: { url: string; thumbnail_url?: string | null; is_thumbnail: boolean; priority: number; media_type?: string }[] | null;
   rental_contracts?: any[] | null;
 };
 
@@ -58,17 +61,47 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
   const buildingName = building?.name ?? 'Tòa nhà';
   const roomType = room.room_type ?? 'Phòng';
 
+  const isVideoStr = (url: string) => {
+    if (!url) return false;
+    const cleanUrl = url.toLowerCase().split('?')[0];
+    return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.webm');
+  };
+
   // Chọn ảnh đại diện từ room_images hoặc fallback về ảnh của Tòa nhà
-  let imageUrl = building?.image_url || PLACEHOLDER_LISTING_IMAGE;
+  let buildingImage = building?.image_url;
+  let buildingThumbnail = building?.thumbnail_url || building?.image_url;
+  if (buildingImage && isVideoStr(buildingImage)) {
+    buildingImage = PLACEHOLDER_LISTING_IMAGE;
+    buildingThumbnail = PLACEHOLDER_LISTING_IMAGE;
+  }
+
+  let imageUrl = buildingImage || PLACEHOLDER_LISTING_IMAGE;
   let imageUrls: string[] = [];
+  let thumbnailUrl = buildingThumbnail || PLACEHOLDER_LISTING_IMAGE;
+  let thumbnailUrls: string[] = [];
+
   if (room.room_images && room.room_images.length > 0) {
     const sorted = [...room.room_images].sort((a, b) => a.priority - b.priority);
     imageUrls = sorted.map((img) => img.url);
-    const thumbnail = sorted.find((img) => img.is_thumbnail);
-    imageUrl = thumbnail ? thumbnail.url : sorted[0].url;
+    thumbnailUrls = sorted.map((img) => img.thumbnail_url || img.url);
+    
+    let coverImg = sorted.find((img) => img.is_thumbnail && img.media_type !== 'video' && !isVideoStr(img.url));
+    if (!coverImg) {
+      coverImg = sorted.find((img) => img.media_type !== 'video' && !isVideoStr(img.url));
+    }
+
+    if (coverImg) {
+      imageUrl = coverImg.url;
+      thumbnailUrl = coverImg.thumbnail_url || coverImg.url;
+    } else {
+      imageUrl = buildingImage || PLACEHOLDER_LISTING_IMAGE;
+      thumbnailUrl = buildingThumbnail || PLACEHOLDER_LISTING_IMAGE;
+    }
   } else {
-    imageUrl = building?.image_url || PLACEHOLDER_LISTING_IMAGE;
+    imageUrl = buildingImage || PLACEHOLDER_LISTING_IMAGE;
     imageUrls = [imageUrl];
+    thumbnailUrl = buildingThumbnail || PLACEHOLDER_LISTING_IMAGE;
+    thumbnailUrls = [thumbnailUrl];
   }
 
   const ds = getRoomDisplayStatus(room as any, room.rental_contracts || []);
@@ -92,6 +125,8 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     yearBuilt: building?.year_built ?? null,
     imageUrl,
     imageUrls,
+    thumbnailUrl,
+    thumbnailUrls,
     companyId: room.company_id,
     landlordId: room.landlord_id ?? null,
     buildingCode: room.building_id ?? null,
@@ -116,5 +151,7 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     hasDressingTable: building?.has_dressing_table ?? undefined,
     districtId: building?.district_id ?? null,
     wardId: building?.ward_id ?? null,
+    latitude: building?.latitude ?? null,
+    longitude: building?.longitude ?? null,
   };
 }

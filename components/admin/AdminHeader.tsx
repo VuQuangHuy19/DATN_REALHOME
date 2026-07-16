@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useNotifications } from '@/lib/hooks/useNotifications';
+import WebPushManager from '@/src/features/notifications/components/WebPushManager';
 
 export function AdminHeader() {
   const { profile, company, signOut, user } = useAuth();
@@ -28,6 +29,8 @@ export function AdminHeader() {
       </div>
 
       <div className="flex items-center gap-3">
+        <WebPushManager />
+
         <Button variant="ghost" size="icon" className="relative" asChild>
           <Link href="/admin/system/notifications">
             <Bell className="h-5 w-5 text-ink-muted" />

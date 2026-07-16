@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { normalizePhoneVN, isValidVNPhone } from '@/lib/phone';
 import { isValidCustomerName } from '@/lib/validators';
+import { notify } from '@/lib/notifications/notify';
 
 export async function POST(request: Request) {
   // ── 1. Rate limit: 5 request / 10 phút / IP ──────────────────────────────
@@ -145,6 +146,17 @@ export async function POST(request: Request) {
         console.error('Lỗi khi tạo lead activity:', actError);
       }
     }
+
+    // 5. Gửi thông báo cho toàn bộ nhân sự công ty (in_app + push)
+    await notify({
+      companyId,
+      recipientId: null, // Gửi cho tất cả (trừ landlord/tenant dựa trên logic notify/policy)
+      type: 'lead_new',
+      title: 'Lịch hẹn mới từ website',
+      message: `Khách hàng ${customerName} (${normalizedPhone}) vừa đặt lịch xem phòng ${property.title} lúc ${viewingTime} ngày ${normalizedDate}.`,
+      channels: ['in_app', 'push'],
+      link: '/admin/appointments', // Link trỏ tới trang quản lý lịch hẹn
+    });
 
     return NextResponse.json({ success: true, appointment }, { status: 201 });
   } catch (error: unknown) {

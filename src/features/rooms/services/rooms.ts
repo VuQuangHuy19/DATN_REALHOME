@@ -5,7 +5,19 @@ type RoomInsert = Omit<DBRoom, 'id' | 'created_at' | 'updated_at'>;
 type RoomUpdate = Partial<RoomInsert>;
 
 export type RoomWithBuilding = DBRoom & { 
-  buildings: { name: string; area: string; address: string | null; landlord_id: string | null } | null;
+  buildings: {
+    id: string;
+    name: string;
+    area: string;
+    address: string | null;
+    landlord_id: string | null;
+    electricity_price?: number | null;
+    water_price?: number | null;
+    internet_price?: number | null;
+    common_service_price?: number | null;
+    washing_machine_type?: string | null;
+    dryer_type?: string | null;
+  } | null;
   landlord_code?: string | null;
 };
 
@@ -17,8 +29,8 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
   }
 
   const selectQuery = filterLandlordCode 
-    ? '*, buildings!inner(name, area, address, landlord_id)' 
-    : '*, buildings(name, area, address, landlord_id)';
+    ? '*, buildings!inner(id, name, area, address, landlord_id, electricity_price, water_price, internet_price, common_service_price, washing_machine_type, dryer_type)' 
+    : '*, buildings(id, name, area, address, landlord_id, electricity_price, water_price, internet_price, common_service_price, washing_machine_type, dryer_type)';
 
   let q = supabase
     .from('rooms')

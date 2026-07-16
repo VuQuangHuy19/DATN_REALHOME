@@ -91,18 +91,18 @@ function OnboardingForm() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full">
       {/* Logo */}
-      <div className="flex flex-col items-start mb-8">
-        <Image src="/logo.png" alt="RealHome Logo" width={150} height={64} className="h-16 w-auto object-contain -ml-2" />
+      <div className="flex flex-col items-center mb-8">
+        <Image src="/logo.png" alt="RealHome Logo" width={160} height={68} className="h-16 w-auto object-contain" />
       </div>
 
-      <div className="mb-6">
-        <div className="flex items-center gap-1.5 text-accent mb-1 font-bold text-xs uppercase tracking-wider">
+      <div className="mb-6 text-center">
+        <div className="inline-flex items-center justify-center gap-1.5 text-accent mb-2 font-bold text-xs uppercase tracking-wider">
           <ShieldCheck className="h-4 w-4" /> Thiết lập tài khoản
         </div>
         <h2 className="text-2xl font-bold font-heading text-ink">Kích hoạt tài khoản quản trị</h2>
-        <p className="text-ink-muted text-sm mt-1">
+        <p className="text-ink-muted text-sm mt-1.5">
           Đặt mật khẩu đăng nhập cho tài khoản của bạn để hoàn tất quá trình kích hoạt.
         </p>
       </div>
@@ -165,7 +165,7 @@ function OnboardingForm() {
         </Button>
       </form>
 
-      <p className="text-left text-xs text-ink-muted mt-8">
+      <p className="text-center text-xs text-ink-muted mt-8">
         RealHome &copy; {new Date().getFullYear()}. Bảo lưu mọi quyền.
       </p>
     </div>
@@ -174,12 +174,11 @@ function OnboardingForm() {
 
 export default function OnboardingPage() {
   return (
-    <div className="min-h-screen bg-bg-base flex">
-      {/* Left Column: Form Container */}
-      <div className="w-full lg:w-[480px] xl:w-[540px] flex flex-col justify-center px-6 sm:px-12 py-12 bg-white border-r border-border-subtle">
+    <div className="min-h-screen bg-bg-subtle flex flex-col justify-center items-center p-4 sm:p-6">
+      <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-xl shadow-slate-200/40 border border-border-subtle p-6 sm:p-8">
         <Suspense
           fallback={
-            <div className="max-w-md w-full mx-auto text-center space-y-4 py-12">
+            <div className="w-full text-center space-y-4 py-12">
               <Loader2 className="h-8 w-8 animate-spin text-accent mx-auto" />
               <p className="text-sm text-ink-muted">Đang khởi tạo phiên kích hoạt...</p>
             </div>
@@ -187,27 +186,6 @@ export default function OnboardingPage() {
         >
           <OnboardingForm />
         </Suspense>
-      </div>
-
-      {/* Right Column: Decorative Brand Graphic */}
-      <div className="hidden lg:flex flex-1 relative bg-gradient-to-br from-accent-900 to-indigo-950 items-center justify-center p-12 text-white overflow-hidden">
-        {/* Decorative Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-        <div className="absolute -left-1/4 -top-1/4 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute -right-1/4 -bottom-1/4 w-[600px] h-[600px] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none" />
-
-        <div className="relative z-10 max-w-lg text-center space-y-6">
-          <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm font-semibold select-none">
-            <Building2 className="h-4 w-4 text-accent-500" />
-            Đồng hành cùng Doanh nghiệp
-          </div>
-          <h2 className="text-4xl font-extrabold font-heading leading-tight tracking-tight">
-            Chào mừng bạn đến với Hệ sinh thái RealHome
-          </h2>
-          <p className="text-white/80 leading-relaxed text-base">
-            Chỉ còn một bước cuối cùng để kích hoạt công cụ quản trị mạnh mẽ. Thiết lập mật khẩu bảo mật của bạn và bắt đầu số hóa quy trình kinh doanh bất động sản ngay hôm nay.
-          </p>
-        </div>
       </div>
     </div>
   );

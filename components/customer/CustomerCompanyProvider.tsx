@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { resolveCompaniesFromSources } from '@/lib/supabase/repositories/tenant';
 import type { PublicCompany } from '@/lib/supabase/repositories/tenant';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 type CustomerCompanyContextValue = {
   company: PublicCompany | null;
@@ -25,6 +26,7 @@ export function useCustomerCompany() {
 
 export function CustomerCompanyProvider({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
+  const { profile, loading: authLoading } = useAuth();
 
   // Query param: ?company=<domain> — dùng cho local dev / testing
   const queryParam = searchParams?.get('company');
@@ -35,6 +37,8 @@ export function CustomerCompanyProvider({ children }: { children: React.ReactNod
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
     setLoading(true);
 
     // Đọc subdomain từ meta tag được inject bởi layout (server-side header → meta)
@@ -59,9 +63,24 @@ export function CustomerCompanyProvider({ children }: { children: React.ReactNod
 
     resolveCompaniesFromSources({ subdomain, queryParam })
       .then((resolved) => {
-        setCompanies(resolved);
-        setCompany(resolved.length > 0 ? resolved[0] : null);
-        setError(resolved.length > 0 ? null : 'Không tìm thấy công ty');
+        let finalCompanies = resolved;
+
+        // Nếu user đang đăng nhập và là nhân sự của công ty, chỉ hiển thị công ty của họ
+        if (profile?.company_id && ['company_admin', 'manager', 'sales_agent'].includes(profile.role)) {
+          finalCompanies = resolved.filter(c => c.id === profile.company_id);
+          
+          // Nếu ở root domain mà bị filter mất (hoặc queryParam khác), ta có thể lấy company bằng API
+          // Nhưng resolveCompaniesFromSources mặc định trả về ALL ở root domain, nên filter sẽ ra 1 company của user.
+        }
+
+        setCompanies(finalCompanies);
+        setCompany(finalCompanies.length > 0 ? finalCompanies[0] : null);
+        
+        if (finalCompanies.length === 0 && resolved.length > 0) {
+          setError('Bạn không có quyền xem thông tin công ty này.');
+        } else {
+          setError(finalCompanies.length > 0 ? null : 'Không tìm thấy công ty');
+        }
       })
       .catch((e) => {
         setCompanies([]);
@@ -69,7 +88,7 @@ export function CustomerCompanyProvider({ children }: { children: React.ReactNod
         setError(e.message);
       })
       .finally(() => setLoading(false));
-  }, [queryParam]);
+  }, [queryParam, authLoading, profile?.company_id, profile?.role]);
 
   return (
     <CustomerCompanyContext.Provider value={{ company, companies, loading, error }}>

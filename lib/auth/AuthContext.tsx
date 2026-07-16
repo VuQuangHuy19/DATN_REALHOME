@@ -62,7 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Lấy session tùy chỉnh từ API route nội bộ khi tải lại trang
-    fetch('/api/auth/session')
+    const localToken = typeof window !== 'undefined' ? localStorage.getItem('bds_auth_token') : null;
+    const headers: Record<string, string> = {};
+    if (localToken) {
+      headers['Authorization'] = `Bearer ${localToken}`;
+    }
+
+    fetch('/api/auth/session', { headers })
       .then((res) => res.json())
       .then((data) => {
         if (data.user) {
@@ -94,6 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
+        if (data.token && typeof window !== 'undefined') {
+          localStorage.setItem('bds_auth_token', data.token);
+        }
         hydrateUser(data.user, data.profile, data.company, data.permissions);
 
         // Điều hướng dựa trên vai trò
@@ -120,6 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (err) {
       console.error('Lỗi khi thực hiện đăng xuất:', err);
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('bds_auth_token');
     }
     setState({ user: null, profile: null, company: null, role: null, permissions: [], loading: false });
     router.push('/customer/properties');

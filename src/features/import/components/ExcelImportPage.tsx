@@ -85,6 +85,18 @@ export function ExcelImportPage() {
     return match ? Number(match[1]) : null;
   };
 
+  // Helper to parse deposit terms and map abbreviations like "1 cọc 1" to "đóng 1 cọc 1"
+  const parseDepositTerms = (val: any): string => {
+    if (val === null || val === undefined) return 'đóng 1 cọc 1';
+    const str = String(val).toLowerCase().trim();
+    if (!str) return 'đóng 1 cọc 1';
+    
+    if (str === '1 cọc 1' || str === '1 coc 1' || str.includes('1 cọc 1') || str.includes('1 coc 1')) {
+      return 'đóng 1 cọc 1';
+    }
+    return String(val).trim();
+  };
+
   // Helper to normalize area/size texts like "25m2" or "25 m2" to "25 m²"
   const normalizeAreaText = (text: any): string => {
     if (text === null || text === undefined) return '';
@@ -224,6 +236,23 @@ export function ExcelImportPage() {
     return null;
   };
 
+  // Helper to parse latitude and longitude from string
+  const parseLocation = (val: any): { lat: number | null; lng: number | null } => {
+    if (!val) return { lat: null, lng: null };
+    const str = String(val).trim();
+    // Google Maps URL with @lat,lng
+    const urlMatch = str.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (urlMatch) {
+      return { lat: Number(urlMatch[1]), lng: Number(urlMatch[2]) };
+    }
+    // Direct coordinate: "21.028511, 105.804817"
+    const coordMatch = str.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+    if (coordMatch) {
+      return { lat: Number(coordMatch[1]), lng: Number(coordMatch[2]) };
+    }
+    return { lat: null, lng: null };
+  };
+
   // Programmatic XLSX Template generation (Single sheet consolidated layout matching user requirement)
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
@@ -247,15 +276,15 @@ export function ExcelImportPage() {
     const bangHangData = [
       [
         'Mã chủ nhà (*)', 'Chủ nhà (Tên)(*)', 'SĐT chủ nhà(*)', 'Email chủ nhà(*)', 
-        'Tòa nhà (Địa chỉ) (*)', 'Khu vực(*)', 'Phòng trống (*)', 'Giá Phòng (*)', 
+        'Tòa nhà (Địa chỉ) (*)', 'Tọa độ (Lat, Lng)', 'Khu vực(*)', 'Phòng trống (*)', 'Giá Phòng (*)', 
         'Loại Phòng(*)', 'Diện tích(*)', 'Phòng ngủ', 'Phòng tắm', 
-        'Thang máy (Y/N)(*)', 'PCCC (Y/N)(*)', 'Nuôi Pet (Y/N)(*)', 'Khách nước ngoài (Y/N)(*)', 'Xe điện VinFast (Y/N)(*)',
+        'Thang máy (Y/N)(*)', 'PCCC (Y/N)(*)', 'Nuôi Pet (Y/N)(*)', 'Khách nước ngoài (Y/N)(*)', 'Sạc xe điện (Phí/Tháng)(*)',
         'Ban Công Riêng(Y/N)(*)', 'Số xe(*)', 'Số người(*)', 'Thanh toán(*)', 'Internet(*)', 'DVC(*)', 
         'Trạng thái(*)', 'Link ảnh + video(*)', 'Hoa hồng (rose) (*)', 'Hợp đồng tối thiểu(*)'
       ],
       [
         'TH01', 'Nguyễn Đình Hải', '0963509359', 'buiconglam03022004@gmail.com',
-        '24 ngách 24 ngõ Thổ Quan - Phố Khâm Thiên', 'Đống Đa', '501', '8.500.000',
+        '24 ngách 24 ngõ Thổ Quan - Phố Khâm Thiên', '21.018314, 105.829140', 'Đống Đa', '501', '8.500.000',
         '2n1k', '55m2', 2, 1,
         'Y', 'Y', 'N', 'N', 'Y',
         'Y', 3, 4, '1 cọc 1', '100k/phòng', '200k/người',
@@ -263,7 +292,7 @@ export function ExcelImportPage() {
       ],
       [
         '', '', '', '',
-        '', '', '602', '8.000.000',
+        '', '', '', '602', '8.000.000',
         'studio', '30m2', 1, 1,
         '', '', '', '', '',
         'Y', 2, 2, '1 cọc 1', '100k/phòng', '200k/người',
@@ -271,7 +300,7 @@ export function ExcelImportPage() {
       ],
       [
         'TH02', 'Nguyễn Đức Minh', '0912345678', 'minh@realhome.vn',
-        '9 nghách 20 ngõ 102 Pháo Đài Láng', 'Đống Đa', '301', '4.800.000',
+        '9 nghách 20 ngõ 102 Pháo Đài Láng', '21.019727, 105.803875', 'Đống Đa', '301', '4.800.000',
         'studio', '50m2', 1, 1,
         'N', 'Y', 'Y', 'Y', 'Y',
         'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người',
@@ -279,7 +308,7 @@ export function ExcelImportPage() {
       ],
       [
         '', '', '', '',
-        '', '', '203', '8.500.000',
+        '', '', '', '203', '8.500.000',
         '2n1k', '50m2', 2, 1,
         '', '', '', '', '',
         'N', 3, 4, '1 cọc 1', '100k/phòng', '200k/người',
@@ -344,6 +373,7 @@ export function ExcelImportPage() {
 
           // Dynamic column indices matching the headers
           let bldColIdx = 0;
+          let locationColIdx = -1;
           let areaColIdx = -1;
           let landlordCodeColIdx = -1;
           let landlordNameColIdx = -1;
@@ -374,6 +404,7 @@ export function ExcelImportPage() {
           headerRow.forEach((cell: any, idx: number) => {
             const cellStr = String(cell || '').toLowerCase();
             if (cellStr.includes('tòa nhà') || cellStr.includes('địa chỉ')) bldColIdx = idx;
+            else if (cellStr.includes('tọa độ') || cellStr.includes('vị trí') || cellStr.includes('map') || cellStr.includes('lat') || cellStr.includes('lng')) locationColIdx = idx;
             else if (cellStr.includes('khu vực') || cellStr.includes('quận') || cellStr.includes('huyện')) areaColIdx = idx;
             else if (cellStr.includes('mã chủ')) landlordCodeColIdx = idx;
             else if (cellStr.includes('email chủ') || cellStr.includes('gmail chủ')) landlordEmailColIdx = idx;
@@ -394,7 +425,7 @@ export function ExcelImportPage() {
             else if (cellStr.includes('pccc')) pcccColIdx = idx;
             else if (cellStr.includes('pet') || cellStr.includes('nuôi') || cellStr.includes('thú cưng')) petColIdx = idx;
             else if (cellStr.includes('nước ngoài') || cellStr.includes('foreigner')) foreignersColIdx = idx;
-            else if (cellStr.includes('vinfast') || cellStr.includes('xe điện')) vinfastColIdx = idx;
+            else if (cellStr.includes('vinfast') || cellStr.includes('xe điện') || cellStr.includes('sạc')) vinfastColIdx = idx;
             else if (cellStr.includes('internet') || cellStr.includes('mạng')) internetColIdx = idx;
             else if (cellStr.includes('dvc') || cellStr.includes('dịch vụ chung')) dvcColIdx = idx;
             else if (cellStr.includes('số xe') || cellStr.includes('xe')) xeColIdx = idx;
@@ -410,6 +441,8 @@ export function ExcelImportPage() {
           let lastBuildingAddress = '';
           let lastBuildingArea = 'Hà Nội';
           let lastBuildingCode = '';
+          let lastBuildingLat: number | null = null;
+          let lastBuildingLng: number | null = null;
           let lastLandlordCode = '';
           let lastLandlordName = '';
           let lastLandlordPhone = '';
@@ -421,6 +454,7 @@ export function ExcelImportPage() {
 
             // Inherit building address and landlord if merged
             const rawBuildingAddress = row[bldColIdx] ? String(row[bldColIdx]).trim() : '';
+            const rawLocation = locationColIdx !== -1 && row[locationColIdx] ? String(row[locationColIdx]).trim() : '';
             const rawArea = areaColIdx !== -1 && row[areaColIdx] ? String(row[areaColIdx]).trim() : '';
             const rawLandlordCode = landlordCodeColIdx !== -1 && row[landlordCodeColIdx] ? String(row[landlordCodeColIdx]).trim() : '';
             const rawLandlordName = landlordNameColIdx !== -1 && row[landlordNameColIdx] ? String(row[landlordNameColIdx]).trim() : '';
@@ -430,6 +464,11 @@ export function ExcelImportPage() {
             if (rawBuildingAddress) {
               lastBuildingAddress = rawBuildingAddress;
               lastBuildingCode = generateBuildingCode(rawBuildingAddress);
+              
+              const { lat, lng } = parseLocation(rawLocation);
+              lastBuildingLat = lat;
+              lastBuildingLng = lng;
+
               if (rawArea) {
                 lastBuildingArea = rawArea;
               } else {
@@ -476,26 +515,38 @@ export function ExcelImportPage() {
                   allow_pet: false,
                   allow_foreigners: false,
                   allow_vinfast_electric: false,
+                  electric_vehicle_fee: 0,
                   image_url: '',
-                  deposit_terms: row[depositColIdx] ? String(row[depositColIdx]).trim() : '',
+                  deposit_terms: parseDepositTerms(row[depositColIdx]),
                   washing_machine_type: 'chung',
                   electricity_price: 4000,
                   water_price: 35000,
                   internet_price: 100000,
-                  common_service_price: 200000
+                  common_service_price: 200000,
+                  latitude: lastBuildingLat,
+                  longitude: lastBuildingLng
                 });
               }
             } else {
               // Handle inherit of merged area or landlord on empty building address rows
+              if (rawLocation) {
+                const { lat, lng } = parseLocation(rawLocation);
+                if (lat !== null && lng !== null) {
+                  lastBuildingLat = lat;
+                  lastBuildingLng = lng;
+                }
+              }
               if (rawArea) lastBuildingArea = rawArea;
               if (rawLandlordCode) lastLandlordCode = rawLandlordCode;
               if (rawLandlordName) lastLandlordName = rawLandlordName;
               if (rawLandlordPhone) lastLandlordPhone = rawLandlordPhone;
               if (rawLandlordEmail) lastLandlordEmail = rawLandlordEmail;
 
-              if (lastBuildingCode && (rawArea || rawLandlordCode || rawLandlordName || rawLandlordPhone || rawLandlordEmail)) {
+              if (lastBuildingCode && (rawLocation || rawArea || rawLandlordCode || rawLandlordName || rawLandlordPhone || rawLandlordEmail)) {
                 const bld = buildings.find(b => b.code === lastBuildingCode);
                 if (bld) {
+                  if (lastBuildingLat !== null) bld.latitude = lastBuildingLat;
+                  if (lastBuildingLng !== null) bld.longitude = lastBuildingLng;
                   if (rawArea) bld.area = lastBuildingArea;
                   if (lastLandlordCode) {
                     bld.landlord_id = lastLandlordCode;
@@ -630,13 +681,23 @@ export function ExcelImportPage() {
                   }
                 }
 
-                // 5. Xe điện Vinfast
+                // 5. Sạc xe điện (Phí)
                 if (vinfastColIdx !== -1 && row[vinfastColIdx] !== undefined && row[vinfastColIdx] !== null && String(row[vinfastColIdx]).trim() !== '') {
                   const rawVinfast = String(row[vinfastColIdx]).trim().toLowerCase();
-                  if (rawVinfast === 'y' || rawVinfast === 'yes' || rawVinfast.includes('có') || rawVinfast === '1') {
-                    bld.allow_vinfast_electric = true;
-                  } else if (rawVinfast === 'n' || rawVinfast === 'no' || rawVinfast.includes('không') || rawVinfast === '0') {
+                  if (rawVinfast === 'n' || rawVinfast === 'no' || rawVinfast === 'không' || rawVinfast === '0') {
                     bld.allow_vinfast_electric = false;
+                    bld.electric_vehicle_fee = 0;
+                  } else if (rawVinfast === 'y' || rawVinfast === 'yes' || rawVinfast === 'có' || rawVinfast === '1' || rawVinfast.includes('miễn phí') || rawVinfast.includes('free')) {
+                    bld.allow_vinfast_electric = true;
+                    bld.electric_vehicle_fee = 0;
+                  } else {
+                    const parsedEVFee = parseServicePrice(row[vinfastColIdx]);
+                    if (parsedEVFee > 0) {
+                      bld.allow_vinfast_electric = true;
+                      bld.electric_vehicle_fee = parsedEVFee;
+                    } else if (rawVinfast.includes('có')) {
+                      bld.allow_vinfast_electric = true;
+                    }
                   }
                 }
 
@@ -686,7 +747,7 @@ export function ExcelImportPage() {
             }
 
             const rawImages = getCellHyperlink(wsFirst, i, imageColIdx) || (row[imageColIdx] ? String(row[imageColIdx]).trim() : '');
-            const depositTerms = row[depositColIdx] ? String(row[depositColIdx]).trim() : '';
+            const depositTerms = parseDepositTerms(row[depositColIdx]);
             const rose = roseColIdx !== -1 && row[roseColIdx] !== undefined && row[roseColIdx] !== null ? String(row[roseColIdx]).trim() : '';
             const minContractMonths = minContractColIdx !== -1 && row[minContractColIdx] !== undefined && row[minContractColIdx] !== null ? Number(String(row[minContractColIdx]).replace(/[^\d]/g, '')) : 12;
  

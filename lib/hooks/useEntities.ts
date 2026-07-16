@@ -298,7 +298,7 @@ export function useDepositContracts(companyId?: string) {
     try {
       const all = await getDepositContracts(companyId, landlordId);
       if (role === 'sales_agent' && profile?.id) {
-        setItems(all.filter((c) => c.created_by === profile.id));
+        setItems(all.filter((c) => c.created_by === profile.id || c.sales_agent_id === profile.id));
       } else {
         setItems(all);
       }
@@ -471,7 +471,7 @@ export function useRentalContracts(companyId?: string) {
     try {
       const all = await getRentalContracts(companyId, landlordId);
       if (role === 'sales_agent' && profile?.id) {
-        setItems(all.filter((c) => c.created_by === profile.id));
+        setItems(all.filter((c) => c.created_by === profile.id || c.sales_agent_id === profile.id));
       } else {
         setItems(all);
       }

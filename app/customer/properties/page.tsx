@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,11 +14,16 @@ import { usePublicListings } from '@/lib/hooks/usePublicListings';
 import type { CustomerListing } from '@/lib/customer/types';
 import {
   MapPin, Phone, Calendar, Loader2, AlertCircle,
-  ChevronLeft, ChevronRight, SlidersHorizontal, Filter, ArrowUpDown,
+  SlidersHorizontal, Filter, ArrowUpDown, FileText
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import Pagination from '@/components/Pagination';
 import { supabase } from '@/lib/supabase/client';
+import dynamic from 'next/dynamic';
+import ImageGallery from '@/src/features/properties/components/ImageGallery';
+
+const PropertiesMapViewDynamic = dynamic(() => import('@/src/features/properties/components/PropertiesMapView'), { ssr: false, loading: () => <div className="h-[600px] w-full rounded-md border bg-slate-100 animate-pulse flex items-center justify-center text-sm text-slate-500">Đang tải bản đồ...</div> });
 
 // Helper format rút gọn khu vực
 function formatArea(area: string): string {
@@ -39,7 +44,7 @@ function formatArea(area: string): string {
 }
 
 // ─── Kiểu dữ liệu nhóm theo tòa nhà ─────────────────────────────────────────
-interface BuildingGroup {
+export interface BuildingGroup {
   buildingId: string;
   buildingName: string;
   area: string;
@@ -53,96 +58,21 @@ interface BuildingGroup {
   representativeRoom: CustomerListing;
 }
 
-// ─── Image Slider ─────────────────────────────────────────────────────────────
-function ImageSlider({ images, alt }: { images: string[]; alt: string }) {
-  const [idx, setIdx] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
 
-  const prev = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    setIdx((i) => (i - 1 + images.length) % images.length);
-  };
-  const next = (e: React.MouseEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    setIdx((i) => (i + 1) % images.length);
-  };
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const onTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
-  };
-  const onTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) return;
-    const diff = touchStartX.current - touchEndX.current;
-    if (Math.abs(diff) > 40) {
-      if (diff > 0) setIdx((i) => (i + 1) % images.length);
-      else setIdx((i) => (i - 1 + images.length) % images.length);
-    }
-    touchStartX.current = null;
-    touchEndX.current = null;
-  };
-
-  return (
-    <div
-      className="relative h-52 bg-slate-100 overflow-hidden select-none"
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
-      <Image
-        src={images[idx] || '/placeholder.jpg'}
-        alt={alt}
-        fill
-        className="object-cover transition-opacity duration-300"
-      />
-
-      {images.length > 1 && (
-        <>
-          {/* Mép trái */}
-          <button
-            onClick={prev}
-            aria-label="Ảnh trước"
-            className="absolute left-0 inset-y-0 w-10 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors z-10"
-          >
-            <ChevronLeft className="h-5 w-5 text-white drop-shadow" />
-          </button>
-          {/* Mép phải */}
-          <button
-            onClick={next}
-            aria-label="Ảnh tiếp"
-            className="absolute right-0 inset-y-0 w-10 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-colors z-10"
-          >
-            <ChevronRight className="h-5 w-5 text-white drop-shadow" />
-          </button>
-          {/* Dots */}
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-            {images.map((_, i) => (
-              <span
-                key={i}
-                className={`block h-1.5 rounded-full transition-all ${i === idx ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
 
 // ─── Thẻ tòa nhà ─────────────────────────────────────────────────────────────
 function BuildingCard({
   group,
   onBook,
   onContact,
-  isSale,
+  canComposeDeposit,
+  onComposeDeposit,
 }: {
   group: BuildingGroup;
   onBook: (g: BuildingGroup) => void;
   onContact: () => void;
-  isSale: boolean;
+  canComposeDeposit: boolean;
+  onComposeDeposit: (buildingId: string) => void;
 }) {
   const hasAvailable = group.availableRoomCodes.length > 0;
   const priceLabel =
@@ -155,7 +85,7 @@ function BuildingCard({
       href={`/customer/properties/${group.buildingId}`}
       className="rounded-lg overflow-hidden bg-white border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col cursor-pointer group"
     >
-      <ImageSlider images={group.allImages} alt={group.buildingName} />
+      <ImageGallery items={group.allImages} alt={group.buildingName} />
 
       <div className="p-4 flex flex-col gap-3 flex-1">
         {/* Tên tòa nhà */}
@@ -191,32 +121,48 @@ function BuildingCard({
         </p>
 
         {/* Nút action */}
-        <div className="flex gap-2 pt-1 mt-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-1 h-9 text-sm"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onBook(group);
-            }}
-          >
-            <Calendar className="h-3.5 w-3.5 mr-1.5" />
-            Hẹn xem
-          </Button>
-          <Button
-            size="sm"
-            className="flex-1 h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onContact();
-            }}
-          >
-            <Phone className="h-3.5 w-3.5 mr-1.5" />
-            Liên hệ
-          </Button>
+        <div className="flex flex-col gap-2 pt-1 mt-auto">
+          {canComposeDeposit && (
+            <Button
+              size="sm"
+              className="w-full h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onComposeDeposit(group.buildingId);
+              }}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Soạn cọc
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 h-9 text-sm"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onBook(group);
+              }}
+            >
+              <Calendar className="h-3.5 w-3.5 mr-1.5" />
+              Hẹn xem
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onContact();
+              }}
+            >
+              <Phone className="h-3.5 w-3.5 mr-1.5" />
+              Liên hệ
+            </Button>
+          </div>
         </div>
       </div>
     </Link>
@@ -365,6 +311,8 @@ export default function PropertiesPage() {
   const { company, companies, loading: companyLoading } = useCustomerCompany();
   const { role } = useAuth();
   const isSale = role === 'sales_agent';
+  const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
+  const contractsBasePath = role === 'landlord' ? '/landlord' : '/admin';
   const { listings, loading: listingsLoading, error } = usePublicListings(
     useMemo(() => companies.map((c) => c.id), [companies]),
     isSale
@@ -381,6 +329,7 @@ export default function PropertiesPage() {
   const [sizeRange, setSizeRange] = useState<number[]>([0, 500]);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const pageSize = 9;
 
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -412,7 +361,7 @@ export default function PropertiesPage() {
       const available = rooms.filter((r) => r.status === 'available' || r.status === 'soon_available');
       const prices = rooms.map((r) => r.price).filter((p) => p > 0);
       const allImages = Array.from(
-        new Set(rooms.flatMap((r) => r.imageUrls ?? [r.imageUrl]).filter(Boolean))
+        new Set(rooms.flatMap((r) => r.thumbnailUrls ?? [r.thumbnailUrl]).filter(Boolean))
       );
 
       return {
@@ -632,7 +581,22 @@ export default function PropertiesPage() {
         </span>
 
         <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-4 w-4 text-ink-muted flex-shrink-0" />
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-border-subtle mr-2">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
+            >
+              Danh sách
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'map' ? 'bg-white shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
+            >
+              Bản đồ
+            </button>
+          </div>
+          
+          <ArrowUpDown className="h-4 w-4 text-ink-muted flex-shrink-0 hidden sm:block" />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
@@ -693,22 +657,35 @@ export default function PropertiesPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {paginatedGroups.map((group) => (
-                  <BuildingCard
-                    key={group.buildingId}
-                    group={group}
-                    onBook={setViewingGroup}
-                    onContact={() => setIsContactOpen(true)}
-                    isSale={isSale}
+              {viewMode === 'map' ? (
+                <PropertiesMapViewDynamic 
+                  groups={filteredGroups} 
+                  onBook={setViewingGroup}
+                  onContact={() => setIsContactOpen(true)}
+                />
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {paginatedGroups.map((group) => (
+                      <BuildingCard
+                        key={group.buildingId}
+                        group={group}
+                        onBook={setViewingGroup}
+                        onContact={() => setIsContactOpen(true)}
+                        canComposeDeposit={canComposeDeposit}
+                        onComposeDeposit={(buildingId) =>
+                          router.push(`${contractsBasePath}/contracts/create?building_id=${buildingId}`)
+                        }
+                      />
+                    ))}
+                  </div>
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
                   />
-                ))}
-              </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+                </>
+              )}
             </div>
           )}
         </div>

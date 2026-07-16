@@ -32,6 +32,8 @@ type SalesStats = {
   availableRooms: any[];
   unreadNotifications: number;
   employeeKpis?: any;
+  expiringContracts?: any[];
+  roomsEndingSoon?: any[];
 };
 
 const leadStatusConfig: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
@@ -247,8 +249,8 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
         </CardContent>
       </Card>
 
-      {/* Leads to contact & Appointments schedule */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Leads to contact, Appointments, Expiring Contracts, Rooms Ending Soon */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Lịch hẹn hôm nay & ngày mai */}
         <Card className="border-border shadow-none rounded-lg bg-white">
           <CardHeader className="pb-3 border-b border-border">
@@ -344,6 +346,96 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
                     và {leadsToFollowUp.length - 5} lead quá hạn chăm sóc khác
                   </p>
                 )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Hợp đồng sắp hết hạn */}
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="pb-3 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4.5 w-4.5 text-amber-500" />
+                <CardTitle className="text-base font-bold font-heading text-ink">
+                  Hợp đồng sắp hết hạn
+                </CardTitle>
+              </div>
+              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded-full font-bold">
+                {(stats.expiringContracts || []).length} sắp hết
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5">
+            {!(stats.expiringContracts || []).length ? (
+              <div className="py-12 text-center text-ink-muted text-xs">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+                Không có hợp đồng nào sắp hết hạn trong 30 ngày tới.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(stats.expiringContracts || []).slice(0, 5).map((contract: any) => {
+                  const daysLeft = Math.ceil((new Date(contract.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                  return (
+                    <div key={contract.id} className="flex items-center justify-between p-3 border border-border rounded-xl hover:border-amber-200 transition-all">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-ink truncate">
+                          {contract.rooms?.buildings?.name || 'Building'} - Phòng {contract.rooms?.code || contract.room_id}
+                        </p>
+                        <p className="text-xs text-ink-muted mt-0.5 truncate">
+                          Khách: {contract.party_b_name || 'Khách hàng'}
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-3">
+                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap`}>
+                          Còn {daysLeft} ngày
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Phòng sắp trống (30 ngày tới) */}
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="pb-3 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Home className="h-4.5 w-4.5 text-blue-500" />
+                <CardTitle className="text-base font-bold font-heading text-ink">
+                  Phòng sắp trống (30 ngày)
+                </CardTitle>
+              </div>
+              <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full font-bold">
+                {(stats.roomsEndingSoon || []).length} sắp trống
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5">
+            {!(stats.roomsEndingSoon || []).length ? (
+              <div className="py-12 text-center text-ink-muted text-xs">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+                Không có phòng nào sắp trống trong 30 ngày tới.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(stats.roomsEndingSoon || []).slice(0, 5).map((room: any) => (
+                  <div key={room.id} className="flex items-center justify-between p-3 border border-border rounded-xl hover:border-blue-200 transition-all">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-ink truncate">
+                        {room.buildings?.name || 'Building'} - Phòng {room.code}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">
+                        Sắp trống
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

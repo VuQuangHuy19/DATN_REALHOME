@@ -92,7 +92,7 @@ export function BuildingDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('available');
   const [soonDate, setSoonDate] = useState<string>('');
 
-  const [tempImages, setTempImages] = useState<{ id: string; url: string; is_thumbnail: boolean; priority: number }[]>([]);
+  const [tempImages, setTempImages] = useState<{ id: string; url: string; thumbnail_url: string; is_thumbnail: boolean; priority: number; media_type: string }[]>([]);
   const [duplicateConfig, setDuplicateConfig] = useState<{
     type: 'floor' | 'room';
     sourceFloor?: number;
@@ -111,21 +111,28 @@ export function BuildingDetailPage() {
     updatePriority
   } = useRoomImages(editItem?.id);
 
-  const handleImageUploaded = async (urls: string | string[] | null) => {
+  const handleImageUploaded = async (urls: string | string[] | null, thumbUrls?: string | string[] | null, mediaTypes?: string | string[] | null) => {
     if (!urls) return;
     const urlList = Array.isArray(urls) ? urls : [urls];
+    const thumbList = Array.isArray(thumbUrls) ? thumbUrls : (thumbUrls ? [thumbUrls] : []);
+    const mediaTypeList = Array.isArray(mediaTypes) ? mediaTypes : (mediaTypes ? [mediaTypes] : []);
 
     if (editItem) {
       try {
         let currentLength = images.length;
-        for (const url of urlList) {
+        for (let i = 0; i < urlList.length; i++) {
+          const url = urlList[i];
+          const thumbnail_url = thumbList[i] || url;
+          const media_type = mediaTypeList[i] || 'image';
           const isFirst = currentLength === 0;
           await addImg({
             company_id: company?.id ?? null,
             room_id: editItem.id,
             url,
+            thumbnail_url,
             is_thumbnail: isFirst,
             priority: currentLength,
+            media_type,
           });
           currentLength++;
         }
@@ -136,20 +143,24 @@ export function BuildingDetailPage() {
     } else {
       setTempImages((prev) => {
         let currentLength = prev.length;
-        const newItems = urlList.map((url) => {
+        const newItems = urlList.map((url, i) => {
+          const thumbnail_url = thumbList[i] || url;
+          const media_type = mediaTypeList[i] || 'image';
           const isFirst = currentLength === 0;
           const item = {
             id: Math.random().toString(),
             url,
+            thumbnail_url,
             is_thumbnail: isFirst,
             priority: currentLength,
+            media_type,
           };
           currentLength++;
           return item;
         });
         return [...prev, ...newItems];
       });
-      toast.success('Tải ảnh phòng lên thành công');
+      toast.success('Đã thêm ảnh vào danh sách chờ');
     }
   };
 
@@ -159,7 +170,10 @@ export function BuildingDetailPage() {
       const urlParts = url.split(`/storage/v1/object/public/room_images/`);
       if (urlParts.length === 2) {
         const filePath = urlParts[1];
-        await supabase.storage.from('room_images').remove([filePath]);
+        const fileExt = filePath.split('.').pop();
+        const baseName = filePath.replace(/\.[^/.]+$/, '');
+        const thumbPath = `${baseName}-thumb.${fileExt}`;
+        await supabase.storage.from('room_images').remove([filePath, thumbPath]);
       }
       await removeImg(imgId);
       toast.success('Đã xóa hình ảnh phòng');
@@ -174,7 +188,10 @@ export function BuildingDetailPage() {
       const urlParts = url.split(`/storage/v1/object/public/room_images/`);
       if (urlParts.length === 2) {
         const filePath = urlParts[1];
-        await supabase.storage.from('room_images').remove([filePath]);
+        const fileExt = filePath.split('.').pop();
+        const baseName = filePath.replace(/\.[^/.]+$/, '');
+        const thumbPath = `${baseName}-thumb.${fileExt}`;
+        await supabase.storage.from('room_images').remove([filePath, thumbPath]);
       }
       setTempImages((prev) => prev.filter((img) => img.id !== imgId));
       toast.success('Đã xóa hình ảnh phòng');
@@ -247,8 +264,10 @@ export function BuildingDetailPage() {
           company_id: img.company_id,
           room_id: createdRoom.id,
           url: img.url,
+          thumbnail_url: img.thumbnail_url || img.url,
           is_thumbnail: img.is_thumbnail,
           priority: img.priority,
+          media_type: img.media_type,
         });
       }
     } catch (err) {
@@ -375,8 +394,10 @@ export function BuildingDetailPage() {
               company_id: company?.id ?? null,
               room_id: newRoom.id,
               url: img.url,
+              thumbnail_url: img.thumbnail_url,
               is_thumbnail: img.is_thumbnail,
               priority: img.priority,
+              media_type: img.media_type,
             });
           }
         } catch (err) {
@@ -576,7 +597,7 @@ export function BuildingDetailPage() {
                               }`}
                           >
                             <Image
-                              src={img.url}
+                              src={img.thumbnail_url || img.url}
                               alt="Room preview"
                               width={56}
                               height={40}
@@ -644,7 +665,7 @@ export function BuildingDetailPage() {
                     )}
 
                     <div className="pt-1">
-                      <ImageUpload
+                      <ImageUpload allowVideo={true}
                         value={null}
                         onChange={handleImageUploaded}
                         bucket="room_images"

@@ -35,8 +35,8 @@ export default function LandlordsPage() {
     (l.email ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getLandlordBuildings = (landlordId: string): DBBuilding[] =>
-    buildings.filter((b) => b.landlord_id === landlordId);
+  const getLandlordBuildings = (landlordCode: string | null | undefined, landlordId: string): DBBuilding[] =>
+    buildings.filter((b) => b.landlord_id === landlordCode || b.landlord_id === landlordId);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -201,7 +201,7 @@ export default function LandlordsPage() {
                 </thead>
                 <tbody className="divide-y divide-border text-ink">
                   {filtered.map((item) => {
-                    const ownedBuildings = getLandlordBuildings(item.id);
+                    const ownedBuildings = getLandlordBuildings(item.code, item.id);
                     return (
                       <tr
                         key={item.id}
@@ -279,7 +279,7 @@ export default function LandlordsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border bg-white">
                 {filtered.map((item) => {
-                  const ownedBuildings = getLandlordBuildings(item.id);
+                  const ownedBuildings = getLandlordBuildings(item.code, item.id);
                   return (
                     <div
                       key={item.id}
@@ -399,16 +399,16 @@ export default function LandlordsPage() {
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Layers className="h-4 w-4 text-accent" />
-                  <h3 className="font-heading font-bold text-ink">Tòa nhà sở hữu ({getLandlordBuildings(selectedLandlord.id).length})</h3>
+                  <h3 className="font-heading font-bold text-ink">Tòa nhà sở hữu ({getLandlordBuildings(selectedLandlord.code, selectedLandlord.id).length})</h3>
                 </div>
-                {getLandlordBuildings(selectedLandlord.id).length === 0 ? (
+                {getLandlordBuildings(selectedLandlord.code, selectedLandlord.id).length === 0 ? (
                   <div className="text-center py-8 text-ink-muted border border-dashed border-border rounded-lg">
                     <Building2 className="h-8 w-8 mx-auto mb-2 opacity-35" />
                     <p className="text-sm">Chưa có tòa nhà nào</p>
                   </div>
                 ) : (
                   <div className="grid gap-3 max-h-[300px] overflow-y-auto pr-1">
-                    {getLandlordBuildings(selectedLandlord.id).map((building) => (
+                    {getLandlordBuildings(selectedLandlord.code, selectedLandlord.id).map((building) => (
                       <div key={building.id} className="flex items-center gap-4 p-3.5 border border-border rounded-lg bg-bg-base hover:bg-bg-subtle/50 transition-colors">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">

@@ -29,21 +29,6 @@ export async function createBuilding(b: BuildingInsert): Promise<DBBuilding> {
   const { data, error } = await supabase.from('buildings').insert(b as any).select().single();
   if (error) throw error;
 
-  if (b.landlord_id) {
-    const { data: landlord } = await supabase
-      .from('landlords')
-      .select('properties_count')
-      .eq('code', b.landlord_id)
-      .maybeSingle();
-
-    if (landlord) {
-      await supabase
-        .from('landlords')
-        .update({ properties_count: (landlord.properties_count || 0) + 1 })
-        .eq('code', b.landlord_id);
-    }
-  }
-
   return data as unknown as DBBuilding;
 }
 

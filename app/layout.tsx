@@ -6,6 +6,13 @@ import { AuthProvider } from '@/lib/auth/AuthContext';
 export const metadata: Metadata = {
   title: 'RealHome',
   description: 'Hệ thống quản lý bất động sản toàn diện',
+  manifest: '/manifest.json',
+  themeColor: '#2563eb',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'RealHome',
+  },
 };
 
 export default function RootLayout({

@@ -101,7 +101,8 @@ export async function resolveCompaniesFromSources(options: {
   const candidates = [...subdomainCandidates, ...queryCandidates];
 
   if (candidates.length === 0) {
-    return getAllActiveCompanies();
+    const fallback = await getFirstActiveCompany();
+    return fallback ? [fallback] : [];
   }
 
   const resolvedCompanies: PublicCompany[] = [];
@@ -116,7 +117,8 @@ export async function resolveCompaniesFromSources(options: {
   }
 
   if (resolvedCompanies.length === 0) {
-    return getAllActiveCompanies();
+    const fallback = await getFirstActiveCompany();
+    return fallback ? [fallback] : [];
   }
 
   return resolvedCompanies;

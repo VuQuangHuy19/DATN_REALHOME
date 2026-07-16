@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
-import Image from 'next/image';
+import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,15 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicListing } from '@/lib/hooks/usePublicListings';
-import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
+import { SimilarRoomsWidget } from '@/src/features/properties/components/SimilarRoomsWidget';
+import { LISTING_STATUS_LABELS, DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
-import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, ChevronLeft, ChevronRight, Check, X, Zap, PawPrint, Globe, Award, Layers } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, Check, X, Zap, PawPrint, Globe, Award, Layers, FileText } from 'lucide-react';
 
-const isVideoUrl = (url: string) => {
-  if (!url) return false;
-  const cleanUrl = url.toLowerCase().split('?')[0];
-  return cleanUrl.endsWith('.mp4') || cleanUrl.endsWith('.mov') || cleanUrl.endsWith('.webm');
-};
+import ImageGallery from '@/src/features/properties/components/ImageGallery';
+
+
 
 export default function RoomDetailPage() {
   const params = useParams();
@@ -28,7 +27,10 @@ export default function RoomDetailPage() {
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isViewingOpen, setIsViewingOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const router = useRouter();
+  const { role } = useAuth();
+  const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
+  const contractsBasePath = role === 'landlord' ? '/landlord' : '/admin';
 
   const hotline = company?.phone || '(028) 1234-5678';
   const hotlineHref = company?.phone ? `tel:${company.phone.replace(/\D/g, '')}` : 'tel:02812345678';
@@ -53,71 +55,13 @@ export default function RoomDetailPage() {
     ? property.imageUrls
     : [property.imageUrl];
 
-  const handleNextImage = () => {
-    setActiveImageIndex((prev) => (prev + 1) % imagesList.length);
-  };
 
-  const handlePrevImage = () => {
-    setActiveImageIndex((prev) => (prev - 1 + imagesList.length) % imagesList.length);
-  };
 
   return (
     <div className="container mx-auto px-4 py-8 pb-24 lg:pb-8 bg-bg-base">
-      {/* Image Slider / Carousel */}
-      <div className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden mb-8 group bg-black/95 border border-border-subtle flex items-center justify-center">
-        {isVideoUrl(imagesList[activeImageIndex]) ? (
-          <video
-            src={imagesList[activeImageIndex]}
-            controls
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <Image
-            src={imagesList[activeImageIndex]}
-            alt={`${property.title} - Ảnh ${activeImageIndex + 1}`}
-            fill
-            className="object-contain transition-all duration-500 ease-in-out"
-            priority
-          />
-        )}
-        
-        {/* Navigation Arrows */}
-        {imagesList.length > 1 && (
-          <>
-            <button
-              onClick={handlePrevImage}
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
-              aria-label="Ảnh trước"
-            >
-              <ChevronLeft className="h-6 w-6" />
-            </button>
-            <button
-              onClick={handleNextImage}
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
-              aria-label="Ảnh sau"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
-          </>
-        )}
-
-        {/* Indicators Dots */}
-        {imagesList.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-            {imagesList.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setActiveImageIndex(index)}
-                className={`w-2 h-2 rounded-full transition-all ${
-                  index === activeImageIndex
-                    ? 'bg-white w-4'
-                    : 'bg-white/50 hover:bg-white/80'
-                }`}
-                aria-label={`Chuyển đến ảnh ${index + 1}`}
-              />
-            ))}
-          </div>
-        )}
+      {/* Image Gallery */}
+      <div className="relative mb-8">
+        <ImageGallery items={imagesList} alt={property.title} aspectRatio="detail" priority />
 
         <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1.5">
           <Badge variant={property.status === 'available' ? 'default' : 'secondary'} className="text-sm px-3 py-1 shadow-none">
@@ -339,6 +283,16 @@ export default function RoomDetailPage() {
               </div>
 
               <div className="space-y-3 pt-2">
+                {canComposeDeposit && (
+                  <Button
+                    className="w-full bg-accent hover:bg-accent-500 text-white font-semibold rounded-lg shadow-none"
+                    size="lg"
+                    onClick={() => router.push(`${contractsBasePath}/contracts/create?room_id=${property.id}`)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Soạn cọc
+                  </Button>
+                )}
                 <Button className="w-full bg-accent hover:bg-accent-500 text-white font-semibold shadow-none" size="lg" disabled={!company} onClick={() => setIsViewingOpen(true)}>
                   <Calendar className="h-4 w-4 mr-2" />
                   Đặt Lịch Hẹn
@@ -412,6 +366,8 @@ export default function RoomDetailPage() {
         </div>
       </div>
 
+      <SimilarRoomsWidget currentRoom={property} />
+
       {/* Sticky Bottom Bar for Mobile */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-border-subtle p-4 flex items-center justify-between z-30 shadow-none pb-safe">
         <div>
@@ -420,15 +376,27 @@ export default function RoomDetailPage() {
             {property.price.toLocaleString('vi-VN')}đ/tháng
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" className="h-9 px-3 bg-accent hover:bg-accent-500 text-white font-semibold" disabled={!company} onClick={() => setIsViewingOpen(true)}>
-            <Calendar className="h-4 w-4 mr-1.5" />
-            Hẹn xem
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 px-3 text-ink border-border-subtle" onClick={() => setIsContactOpen(true)}>
-            <Phone className="h-4 w-4 mr-1.5" />
-            Liên hệ
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+          {canComposeDeposit && (
+            <Button
+              size="sm"
+              className="h-9 px-3 bg-accent hover:bg-accent-500 text-white font-semibold w-full"
+              onClick={() => router.push(`${contractsBasePath}/contracts/create?room_id=${property.id}`)}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+              Soạn cọc
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" className="h-9 px-3 bg-accent hover:bg-accent-500 text-white font-semibold" disabled={!company} onClick={() => setIsViewingOpen(true)}>
+              <Calendar className="h-4 w-4 mr-1.5" />
+              Hẹn xem
+            </Button>
+            <Button variant="outline" size="sm" className="h-9 px-3 text-ink border-border-subtle" onClick={() => setIsContactOpen(true)}>
+              <Phone className="h-4 w-4 mr-1.5" />
+              Liên hệ
+            </Button>
+          </div>
         </div>
       </div>
 

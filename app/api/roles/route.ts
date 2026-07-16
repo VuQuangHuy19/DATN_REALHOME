@@ -32,6 +32,7 @@ export async function GET(request: Request) {
       .from('roles')
       .select('*')
       .or(`company_id.eq.${payload.company_id},company_id.is.null`)
+      .neq('name', 'Super Admin')
       .order('name', { ascending: true });
 
     if (error) throw error;

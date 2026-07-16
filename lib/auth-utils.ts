@@ -45,16 +45,13 @@ export async function fetchUserSessionData(userId: string) {
   // 1. Lấy thông tin profile
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('*')
+    .select('id, email, full_name, role, company_id, is_active, phone, avatar_url, landlord_id, created_at, updated_at')
     .eq('id', userId)
     .maybeSingle();
 
   if (!profile) {
     return { profile: null, company: null, permissions: [] };
   }
-
-  // Bảo mật: Xóa mật khẩu đã băm (password_hash) trước khi gửi về client
-  delete (profile as any).password_hash;
 
   // 2. Lấy thông tin company
   let company = null;

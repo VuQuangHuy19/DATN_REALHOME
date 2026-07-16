@@ -260,6 +260,7 @@ export interface Database {
           total_rooms: number;
           description: string | null;
           image_url: string | null;
+          thumbnail_url: string | null;
           landlord_id: string | null;
           manager_ids?: string[] | null;
           created_at: string;
@@ -292,6 +293,8 @@ export interface Database {
           dryer_type: string;
           electric_vehicle_fee: number;
           management_fee_rate?: number;
+          latitude?: number | null;
+          longitude?: number | null;
         };
         Insert: Omit<Database['public']['Tables']['buildings']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
@@ -302,6 +305,8 @@ export interface Database {
           allow_pet?: boolean;
           allow_foreigners?: boolean;
           allow_vinfast_electric?: boolean;
+          latitude?: number | null;
+          longitude?: number | null;
         };
         Update: Partial<Database['public']['Tables']['buildings']['Insert']>;
         Relationships: [];
@@ -394,14 +399,16 @@ export interface Database {
           company_id: string | null;
           room_id: string;
           url: string;
+          thumbnail_url: string | null;
           is_thumbnail: boolean;
           priority: number;
+          media_type: string;
           created_at: string;
           updated_at: string;
           created_by?: string | null;
           updated_by?: string | null;
         };
-        Insert: Omit<Database['public']['Tables']['room_images']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; is_thumbnail?: boolean; priority?: number };
+        Insert: Omit<Database['public']['Tables']['room_images']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; is_thumbnail?: boolean; priority?: number; media_type?: string };
         Update: Partial<Database['public']['Tables']['room_images']['Insert']>;
         Relationships: [];
       };
@@ -654,20 +661,7 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['invoices']['Insert']>;
         Relationships: [];
       };
-      lead_timelines: {
-        Row: {
-          id: string;
-          lead_id: string;
-          type: string;
-          content: string;
-          created_by: string | null;
-          created_by_name: string | null;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['lead_timelines']['Row'], 'id' | 'created_at'> & { id?: string };
-        Update: Partial<Database['public']['Tables']['lead_timelines']['Insert']>;
-        Relationships: [];
-      };
+
       kpis: {
         Row: {
           id: string;
@@ -724,6 +718,6 @@ export type DBRentalContract = Database['public']['Tables']['rental_contracts'][
 export type DBServiceReading = Database['public']['Tables']['service_readings']['Row'];
 export type DBInvoice = Database['public']['Tables']['invoices']['Row'];
 export type DBRoomImage = Database['public']['Tables']['room_images']['Row'];
-export type DBLeadTimeline = Database['public']['Tables']['lead_timelines']['Row'];
+
 export type DBKPI = Database['public']['Tables']['kpis']['Row'];
 export type DBBuildingService = Database['public']['Tables']['building_services']['Row'];

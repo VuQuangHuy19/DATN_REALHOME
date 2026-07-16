@@ -1,10 +1,21 @@
 /** @type {import('next').NextConfig} */
+
+const withPWA = require('@ducanh2912/next-pwa').default({
+  dest: 'public',
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === 'development',
+  workboxOptions: {
+    disableDevLogs: true,
+  },
+});
+
 const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['heic-convert', 'heic-decode', 'libheif-js'],
   },
   images: {
-    unoptimized: true,
     // Cho phép load ảnh từ các domain bên ngoài
     remotePatterns: [
       {
@@ -37,4 +48,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withPWA(nextConfig);

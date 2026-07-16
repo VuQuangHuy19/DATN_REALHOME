@@ -182,6 +182,19 @@ export async function updateAppointment(id: string, a: AppointmentUpdate): Promi
     console.error('Error syncing appointment to lead:', syncErr);
   }
 
+  // Trigger thông báo nếu cập nhật trạng thái thành Confirm
+  if ('status' in a && a.status === 'Confirm') {
+    try {
+      fetch('/api/appointments/notify-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: id, newStatus: 'Confirm' }),
+      }).catch(err => console.error('Lỗi khi gọi API notify-status:', err));
+    } catch (e) {
+      console.error('Lỗi try-catch API notify-status:', e);
+    }
+  }
+
   return data as unknown as DBAppointment;
 }
 

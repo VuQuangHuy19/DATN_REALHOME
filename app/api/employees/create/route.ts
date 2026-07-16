@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // 1. Tạo tài khoản trong Supabase Auth (Chưa kích hoạt password thực tế)
     // Đánh dấu email_confirm: true để tránh các email xác nhận tự động của Supabase
-    const tempPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const tempPassword = 'A1b2C3d4!@#$' + Math.random().toString(36).substring(2, 15);
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -46,7 +46,8 @@ export async function POST(request: Request) {
     });
 
     if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 });
+      const errMsg = authError.message && authError.message !== '{}' ? authError.message : 'Database error creating new user (Trigger failed)';
+      return NextResponse.json({ error: errMsg }, { status: 400 });
     }
 
     const userId = authData.user.id;

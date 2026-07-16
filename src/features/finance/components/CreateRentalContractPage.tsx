@@ -48,6 +48,7 @@ export function CreateRentalContractPage() {
   const pathname = usePathname();
   const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
   const depositId = searchParams.get('deposit_id');
+  const [depositSalesAgentId, setDepositSalesAgentId] = useState<string | null>(null);
   const { items: rooms, loading: roomsLoading } = useRooms(company?.id);
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
@@ -99,7 +100,7 @@ export function CreateRentalContractPage() {
   const [electricityPrice, setElectricityPrice] = useState<number>(4000);
   const [waterPrice, setWaterPrice] = useState<string>('150000/người/tháng');
   const [servicePrice, setServicePrice] = useState<string>('200000/người/tháng');
-  const [internetPrice, setInternetPrice] = useState<number>(180000);
+  const [internetPrice, setInternetPrice] = useState<number>(100000);
   const [laundryPrice, setLaundryPrice] = useState<number>(100000);
   const [tenantCount, setTenantCount] = useState<number>(1);
   const [leaseDuration, setLeaseDuration] = useState<number>(9);
@@ -134,6 +135,31 @@ export function CreateRentalContractPage() {
       if (address && !signLocation) {
         setSignLocation(address);
       }
+
+      // Tự động điền các đơn giá dịch vụ từ tòa nhà nếu không lập từ HĐ cọc
+      if (!depositId && room.buildings) {
+        if (room.buildings.electricity_price !== undefined && room.buildings.electricity_price !== null) {
+          setElectricityPrice(room.buildings.electricity_price);
+        }
+        if (room.buildings.water_price !== undefined && room.buildings.water_price !== null) {
+          const unit = room.buildings.water_price > 50000 ? '/người/tháng' : '/khối';
+          setWaterPrice(`${room.buildings.water_price}${unit}`);
+        }
+        if (room.buildings.internet_price !== undefined && room.buildings.internet_price !== null) {
+          setInternetPrice(room.buildings.internet_price);
+        }
+        if (room.buildings.common_service_price !== undefined && room.buildings.common_service_price !== null) {
+          const unit = room.buildings.common_service_price > 50000 ? '/người/tháng' : '/người/tháng';
+          setServicePrice(`${room.buildings.common_service_price}${unit}`);
+        }
+        const wm = room.buildings.washing_machine_type;
+        const dt = room.buildings.dryer_type;
+        if (!wm || wm === 'không có' || !dt || dt === 'không có') {
+          setLaundryPrice(0);
+        } else {
+          setLaundryPrice(100000);
+        }
+      }
     }
   }, [selectedRoomId, rooms, depositId, signLocation]);
 
@@ -150,6 +176,7 @@ export function CreateRentalContractPage() {
           .single()) as any;
         if (error) throw error;
         if (data) {
+          setDepositSalesAgentId(data.sales_agent_id || data.created_by || null);
           setSelectedRoomId(data.room_id || '');
           setRentPrice(Number(data.rent_price));
           setDepositAmount(Number(data.deposit_amount));
@@ -240,6 +267,7 @@ export function CreateRentalContractPage() {
           : 0;
       })(),
       sales_agent_id: (() => {
+        if (depositSalesAgentId) return depositSalesAgentId;
         let finalSalesAgentId = profile?.id || null;
         if (selectedLeadId && selectedLeadId !== 'none') {
           const selectedLeadObj = leads.find((l: any) => l.id === selectedLeadId);

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Building2, Home, CalendarDays, Users, DollarSign,
@@ -41,11 +43,48 @@ export default function AdminDashboardPage() {
     setLoading(true);
 
     if (isSale && profile?.id) {
-      getSalesDashboardStats(company.id, profile.id)
-        .then((data) => { setSalesStats(data); setError(null); })
-        .catch((e) => setError(e.message))
-        .finally(() => setLoading(false));
-      return;
+      const fetchSalesStats = () => {
+        getSalesDashboardStats(company.id, profile.id)
+          .then((data) => { setSalesStats(data); setError(null); })
+          .catch((e) => setError(e.message))
+          .finally(() => setLoading(false));
+      };
+      fetchSalesStats();
+
+      const channel = supabase.channel('sales_realtime_dashboard')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'leads', filter: `company_id=eq.${company.id}` },
+          (payload: any) => {
+            if (payload.eventType === 'INSERT' && payload.new.assigned_to === profile.id) {
+              toast.info('🚀 Có lead mới được giao cho bạn!', {
+                description: `Tên khách: ${payload.new.full_name || 'Khách mới'}`
+              });
+              fetchSalesStats();
+            } else if (payload.eventType === 'UPDATE' && payload.new.assigned_to === profile.id) {
+              fetchSalesStats();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'appointments', filter: `company_id=eq.${company.id}` },
+          (payload: any) => {
+            if (payload.eventType === 'INSERT' && payload.new.assigned_to === profile.id) {
+              toast.info('📅 Có lịch hẹn mới được giao cho bạn!', {
+                description: `Tên khách: ${payload.new.customer_name || 'Khách xem phòng'}`
+              });
+              fetchSalesStats();
+            } else if (payload.eventType === 'UPDATE' && payload.new.assigned_to === profile.id) {
+              fetchSalesStats();
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
 
     const landlordId = role === 'landlord' ? (profile?.landlord_id ?? undefined) : undefined;

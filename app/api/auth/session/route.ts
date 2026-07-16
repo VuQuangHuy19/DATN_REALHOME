@@ -12,7 +12,14 @@ export async function GET(request: Request) {
   try {
     // Đọc cookie auth_token từ request headers
     const cookieHeader = request.headers.get('cookie') || '';
-    const token = parseCookie(cookieHeader, 'auth_token');
+    let token = parseCookie(cookieHeader, 'auth_token');
+
+    if (!token) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
 
     if (!token) {
       return NextResponse.json({ user: null });

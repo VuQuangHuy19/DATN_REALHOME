@@ -65,7 +65,7 @@ export function EditContractPage() {
   const [electricityPrice, setElectricityPrice] = useState<number>(4000);
   const [waterPrice, setWaterPrice] = useState<string>('150000/người/tháng');
   const [servicePrice, setServicePrice] = useState<string>('200000/người/tháng');
-  const [internetPrice, setInternetPrice] = useState<number>(180000);
+  const [internetPrice, setInternetPrice] = useState<number>(100000);
   const [laundryPrice, setLaundryPrice] = useState<number>(100000);
   const [tenantCount, setTenantCount] = useState<number>(1);
   const [leaseDuration, setLeaseDuration] = useState<number>(9);
@@ -296,7 +296,47 @@ export function EditContractPage() {
                   <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải danh sách...
                 </div>
               ) : (
-                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                <Select 
+                  value={selectedRoomId} 
+                  onValueChange={(val) => {
+                    setSelectedRoomId(val);
+                    const room = rooms.find((r) => r.id === val);
+                    if (room) {
+                      setRentPrice(Number(room.price));
+                      setDepositAmount(Number(room.price));
+                      const address = room.buildings?.address || '';
+                      if (address) {
+                        setSignLocation(address);
+                      }
+                      setTransferContent(`coc phong ${room.code} - ${address}`);
+
+                      // Tự động điền giá dịch vụ từ tòa nhà
+                      if (room.buildings) {
+                        if (room.buildings.electricity_price !== undefined && room.buildings.electricity_price !== null) {
+                          setElectricityPrice(room.buildings.electricity_price);
+                        }
+                        if (room.buildings.water_price !== undefined && room.buildings.water_price !== null) {
+                          const unit = room.buildings.water_price > 50000 ? '/người/tháng' : '/khối';
+                          setWaterPrice(`${room.buildings.water_price}${unit}`);
+                        }
+                        if (room.buildings.internet_price !== undefined && room.buildings.internet_price !== null) {
+                          setInternetPrice(room.buildings.internet_price);
+                        }
+                        if (room.buildings.common_service_price !== undefined && room.buildings.common_service_price !== null) {
+                          const unit = room.buildings.common_service_price > 50000 ? '/người/tháng' : '/người/tháng';
+                          setServicePrice(`${room.buildings.common_service_price}${unit}`);
+                        }
+                        const wm = room.buildings.washing_machine_type;
+                        const dt = room.buildings.dryer_type;
+                        if (!wm || wm === 'không có' || !dt || dt === 'không có') {
+                          setLaundryPrice(0);
+                        } else {
+                          setLaundryPrice(100000);
+                        }
+                      }
+                    }
+                  }}
+                >
                   <SelectTrigger id="room_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
                     <SelectValue placeholder="Chọn phòng..." />
                   </SelectTrigger>
@@ -508,7 +548,7 @@ export function EditContractPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="termination_notice" className="text-ink font-semibold text-xs uppercase tracking-wider">Báo trước khi đòi nhà (ngày)</Label>
+              <Label htmlFor="termination_notice" className="text-ink font-semibold text-xs uppercase tracking-wider">Báo trước khi đòi nhà hoặc chuyển đi (ngày)</Label>
               <Input 
                 type="number" 
                 id="termination_notice" 
