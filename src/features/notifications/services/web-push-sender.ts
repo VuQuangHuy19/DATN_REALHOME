@@ -10,11 +10,15 @@ if (!vapidSubject.startsWith('https:') && !vapidSubject.startsWith('mailto:')) {
 }
 
 if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails(
-    vapidSubject,
-    vapidPublicKey,
-    vapidPrivateKey
-  );
+  try {
+    webpush.setVapidDetails(
+      vapidSubject,
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+  } catch (error) {
+    console.error('[WebPush] Lỗi cấu hình VAPID keys:', error);
+  }
 } else {
   console.warn('[WebPush] VAPID keys chưa được cấu hình trong .env.local');
 }
