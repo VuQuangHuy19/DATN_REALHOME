@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type GalleryItem = {
@@ -71,6 +71,30 @@ export default function ImageGallery({
 }: ImageGalleryProps) {
   const items = normaliseItems(rawItems);
   const [idx, setIdx] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      setIsLightboxOpen(false);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const openLightbox = () => {
+    window.history.pushState({ lightbox: true }, '');
+    setIsLightboxOpen(true);
+  };
+
+  const closeLightbox = () => {
+    if (window.history.state?.lightbox) {
+      window.history.back();
+    } else {
+      setIsLightboxOpen(false);
+    }
+  };
 
   // Touch swipe refs
   const touchStartX = useRef<number | null>(null);
@@ -149,11 +173,13 @@ export default function ImageGallery({
       >
         {/* Current media */}
         {isVideo ? (
-          <video
-            src={current.url}
-            controls
-            className="w-full h-full object-contain"
-          />
+          <div className="relative w-full h-full">
+            <video
+              src={current.url}
+              controls
+              className="w-full h-full object-contain"
+            />
+          </div>
         ) : (
           <Image
             src={current.url || '/placeholder.jpg'}
@@ -164,10 +190,24 @@ export default function ImageGallery({
                 ? '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px'
                 : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
             }
-            className={`${objectFit} transition-opacity duration-300`}
+            className={`${objectFit} transition-opacity duration-300 cursor-zoom-in`}
             priority={priority && idx === 0}
+            onClick={openLightbox}
           />
         )}
+
+        {/* Maximize overlay button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openLightbox();
+          }}
+          className="absolute top-3 right-3 bg-black/50 hover:bg-black/75 text-white rounded-full p-2 z-10 transition-colors flex items-center justify-center shadow-lg"
+          title="Phóng to"
+        >
+          <Maximize2 className="h-4.5 w-4.5" />
+        </button>
 
         {/* Navigation arrows */}
         {items.length > 1 && (
@@ -276,6 +316,113 @@ export default function ImageGallery({
               </button>
             );
           })}
+        </div>
+      )}
+      {/* Lightbox Overlay */}
+      {isLightboxOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between select-none animate-fade-in">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent z-10 text-white">
+            <button
+              onClick={closeLightbox}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white px-4 py-2 rounded-full transition-colors text-sm font-semibold shadow"
+            >
+              <ChevronLeft className="h-5 w-5" /> Quay lại
+            </button>
+            <span className="text-sm font-semibold">
+              {idx + 1} / {items.length}
+            </span>
+            <button
+              onClick={closeLightbox}
+              className="w-10 h-10 flex items-center justify-center bg-white/10 hover:bg-white/20 active:bg-white/30 rounded-full transition-colors shadow"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Main Content Area */}
+          <div 
+            className="flex-1 flex items-center justify-center relative px-4"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            {/* Left navigation arrow */}
+            {items.length > 1 && (
+              <button
+                onClick={prev}
+                aria-label="Ảnh trước"
+                className="absolute left-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </button>
+            )}
+
+            {/* Media */}
+            {items[idx]?.type === 'video' ? (
+              <video
+                src={items[idx].url}
+                controls
+                autoPlay
+                className="max-w-full max-h-[85vh] object-contain rounded"
+              />
+            ) : (
+              <div className="relative w-full h-[85vh] flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={items[idx].url}
+                  alt={`${alt} - ${idx + 1}`}
+                  className="max-w-full max-h-[85vh] object-contain rounded"
+                />
+              </div>
+            )}
+
+            {/* Right navigation arrow */}
+            {items.length > 1 && (
+              <button
+                onClick={next}
+                aria-label="Ảnh tiếp"
+                className="absolute right-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all z-10"
+              >
+                <ChevronRight className="h-8 w-8" />
+              </button>
+            )}
+          </div>
+
+          {/* Thumbnail Strip (if items > 1) */}
+          {items.length > 1 && (
+            <div className="bg-gradient-to-t from-black/60 to-transparent py-4 px-4 overflow-x-auto flex gap-2 justify-center">
+              {items.map((item, i) => {
+                const thumbUrl = item.thumbnailUrl || item.url;
+                const isItemVideo = item.type === 'video';
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setIdx(i)}
+                    className={`relative flex-shrink-0 w-12 h-12 rounded overflow-hidden border-2 transition-all ${
+                      i === idx
+                        ? 'border-accent scale-105 shadow-md'
+                        : 'border-transparent opacity-50 hover:opacity-100'
+                    }`}
+                  >
+                    {isItemVideo ? (
+                      <div className="w-full h-full bg-slate-800 flex items-center justify-center text-xs text-white">
+                        ▶
+                      </div>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={thumbUrl}
+                        alt={`${alt} thumb ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
