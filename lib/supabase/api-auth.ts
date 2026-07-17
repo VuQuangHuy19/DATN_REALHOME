@@ -66,7 +66,8 @@ export async function requireApiAuth(
 
   // Chặn thao tác ghi (POST, PUT, DELETE, PATCH) nếu công ty bị tạm khóa (suspended)
   const isWrite = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method);
-  if (isWrite && profile.role !== 'super_admin' && profile.company_id) {
+  const isCheckout = new URL(request.url).pathname.endsWith('/api/subscriptions/checkout');
+  if (isWrite && !isCheckout && profile.role !== 'super_admin' && profile.company_id) {
     const compStatus = (profile as any).companies?.status;
     if (compStatus === 'suspended') {
       return NextResponse.json(
