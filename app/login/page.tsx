@@ -16,8 +16,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [fieldErrors, setFieldErrors] = useState<{email?: string; password?: string}>({});
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const errors: {email?: string; password?: string} = {};
+    if (!email.trim()) errors.email = 'Bạn cần nhập Email';
+    if (!password.trim()) errors.password = 'Bạn cần nhập Mật khẩu';
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    
+    setFieldErrors({});
     setError(null);
     setLoading(true);
     const { error } = await signIn(email, password);
@@ -50,9 +63,9 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div className="space-y-1">
-              <Label htmlFor="email" className="text-xs font-bold text-ink uppercase tracking-wider">Email</Label>
+              <Label htmlFor="email" className="text-xs font-bold text-ink uppercase tracking-wider">Email <span className="text-red-500">*</span></Label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
                 <Input
@@ -61,15 +74,15 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-9"
-                  required
+                  className={`pl-9 ${fieldErrors.email ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                   autoComplete="email"
                 />
               </div>
+              {fieldErrors.email && <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>}
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="password" className="text-xs font-bold text-ink uppercase tracking-wider">Mật khẩu</Label>
+              <Label htmlFor="password" className="text-xs font-bold text-ink uppercase tracking-wider">Mật khẩu <span className="text-red-500">*</span></Label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
                 <Input
@@ -78,8 +91,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-9 pr-10"
-                  required
+                  className={`pl-9 pr-10 ${fieldErrors.password ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
                   autoComplete="current-password"
                 />
                 <button
@@ -91,6 +103,7 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {fieldErrors.password && <p className="text-xs text-red-500 mt-1">{fieldErrors.password}</p>}
             </div>
 
             <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white font-semibold shadow-none mt-2" size="lg" disabled={loading}>

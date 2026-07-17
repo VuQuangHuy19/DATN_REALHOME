@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
-import { Menu, Home, Building2, Phone, Search, Heart, MessageSquare, LogIn, LayoutDashboard, LogOut, User, Settings } from 'lucide-react';
+import { Menu, Home, Building2, Phone, Search, Heart, MessageSquare, LogIn, LayoutDashboard, LogOut, User, Settings, Calendar } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
@@ -54,7 +54,7 @@ export function CustomerHeader() {
     const base = [
       { href: '/customer', label: 'Trang chủ', icon: Home },
       { href: '/customer/properties', label: 'Tìm Kiếm', icon: Building2 },
-      { href: '/customer/request-consultation', label: 'Tư vấn', icon: MessageSquare },
+      { href: '/customer/appointments/track', label: 'Lịch hẹn', icon: Calendar },
       { href: '/customer/favorites', label: 'Yêu thích', icon: Heart },
     ];
     if (role === 'sales_agent') {
@@ -106,12 +106,6 @@ export function CustomerHeader() {
             })}
           </nav>
           
-          <Button size="sm" variant="outline" className="hidden md:flex" asChild>
-            <Link href="/customer/contact">
-              <Phone className="h-4 w-4 mr-2" />
-              Liên hệ
-            </Link>
-          </Button>
 
           <ThemeToggle />
 
@@ -157,12 +151,6 @@ export function CustomerHeader() {
                 
                 <hr className="my-2 border-slate-100" />
 
-                <Button variant="outline" asChild onClick={() => setIsOpen(false)}>
-                  <Link href="/customer/contact">
-                    <Phone className="h-4 w-4 mr-2" />
-                    Liên hệ
-                  </Link>
-                </Button>
 
                 {!authLoading && (
                   <>

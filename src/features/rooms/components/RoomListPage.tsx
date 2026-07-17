@@ -10,7 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, Eye, DoorOpen, Loader2, AlertCircle, Image as LucideImage } from 'lucide-react';
-import { useRooms, useBuildings, useRoomImages, useRentalContracts, useRoomTypesCatalog, useDepositContracts } from '@/lib/hooks/useEntities';
+import { useRooms, useBuildings, useRoomImages, useRentalContracts, useRoomTypesCatalog, useDepositContracts, useLandlords } from '@/lib/hooks/useEntities';
 import { DepositCountdown } from '@/components/ui/DepositCountdown';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ImageUpload } from '@/components/ui/ImageUpload';
@@ -42,8 +42,11 @@ export function RoomListPage() {
   const { items: contracts } = useRentalContracts(company?.id);
   const { items: depositContracts } = useDepositContracts(company?.id);
   const { items: roomTypes } = useRoomTypesCatalog(company?.id);
+  const { items: landlords } = useLandlords(company?.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterBuildingId, setFilterBuildingId] = useState('');
+  const [filterLandlordCode, setFilterLandlordCode] = useState('');
   const [editItem, setEditItem] = useState<RoomWithBuilding | null>(null);
   const [viewItem, setViewItem] = useState<RoomWithBuilding | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -167,7 +170,9 @@ export function RoomListPage() {
       buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       landlordCode.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = !filterStatus || r.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesBuilding = !filterBuildingId || r.building_id === filterBuildingId;
+    const matchesLandlord = !filterLandlordCode || (r.landlord_code ?? '') === filterLandlordCode;
+    return matchesSearch && matchesStatus && matchesBuilding && matchesLandlord;
   });
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -513,18 +518,40 @@ export function RoomListPage() {
 
       <Card className="border-border rounded-lg shadow-none bg-white">
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-              <Input placeholder="Tìm theo mã phòng, tòa nhà hoặc mã chủ nhà..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+                <Input placeholder="Tìm theo mã phòng, tòa nhà hoặc mã chủ nhà..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
+              </div>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <option value="">Tất cả trạng thái</option>
+                <option value="available">Còn trống</option>
+                <option value="rented">Đã cho thuê</option>
+                <option value="maintenance">Bảo trì</option>
+                <option value="reserved">Đang giữ</option>
+              </select>
             </div>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-              <option value="">Tất cả trạng thái</option>
-              <option value="available">Còn trống</option>
-              <option value="rented">Đã cho thuê</option>
-              <option value="maintenance">Bảo trì</option>
-              <option value="reserved">Đang giữ</option>
-            </select>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select value={filterBuildingId} onChange={(e) => setFilterBuildingId(e.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <option value="">Tất cả tòa nhà</option>
+                {buildings.map((b) => (
+                  <option key={b.id} value={b.code}>
+                    {b.code} — {b.name}
+                  </option>
+                ))}
+              </select>
+              {role !== 'landlord' && (
+                <select value={filterLandlordCode} onChange={(e) => setFilterLandlordCode(e.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  <option value="">Tất cả chủ nhà</option>
+                  {landlords.map((l) => (
+                    <option key={l.id} value={l.code || ''}>
+                      {l.code ? `${l.code} — ` : ''}{l.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">

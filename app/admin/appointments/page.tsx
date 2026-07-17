@@ -101,6 +101,7 @@ export default function AppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
   const [viewItem, setViewItem] = useState<DBAppointment | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [editItem, setEditItem] = useState<DBAppointment | null>(null);
@@ -131,7 +132,12 @@ export default function AppointmentsPage() {
       (a.customer_phone ?? '').includes(searchQuery);
     const matchesDate = !filterDate || a.date === filterDate;
     const matchesStatus = !filterStatus || a.status === filterStatus;
-    return matchesSearch && matchesDate && matchesStatus;
+    const matchesAssignee = !filterAssignee
+      ? true
+      : filterAssignee === 'unassigned'
+        ? !a.assigned_to
+        : a.assigned_to === filterAssignee;
+    return matchesSearch && matchesDate && matchesStatus && matchesAssignee;
   });
 
   const sortedAndFiltered = [...filtered].sort((a, b) => {
@@ -207,8 +213,8 @@ export default function AppointmentsPage() {
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Tìm theo tên khách hàng hoặc SĐT..."
@@ -229,6 +235,19 @@ export default function AppointmentsPage() {
               <option value="Viewed">Đã xem phòng</option>
               <option value="Dealed">Đã chốt thành công</option>
               <option value="Cancel">Đã hủy</option>
+            </select>
+            <select
+              value={filterAssignee}
+              onChange={(e) => setFilterAssignee(e.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+            >
+              <option value="">Tất cả nhân viên</option>
+              <option value="unassigned">Chưa phân công</option>
+              {assignableProfiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name || p.email}
+                </option>
+              ))}
             </select>
           </div>
         </CardHeader>

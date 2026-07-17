@@ -187,9 +187,9 @@ function LocationFilter({
   selectedProvinceId: string;
   selectedDistrictId: string;
   selectedWardId: string;
-  onProvinceChange: (id: string) => void;
-  onDistrictChange: (id: string) => void;
-  onWardChange: (id: string) => void;
+  onProvinceChange: (id: string, name?: string) => void;
+  onDistrictChange: (id: string, name?: string) => void;
+  onWardChange: (id: string, name?: string) => void;
 }) {
   const [provinces, setProvinces] = useState<VnProvince[]>([]);
   const [districts, setDistricts] = useState<VnDistrict[]>([]);
@@ -251,11 +251,17 @@ function LocationFilter({
         <label className="block text-xs text-ink-muted mb-1 font-medium">Tỉnh / Thành phố</label>
         <select
           value={selectedProvinceId}
-          onChange={(e) => { onProvinceChange(e.target.value); onDistrictChange(''); onWardChange(''); }}
+          onChange={(e) => { 
+            const val = e.target.value;
+            const name = provinces.find(p => p.id === val)?.name || '';
+            onProvinceChange(val, name); 
+            onDistrictChange('', ''); 
+            onWardChange('', ''); 
+          }}
           disabled={loadingProv}
           className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60"
         >
-          <option value="">-- Chọn tỉnh/thành --</option>
+          <option value="">Tất cả tỉnh/thành</option>
           {provinces.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
@@ -267,11 +273,16 @@ function LocationFilter({
         <label className="block text-xs text-ink-muted mb-1 font-medium">Quận / Huyện</label>
         <select
           value={selectedDistrictId}
-          onChange={(e) => { onDistrictChange(e.target.value); onWardChange(''); }}
+          onChange={(e) => { 
+            const val = e.target.value;
+            const name = districts.find(d => d.id === val)?.name || '';
+            onDistrictChange(val, name); 
+            onWardChange('', ''); 
+          }}
           disabled={!selectedProvinceId || loadingDist}
           className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50 dark:disabled:bg-slate-900/30"
         >
-          <option value="">{loadingDist ? 'Đang tải...' : '-- Chọn quận/huyện --'}</option>
+          <option value="">{loadingDist ? 'Đang tải...' : 'Tất cả quận/huyện'}</option>
           {districts.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}
@@ -283,11 +294,15 @@ function LocationFilter({
         <label className="block text-xs text-ink-muted mb-1 font-medium">Phường / Xã</label>
         <select
           value={selectedWardId}
-          onChange={(e) => onWardChange(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            const name = wards.find(w => w.id === val)?.name || '';
+            onWardChange(val, name);
+          }}
           disabled={!selectedDistrictId || loadingWard}
           className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50 dark:disabled:bg-slate-900/30"
         >
-          <option value="">{loadingWard ? 'Đang tải...' : '-- Chọn phường/xã --'}</option>
+          <option value="">{loadingWard ? 'Đang tải...' : 'Tất cả phường/xã'}</option>
           {wards.map((w) => (
             <option key={w.id} value={w.id}>{w.name}</option>
           ))}
@@ -298,8 +313,9 @@ function LocationFilter({
 }
 
 // ─── Sort options ─────────────────────────────────────────────────────────────
-type SortOption = 'price_asc' | 'price_desc' | 'newest' | 'size_desc' | 'size_asc';
+type SortOption = 'all' | 'price_asc' | 'price_desc' | 'newest' | 'size_desc' | 'size_asc';
 const SORT_LABELS: Record<SortOption, string> = {
+  all: 'Tất cả các phòng',
   price_asc: 'Giá từ thấp tới cao',
   price_desc: 'Giá từ cao tới thấp',
   newest: 'Tin đăng mới nhất',
@@ -324,14 +340,16 @@ export default function PropertiesPage() {
 
   const [selectedProvinceId, setSelectedProvinceId] = useState('');
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const [selectedDistrictName, setSelectedDistrictName] = useState('');
   const [selectedWardId, setSelectedWardId] = useState('');
+  const [selectedWardName, setSelectedWardName] = useState('');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
   const [priceSlider, setPriceSlider] = useState<number[]>([500000, 100000000]);
   const [priceRange, setPriceRange] = useState<number[]>([500000, 100000000]);
   const [sizeSlider, setSizeSlider] = useState<number[]>([0, 500]);
   const [sizeRange, setSizeRange] = useState<number[]>([0, 500]);
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [sortBy, setSortBy] = useState<SortOption>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const pageSize = 9;
@@ -392,12 +410,20 @@ export default function PropertiesPage() {
         g.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
         g.address.toLowerCase().includes(searchQuery.toLowerCase());
       // Lọc theo quận/huyện (districtId) hoặc phường/xã (wardId) nếu đã chọn
-      // Nếu buildings.district_id chưa được set (dữ liệu cũ), fallback match theo tên area
+      // Fallback: nếu dữ liệu import từ file csv ko có districtId/wardId, ta parse tên quận/phường và so khớp với g.area hoặc g.address
+      const distNameClean = selectedDistrictName.replace(/^(Quận|Huyện|Thị xã)\s+/i, '').trim().toLowerCase();
       const matchDistrict = !selectedDistrictId || (
         g.representativeRoom.districtId === selectedDistrictId ||
-        (!g.representativeRoom.districtId && !selectedDistrictId)
+        (!g.representativeRoom.districtId && g.area.toLowerCase().includes(distNameClean)) ||
+        (!g.representativeRoom.districtId && g.address.toLowerCase().includes(distNameClean))
       );
-      const matchWard = !selectedWardId || g.representativeRoom.wardId === selectedWardId;
+      
+      const wardNameClean = selectedWardName.replace(/^(Phường|Xã|Thị trấn)\s+/i, '').trim().toLowerCase();
+      const matchWard = !selectedWardId || (
+        g.representativeRoom.wardId === selectedWardId ||
+        (!g.representativeRoom.wardId && g.address.toLowerCase().includes(wardNameClean))
+      );
+
       const matchArea = selectedAreas.length === 0 || selectedAreas.includes(g.area);
       const isPriceActive = priceRange[0] !== 500000 || priceRange[1] !== 100000000;
       const matchPrice = !isPriceActive || (g.minPrice <= priceRange[1] && g.maxPrice >= priceRange[0]);
@@ -588,9 +614,26 @@ export default function PropertiesPage() {
   return (
     <div className="container mx-auto px-4 py-8 bg-bg-base">
       {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-3xl font-bold font-heading text-ink">Bất Động Sản</h1>
-        {company && <p className="text-sm text-ink-muted mt-0.5">{company.name}</p>}
+      <div className="mb-4 flex items-start justify-between gap-4 relative">
+        <div>
+          <h1 className="text-3xl font-bold font-heading text-ink">Bất Động Sản</h1>
+          {company && <p className="text-sm text-ink-muted mt-0.5">{company.name}</p>}
+        </div>
+
+        {/* Mobile filter */}
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className="lg:hidden flex-shrink-0">
+              <SlidersHorizontal className="h-4 w-4 mr-1.5" />
+              Lọc
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[300px] flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto py-6">
+              {renderFilterContent()}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* 3-cấp vị trí */}
@@ -599,8 +642,14 @@ export default function PropertiesPage() {
         selectedDistrictId={selectedDistrictId}
         selectedWardId={selectedWardId}
         onProvinceChange={setSelectedProvinceId}
-        onDistrictChange={setSelectedDistrictId}
-        onWardChange={setSelectedWardId}
+        onDistrictChange={(id, name) => {
+          setSelectedDistrictId(id);
+          setSelectedDistrictName(name || '');
+        }}
+        onWardChange={(id, name) => {
+          setSelectedWardId(id);
+          setSelectedWardName(name || '');
+        }}
       />
 
       {/* Thanh kết quả + sort */}
@@ -636,20 +685,6 @@ export default function PropertiesPage() {
             ))}
           </select>
 
-          {/* Mobile filter */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="lg:hidden">
-                <SlidersHorizontal className="h-4 w-4 mr-1.5" />
-                Lọc
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[300px] flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto py-6">
-                {renderFilterContent()}
-              </div>
-            </SheetContent>
-          </Sheet>
         </div>
       </div>
 

@@ -12,13 +12,13 @@ import { Calendar, MapPin, Loader2 } from 'lucide-react';
 
 
 const schema = z.object({
-  customerName: z.string().min(1, 'Vui lòng nhập họ tên'),
+  customerName: z.string().min(1, 'Bạn cần nhập Họ và tên'),
   customerPhone: z
     .string()
-    .min(1, 'Vui lòng nhập số điện thoại')
+    .min(1, 'Bạn cần nhập Số điện thoại')
     .regex(/^[0-9+\s\-()]{8,15}$/, 'Số điện thoại không hợp lệ'),
-  viewingDate: z.string().min(1, 'Vui lòng chọn ngày xem'),
-  viewingTime: z.string().min(1, 'Vui lòng chọn giờ xem'),
+  viewingDate: z.string().min(1, 'Bạn cần nhập Ngày đi xem'),
+  viewingTime: z.string().min(1, 'Bạn cần nhập Giờ đi xem'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -119,7 +119,7 @@ export function ViewingRequestDialog({
           <DialogDescription className="hidden">Mô tả lịch hẹn</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pt-1">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 pt-1" noValidate>
           {property && (
             <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 space-y-1">
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">

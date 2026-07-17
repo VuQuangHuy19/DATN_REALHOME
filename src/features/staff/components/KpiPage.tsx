@@ -33,8 +33,10 @@ export function KpiPage() {
   const [kpiList, setKpiList] = useState<DBEmployeeKPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPeriod, setSelectedPeriod] = useState('');
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
+  const [filterQuarter, setFilterQuarter] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterEmployeeId, setFilterEmployeeId] = useState('');
   const [viewItem, setViewItem] = useState<DBEmployeeKPI | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,12 +84,13 @@ export function KpiPage() {
   }, [company?.id]);
 
   useEffect(() => {
-    if (selectedPeriod) {
-      setPreviewPeriod(selectedPeriod);
+    // Tự động xác định preview period từ bộ lọc
+    if (filterYear && filterMonth) {
+      setPreviewPeriod(`${filterYear}-${filterMonth.padStart(2, '0')}`);
     } else {
       setPreviewPeriod(new Date().toISOString().substring(0, 7));
     }
-  }, [selectedPeriod]);
+  }, [filterYear, filterMonth]);
 
   const loadKPIs = useCallback(async () => {
     if (!company?.id) return;
@@ -95,26 +98,27 @@ export function KpiPage() {
     try {
       const data = await getKPIs(company.id);
       setKpiList(data);
-      if (data.length > 0 && !selectedPeriod) {
-        const periods = Array.from(new Set(data.map((k) => k.period))).sort().reverse();
-        setSelectedPeriod(periods[0]);
-      }
       setError(null);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [company?.id, selectedPeriod]);
+  }, [company?.id]);
 
   useEffect(() => { loadKPIs(); }, [loadKPIs]);
 
-  const periods = Array.from(new Set(kpiList.map((k) => k.period))).sort().reverse();
-
   const filtered = kpiList.filter((k) => {
-    const matchPeriod = !selectedPeriod || k.period === selectedPeriod;
-    const matchSearch = k.employee_name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchPeriod && matchSearch;
+    const [year, month] = k.period.split('-');
+    if (filterYear && year !== filterYear) return false;
+    if (filterMonth && month !== filterMonth) return false;
+    if (filterQuarter) {
+      const m = parseInt(month, 10);
+      const q = Math.ceil(m / 3).toString();
+      if (q !== filterQuarter) return false;
+    }
+    if (filterEmployeeId && k.employee_id !== filterEmployeeId) return false;
+    return true;
   });
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -343,7 +347,7 @@ export function KpiPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card><CardContent className="p-5">
-          <p className="text-sm text-slate-500">Điểm TB{selectedPeriod ? ` (${selectedPeriod})` : ''}</p>
+          <p className="text-sm text-slate-500">Điểm TB</p>
           <p className="text-3xl font-bold text-slate-800 mt-1">{avgScore}<span className="text-base text-slate-400 font-normal">/100</span></p>
         </CardContent></Card>
         <Card><CardContent className="p-5">
@@ -358,28 +362,62 @@ export function KpiPage() {
         </CardContent></Card>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setSelectedPeriod('')}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${!selectedPeriod ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-          >
-            Tất cả
-          </button>
-          {periods.map((p) => (
-            <button
-              key={p}
-              onClick={() => setSelectedPeriod(p)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedPeriod === p ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
-              {p}
-            </button>
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <select
+          value={filterEmployeeId}
+          onChange={(e) => setFilterEmployeeId(e.target.value)}
+          className="h-10 min-w-[200px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <option value="">Tất cả nhân viên</option>
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.name}
+            </option>
           ))}
-        </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input placeholder="Tìm nhân viên..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 w-48" />
-        </div>
+        </select>
+        
+        <select
+          value={filterYear}
+          onChange={(e) => setFilterYear(e.target.value)}
+          className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <option value="">Tất cả các năm</option>
+          <option value="2026">2026</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+        </select>
+
+        <select
+          value={filterQuarter}
+          onChange={(e) => {
+            setFilterQuarter(e.target.value);
+            if (e.target.value) setFilterMonth('');
+          }}
+          className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <option value="">Tất cả các quý</option>
+          <option value="1">Quý 1</option>
+          <option value="2">Quý 2</option>
+          <option value="3">Quý 3</option>
+          <option value="4">Quý 4</option>
+        </select>
+
+        <select
+          value={filterMonth}
+          onChange={(e) => {
+            setFilterMonth(e.target.value);
+            if (e.target.value) setFilterQuarter('');
+          }}
+          className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <option value="">Tất cả các tháng</option>
+          {Array.from({ length: 12 }, (_, i) => {
+            const m = (i + 1).toString().padStart(2, '0');
+            return (
+              <option key={m} value={m}>Tháng {m}</option>
+            );
+          })}
+        </select>
       </div>
 
       <Card>

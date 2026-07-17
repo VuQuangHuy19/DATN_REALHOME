@@ -341,6 +341,7 @@ export default function LeadsPage() {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Thời gian tạo</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Quan tâm</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Sale phụ trách</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nguồn</th>
@@ -369,6 +370,11 @@ export default function LeadsPage() {
                         </td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs text-ink-muted font-mono whitespace-nowrap">
+                            {formatDate(item.created_at)}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-ink-muted">
                           <div className="text-sm font-medium text-ink">{item.preferred_room_type || '—'}</div>
@@ -477,6 +483,10 @@ export default function LeadsPage() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
+                        <div className="col-span-2">
+                          <span className="font-medium text-ink-muted">Tạo lúc:</span>{' '}
+                          <span className="text-ink font-mono">{formatDate(item.created_at)}</span>
+                        </div>
                         <div>
                           <span className="font-medium text-ink-muted">SĐT:</span>{' '}
                           <span className="text-ink font-mono">{item.phone}</span>

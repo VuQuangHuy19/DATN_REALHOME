@@ -39,6 +39,7 @@ export function BuildingListPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterArea, setFilterArea] = useState('');
+  const [filterLandlord, setFilterLandlord] = useState('');
   const [editItem, setEditItem] = useState<DBBuilding | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -158,7 +159,8 @@ export function BuildingListPage() {
   const filtered = buildingList.filter((b) => {
     const matchesSearch = b.code.toLowerCase().includes(searchQuery.toLowerCase()) || b.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesArea = !filterArea || b.area === filterArea;
-    return matchesSearch && matchesArea;
+    const matchesLandlord = !filterLandlord || b.landlord_id === filterLandlord;
+    return matchesSearch && matchesArea && matchesLandlord;
   });
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -592,8 +594,8 @@ export function BuildingListPage() {
 
       <Card className="border-border rounded-lg shadow-none bg-white">
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <Input placeholder="Tìm theo mã hoặc tên..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
             </div>
@@ -601,6 +603,16 @@ export function BuildingListPage() {
               <option value="">Tất cả khu vực</option>
               {areas.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
+            {role !== 'landlord' && (
+              <select value={filterLandlord} onChange={(e) => setFilterLandlord(e.target.value)} className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <option value="">Tất cả chủ nhà</option>
+                {landlordList.map((l) => (
+                  <option key={l.id} value={l.code || ''}>
+                    {l.code ? `${l.code} — ` : ''}{l.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">

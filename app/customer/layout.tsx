@@ -8,9 +8,10 @@ import { CustomerCompanyProvider } from '@/components/customer/CustomerCompanyPr
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Home, Search, Heart, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { Home, Search, Heart, MessageSquare, LayoutDashboard, Calendar } from 'lucide-react';
 import { CompareProvider } from '@/src/lib/customer/RoomCompareContext';
 import { RoomComparisonDrawer } from '@/src/features/properties/components/RoomComparisonDrawer';
+import { FloatingConsultation } from '@/components/customer/FloatingConsultation';
 
 function MobileBottomNav() {
   const pathname = usePathname();
@@ -21,7 +22,7 @@ function MobileBottomNav() {
       { href: '/customer', label: 'Trang chủ', icon: Home },
       { href: '/customer/properties', label: 'Tìm kiếm', icon: Search },
       { href: '/customer/favorites', label: 'Yêu thích', icon: Heart },
-      { href: '/customer/request-consultation', label: 'Tư vấn', icon: MessageSquare },
+      { href: '/customer/appointments/track', label: 'Lịch hẹn', icon: Calendar },
     ];
     if (role === 'sales_agent') {
       base.push({ href: '/admin', label: 'CRM', icon: LayoutDashboard });
@@ -65,6 +66,7 @@ function CustomerShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 pb-16 lg:pb-0">{children}</main>
         <MobileBottomNav />
         <RoomComparisonDrawer />
+        <FloatingConsultation />
         <CustomerFooter />
       </CompareProvider>
     </CustomerCompanyProvider>

@@ -77,6 +77,7 @@ export default function CustomersAppointmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('all');
   const { items: profiles } = useProfiles(company?.id);
 
   const isSale = role === 'sales_agent';
@@ -129,7 +130,15 @@ export default function CustomersAppointmentsPage() {
       (a.customer_phone ?? '').includes(searchQuery);
     const matchesDate = !filterDate || a.date === filterDate;
     const matchesStatus = !filterStatus || a.status === filterStatus;
-    return matchesSearch && matchesDate && matchesStatus;
+    
+    let matchesAssignee = true;
+    if (filterAssignee === 'unassigned') {
+      matchesAssignee = !a.assigned_to;
+    } else if (filterAssignee !== 'all') {
+      matchesAssignee = a.assigned_to === filterAssignee;
+    }
+
+    return matchesSearch && matchesDate && matchesStatus && matchesAssignee;
   });
 
   const sortedAndFiltered = [...filtered].sort((a, b) => {
@@ -234,6 +243,19 @@ export default function CustomersAppointmentsPage() {
               <option value="Dealed">Đã chốt thành công</option>
               <option value="Cancel">Đã hủy</option>
             </select>
+            {!isSale && (
+              <select
+                value={filterAssignee}
+                onChange={(e) => setFilterAssignee(e.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+              >
+                <option value="all">Tất cả nhân viên</option>
+                <option value="unassigned">Chưa phân công</option>
+                {assignableProfiles.map((p) => (
+                  <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+                ))}
+              </select>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
