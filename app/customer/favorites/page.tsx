@@ -91,7 +91,7 @@ export default function FavoritesPage() {
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>
       ) : favoriteProperties.length === 0 ? (
-        <div className="text-center py-20 bg-white border border-border-subtle rounded-lg max-w-lg mx-auto p-8 shadow-none">
+        <div className="text-center py-20 bg-card border border-border-subtle rounded-lg max-w-lg mx-auto p-8 shadow-none">
           <Heart className="h-16 w-16 text-ink-muted/30 mx-auto mb-4" />
           <h2 className="text-xl font-bold font-heading text-ink mb-2">Danh sách yêu thích trống</h2>
           <p className="text-ink-muted text-sm mb-6 leading-relaxed">
@@ -104,7 +104,7 @@ export default function FavoritesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {favoriteProperties.map((property) => (
-            <Card key={property.id} className="overflow-hidden border border-border-subtle rounded-lg bg-white shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col group">
+            <Card key={property.id} className="overflow-hidden border border-border-subtle rounded-lg bg-card shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col group">
               <div className="relative h-52 overflow-hidden flex-shrink-0">
                 <Link href={`/customer/properties/${property.id}`} className="block w-full h-full animate-fade">
                   <Image src={property.imageUrl} alt={property.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -141,7 +141,7 @@ export default function FavoritesPage() {
               </CardContent>
               <div className="px-5 pb-4 pt-3 border-t border-border-subtle bg-bg-subtle/50 rounded-b-lg">
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 h-9 text-sm text-ink border-border-subtle bg-white shadow-none" asChild>
+                  <Button variant="outline" size="sm" className="flex-1 h-9 text-sm text-ink border-border-subtle bg-card shadow-none" asChild>
                     <Link href={`/customer/properties/${property.id}`}>Xem chi tiết</Link>
                   </Button>
                   <Button

@@ -69,7 +69,7 @@ export default function CustomerHomePage() {
 
       {/* Floating Search Container */}
       <div className="relative z-10 container mx-auto px-4 max-w-3xl -mt-10 mb-12">
-        <form onSubmit={handleSearchSubmit} className="bg-white p-4 md:p-5 rounded-lg border border-border-subtle shadow-md grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center">
+        <form onSubmit={handleSearchSubmit} className="bg-card p-4 md:p-5 rounded-lg border border-border-subtle shadow-md grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
             <input
@@ -77,7 +77,7 @@ export default function CustomerHomePage() {
               placeholder="Nhập khu vực, tên tòa nhà, địa chỉ để tìm nhanh..."
               value={quickSearch}
               onChange={(e) => setQuickSearch(e.target.value)}
-              className="pl-9 h-10 w-full rounded-lg border border-border-subtle bg-bg-subtle text-sm text-ink placeholder:text-ink-muted/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent focus:bg-white transition-colors"
+              className="pl-9 h-10 w-full rounded-lg border border-border-subtle bg-bg-subtle text-sm text-ink placeholder:text-ink-muted/60 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent focus:bg-white dark:focus:bg-bg-base transition-colors"
             />
           </div>
           <Button type="submit" className="w-full sm:w-auto bg-accent hover:bg-accent-500 text-white font-semibold">
@@ -87,7 +87,7 @@ export default function CustomerHomePage() {
       </div>
 
       {/* Featured Properties */}
-      <section className="py-12 bg-white border-t border-border-subtle">
+      <section className="py-12 bg-bg-base border-t border-border-subtle">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
             <div>
@@ -112,7 +112,7 @@ export default function CustomerHomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {featuredProperties.map((property) => (
                 <Link key={property.id} href={`/customer/properties/${property.id}`} className="group">
-                  <Card className="overflow-hidden border border-border-subtle rounded-lg bg-white shadow-none hover:border-accent hover:shadow-sm transition-all h-full flex flex-col">
+                  <Card className="overflow-hidden border border-border-subtle rounded-lg bg-card shadow-none hover:border-accent hover:shadow-sm transition-all h-full flex flex-col">
                     <div className="relative h-52 overflow-hidden flex-shrink-0">
                       <Image
                         src={property.imageUrl}
@@ -192,13 +192,13 @@ export default function CustomerHomePage() {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-bg-base border-t border-border-subtle">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl md:text-3xl font-bold text-center text-ink font-heading mb-12">
             Tại Sao Chọn RealHome
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="text-center border border-border-subtle rounded-lg bg-white shadow-none p-6 flex flex-col items-center">
+            <Card className="text-center border border-border-subtle rounded-lg bg-card shadow-none p-6 flex flex-col items-center">
               <CardHeader className="p-0 mb-4 flex flex-col items-center">
                 <div className="w-12 h-12 bg-accent-soft rounded-full flex items-center justify-center mb-3">
                   <Building2 className="h-6 w-6 text-accent" />
@@ -212,7 +212,7 @@ export default function CustomerHomePage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center border border-border-subtle rounded-lg bg-white shadow-none p-6 flex flex-col items-center">
+            <Card className="text-center border border-border-subtle rounded-lg bg-card shadow-none p-6 flex flex-col items-center">
               <CardHeader className="p-0 mb-4 flex flex-col items-center">
                 <div className="w-12 h-12 bg-accent-soft rounded-full flex items-center justify-center mb-3">
                   <MapPin className="h-6 w-6 text-accent" />
@@ -226,7 +226,7 @@ export default function CustomerHomePage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center border border-border-subtle rounded-lg bg-white shadow-none p-6 flex flex-col items-center">
+            <Card className="text-center border border-border-subtle rounded-lg bg-card shadow-none p-6 flex flex-col items-center">
               <CardHeader className="p-0 mb-4 flex flex-col items-center">
                 <div className="w-12 h-12 bg-accent-soft rounded-full flex items-center justify-center mb-3">
                   <Phone className="h-6 w-6 text-accent" />

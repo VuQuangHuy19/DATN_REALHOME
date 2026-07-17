@@ -131,7 +131,7 @@ export default function RequestConsultationPage() {
   if (submitted) {
     return (
       <div className="container mx-auto px-4 py-16 bg-bg-base min-h-screen">
-        <div className="max-w-lg mx-auto text-center bg-white border border-border-subtle rounded-lg p-8 shadow-none">
+        <div className="max-w-lg mx-auto text-center bg-card border border-border-subtle rounded-lg p-8 shadow-none">
           <div className="h-20 w-20 rounded-full bg-accent-soft flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="h-10 w-10 text-accent" />
           </div>
@@ -168,7 +168,7 @@ export default function RequestConsultationPage() {
           </p>
         </div>
 
-        <Card className="border border-border-subtle shadow-none rounded-lg bg-white">
+        <Card className="border border-border-subtle shadow-none rounded-lg bg-card">
           <CardContent className="p-6 sm:p-8">
             {error && (
               <div className="flex items-center gap-2 p-3 mb-5 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
@@ -210,14 +210,14 @@ export default function RequestConsultationPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label htmlFor="preferredArea" className="text-xs font-bold text-ink uppercase tracking-wider">Khu vực mong muốn</Label>
-                    <select id="preferredArea" name="preferredArea" className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
+                    <select id="preferredArea" name="preferredArea" className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
                       <option value="">Tất cả khu vực</option>
                       {areaOptions.map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="preferredRoomType" className="text-xs font-bold text-ink uppercase tracking-wider">Loại phòng</Label>
-                    <select id="preferredRoomType" name="preferredRoomType" className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
+                    <select id="preferredRoomType" name="preferredRoomType" className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
                       <option value="">Tất cả loại</option>
                       {roomTypeOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
@@ -236,14 +236,14 @@ export default function RequestConsultationPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label htmlFor="budget" className="text-xs font-bold text-ink uppercase tracking-wider">Ngân sách</Label>
-                    <select id="budget" name="budget" className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
+                    <select id="budget" name="budget" className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
                       <option value="0">Chưa xác định</option>
                       {budgetRanges.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="source" className="text-xs font-bold text-ink uppercase tracking-wider">Biết đến qua</Label>
-                    <select id="source" name="source" className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
+                    <select id="source" name="source" className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent mt-1">
                       {sources.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                     </select>
                   </div>

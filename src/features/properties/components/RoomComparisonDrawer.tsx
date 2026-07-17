@@ -18,14 +18,14 @@ export function RoomComparisonDrawer() {
     <>
       {/* Sticky Bottom Bar */}
       <div className="fixed bottom-0 sm:bottom-4 left-1/2 -translate-x-1/2 z-50 w-full sm:w-auto px-4 sm:px-0">
-        <div className="bg-white border border-border-subtle shadow-xl rounded-t-xl sm:rounded-full px-4 py-3 flex items-center justify-between gap-6 w-full max-w-[500px] mx-auto pb-safe">
+        <div className="bg-card border border-border-subtle shadow-xl rounded-t-xl sm:rounded-full px-4 py-3 flex items-center justify-between gap-6 w-full max-w-[500px] mx-auto pb-safe">
           <div className="flex -space-x-2">
             {rooms.map(room => (
-              <div key={room.id} className="relative w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-slate-100 shadow-sm">
+              <div key={room.id} className="relative w-10 h-10 rounded-full border-2 border-card overflow-hidden bg-bg-subtle shadow-sm">
                 <Image src={room.thumbnailUrl || '/placeholder.jpg'} alt={room.title} fill className="object-cover" />
                 <button 
                   onClick={(e) => { e.stopPropagation(); removeRoom(room.id); }}
-                  className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-red-500 hover:text-red-700 hover:bg-slate-50"
+                  className="absolute -top-1 -right-1 bg-card rounded-full p-0.5 shadow-sm text-red-500 hover:text-red-700 hover:bg-bg-subtle"
                   title="Xóa"
                 >
                   <XCircle className="w-3 h-3" />
@@ -48,7 +48,7 @@ export function RoomComparisonDrawer() {
       {/* Comparison Modal */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] overflow-y-auto p-0 rounded-xl">
-          <DialogHeader className="sticky top-0 bg-white/95 backdrop-blur z-20 px-6 py-4 border-b border-border-subtle flex flex-row items-center justify-between">
+          <DialogHeader className="sticky top-0 bg-card/95 backdrop-blur z-20 px-6 py-4 border-b border-border-subtle flex flex-row items-center justify-between">
             <DialogTitle className="text-xl font-bold font-heading text-ink">So sánh phòng</DialogTitle>
           </DialogHeader>
 
@@ -57,17 +57,17 @@ export function RoomComparisonDrawer() {
               <table className="w-full text-sm text-left border-collapse min-w-[600px]">
                 <thead>
                   <tr>
-                    <th className="p-3 w-1/4 sticky left-0 bg-white z-10 border-b border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Thuộc tính</th>
+                    <th className="p-3 w-1/4 sticky left-0 bg-card z-10 border-b border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Thuộc tính</th>
                     {rooms.map(room => (
                       <th key={room.id} className="p-3 w-1/4 border-b border-border-subtle align-top">
-                        <div className="relative h-32 w-full rounded-md overflow-hidden bg-slate-100 mb-2 border border-border-subtle">
+                        <div className="relative h-32 w-full rounded-md overflow-hidden bg-bg-subtle mb-2 border border-border-subtle">
                           <Image src={room.imageUrl || '/placeholder.jpg'} alt={room.title} fill className="object-cover" />
                           <button 
                             onClick={() => {
                               removeRoom(room.id);
                               if (rooms.length === 1) setIsOpen(false);
                             }}
-                            className="absolute top-2 right-2 bg-white/90 rounded-full p-1 shadow hover:bg-red-50 hover:text-red-600 transition-colors z-10"
+                            className="absolute top-2 right-2 bg-card/90 rounded-full p-1 shadow hover:bg-red-550 hover:text-red-650 transition-colors z-10"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -87,8 +87,8 @@ export function RoomComparisonDrawer() {
                 </thead>
                 <tbody>
                   {/* Prices */}
-                  <tr className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-semibold text-ink sticky left-0 bg-white/95 z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Giá thuê</td>
+                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+                    <td className="p-3 font-semibold text-ink sticky left-0 bg-card z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Giá thuê</td>
                     {rooms.map(room => (
                       <td key={room.id} className="p-3 border-b border-border-subtle font-mono font-bold text-accent">
                         {room.price.toLocaleString('vi-VN')} đ/tháng
@@ -100,8 +100,8 @@ export function RoomComparisonDrawer() {
                   </tr>
 
                   {/* Area */}
-                  <tr className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-semibold text-ink sticky left-0 bg-white/95 z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Diện tích</td>
+                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+                    <td className="p-3 font-semibold text-ink sticky left-0 bg-card z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Diện tích</td>
                     {rooms.map(room => (
                       <td key={room.id} className="p-3 border-b border-border-subtle text-ink">
                         {room.size} m²
@@ -113,7 +113,7 @@ export function RoomComparisonDrawer() {
                   </tr>
 
                   {/* Floor */}
-                  <tr className="hover:bg-slate-50 transition-colors bg-bg-subtle/50">
+                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors bg-bg-subtle/50">
                     <td className="p-3 font-semibold text-ink sticky left-0 bg-bg-subtle/95 z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Tầng</td>
                     {rooms.map(room => (
                       <td key={room.id} className="p-3 border-b border-border-subtle text-ink">
@@ -136,15 +136,15 @@ export function RoomComparisonDrawer() {
                     { key: 'hasRefrigerator', label: 'Tủ lạnh' },
                     { key: 'allowPet', label: 'Nuôi thú cưng' },
                   ].map((amenity, index) => (
-                    <tr key={amenity.key} className={`hover:bg-slate-50 transition-colors ${index % 2 === 1 ? 'bg-bg-subtle/50' : ''}`}>
-                      <td className={`p-3 font-semibold text-ink sticky left-0 z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${index % 2 === 1 ? 'bg-bg-subtle/95' : 'bg-white/95'}`}>
+                    <tr key={amenity.key} className={`hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors ${index % 2 === 1 ? 'bg-bg-subtle/50' : ''}`}>
+                      <td className={`p-3 font-semibold text-ink sticky left-0 z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${index % 2 === 1 ? 'bg-bg-subtle/95' : 'bg-card/95'}`}>
                         {amenity.label}
                       </td>
                       {rooms.map(room => {
                         const val = room[amenity.key as keyof CustomerListing];
                         return (
                           <td key={room.id} className="p-3 border-b border-border-subtle text-ink">
-                            {val ? <Check className="w-4 h-4 text-green-600" /> : <span className="text-ink-muted">-</span>}
+                            {val ? <Check className="w-4 h-4 text-green-650 dark:text-green-400" /> : <span className="text-ink-muted">-</span>}
                           </td>
                         );
                       })}
@@ -156,7 +156,7 @@ export function RoomComparisonDrawer() {
                   
                   {/* Action row */}
                   <tr>
-                    <td className="p-3 sticky left-0 bg-white z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
+                    <td className="p-3 sticky left-0 bg-card z-10 border-r border-border-subtle shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></td>
                     {rooms.map(room => (
                       <td key={room.id} className="p-3 pt-6 text-center">
                          <Button 

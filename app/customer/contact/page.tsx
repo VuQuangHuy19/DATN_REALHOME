@@ -123,7 +123,7 @@ export default function ContactPage() {
           {/* Contact Info */}
           <div className="space-y-4">
             {contactInfo.map(({ icon: Icon, label, value, href }) => (
-              <Card key={label} className="border border-border-subtle shadow-none rounded-lg bg-white">
+              <Card key={label} className="border border-border-subtle shadow-none rounded-lg bg-card">
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="h-10 w-10 rounded-lg bg-accent-soft flex items-center justify-center flex-shrink-0">
                     <Icon className="h-5 w-5 text-accent" />
@@ -145,7 +145,7 @@ export default function ContactPage() {
 
           {/* Contact Form */}
           <div className="lg:col-span-2">
-            <Card className="border border-border-subtle shadow-none rounded-lg bg-white">
+            <Card className="border border-border-subtle shadow-none rounded-lg bg-card">
               <CardContent className="p-6">
                 {submitted ? (
                   <div className="text-center py-12">

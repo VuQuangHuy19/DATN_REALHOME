@@ -83,7 +83,7 @@ function BuildingCard({
   return (
     <Link
       href={`/customer/properties/${group.buildingId}`}
-      className="rounded-lg overflow-hidden bg-white border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col cursor-pointer group"
+      className="rounded-lg overflow-hidden bg-card border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col cursor-pointer group"
     >
       <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
         <ImageGallery items={group.allImages} alt={group.buildingName} />
@@ -253,7 +253,7 @@ function LocationFilter({
           value={selectedProvinceId}
           onChange={(e) => { onProvinceChange(e.target.value); onDistrictChange(''); onWardChange(''); }}
           disabled={loadingProv}
-          className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60"
+          className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60"
         >
           <option value="">-- Chọn tỉnh/thành --</option>
           {provinces.map((p) => (
@@ -269,7 +269,7 @@ function LocationFilter({
           value={selectedDistrictId}
           onChange={(e) => { onDistrictChange(e.target.value); onWardChange(''); }}
           disabled={!selectedProvinceId || loadingDist}
-          className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50"
+          className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50 dark:disabled:bg-slate-900/30"
         >
           <option value="">{loadingDist ? 'Đang tải...' : '-- Chọn quận/huyện --'}</option>
           {districts.map((d) => (
@@ -285,7 +285,7 @@ function LocationFilter({
           value={selectedWardId}
           onChange={(e) => onWardChange(e.target.value)}
           disabled={!selectedDistrictId || loadingWard}
-          className="w-full h-10 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50"
+          className="w-full h-10 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition disabled:opacity-60 disabled:bg-slate-50 dark:disabled:bg-slate-900/30"
         >
           <option value="">{loadingWard ? 'Đang tải...' : '-- Chọn phường/xã --'}</option>
           {wards.map((w) => (
@@ -496,7 +496,7 @@ export default function PropertiesPage() {
           <button
             type="button"
             onClick={() => setSelectedRoomTypes([])}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
               }`}
           >
             Tất cả
@@ -510,7 +510,7 @@ export default function PropertiesPage() {
                   prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
                 )
               }
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.includes(type) ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedRoomTypes.includes(type) ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
                 }`}
             >
               {type}
@@ -526,7 +526,7 @@ export default function PropertiesPage() {
             <button
               type="button"
               onClick={() => setSelectedAreas([])}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.length === 0 ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
                 }`}
             >
               Tất cả
@@ -537,10 +537,10 @@ export default function PropertiesPage() {
                 type="button"
                 onClick={() =>
                   setSelectedAreas((prev) =>
-                    prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
+                     prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
                   )
                 }
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.includes(area) ? 'bg-accent-soft border-accent text-accent' : 'bg-white border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${selectedAreas.includes(area) ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-border-subtle text-ink-muted hover:border-accent hover:text-ink'
                   }`}
               >
                 {formatArea(area)}
@@ -583,16 +583,16 @@ export default function PropertiesPage() {
         </span>
 
         <div className="flex items-center gap-2">
-          <div className="flex bg-slate-100 p-1 rounded-lg border border-border-subtle mr-2">
+          <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-lg border border-border-subtle mr-2">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-card shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
             >
               Danh sách
             </button>
             <button
               onClick={() => setViewMode('map')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'map' ? 'bg-white shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'map' ? 'bg-white dark:bg-card shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
             >
               Bản đồ
             </button>
@@ -602,7 +602,7 @@ export default function PropertiesPage() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-9 rounded-lg border border-border-subtle bg-white px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition"
+            className="h-9 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition"
           >
             {(Object.keys(SORT_LABELS) as SortOption[]).map((k) => (
               <option key={k} value={k}>{SORT_LABELS[k]}</option>
@@ -649,7 +649,7 @@ export default function PropertiesPage() {
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : sortedGroups.length === 0 ? (
-            <div className="text-center py-16 bg-white border border-border-subtle rounded-lg p-8">
+            <div className="text-center py-16 bg-card border border-border-subtle rounded-lg p-8">
               <Filter className="h-12 w-12 text-ink-muted/40 mx-auto mb-4" />
               <h3 className="text-lg font-semibold font-heading text-ink">Không tìm thấy bất động sản phù hợp</h3>
               <p className="text-ink-muted mt-2 text-sm max-w-md mx-auto leading-relaxed">

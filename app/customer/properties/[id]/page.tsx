@@ -212,7 +212,7 @@ export default function BuildingDetailPage() {
             if (activeFurniture.length === 0) return null;
 
             return (
-              <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
+              <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
                 <CardHeader className="pb-3 border-b border-border-subtle">
                   <CardTitle className="text-base font-bold font-heading text-ink">Trang bị sẵn có của tòa nhà</CardTitle>
                 </CardHeader>
@@ -233,7 +233,7 @@ export default function BuildingDetailPage() {
           })()}
 
           {/* Tiện ích */}
-          <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
+          <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
             <CardHeader className="pb-3 border-b border-border-subtle">
               <CardTitle className="text-base font-bold font-heading text-ink">Tiện ích tòa nhà</CardTitle>
             </CardHeader>
@@ -282,7 +282,7 @@ export default function BuildingDetailPage() {
           </Card>
 
           {/* Quy định */}
-          <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
+          <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
             <CardHeader className="pb-3 border-b border-border-subtle">
               <CardTitle className="text-base font-bold font-heading text-ink">Quy định thuê</CardTitle>
             </CardHeader>
@@ -321,7 +321,7 @@ export default function BuildingDetailPage() {
                 <select
                   value={filterFloor}
                   onChange={(e) => setFilterFloor(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs bg-white text-ink font-semibold"
+                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs bg-card text-ink font-semibold"
                 >
                   <option value="all">Tất cả các tầng</option>
                   {floorOptions.map((f) => (
@@ -332,7 +332,7 @@ export default function BuildingDetailPage() {
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs bg-white text-ink font-semibold"
+                  className="px-3 py-1.5 rounded-lg border border-border-subtle text-xs bg-card text-ink font-semibold"
                 >
                   <option value="all">Tất cả trạng thái</option>
                   <option value="available">Còn trống</option>
@@ -349,7 +349,7 @@ export default function BuildingDetailPage() {
             </div>
 
             {filteredRooms.length === 0 ? (
-              <div className="text-center py-12 border border-dashed border-border-subtle rounded-lg bg-white text-ink-muted text-sm">
+              <div className="text-center py-12 border border-dashed border-border-subtle rounded-lg bg-card text-ink-muted text-sm">
                 Không tìm thấy phòng nào phù hợp bộ lọc
               </div>
             ) : (
@@ -366,7 +366,7 @@ export default function BuildingDetailPage() {
                     <Link
                       href={`/customer/properties/rooms/${room.id}`}
                       key={room.id}
-                      className="group border border-border-subtle rounded-lg overflow-hidden bg-white hover:border-accent transition-all flex flex-col"
+                      className="group border border-border-subtle rounded-lg overflow-hidden bg-card hover:border-accent transition-all flex flex-col"
                     >
                       {/* Room Card Thumbnail */}
                       <div className="relative h-44 w-full bg-slate-100">
@@ -449,7 +449,7 @@ export default function BuildingDetailPage() {
 
         {/* Sidebar Info & Map */}
         <div className="space-y-6 lg:sticky lg:top-24">
-          <Card className="border border-border-subtle bg-white shadow-none rounded-lg">
+          <Card className="border border-border-subtle bg-card shadow-none rounded-lg">
             <CardContent className="p-6 space-y-5">
               <div>
                 <span className="text-xs text-ink-muted uppercase font-semibold block mb-1">Khoảng giá tòa nhà</span>
@@ -461,7 +461,7 @@ export default function BuildingDetailPage() {
               {/* Cost specifications */}
               <div className="border-t border-border-subtle pt-4 space-y-3">
                 <span className="text-xs font-semibold text-ink-muted block uppercase tracking-wider">Chi phí & dịch vụ</span>
-                <div className="border border-border-subtle rounded-lg overflow-hidden bg-white text-xs">
+                <div className="border border-border-subtle rounded-lg overflow-hidden bg-card text-xs">
                   <div className="flex justify-between p-2.5 border-b border-border-subtle bg-bg-subtle/50">
                     <span className="text-ink-muted font-medium">Giá điện:</span>
                     <span className="font-bold text-ink font-mono">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</span>
@@ -531,13 +531,13 @@ export default function BuildingDetailPage() {
                       title="Vị trí trên bản đồ"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <div className="bg-white/95 border border-border-subtle rounded-full px-3 py-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-card border border-border-subtle rounded-full px-3 py-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink opacity-0 group-hover:opacity-100 transition-opacity">
                         <Map className="h-4 w-4 text-accent" />
                         Xem bản đồ
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-2 bg-white flex items-center gap-1.5 text-xs text-ink-muted border-t border-border-subtle">
+                  <div className="px-3 py-2 bg-card flex items-center gap-1.5 text-xs text-ink-muted border-t border-border-subtle">
                     <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-accent" />
                     <span className="truncate">{building.address}</span>
                   </div>

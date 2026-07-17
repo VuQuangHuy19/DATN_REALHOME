@@ -128,7 +128,7 @@ export default function RoomDetailPage() {
             if (activeFurniture.length === 0) return null;
 
             return (
-              <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
+              <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
                 <CardHeader className="pb-3 border-b border-border-subtle">
                   <CardTitle className="text-base font-bold font-heading text-ink">Nội thất</CardTitle>
                 </CardHeader>
@@ -149,7 +149,7 @@ export default function RoomDetailPage() {
           })()}
 
           {/* Tiện ích */}
-          <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
+          <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
             <CardHeader className="pb-3 border-b border-border-subtle">
               <CardTitle className="text-base font-bold font-heading text-ink">Tiện ích</CardTitle>
             </CardHeader>
@@ -198,7 +198,7 @@ export default function RoomDetailPage() {
           </Card>
 
           {/* Quy định */}
-          <Card className="border border-border-subtle rounded-lg bg-white shadow-none">
+          <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
             <CardHeader className="pb-3 border-b border-border-subtle">
               <CardTitle className="text-base font-bold font-heading text-ink">Quy định thuê</CardTitle>
             </CardHeader>
@@ -257,7 +257,7 @@ export default function RoomDetailPage() {
         </div>
 
         <div className="space-y-6 lg:sticky lg:top-24">
-          <Card className="border border-border-subtle bg-white shadow-none rounded-lg">
+          <Card className="border border-border-subtle bg-card shadow-none rounded-lg">
             <CardContent className="p-6 space-y-5">
               <div>
                 <span className="text-xs text-ink-muted uppercase font-semibold block mb-1">Giá thuê phòng</span>
@@ -315,13 +315,13 @@ export default function RoomDetailPage() {
                       title="Vị trí trên bản đồ"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                      <div className="bg-white/95 border border-border-subtle rounded-full px-3 py-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-card border border-border-subtle rounded-full px-3 py-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink opacity-0 group-hover:opacity-100 transition-opacity">
                         <Map className="h-4 w-4 text-accent" />
                         Xem bản đồ
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-2 bg-white flex items-center gap-1.5 text-xs text-ink-muted border-t border-border-subtle">
+                  <div className="px-3 py-2 bg-card flex items-center gap-1.5 text-xs text-ink-muted border-t border-border-subtle">
                     <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-accent" />
                     <span className="truncate">{property.address}</span>
                   </div>
@@ -369,7 +369,7 @@ export default function RoomDetailPage() {
       <SimilarRoomsWidget currentRoom={property} />
 
       {/* Sticky Bottom Bar for Mobile */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-border-subtle p-4 flex items-center justify-between z-30 shadow-none pb-safe">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-bg-base/95 backdrop-blur border-t border-border-subtle p-4 flex items-center justify-between z-30 shadow-none pb-safe">
         <div>
           <div className="text-[10px] text-ink-muted font-bold uppercase tracking-wider">Giá thuê</div>
           <div className="text-base font-bold text-ink font-mono">

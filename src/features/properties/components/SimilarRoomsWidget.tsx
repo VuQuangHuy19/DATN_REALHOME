@@ -65,7 +65,7 @@ export function SimilarRoomsWidget({ currentRoom }: { currentRoom: CustomerListi
             <Link
               key={room.id}
               href={`/customer/properties/rooms/${room.id}`}
-              className="group border border-border-subtle rounded-lg overflow-hidden bg-white hover:border-accent transition-all flex flex-col"
+              className="group border border-border-subtle rounded-lg overflow-hidden bg-card hover:border-accent transition-all flex flex-col"
             >
               <div className="relative h-40 w-full bg-slate-100 border-b border-border-subtle">
                 <Image
