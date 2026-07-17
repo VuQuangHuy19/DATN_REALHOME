@@ -190,7 +190,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
       <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2 items-end">
         <Button
           variant="secondary"
-          className="shadow-md bg-white text-ink hover:bg-slate-50 flex items-center gap-2"
+          className="shadow-md bg-card text-ink hover:bg-slate-50 dark:hover:bg-slate-900/30 flex items-center gap-2 border border-border-subtle"
           onClick={handleFindAround}
         >
           <Navigation className="h-4 w-4 text-accent" />
@@ -198,7 +198,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         </Button>
 
         {userLoc && (
-          <div className="bg-white shadow-md rounded-lg p-3 w-56 border border-border-subtle">
+          <div className="bg-card shadow-md rounded-lg p-3 w-56 border border-border-subtle">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-ink">Bán kính tìm kiếm</span>
               <span className="text-xs font-bold text-accent">{radiusKm} km</span>
