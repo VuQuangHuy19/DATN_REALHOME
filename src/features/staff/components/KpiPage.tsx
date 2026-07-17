@@ -10,7 +10,9 @@ import { getKPIs, createKPI, updateKPI, computeAutoKPI } from '@/src/features/st
 import { getProfiles } from '@/src/features/staff/services/profiles';
 import { useEmployees } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
-import type { DBEmployeeKPI } from '@/lib/supabase/types';
+import { getKPIConfiguration, saveKPIConfiguration } from '@/src/features/staff/services/kpi_configurations';
+import type { DBEmployeeKPI, DBKPIConfiguration } from '@/lib/supabase/types';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -44,6 +46,18 @@ export function KpiPage() {
   const [previewPeriod, setPreviewPeriod] = useState('');
   const [autoKpiPreview, setAutoKpiPreview] = useState<any[]>([]);
   const [savingAuto, setSavingAuto] = useState(false);
+
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [kpiConfig, setKpiConfig] = useState<DBKPIConfiguration | null>(null);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  useEffect(() => {
+    if (company?.id) {
+      getKPIConfiguration(company.id)
+        .then(setKpiConfig)
+        .catch(console.error);
+    }
+  }, [company?.id]);
 
   useEffect(() => {
     if (company?.id) {
@@ -136,6 +150,43 @@ export function KpiPage() {
   const totalRevenue = filtered.reduce((s, k) => s + k.revenue_generated, 0);
   const totalTarget = filtered.reduce((s, k) => s + k.target_revenue, 0);
 
+  const handleSaveConfig = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!company?.id) return;
+    setSavingConfig(true);
+    const fd = new FormData(e.currentTarget);
+    
+    const revWeightPercent = Number(fd.get('revenue_weight') || 0);
+    const appWeightPercent = Number(fd.get('appointment_weight') || 0);
+    const leadWeightPercent = Number(fd.get('lead_weight') || 0);
+    
+    if (revWeightPercent + appWeightPercent + leadWeightPercent !== 100) {
+      toast.error('Lỗi: Tổng các trọng số phải bằng 100%!');
+      setSavingConfig(false);
+      return;
+    }
+
+    const payload = {
+      revenue_weight: revWeightPercent / 100,
+      appointment_weight: appWeightPercent / 100,
+      lead_weight: leadWeightPercent / 100,
+      default_target_revenue: Number(fd.get('default_target_revenue') || 0),
+      default_target_appointments: Number(fd.get('default_target_appointments') || 0),
+      default_target_leads: Number(fd.get('default_target_leads') || 0),
+    };
+
+    try {
+      const updated = await saveKPIConfiguration(company.id, payload);
+      setKpiConfig(updated);
+      toast.success('Lưu cấu hình KPI thành công!');
+      setIsConfigOpen(false);
+    } catch (err: any) {
+      toast.error(`Lỗi khi lưu: ${err.message}`);
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
   const handleRunAutoKPI = async () => {
     if (!company?.id) return;
     if (!previewPeriod) {
@@ -155,20 +206,33 @@ export function KpiPage() {
         let comm = 0;
         let convertedLeadsCount = 0;
         
+        let score = 75;
+        let target = kpiConfig?.default_target_revenue ?? 50000000;
+        let apptsCount = kpiConfig?.default_target_appointments ?? 10;
+        let leadsCount = kpiConfig?.default_target_leads ?? 20;
+
         if (profile) {
           const autoStats = await computeAutoKPI(company.id, profile.id, previewPeriod);
           revenue = autoStats.revenue_generated;
           deals = autoStats.successful_deals;
           comm = autoStats.commission_earned;
           convertedLeadsCount = autoStats.converted_leads_count || 0;
+          if (autoStats.score !== undefined) {
+            score = autoStats.score;
+          }
+          if (autoStats.target_revenue !== undefined) {
+            target = autoStats.target_revenue;
+          }
+          if (autoStats.total_appointments !== undefined) {
+            apptsCount = autoStats.total_appointments;
+          }
         }
         
         const existing = kpiList.find((k) => k.employee_id === emp.id && k.period === previewPeriod);
-        
-        const target = existing?.target_revenue ?? 5000000;
-        const leadsCount = existing?.total_leads ?? 0;
-        const apptsCount = existing?.total_appointments ?? 0;
-        const score = existing?.score ?? 75;
+        if (existing) {
+          target = existing.target_revenue;
+          leadsCount = existing.total_leads;
+        }
         
         let status: DBEmployeeKPI['status'] = 'on_track';
         if (score >= 90 || revenue > target) status = 'exceeded';
@@ -242,6 +306,14 @@ export function KpiPage() {
           >
             {loadingPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
             Tính tự động từ hệ thống
+          </Button>
+          <Button 
+            variant="outline" 
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg gap-2"
+            onClick={() => setIsConfigOpen(true)}
+          >
+            <Settings className="h-4 w-4" />
+            Cấu hình Luật KPI
           </Button>
           <Button onClick={() => { setEditItem(null); setIsFormOpen(true); }} className="rounded-lg bg-accent text-white hover:bg-accent/90">Thêm đánh giá KPI</Button>
         </div>
@@ -532,6 +604,112 @@ export function KpiPage() {
               Xác nhận và Lưu vào hệ thống
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Cấu hình Luật KPI */}
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="max-w-md rounded-lg border border-border bg-white shadow-lg p-6">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+              <Settings className="h-5 w-5 text-indigo-600" />
+              Cấu hình Luật & Trọng số KPI
+            </DialogTitle>
+          </DialogHeader>
+          {kpiConfig && (
+            <form onSubmit={handleSaveConfig} className="space-y-4 pt-4 text-sm text-ink">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-500">
+                Lưu ý: Tổng trọng số các chỉ số (Doanh thu + Lịch hẹn + Leads) phải đạt đúng 100%.
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <label htmlFor="revenue_weight" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Doanh thu (%)</label>
+                  <Input 
+                    id="revenue_weight" 
+                    name="revenue_weight" 
+                    type="number"
+                    min={0}
+                    max={100}
+                    defaultValue={Math.round(kpiConfig.revenue_weight * 100)} 
+                    required 
+                    className="rounded-lg border-border focus-visible:ring-accent" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="appointment_weight" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Lịch hẹn (%)</label>
+                  <Input 
+                    id="appointment_weight" 
+                    name="appointment_weight" 
+                    type="number" 
+                    min={0}
+                    max={100}
+                    defaultValue={Math.round(kpiConfig.appointment_weight * 100)} 
+                    required 
+                    className="rounded-lg border-border focus-visible:ring-accent" 
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="lead_weight" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Leads (%)</label>
+                  <Input 
+                    id="lead_weight" 
+                    name="lead_weight" 
+                    type="number" 
+                    min={0}
+                    max={100}
+                    defaultValue={Math.round(kpiConfig.lead_weight * 100)} 
+                    required 
+                    className="rounded-lg border-border focus-visible:ring-accent" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-border">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">Mục tiêu mặc định hàng tháng</h4>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label htmlFor="default_target_revenue" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Doanh thu mục tiêu (đ)</label>
+                    <Input 
+                      id="default_target_revenue" 
+                      name="default_target_revenue" 
+                      type="number" 
+                      defaultValue={kpiConfig.default_target_revenue} 
+                      required 
+                      className="rounded-lg border-border focus-visible:ring-accent font-mono" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label htmlFor="default_target_appointments" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Mục tiêu cuộc hẹn</label>
+                      <Input 
+                        id="default_target_appointments" 
+                        name="default_target_appointments" 
+                        type="number" 
+                        defaultValue={kpiConfig.default_target_appointments} 
+                        required 
+                        className="rounded-lg border-border focus-visible:ring-accent font-mono" 
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label htmlFor="default_target_leads" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Mục tiêu lead chốt</label>
+                      <Input 
+                        id="default_target_leads" 
+                        name="default_target_leads" 
+                        type="number" 
+                        defaultValue={kpiConfig.default_target_leads} 
+                        required 
+                        className="rounded-lg border-border focus-visible:ring-accent font-mono" 
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white rounded-lg font-semibold mt-2" disabled={savingConfig}>
+                {savingConfig ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Lưu cấu hình
+              </Button>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

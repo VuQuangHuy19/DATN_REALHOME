@@ -247,6 +247,25 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['employee_kpis']['Insert']>;
         Relationships: [];
       };
+      kpi_configurations: {
+        Row: {
+          id: string;
+          company_id: string;
+          revenue_weight: number;
+          appointment_weight: number;
+          lead_weight: number;
+          default_target_revenue: number;
+          default_target_appointments: number;
+          default_target_leads: number;
+          created_at: string;
+          updated_at: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['kpi_configurations']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
+        Update: Partial<Database['public']['Tables']['kpi_configurations']['Insert']>;
+        Relationships: [];
+      };
       buildings: {
         Row: {
           id: string;
@@ -356,6 +375,8 @@ export interface Database {
           updated_at: string;
           created_by?: string | null;
           updated_by?: string | null;
+          reserved_until?: string | null;
+          reserved_by_profile_id?: string | null;
           has_private_balcony: boolean;
           max_occupants: number;
           max_vehicles_per_room: number;
@@ -721,3 +742,4 @@ export type DBRoomImage = Database['public']['Tables']['room_images']['Row'];
 
 export type DBKPI = Database['public']['Tables']['kpis']['Row'];
 export type DBBuildingService = Database['public']['Tables']['building_services']['Row'];
+export type DBKPIConfiguration = Database['public']['Tables']['kpi_configurations']['Row'];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useRooms } from '@/lib/hooks/useEntities';
@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Landmark, User, Building, Settings, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Landmark, User, Building, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
 import { calculateCommissionAmount } from '@/src/features/finance/services/commission';
@@ -44,11 +44,18 @@ export function CreateDepositContractPage() {
 
   const filteredRooms = useMemo(() => {
     return rooms.filter((r) => {
-      if (r.status !== 'available') return false;
+      const now = new Date();
+      const isReservedByMe = 
+        r.status === 'reserved' && 
+        r.reserved_by_profile_id === profile?.id && 
+        r.reserved_until && 
+        new Date(r.reserved_until) > now;
+
+      if (r.status !== 'available' && !isReservedByMe && r.id !== queryRoomId) return false;
       if (queryBuildingId && r.buildings?.id !== queryBuildingId) return false;
       return true;
     });
-  }, [rooms, queryBuildingId]);
+  }, [rooms, queryBuildingId, profile?.id, queryRoomId]);
 
   const contextName = useMemo(() => {
     if (roomsLoading || !rooms.length) return '';
@@ -73,6 +80,137 @@ export function CreateDepositContractPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
+
+  // Reservation States
+  const [reservationExpiry, setReservationExpiry] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [lockError, setLockError] = useState<string | null>(null);
+  const [lockedRoomId, setLockedRoomId] = useState<string>('');
+
+  const lockedRoomIdRef = useRef<string>('');
+
+  useEffect(() => {
+    lockedRoomIdRef.current = lockedRoomId;
+  }, [lockedRoomId]);
+
+  // Lock and Release Room Reservation
+  useEffect(() => {
+    let active = true;
+    
+    const releaseLock = async (id: string) => {
+      try {
+        await authFetch('/api/rooms/release-lock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_id: id }),
+        });
+      } catch (e) {
+        console.error('Failed to release lock:', e);
+      }
+    };
+
+    if (!company?.id || !selectedRoomId) {
+      if (lockedRoomId) {
+        releaseLock(lockedRoomId);
+        setLockedRoomId('');
+      }
+      setReservationExpiry(null);
+      setTimeLeft(0);
+      setLockError(null);
+      return;
+    }
+
+    const acquireLock = async () => {
+      try {
+        setLockError(null);
+        if (lockedRoomId && lockedRoomId !== selectedRoomId) {
+          await releaseLock(lockedRoomId);
+        }
+
+        const res = await authFetch('/api/rooms/reserve-lock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ room_id: selectedRoomId, company_id: company.id }),
+        });
+
+        const data = await res.json();
+        if (!active) return;
+
+        if (!res.ok) {
+          setLockError(data.error || 'Phòng này đang được soạn cọc bởi nhân viên khác.');
+          setReservationExpiry(null);
+          setTimeLeft(0);
+          setLockedRoomId('');
+          toast.error(data.error || 'Không thể giữ chỗ phòng này');
+          return;
+        }
+
+        setLockedRoomId(selectedRoomId);
+        setReservationExpiry(data.reserved_until);
+        toast.success('Đã giữ chỗ phòng thành công trong 15 phút');
+      } catch (err: any) {
+        if (!active) return;
+        setLockError('Lỗi kết nối khi giữ chỗ phòng');
+        toast.error('Lỗi khi giữ chỗ phòng');
+      }
+    };
+
+    acquireLock();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedRoomId, company?.id]);
+
+  // Release lock on unmount
+  useEffect(() => {
+    return () => {
+      const idToRelease = lockedRoomIdRef.current;
+      if (idToRelease) {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/rooms/release-lock', JSON.stringify({ room_id: idToRelease }));
+        } else {
+          fetch('/api/rooms/release-lock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ room_id: idToRelease }),
+            keepalive: true,
+          }).catch(console.error);
+        }
+      }
+    };
+  }, []);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!reservationExpiry) return;
+
+    const calculateTimeLeft = () => {
+      const diff = new Date(reservationExpiry).getTime() - new Date().getTime();
+      return Math.max(0, Math.floor(diff / 1000));
+    };
+
+    setTimeLeft(calculateTimeLeft());
+
+    const interval = setInterval(() => {
+      const left = calculateTimeLeft();
+      setTimeLeft(left);
+      if (left <= 0) {
+        clearInterval(interval);
+        toast.warning('Hết thời gian giữ chỗ! Phòng đã được mở lại cho nhân viên khác.');
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [reservationExpiry]);
+
+  const formatTimeLeft = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+
 
   useEffect(() => {
     if (!company?.id) return;
@@ -324,6 +462,33 @@ export function CreateDepositContractPage() {
               </strong>
             </span>
           </div>
+        )}
+
+        {/* Countdown / Lock status banner */}
+        {selectedRoomId && (
+          <>
+            {lockError ? (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2 font-medium">
+                <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+                <span>{lockError}</span>
+              </div>
+            ) : timeLeft > 0 ? (
+              <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm px-4 py-3 rounded-lg flex items-center justify-between gap-2 font-medium">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600 animate-spin" />
+                  <span>Đang giữ chỗ phòng này cho bạn soạn hợp đồng cọc.</span>
+                </div>
+                <span className="font-mono bg-indigo-100 px-2 py-1 rounded text-xs font-bold text-indigo-850">
+                  Thời gian còn lại: {formatTimeLeft(timeLeft)}
+                </span>
+              </div>
+            ) : (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2 font-medium">
+                <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+                <span>Hết thời gian giữ chỗ! Phòng đã được mở lại cho sale khác. Vui lòng chọn lại phòng để tiếp tục.</span>
+              </div>
+            )}
+          </>
         )}
 
         {/* Khối 1: Chọn phòng */}
@@ -755,7 +920,11 @@ export function CreateDepositContractPage() {
           <Button type="button" variant="ghost" asChild className="text-ink hover:bg-bg-subtle rounded-lg font-semibold">
             <Link href={`${pathPrefix}/contracts`}>Hủy bỏ</Link>
           </Button>
-          <Button type="submit" className="bg-accent hover:bg-accent-500 text-white font-semibold rounded-lg shadow-none" disabled={submitting}>
+          <Button 
+            type="submit" 
+            className="bg-accent hover:bg-accent-500 text-white font-semibold rounded-lg shadow-none" 
+            disabled={submitting || !!lockError || (selectedRoomId ? timeLeft <= 0 : false)}
+          >
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

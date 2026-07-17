@@ -86,12 +86,23 @@ export async function POST(request: Request) {
     // 2. Lấy thông tin phòng và chủ nhà liên quan
     const { data: roomData, error: roomErr } = await supabaseAdmin
       .from('rooms')
-      .select('code, building_id, price, buildings(name, landlord_id)')
+      .select('code, building_id, price, status, reserved_until, reserved_by_profile_id, buildings(name, landlord_id)')
       .eq('id', room_id)
       .single();
 
     if (roomErr || !roomData) {
       return NextResponse.json({ error: 'Không tìm thấy thông tin phòng hoặc tòa nhà' }, { status: 404 });
+    }
+
+    const now = new Date();
+    const isLockedByOther =
+      roomData.status === 'reserved' &&
+      roomData.reserved_until &&
+      new Date(roomData.reserved_until) > now &&
+      roomData.reserved_by_profile_id !== auth.userId;
+
+    if (isLockedByOther) {
+      return NextResponse.json({ error: 'Phòng này đang được giữ chỗ/soạn cọc bởi nhân viên khác!' }, { status: 409 });
     }
 
     const roomCode = roomData.code;
@@ -169,10 +180,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Cập nhật trạng thái phòng thành 'reserved' (Đã cọc)
+    // 4. Cập nhật trạng thái phòng thành 'reserved' (Đã cọc) và giải phóng thông tin khóa giữ chỗ tạm thời
     const { error: roomUpdateErr } = await supabaseAdmin
       .from('rooms')
-      .update({ status: 'reserved' })
+      .update({
+        status: 'reserved',
+        reserved_until: null,
+        reserved_by_profile_id: null,
+      })
       .eq('id', room_id);
 
     if (roomUpdateErr) {
