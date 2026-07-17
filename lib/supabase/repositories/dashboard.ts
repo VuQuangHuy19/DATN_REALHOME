@@ -298,6 +298,35 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
+  // 1. Resolve employee ID from employees table by matching profile email
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, email')
+    .eq('id', saleId)
+    .maybeSingle();
+
+  let employeeIdFromTable = null;
+  if (profile?.email) {
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('email', profile.email)
+      .maybeSingle();
+    if (emp) {
+      employeeIdFromTable = emp.id;
+    }
+  }
+
+  // 2. Build current month's ISO start and end timestamps for dynamic calculation
+  const startOfMonthISO = `${currentPeriod}-01T00:00:00.000Z`;
+  const [yearStr, monthStr] = currentPeriod.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endOfMonthISO = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00.000Z`;
+
   const [
     myLeads,
     myAppointments,
@@ -306,6 +335,8 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     notifications,
     employeeKpis,
     expiringContracts,
+    monthlyDeposits,
+    monthlyRentals,
   ] = await Promise.all([
     // Leads được giao cho sale này
     supabase
@@ -322,12 +353,12 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .eq('assigned_to', saleId)
       .order('date', { ascending: false })
       .limit(20),
-    // Hợp đồng cọc do sale tạo
+    // Hợp đồng cọc do sale phụ trách hoặc tạo (limit 10 để hiển thị danh sách gần đây)
     supabase
       .from('deposit_contracts')
       .select('id, contract_code, party_b_name, party_b_phone, deposit_amount, created_at, status, deadline_sign_contract')
       .eq('company_id', companyId)
-      .eq('created_by', saleId)
+      .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
       .order('created_at', { ascending: false })
       .limit(10),
     // Phòng còn trống để sale có thể tư vấn
@@ -344,12 +375,12 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .eq('company_id', companyId)
       .eq('recipient_id', saleId)
       .eq('is_read', false),
-    // KPI của sale trong tháng này
+    // KPI của sale trong tháng này (truy vấn dùng employeeIdFromTable đã khớp từ bảng employees)
     supabase
       .from('employee_kpis')
       .select('*')
       .eq('company_id', companyId)
-      .eq('employee_id', saleId)
+      .eq('employee_id', employeeIdFromTable || saleId)
       .eq('period', currentPeriod)
       .maybeSingle(),
     // Hợp đồng sắp hết hạn trong 30 ngày tới do sale phụ trách
@@ -362,6 +393,24 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .gte('end_date', todayStr)
       .lte('end_date', in30DaysStr)
       .order('end_date', { ascending: true }),
+    // Hợp đồng cọc trong tháng này của sale này (không limit) để tính toán doanh thu thực tế
+    supabase
+      .from('deposit_contracts')
+      .select('rent_price, commission_amount, deposit_amount, status')
+      .eq('company_id', companyId)
+      .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
+      .gte('created_at', startOfMonthISO)
+      .lt('created_at', endOfMonthISO)
+      .neq('status', 'cancelled'),
+    // Hợp đồng thuê trong tháng này của sale này (không limit) để tính toán doanh thu thực tế
+    supabase
+      .from('rental_contracts')
+      .select('rent_price, commission_amount, status')
+      .eq('company_id', companyId)
+      .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
+      .gte('created_at', startOfMonthISO)
+      .lt('created_at', endOfMonthISO)
+      .neq('status', 'cancelled'),
   ]);
 
   const leadsData = (myLeads.data ?? []) as any[];
@@ -388,9 +437,46 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   const upcomingAppointments = appointmentsData.filter(a => a.date > todayStr && a.status !== 'cancelled');
   const pendingAppointments = appointmentsData.filter(a => a.status === 'pending');
 
-  // Hợp đồng cọc trong tháng
-  const monthlyContracts = contractsData.filter(c => c.created_at >= startOfMonth);
-  const totalDepositRevenue = monthlyContracts.reduce((sum: number, c: any) => sum + (c.deposit_amount || 0), 0);
+  // Tính toán doanh thu thực tế dynamically
+  const monthlyDepositsList = (monthlyDeposits.data ?? []) as any[];
+  const monthlyRentalsList = (monthlyRentals.data ?? []) as any[];
+
+  const totalDepositsRent = monthlyDepositsList.reduce((sum, c) => sum + (Number(c.rent_price) || 0), 0);
+  const totalDepositsComm = monthlyDepositsList.reduce((sum, c) => sum + (Number(c.commission_amount) || 0), 0);
+  const totalDepositsCount = monthlyDepositsList.length;
+
+  const totalRentalsRent = monthlyRentalsList.reduce((sum, c) => sum + (Number(c.rent_price) || 0), 0);
+  const totalRentalsComm = monthlyRentalsList.reduce((sum, c) => sum + (Number(c.commission_amount) || 0), 0);
+  const totalRentalsCount = monthlyRentalsList.length;
+
+  const dynamicRevenueGenerated = totalDepositsRent + totalRentalsRent;
+  const dynamicSuccessfulDeals = totalDepositsCount + totalRentalsCount;
+  const dynamicCommissionEarned = totalDepositsComm + totalRentalsComm;
+
+  // Hợp đồng cọc trong tháng (dùng danh sách đầy đủ của tháng này thay vì danh sách bị giới hạn 10 bản ghi gần nhất)
+  const totalDepositRevenue = monthlyDepositsList.reduce((sum: number, c: any) => sum + (Number(c.deposit_amount) || 0), 0);
+
+  // Merge real-time dynamic stats vào đối tượng KPI trả về
+  const finalKpi = employeeKpis.data ? {
+    ...employeeKpis.data,
+    revenue_generated: dynamicRevenueGenerated,
+    successful_deals: dynamicSuccessfulDeals,
+    commission_earned: dynamicCommissionEarned,
+  } : {
+    company_id: companyId,
+    employee_id: employeeIdFromTable || saleId,
+    employee_name: profile?.full_name || profile?.email || '',
+    period: currentPeriod,
+    total_leads: leadsData.length,
+    total_appointments: appointmentsData.length,
+    successful_deals: dynamicSuccessfulDeals,
+    conversion_rate: 0,
+    revenue_generated: dynamicRevenueGenerated,
+    target_revenue: 0,
+    score: 75,
+    status: 'on_track' as const,
+    commission_earned: dynamicCommissionEarned,
+  };
 
   return {
     // CRM Lead stats
@@ -409,7 +495,7 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     pendingAppointments,
     // Contracts/Deposits
     totalContracts: contractsData.length,
-    monthlyContracts,
+    monthlyContracts: contractsData.filter(c => c.created_at >= startOfMonth),
     totalDepositRevenue,
     recentContracts: contractsData.slice(0, 5),
     // Available rooms to pitch
@@ -417,7 +503,7 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     // Notifications
     unreadNotifications: notifications.count ?? 0,
     // KPI
-    employeeKpis: employeeKpis.data || null,
+    employeeKpis: finalKpi,
     // Expiring contracts
     expiringContracts: expiringContractsData,
     roomsEndingSoon,
