@@ -64,7 +64,7 @@ export function CustomerHeader() {
   }, [role]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-white/95 dark:bg-bg-base/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:dark:bg-bg-base/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-white/80 dark:bg-bg-base/80 backdrop-blur-md">
       <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
         {/* Left: Logo */}
