@@ -8,9 +8,15 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    // 1. Đọc cookie auth_token từ request headers
-    const cookieHeader = request.headers.get('cookie') || '';
-    const token = parseCookie(cookieHeader, 'auth_token');
+    // 1. Đọc token từ Authorization header hoặc cookie auth_token
+    let token = '';
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else {
+      const cookieHeader = request.headers.get('cookie') || '';
+      token = parseCookie(cookieHeader, 'auth_token') ?? '';
+    }
 
     if (!token) {
       return NextResponse.json({ error: 'Chưa đăng nhập hoặc phiên làm việc đã hết hạn' }, { status: 401 });

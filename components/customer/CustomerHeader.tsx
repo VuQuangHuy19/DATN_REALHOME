@@ -14,9 +14,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
-import { Menu, Home, Building2, Phone, Search, Heart, MessageSquare, LogIn, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { Menu, Home, Building2, Phone, Search, Heart, MessageSquare, LogIn, LayoutDashboard, LogOut, User, Settings } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 export function CustomerHeader() {
   const router = useRouter();
@@ -63,7 +64,7 @@ export function CustomerHeader() {
   }, [role]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-white/95 dark:bg-bg-base/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:dark:bg-bg-base/60">
       <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
         {/* Left: Logo */}
@@ -79,7 +80,7 @@ export function CustomerHeader() {
               placeholder="Tìm bất động sản, địa chỉ, khu vực..."
               value={searchValue}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-9 bg-bg-subtle border-border-subtle text-ink placeholder:text-ink-muted/60 focus:bg-white focus:ring-1 focus:ring-accent focus:border-accent focus-visible:ring-1 focus-visible:ring-accent focus-visible:border-accent transition-colors"
+              className="pl-9 bg-bg-subtle border-border-subtle text-ink placeholder:text-ink-muted/60 focus:bg-white dark:focus:bg-bg-base focus:ring-1 focus:ring-accent focus:border-accent focus-visible:ring-1 focus-visible:ring-accent focus-visible:border-accent transition-colors"
             />
           </div>
         </div>
@@ -111,6 +112,8 @@ export function CustomerHeader() {
               Liên hệ
             </Link>
           </Button>
+
+          <ThemeToggle />
 
           {!authLoading && !user && (
             <Button size="sm" className="h-9 px-4 text-xs font-semibold" asChild>
@@ -165,6 +168,18 @@ export function CustomerHeader() {
                   <>
                     {user ? (
                       <div className="flex flex-col gap-2">
+                        <Button variant="outline" asChild onClick={() => setIsOpen(false)}>
+                          <Link href="/customer/profile">
+                            <User className="h-4 w-4 mr-2" />
+                            Hồ sơ của tôi
+                          </Link>
+                        </Button>
+                        <Button variant="outline" asChild onClick={() => setIsOpen(false)}>
+                          <Link href="/customer/settings">
+                            <Settings className="h-4 w-4 mr-2" />
+                            Cài đặt
+                          </Link>
+                        </Button>
                         <Button asChild onClick={() => setIsOpen(false)}>
                           <Link href={dashboardHref}>
                             <LayoutDashboard className="h-4 w-4 mr-2" />
@@ -197,20 +212,32 @@ export function CustomerHeader() {
                   <User className="h-4 w-4 text-accent" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
                 <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 border-b">
                   Tài khoản
                 </div>
                 <DropdownMenuItem asChild>
+                  <Link href="/customer/profile" className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-slate-500 group-focus:text-accent-foreground transition-colors" />
+                    Hồ sơ của tôi
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/customer/settings" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4 text-slate-500 group-focus:text-accent-foreground transition-colors" />
+                    Cài đặt
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href={dashboardHref} className="flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4 text-slate-550" />
+                    <LayoutDashboard className="h-4 w-4 text-slate-500 group-focus:text-accent-foreground transition-colors" />
                     Trang quản trị
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={signOut}
-                  className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+                  className="flex items-center gap-2 text-red-600 dark:text-red-400 focus:text-red-700 dark:focus:text-red-300 focus:bg-red-50 dark:focus:bg-red-950/30 cursor-pointer"
                 >
                   <LogOut className="h-4 w-4" />
                   Đăng xuất

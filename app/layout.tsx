@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'RealHome',
@@ -21,12 +22,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-        <Toaster richColors position="top-center" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+          <Toaster richColors position="top-center" />
+        </ThemeProvider>
       </body>
     </html>
   );

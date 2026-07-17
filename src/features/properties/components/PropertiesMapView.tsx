@@ -7,6 +7,7 @@ import L from 'leaflet';
 import { BuildingGroup } from '@/app/customer/properties/page';
 import { MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import Image from 'next/image';
 import Link from 'next/link';
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
@@ -65,20 +66,27 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [mapZoom, setMapZoom] = useState(12);
   const [locError, setLocError] = useState('');
+  const [radiusKm, setRadiusKm] = useState(5); // mặc định 5 km
 
-  // Filter groups that have coordinates
+  // Filter groups that have coordinates, then filter/sort by radius if userLoc exists
   const markers = useMemo(() => {
     let m = groups.filter(g => g.representativeRoom.latitude && g.representativeRoom.longitude);
-    // If user loc exists, sort by distance
+
     if (userLoc) {
-      m = [...m].sort((a, b) => {
-        const d1 = getDistanceFromLatLonInKm(userLoc[0], userLoc[1], a.representativeRoom.latitude!, a.representativeRoom.longitude!);
-        const d2 = getDistanceFromLatLonInKm(userLoc[0], userLoc[1], b.representativeRoom.latitude!, b.representativeRoom.longitude!);
-        return d1 - d2;
-      });
+      m = m
+        .map(g => ({
+          group: g,
+          distance: getDistanceFromLatLonInKm(
+            userLoc[0], userLoc[1],
+            g.representativeRoom.latitude!, g.representativeRoom.longitude!
+          ),
+        }))
+        .filter(x => x.distance <= radiusKm)       // chỉ giữ BĐS trong bán kính
+        .sort((a, b) => a.distance - b.distance)   // gần nhất trước
+        .map(x => x.group);
     }
     return m;
-  }, [groups, userLoc]);
+  }, [groups, userLoc, radiusKm]);
 
   // Adjust center if markers exist and no userLoc
   useEffect(() => {
@@ -101,7 +109,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         setMapZoom(14);
         setLocError('');
       },
-      (err) => {
+      () => {
         setLocError('Không thể lấy vị trí của bạn. Hãy cấp quyền truy cập vị trí.');
       }
     );
@@ -132,7 +140,11 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
             <Marker position={userLoc} icon={userIcon}>
               <Popup>Vị trí của bạn</Popup>
             </Marker>
-            <Circle center={userLoc} radius={5000} pathOptions={{ color: 'red', fillColor: '#f03', fillOpacity: 0.1 }} />
+            <Circle
+              center={userLoc}
+              radius={radiusKm * 1000}
+              pathOptions={{ color: 'red', fillColor: '#f03', fillOpacity: 0.1 }}
+            />
           </>
         )}
 
@@ -161,7 +173,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
                   </p>
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1 h-8 text-xs bg-accent hover:bg-accent-500" asChild>
-                      <Link href={`/customer/properties/${g.buildingId}`} className=" text-white hover:text-black">Chi tiết</Link>
+                      <Link href={`/customer/properties/${g.buildingId}`} className="text-white hover:text-black">Chi tiết</Link>
                     </Button>
                     <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => onBook(g)}>
                       Hẹn xem
@@ -184,6 +196,26 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
           <Navigation className="h-4 w-4 text-accent" />
           Tìm quanh đây
         </Button>
+
+        {userLoc && (
+          <div className="bg-white shadow-md rounded-lg p-3 w-56 border border-border-subtle">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-ink">Bán kính tìm kiếm</span>
+              <span className="text-xs font-bold text-accent">{radiusKm} km</span>
+            </div>
+            <Slider
+              value={[radiusKm]}
+              min={1}
+              max={20}
+              step={1}
+              onValueChange={(val) => setRadiusKm(val[0])}
+            />
+            <p className="text-[11px] text-ink-muted mt-1.5">
+              Tìm thấy {markers.length} bất động sản trong bán kính
+            </p>
+          </div>
+        )}
+
         {locError && (
           <div className="bg-white/90 text-red-600 text-xs p-2 rounded-md shadow-sm border border-red-100 max-w-[200px] text-right">
             {locError}

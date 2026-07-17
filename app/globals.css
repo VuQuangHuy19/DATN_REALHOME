@@ -28,6 +28,25 @@
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
 }
 
+/* Dark mode: override all custom hex tokens */
+.dark {
+  --foreground-rgb: 226, 232, 240;
+  --background-start-rgb: 11, 18, 32;
+  --background-end-rgb: 15, 23, 42;
+
+  --bg-base: #0B1220;
+  --bg-subtle: #131B2C;
+  --ink: #E7ECF3;
+  --ink-muted: #93A2B8;
+  --border-subtle: #24304A;
+  --accent-900: #E4EEFA;
+  --accent: #5B9BD9;
+  --accent-500: #7FB3E8;
+  --accent-soft: #16233A;
+  --warn: #F0B429;
+  --danger: #F26D6D;
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%; /* #FAFBFC */
@@ -42,8 +61,8 @@
     --secondary-foreground: 213 50% 11%;
     --muted: 213 22% 95%;
     --muted-foreground: 211 16% 42%; /* #5B6B7D */
-    --accent: 213 67% 94%; /* #E4EEFA */
-    --accent-foreground: 213 65% 33%;
+    --accent: 213 65% 33%; /* #1D4E89 */
+    --accent-foreground: 0 0% 100%; /* White text on dark blue background */
     --destructive: 2 71% 41%; /* #B3261E */
     --destructive-foreground: 0 0% 100%;
     --border: 210 20% 89%; /* #DCE3EA */
@@ -52,25 +71,25 @@
     --radius: 0.5rem;
   }
   .dark {
-    --background: 213 50% 11%;
-    --foreground: 210 20% 98%;
-    --card: 213 50% 11%;
-    --card-foreground: 210 20% 98%;
-    --popover: 213 50% 11%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 213 65% 33%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 213 22% 95%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 213 22% 95%;
-    --muted-foreground: 211 16% 42%;
-    --accent: 213 67% 94%;
-    --accent-foreground: 213 65% 33%;
-    --destructive: 2 71% 41%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 210 20% 20%;
-    --input: 210 20% 20%;
-    --ring: 213 65% 33%;
+    --background: 222 47% 9%;        /* #0B1220 */
+    --foreground: 213 30% 92%;       /* #E7ECF3 */
+    --card: 222 42% 12%;             /* #131B2C */
+    --card-foreground: 213 30% 92%;
+    --popover: 222 42% 12%;
+    --popover-foreground: 213 30% 92%;
+    --primary: 213 58% 60%;          /* #5B9BD9 */
+    --primary-foreground: 222 47% 9%;
+    --secondary: 222 38% 18%;        /* slightly lighter than card */
+    --secondary-foreground: 213 30% 92%;
+    --muted: 222 38% 18%;
+    --muted-foreground: 213 20% 65%; /* #93A2B8 */
+    --accent: 213 58% 60%;           /* #5B9BD9 (light blue in dark mode) */
+    --accent-foreground: 222 47% 9%;  /* Dark navy text on light blue background */
+    --destructive: 0 85% 70%;        /* #F26D6D */
+    --destructive-foreground: 222 47% 9%;
+    --border: 222 32% 22%;           /* #24304A */
+    --input: 222 32% 22%;
+    --ring: 213 58% 60%;
   }
 }
 
