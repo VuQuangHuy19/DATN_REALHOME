@@ -55,7 +55,23 @@ export function KpiPage() {
     if (company?.id) {
       getKPIConfiguration(company.id)
         .then(setKpiConfig)
-        .catch(console.error);
+        .catch((err) => {
+          console.error('Lỗi khi lấy cấu hình KPI, sử dụng cấu hình mặc định:', err);
+          setKpiConfig({
+            id: '',
+            company_id: company.id,
+            revenue_weight: 0.50,
+            appointment_weight: 0.30,
+            lead_weight: 0.20,
+            default_target_revenue: 50000000,
+            default_target_appointments: 10,
+            default_target_leads: 20,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            created_by: null,
+            updated_by: null,
+          });
+        });
     }
   }, [company?.id]);
 
@@ -616,7 +632,7 @@ export function KpiPage() {
               Cấu hình Luật & Trọng số KPI
             </DialogTitle>
           </DialogHeader>
-          {kpiConfig && (
+          {kpiConfig ? (
             <form onSubmit={handleSaveConfig} className="space-y-4 pt-4 text-sm text-ink">
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-500">
                 Lưu ý: Tổng trọng số các chỉ số (Doanh thu + Lịch hẹn + Leads) phải đạt đúng 100%.
@@ -709,6 +725,11 @@ export function KpiPage() {
                 Lưu cấu hình
               </Button>
             </form>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+              <Loader2 className="h-8 w-8 animate-spin mb-3 text-indigo-600" />
+              <p className="text-sm">Đang tải cấu hình...</p>
+            </div>
           )}
         </DialogContent>
       </Dialog>
