@@ -20,12 +20,13 @@ import {
 } from 'lucide-react';
 import { useRoomsByBuilding, useRoomImages, useRentalContracts } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { getRoom } from '@/src/features/rooms/services/rooms';
+import { getRoom, getRoomWithBuilding, type RoomWithBuilding } from '@/src/features/rooms/services/rooms';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
 import type { DBRoom } from '@/lib/supabase/types';
+import { FacebookPostingAssistant } from './FacebookPostingAssistant';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
@@ -53,7 +54,7 @@ export function RoomDetailPage() {
   const { items: contracts } = useRentalContracts(company?.id);
   const pathname = usePathname();
 
-  const [room, setRoom] = useState<DBRoom | null>(null);
+  const [room, setRoom] = useState<RoomWithBuilding | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -147,7 +148,7 @@ export function RoomDetailPage() {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-    getRoom(roomId)
+    getRoomWithBuilding(roomId)
       .then((data) => { if (mounted) { setRoom(data); setLoading(false); } })
       .catch((e) => { if (mounted) { setError(e.message); setLoading(false); } });
     return () => { mounted = false; };
@@ -180,7 +181,9 @@ export function RoomDetailPage() {
       min_contract_months: Number(fd.get('min_contract_months')) || 12,
     };
     const updated = await updateRoom(room.id, patch);
-    if (updated) setRoom(updated as DBRoom);
+    if (updated) {
+      setRoom((prev) => (prev ? { ...prev, ...updated } : (updated as any)));
+    }
     setSaving(false);
     setIsEditOpen(false);
   };
@@ -194,7 +197,9 @@ export function RoomDetailPage() {
   const handleStatusChange = async (newStatus: DBRoom['status']) => {
     if (!room) return;
     const updated = await updateRoom(room.id, { status: newStatus });
-    if (updated) setRoom(updated as DBRoom);
+    if (updated) {
+      setRoom((prev) => (prev ? { ...prev, ...updated } : (updated as any)));
+    }
   };
 
   if (loading) {
@@ -410,6 +415,10 @@ export function RoomDetailPage() {
         </Card>
 
         <div className="space-y-4">
+          {!pathname.startsWith('/customer') && room && (
+            <FacebookPostingAssistant room={room} images={images} />
+          )}
+
           <PermissionGate roles={['company_admin', 'manager']}>
             <Card className="border-border rounded-lg shadow-none bg-white">
               <CardHeader>

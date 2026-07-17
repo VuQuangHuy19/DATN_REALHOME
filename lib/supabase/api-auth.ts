@@ -48,7 +48,7 @@ export async function requireApiAuth(
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('id, email, full_name, role, company_id, is_active, phone, avatar_url, landlord_id, created_at, updated_at')
+    .select('id, email, full_name, role, company_id, is_active, phone, avatar_url, landlord_id, created_at, updated_at, companies(status)')
     .eq('id', userId)
     .maybeSingle();
 
@@ -62,6 +62,18 @@ export async function requireApiAuth(
 
   if (!allowedRoles.includes(profile.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // Chặn thao tác ghi (POST, PUT, DELETE, PATCH) nếu công ty bị tạm khóa (suspended)
+  const isWrite = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method);
+  if (isWrite && profile.role !== 'super_admin' && profile.company_id) {
+    const compStatus = (profile as any).companies?.status;
+    if (compStatus === 'suspended') {
+      return NextResponse.json(
+        { error: 'Công ty của bạn đang tạm khóa do hết hạn gói dịch vụ. Vui lòng thanh toán/gia hạn để tiếp tục thao tác.' },
+        { status: 403 }
+      );
+    }
   }
 
   return { userId, profile: profile as Profile };

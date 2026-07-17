@@ -60,6 +60,45 @@ export async function POST(request: Request) {
 
     const { profile_id, company_id } = invitation;
 
+    // Kiểm tra giới hạn seats trước khi kích hoạt
+    try {
+      const { data: currentProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', profile_id)
+        .single();
+
+      if (currentProfile && currentProfile.role !== 'company_admin') {
+        const { data: activeSub } = await supabaseAdmin
+          .from('subscriptions')
+          .select('seats')
+          .eq('company_id', company_id)
+          .eq('status', 'active')
+          .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
+          .limit(1)
+          .maybeSingle();
+
+        const allowedSeats = activeSub?.seats || 5;
+
+        const { count: activeProfilesCount, error: countError } = await supabaseAdmin
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', company_id)
+          .eq('is_active', true);
+
+        if (countError) throw countError;
+
+        if ((activeProfilesCount || 0) >= allowedSeats) {
+          return NextResponse.json(
+            { error: `Không thể kích hoạt tài khoản. Công ty của bạn đã sử dụng hết số lượng tài khoản hoạt động (${allowedSeats} chỗ). Vui lòng liên hệ Admin để nâng cấp gói.` },
+            { status: 400 }
+          );
+        }
+      }
+    } catch (e: any) {
+      console.error('Lỗi kiểm tra giới hạn seats khi onboarding:', e);
+    }
+
     // 3. Thiết lập mật khẩu và kích hoạt tài khoản trong bảng profiles
     const passwordHash = await hashPassword(password);
     const { data: updatedProfile, error: profileError } = await supabaseAdmin

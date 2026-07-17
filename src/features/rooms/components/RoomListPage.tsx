@@ -23,6 +23,9 @@ import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayS
 import Link from 'next/link';
 import Image from 'next/image';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
+import { usePathname } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FacebookPostingAssistant } from './FacebookPostingAssistant';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -33,6 +36,7 @@ const statusLabels: Record<string, string> = {
 
 export function RoomListPage() {
   const { company, role } = useAuth();
+  const pathname = usePathname();
   const { items: roomList, loading, error, add, update, remove } = useRooms(company?.id);
   const { items: buildings } = useBuildings(company?.id);
   const { items: contracts } = useRentalContracts(company?.id);
@@ -46,6 +50,9 @@ export function RoomListPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [displayPrice, setDisplayPrice] = useState('');
+  
+  const { images: viewImages } = useRoomImages(viewItem?.id);
+  const isCustomer = pathname.startsWith('/customer') || !role || (role as string) === 'customer';
 
   const [selectedStatus, setSelectedStatus] = useState<string>('available');
   const [soonDate, setSoonDate] = useState<string>('');
@@ -657,54 +664,116 @@ export function RoomListPage() {
       </Card>
  
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-lg rounded-lg border border-border bg-white shadow-lg">
-          <DialogHeader>
+        <DialogContent className={`rounded-lg border border-border bg-white shadow-lg transition-all duration-200 ${isCustomer ? 'max-w-lg' : 'max-w-2xl max-h-[90vh] flex flex-col'}`}>
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2 font-heading text-lg font-bold text-ink">
               <DoorOpen className="h-5 w-5 text-accent" />Chi tiết phòng
             </DialogTitle>
           </DialogHeader>
           {viewItem && (
-            <div className="space-y-2.5 pt-4 text-sm text-ink-muted">
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã phòng:</strong> <span className="font-mono text-ink font-semibold">{viewItem.code}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã chủ nhà:</strong> <span className="font-mono text-ink font-semibold">{viewItem.landlord_code ?? '—'}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tòa nhà:</strong> <span className="text-ink font-bold">{viewItem.buildings?.name ?? '—'}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tầng:</strong> <span className="text-ink font-semibold">{viewItem.floor}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Loại:</strong> <span className="text-ink font-semibold">{viewItem.room_type ?? '—'}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50">
-                <strong>Trạng thái:</strong>{' '}
-                {(() => {
-                  const ds = getRoomDisplayStatus(viewItem, contracts);
-                  const activeDeposit = viewItem.status === 'reserved'
-                    ? depositContracts.find((c) => c.room_id === viewItem.id && c.status === 'active')
-                    : null;
-                  return (
-                    <div className="flex flex-col items-end gap-1">
-                      <Badge className={`${ds.colorClass} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                        {ds.label}
-                      </Badge>
-                      {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
-                    </div>
-                  );
-                })()}
-              </div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Diện tích:</strong> <span className="font-mono text-ink font-semibold">{viewItem.size ? `${viewItem.size}m²` : '—'}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Giá thuê:</strong> <span className="font-mono text-accent font-bold">{viewItem.price.toLocaleString('vi-VN')}đ</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Cấu trúc:</strong> <span className="text-ink font-semibold">{viewItem.bedrooms} PN · {viewItem.bathrooms} WC</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Ban công riêng:</strong> <span className="text-ink font-semibold">{viewItem.has_private_balcony ? 'Có' : 'Không'}</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số người tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_occupants} người</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số xe tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_vehicles_per_room} xe</span></div>
-              <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hợp đồng tối thiểu:</strong> <span className="text-ink font-semibold">{viewItem.min_contract_months} tháng</span></div>
-              {viewItem.rose && <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hoa hồng:</strong> <span className="font-bold text-emerald-600">{viewItem.rose}</span></div>}
-              {(() => {
-                const ds = getRoomDisplayStatus(viewItem, contracts);
-                return ds.expectedEmptyDate && (
+            <div className="overflow-y-auto flex-1 pr-1">
+              {isCustomer ? (
+                <div className="space-y-2.5 pt-4 text-sm text-ink-muted">
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã phòng:</strong> <span className="font-mono text-ink font-semibold">{viewItem.code}</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã chủ nhà:</strong> <span className="font-mono text-ink font-semibold">{viewItem.landlord_code ?? '—'}</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tòa nhà:</strong> <span className="text-ink font-bold">{viewItem.buildings?.name ?? '—'}</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tầng:</strong> <span className="text-ink font-semibold">{viewItem.floor}</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Loại:</strong> <span className="text-ink font-semibold">{viewItem.room_type ?? '—'}</span></div>
                   <div className="flex justify-between border-b pb-2 border-border/50">
-                    <strong>Ngày trống dự kiến:</strong>{' '}
-                    <span className="font-bold text-warn">{formatDateDisplay(ds.expectedEmptyDate)}</span>
+                    <strong>Trạng thái:</strong>{' '}
+                    {(() => {
+                      const ds = getRoomDisplayStatus(viewItem, contracts);
+                      const activeDeposit = viewItem.status === 'reserved'
+                        ? depositContracts.find((c) => c.room_id === viewItem.id && c.status === 'active')
+                        : null;
+                      return (
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge className={`${ds.colorClass} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
+                            {ds.label}
+                          </Badge>
+                          {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                        </div>
+                      );
+                    })()}
                   </div>
-                );
-              })()}
-              {viewItem.description && <div className="pt-2 text-xs text-ink-muted bg-bg-subtle/50 p-2.5 rounded-lg border border-border"><strong>Mô tả:</strong> {viewItem.description}</div>}
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Diện tích:</strong> <span className="font-mono text-ink font-semibold">{viewItem.size ? `${viewItem.size}m²` : '—'}</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Giá thuê:</strong> <span className="font-mono text-accent font-bold">{viewItem.price.toLocaleString('vi-VN')}đ</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Cấu trúc:</strong> <span className="text-ink font-semibold">{viewItem.bedrooms} PN · {viewItem.bathrooms} WC</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Ban công riêng:</strong> <span className="text-ink font-semibold">{viewItem.has_private_balcony ? 'Có' : 'Không'}</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số người tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_occupants} người</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số xe tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_vehicles_per_room} xe</span></div>
+                  <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hợp đồng tối thiểu:</strong> <span className="text-ink font-semibold">{viewItem.min_contract_months} tháng</span></div>
+                  {viewItem.rose && <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hoa hồng:</strong> <span className="font-bold text-emerald-600">{viewItem.rose}</span></div>}
+                  {(() => {
+                    const ds = getRoomDisplayStatus(viewItem, contracts);
+                    return ds.expectedEmptyDate && (
+                      <div className="flex justify-between border-b pb-2 border-border/50">
+                        <strong>Ngày trống dự kiến:</strong>{' '}
+                        <span className="font-bold text-warn">{formatDateDisplay(ds.expectedEmptyDate)}</span>
+                      </div>
+                    );
+                  })()}
+                  {viewItem.description && <div className="pt-2 text-xs text-ink-muted bg-bg-subtle/50 p-2.5 rounded-lg border border-border"><strong>Mô tả:</strong> {viewItem.description}</div>}
+                </div>
+              ) : (
+                <Tabs defaultValue="details" className="w-full mt-4">
+                  <TabsList className="grid grid-cols-2 h-9 p-0.5 bg-slate-100 rounded-lg mb-4">
+                    <TabsTrigger value="details" className="text-xs font-semibold py-1.5 rounded-md">
+                      Chi tiết phòng
+                    </TabsTrigger>
+                    <TabsTrigger value="facebook" className="text-xs font-semibold py-1.5 rounded-md">
+                      Đăng bài Facebook
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="details" className="outline-none space-y-2.5 text-sm text-ink-muted">
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã phòng:</strong> <span className="font-mono text-ink font-semibold">{viewItem.code}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Mã chủ nhà:</strong> <span className="font-mono text-ink font-semibold">{viewItem.landlord_code ?? '—'}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tòa nhà:</strong> <span className="text-ink font-bold">{viewItem.buildings?.name ?? '—'}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Tầng:</strong> <span className="text-ink font-semibold">{viewItem.floor}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Loại:</strong> <span className="text-ink font-semibold">{viewItem.room_type ?? '—'}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50">
+                      <strong>Trạng thái:</strong>{' '}
+                      {(() => {
+                        const ds = getRoomDisplayStatus(viewItem, contracts);
+                        const activeDeposit = viewItem.status === 'reserved'
+                          ? depositContracts.find((c) => c.room_id === viewItem.id && c.status === 'active')
+                          : null;
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge className={`${ds.colorClass} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
+                              {ds.label}
+                            </Badge>
+                            {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Diện tích:</strong> <span className="font-mono text-ink font-semibold">{viewItem.size ? `${viewItem.size}m²` : '—'}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Giá thuê:</strong> <span className="font-mono text-accent font-bold">{viewItem.price.toLocaleString('vi-VN')}đ</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Cấu trúc:</strong> <span className="text-ink font-semibold">{viewItem.bedrooms} PN · {viewItem.bathrooms} WC</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Ban công riêng:</strong> <span className="text-ink font-semibold">{viewItem.has_private_balcony ? 'Có' : 'Không'}</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số người tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_occupants} người</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Số xe tối đa:</strong> <span className="text-ink font-semibold">{viewItem.max_vehicles_per_room} xe</span></div>
+                    <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hợp đồng tối thiểu:</strong> <span className="text-ink font-semibold">{viewItem.min_contract_months} tháng</span></div>
+                    {viewItem.rose && <div className="flex justify-between border-b pb-2 border-border/50"><strong>Hoa hồng:</strong> <span className="font-bold text-emerald-600">{viewItem.rose}</span></div>}
+                    {(() => {
+                      const ds = getRoomDisplayStatus(viewItem, contracts);
+                      return ds.expectedEmptyDate && (
+                        <div className="flex justify-between border-b pb-2 border-border/50">
+                          <strong>Ngày trống dự kiến:</strong>{' '}
+                          <span className="font-bold text-warn">{formatDateDisplay(ds.expectedEmptyDate)}</span>
+                        </div>
+                      );
+                    })()}
+                    {viewItem.description && <div className="pt-2 text-xs text-ink-muted bg-bg-subtle/50 p-2.5 rounded-lg border border-border"><strong>Mô tả:</strong> {viewItem.description}</div>}
+                  </TabsContent>
+                  
+                  <TabsContent value="facebook" className="outline-none pt-2">
+                    <FacebookPostingAssistant room={viewItem} images={viewImages} />
+                  </TabsContent>
+                </Tabs>
+              )}
             </div>
           )}
         </DialogContent>

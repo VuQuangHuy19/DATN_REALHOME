@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Pencil, Trash2, Plus, Search, FileText, Loader2, AlertCircle, 
   Printer, CreditCard, Calendar, User, ShieldCheck, HelpCircle,
-  Building, Landmark, RefreshCw
+  Building, Landmark, RefreshCw, ClipboardCheck
 } from 'lucide-react';
 import { useContractTemplates, useDepositContracts, useRentalContracts, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -23,6 +23,7 @@ import Image from 'next/image';
 import { supabase } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
+import { HandoverReportDialog } from './HandoverReportDialog';
 import { getContractTermMonths, calculateCommissionAmount } from '@/src/features/finance/services/commission';
 import {
   DropdownMenu,
@@ -103,6 +104,8 @@ export function ContractsPage() {
   const [isViewDepositOpen, setIsViewDepositOpen] = useState(false);
   const [viewRental, setViewRental] = useState<any | null>(null);
   const [isViewRentalOpen, setIsViewRentalOpen] = useState(false);
+  const [isHandoverOpen, setIsHandoverOpen] = useState(false);
+  const [handoverContract, setHandoverContract] = useState<any | null>(null);
   const error = depositsError || rentalsError || templatesError;
 
   // Handlers
@@ -488,6 +491,22 @@ export function ContractsPage() {
                                 </DropdownMenu>
                               )}
 
+                              {['signed', 'converted', 'refunded'].includes(item.status) && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 text-ink hover:text-indigo-650 hover:bg-bg-subtle"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setHandoverContract(item);
+                                    setIsHandoverOpen(true);
+                                  }}
+                                  title="Biên bản bàn giao phòng"
+                                >
+                                  <ClipboardCheck className="h-4 w-4" />
+                                </Button>
+                              )}
+
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="In hợp đồng">
                                 <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
                                   <Printer className="h-4 w-4" />
@@ -628,6 +647,13 @@ export function ContractsPage() {
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
+                              {role !== 'landlord' && (
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Gia hạn hợp đồng">
+                                  <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
+                                    <RefreshCw className="h-4 w-4" />
+                                  </Link>
+                                </Button>
+                              )}
                               {role !== 'sales_agent' && role !== 'landlord' && (
                                 <Button 
                                   variant="ghost" 
@@ -903,6 +929,22 @@ export function ContractsPage() {
                   </Button>
                 </div>
               )}
+
+              {/* Biên bản bàn giao phòng */}
+              {['signed', 'converted', 'refunded'].includes(viewDeposit.status) && (
+                <div className="flex justify-end pt-4 border-t border-border mt-4">
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 h-10 flex items-center gap-2 rounded-lg"
+                    onClick={() => {
+                      setHandoverContract(viewDeposit);
+                      setIsHandoverOpen(true);
+                    }}
+                  >
+                    <ClipboardCheck className="h-5 w-5" />
+                    Biên bản bàn giao phòng
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -1044,6 +1086,16 @@ export function ContractsPage() {
                   </div>
                 </div>
               )}
+
+              {role !== 'landlord' && (
+                <div className="flex justify-end pt-4 border-t border-border mt-4">
+                  <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold h-9 px-4">
+                    <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${viewRental.id}`}>
+                      <RefreshCw className="h-4 w-4 mr-2" /> Gia hạn hợp đồng này
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -1073,6 +1125,16 @@ export function ContractsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog Biên bản bàn giao phòng */}
+      <HandoverReportDialog
+        depositContract={handoverContract}
+        isOpen={isHandoverOpen}
+        onOpenChange={setIsHandoverOpen}
+        onSuccess={() => {
+          refetchDeposits();
+        }}
+      />
     </div>
   );
 }

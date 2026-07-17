@@ -25,6 +25,35 @@ export async function fetchUserSessionData(userId: string) {
       .eq('id', profile.company_id)
       .maybeSingle();
     company = companyData;
+
+    // Kiểm tra và tự động cập nhật trạng thái suspended nếu hết hạn dùng thử/đăng ký
+    if (company && company.status !== 'suspended') {
+      try {
+        const now = new Date();
+        const isTrialActive = company.trial_ends_at && new Date(company.trial_ends_at) > now;
+        
+        if (!isTrialActive) {
+          const { data: activeSub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('id')
+            .eq('company_id', company.id)
+            .eq('status', 'active')
+            .or(`ends_at.is.null,ends_at.gt.${now.toISOString()}`)
+            .limit(1)
+            .maybeSingle();
+
+          if (!activeSub) {
+            await supabaseAdmin
+              .from('companies')
+              .update({ status: 'suspended', updated_at: now.toISOString() })
+              .eq('id', company.id);
+            company.status = 'suspended';
+          }
+        }
+      } catch (e) {
+        console.error('Lỗi kiểm tra trạng thái đăng ký công ty:', e);
+      }
+    }
   }
 
   // 3. Tính toán danh sách quyền (permissions)

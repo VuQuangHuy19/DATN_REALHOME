@@ -70,6 +70,16 @@ export async function getRoom(id: string): Promise<DBRoom | null> {
   return data as unknown as DBRoom | null;
 }
 
+export async function getRoomWithBuilding(id: string): Promise<RoomWithBuilding | null> {
+  const { data, error } = await supabase
+    .from('rooms')
+    .select('*, buildings(id, name, area, address, landlord_id, electricity_price, water_price, internet_price, common_service_price, washing_machine_type, dryer_type)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as unknown as RoomWithBuilding | null;
+}
+
 export async function createRoom(r: RoomInsert): Promise<DBRoom> {
   const { data, error } = await supabase.from('rooms').insert(r as any).select().single();
   if (error) throw error;

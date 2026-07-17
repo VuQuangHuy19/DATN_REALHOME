@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, ArrowRight } from 'lucide-react';
 
 const pathPermissions: Record<string, string> = {
   '/admin/realhome/buildings': 'buildings.read',
@@ -26,19 +26,32 @@ const pathPermissions: Record<string, string> = {
 };
 
 function AdminContent({ pathname, children }: { pathname: string; children: React.ReactNode }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, company } = useAuth();
 
   const requiredPerm = Object.entries(pathPermissions).find(([prefix]) =>
     pathname === prefix || pathname.startsWith(prefix + '/')
   )?.[1];
 
   const hasAccess = !requiredPerm || hasPermission(requiredPerm);
+  const isSuspended = company?.status === 'suspended';
+  const showBanner = isSuspended && pathname !== '/admin/system/billing';
 
   return (
     <div className="flex min-h-screen bg-bg-base">
       <AdminSidebar />
       <div className="flex-1 flex flex-col ml-0 md:ml-64">
         <AdminHeader />
+        {showBanner && (
+          <div className="bg-rose-600 text-white px-6 py-3 text-center flex items-center justify-center gap-2 text-sm font-medium animate-pulse shadow-md z-50">
+            <ShieldAlert className="h-5 w-5 flex-shrink-0" />
+            <span>
+              Tài khoản doanh nghiệp của bạn đang bị khóa do hết hạn sử dụng. Các chức năng Thêm/Sửa/Xóa đã bị chặn.
+            </span>
+            <a href="/admin/system/billing" className="underline font-bold hover:text-rose-100 ml-1 flex items-center gap-0.5">
+              Thanh toán ngay <ArrowRight className="h-3.5 w-3.5 inline" />
+            </a>
+          </div>
+        )}
         <main className="flex-1 p-6 overflow-auto">
           {hasAccess ? (
             children

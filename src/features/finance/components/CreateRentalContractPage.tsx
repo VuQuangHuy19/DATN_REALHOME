@@ -223,6 +223,71 @@ export function CreateRentalContractPage() {
     loadDeposit();
   }, [depositId]);
 
+  // Load thông tin từ Hợp đồng cần gia hạn nếu có
+  useEffect(() => {
+    const renewId = searchParams.get('renew_from_id');
+    if (!renewId) return;
+    async function loadRenewedContract() {
+      try {
+        const { data, error } = (await supabase
+          .from('rental_contracts')
+          .select('*, rooms(code, price, buildings(name, address, area))')
+          .eq('id', renewId!)
+          .single()) as any;
+        if (error) throw error;
+        if (data) {
+          setSelectedRoomId(data.room_id || '');
+          setRentPrice(Number(data.rent_price));
+          setDepositAmount(Number(data.deposit_amount));
+          setSignLocation(data.sign_location || '');
+          setPartyBAddress(data.party_b_address || '');
+          setPartyBName(data.party_b_name || '');
+          setPartyBPhone(data.party_b_phone || '');
+          setPartyBIdCard(data.party_b_id_card || '');
+          setPartyBIdDate(data.party_b_id_date || '');
+          setPartyBIdPlace(data.party_b_id_place || '');
+          setPartyBDob(data.party_b_dob || '');
+          
+          setPartyAName(data.party_a_name || 'Võ Quang Huy');
+          setPartyAPhone(data.party_a_phone || '0857844999');
+          setPartyAAddress(data.party_a_address || 'Thôn Nhàn Thọ 2, xã Yên Nguyên, huyện Chiêm Hóa, tỉnh Tuyên Quang');
+          setPartyAIdCard(data.party_a_id_card || '008204007039');
+          setPartyAIdDate(data.party_a_id_date || '2021-09-12');
+          setPartyAIdPlace(data.party_a_id_place || 'Cục quản lý về trật tự xã hội');
+          setPartyADob(data.party_a_dob || '2004-04-16');
+
+          setElectricityPrice(Number(data.electricity_price) || 4000);
+          setWaterPrice(data.water_price || '150000/người/tháng');
+          setServicePrice(data.service_price || '200000/người/tháng');
+          setTenantCount(Number(data.tenant_count) || 1);
+          
+          // Tự động gán ngày bắt đầu hợp đồng mới là ngày tiếp sau ngày kết thúc hợp đồng cũ
+          if (data.end_date) {
+            const oldEnd = new Date(data.end_date);
+            oldEnd.setDate(oldEnd.getDate() + 1);
+            setStartDate(oldEnd.toISOString().slice(0, 10));
+            setHandoverDate(oldEnd.toISOString().slice(0, 10));
+          }
+          
+          if (data.other_services && typeof data.other_services === 'object') {
+            const os = data.other_services as any;
+            if (os.internet) {
+              const netVal = parseInt(os.internet.replace(/[^\d]/g, ''), 10);
+              if (!isNaN(netVal)) setInternetPrice(netVal);
+            }
+            if (os.laundry) {
+              const laundryVal = parseInt(os.laundry.replace(/[^\d]/g, ''), 10);
+              if (!isNaN(laundryVal)) setLaundryPrice(laundryVal);
+            }
+          }
+        }
+      } catch (err: any) {
+        toast.error('Lỗi khi tải thông tin hợp đồng cần gia hạn: ' + err.message);
+      }
+    }
+    loadRenewedContract();
+  }, [searchParams]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!company?.id) return;
@@ -245,6 +310,7 @@ export function CreateRentalContractPage() {
       company_id: company.id,
       room_id: selectedRoomId,
       deposit_contract_id: depositId || null,
+      renewed_from_contract_id: searchParams.get('renew_from_id') || null,
       contract_code: generatedCode,
       status: 'active' as const,
       agreement_date: agreementDate,

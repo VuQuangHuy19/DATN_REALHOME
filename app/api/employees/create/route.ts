@@ -22,6 +22,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Kiểm tra giới hạn seats của gói hiện tại
+    try {
+      const { data: activeSub } = await supabaseAdmin
+        .from('subscriptions')
+        .select('seats')
+        .eq('company_id', company_id)
+        .eq('status', 'active')
+        .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
+        .limit(1)
+        .maybeSingle();
+
+      const allowedSeats = activeSub?.seats || 5;
+
+      const { count: activeProfilesCount, error: countError } = await supabaseAdmin
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', company_id)
+        .eq('is_active', true);
+
+      if (countError) throw countError;
+
+      if ((activeProfilesCount || 0) >= allowedSeats) {
+        return NextResponse.json(
+          { error: `Đã vượt quá giới hạn số lượng tài khoản hoạt động (${allowedSeats} chỗ) của gói dịch vụ. Vui lòng nâng cấp gói để thêm thành viên.` },
+          { status: 400 }
+        );
+      }
+    } catch (e: any) {
+      console.error('Lỗi kiểm tra giới hạn seats:', e);
+    }
+
     // Lấy tên công ty
     const { data: companyData } = await supabaseAdmin
       .from('companies')
