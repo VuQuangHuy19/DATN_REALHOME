@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
-
+import { AppPreferencesProvider } from '@/components/providers/AppPreferencesProvider';
 export const metadata: Metadata = {
   title: 'RealHome',
   description: 'Hệ thống quản lý bất động sản toàn diện',
@@ -25,9 +25,11 @@ export default function RootLayout({
     <html lang="vi" suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <AppPreferencesProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </AppPreferencesProvider>
           <Toaster richColors position="top-center" />
         </ThemeProvider>
       </body>

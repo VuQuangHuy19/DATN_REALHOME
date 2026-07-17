@@ -314,8 +314,8 @@ export function KpiPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">KPI Nhân viên</h1>
-          <p className="text-slate-500">Theo dõi và đánh giá hiệu suất kinh doanh</p>
+          <h1 className="text-2xl font-bold text-ink">KPI Nhân viên</h1>
+          <p className="text-ink-muted">Theo dõi và đánh giá hiệu suất kinh doanh</p>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -329,7 +329,7 @@ export function KpiPage() {
           </Button>
           <Button 
             variant="outline" 
-            className="border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg gap-2"
+            className="border-border-subtle text-ink hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all rounded-lg gap-2"
             onClick={() => setIsConfigOpen(true)}
           >
             <Settings className="h-4 w-4" />
@@ -347,17 +347,17 @@ export function KpiPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card><CardContent className="p-5">
-          <p className="text-sm text-slate-500">Điểm TB</p>
-          <p className="text-3xl font-bold text-slate-800 mt-1">{avgScore}<span className="text-base text-slate-400 font-normal">/100</span></p>
+          <p className="text-sm text-ink-muted">Điểm TB</p>
+          <p className="text-3xl font-bold text-ink mt-1">{avgScore}<span className="text-base text-ink-muted font-normal">/100</span></p>
         </CardContent></Card>
         <Card><CardContent className="p-5">
-          <p className="text-sm text-slate-500">Doanh thu thực tế</p>
-          <p className="text-3xl font-bold text-slate-800 mt-1">{formatVND(totalRevenue)}</p>
+          <p className="text-sm text-ink-muted">Doanh thu thực tế</p>
+          <p className="text-3xl font-bold text-ink mt-1">{formatVND(totalRevenue)}</p>
         </CardContent></Card>
         <Card><CardContent className="p-5">
-          <p className="text-sm text-slate-500">Đạt / Mục tiêu</p>
-          <p className="text-3xl font-bold text-slate-800 mt-1">
-            {totalTarget ? Math.round((totalRevenue / totalTarget) * 100) : 0}<span className="text-base text-slate-400 font-normal">%</span>
+          <p className="text-sm text-ink-muted">Đạt / Mục tiêu</p>
+          <p className="text-3xl font-bold text-ink mt-1">
+            {totalTarget ? Math.round((totalRevenue / totalTarget) * 100) : 0}<span className="text-base text-ink-muted font-normal">%</span>
           </p>
         </CardContent></Card>
       </div>
@@ -423,21 +423,21 @@ export function KpiPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
           ) : (
             <div className="border rounded-lg overflow-hidden overflow-x-auto">
               <table className="w-full text-sm min-w-[700px]">
-                <thead className="bg-slate-50">
+                <thead className="bg-bg-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Nhân viên</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Kỳ</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Leads</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Lịch hẹn</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Giao dịch</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Doanh thu</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Điểm</th>
-                    <th className="px-4 py-3 text-center font-medium text-slate-600">Đánh giá</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Thao tác</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Nhân viên</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Kỳ</th>
+                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Leads</th>
+                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Lịch hẹn</th>
+                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Giao dịch</th>
+                    <th className="px-4 py-3 text-right font-medium text-ink-muted">Doanh thu</th>
+                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Điểm</th>
+                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Đánh giá</th>
+                    <th className="px-4 py-3 text-right font-medium text-ink-muted">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -448,10 +448,10 @@ export function KpiPage() {
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-slate-50 cursor-pointer"
+                        className="hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all cursor-pointer"
                         onClick={(e) => { if ((e.target as HTMLElement).closest('button')) return; setViewItem(item); setIsViewOpen(true); }}
                       >
-                        <td className="px-4 py-3 font-medium text-slate-800">
+                        <td className="px-4 py-3 font-medium text-ink">
                           <div className="flex items-center gap-2">
                             <span>{item.employee_name}</span>
                             {item.auto_calculated && (
@@ -461,16 +461,16 @@ export function KpiPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 text-xs">{item.period}</td>
-                        <td className="px-4 py-3 text-center text-slate-600">{item.total_leads}</td>
-                        <td className="px-4 py-3 text-center text-slate-600">{item.total_appointments}</td>
-                        <td className="px-4 py-3 text-center text-slate-600">{item.successful_deals}</td>
+                        <td className="px-4 py-3 text-ink-muted text-xs">{item.period}</td>
+                        <td className="px-4 py-3 text-center text-ink-muted">{item.total_leads}</td>
+                        <td className="px-4 py-3 text-center text-ink-muted">{item.total_appointments}</td>
+                        <td className="px-4 py-3 text-center text-ink-muted">{item.successful_deals}</td>
                         <td className="px-4 py-3 text-right">
-                          <div className="text-slate-800 font-medium">{formatVND(item.revenue_generated)}</div>
-                          <div className={`text-xs ${revenueRate >= 100 ? 'text-green-600' : 'text-slate-400'}`}>{revenueRate}% mục tiêu</div>
+                          <div className="text-ink font-medium">{formatVND(item.revenue_generated)}</div>
+                          <div className={`text-xs ${revenueRate >= 100 ? 'text-green-600' : 'text-ink-muted'}`}>{revenueRate}% mục tiêu</div>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-slate-100 text-slate-800 font-bold text-sm">{item.score}</div>
+                          <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-bg-subtle text-ink font-bold text-sm">{item.score}</div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc.color}`}>
@@ -486,7 +486,7 @@ export function KpiPage() {
                 </tbody>
               </table>
               {filtered.length === 0 && (
-                <div className="text-center py-10 text-slate-400">
+                <div className="text-center py-10 text-ink-muted">
                   <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-40" />
                   <p>Không có dữ liệu KPI</p>
                 </div>
@@ -510,24 +510,24 @@ export function KpiPage() {
           </DialogHeader>
           {viewItem && (
             <div className="space-y-4 pt-2">
-              <div className="text-center p-4 bg-slate-50 rounded-lg">
-                <div className="text-4xl font-bold text-slate-800">{viewItem.score}</div>
-                <div className="text-sm text-slate-400 mt-0.5">Điểm / 100</div>
+              <div className="text-center p-4 bg-bg-subtle rounded-lg">
+                <div className="text-4xl font-bold text-ink">{viewItem.score}</div>
+                <div className="text-sm text-ink-muted mt-0.5">Điểm / 100</div>
                 <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium mt-2 ${statusConfig[viewItem.status]?.color ?? ''}`}>
                   {statusConfig[viewItem.status]?.label}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="p-3 bg-slate-50 rounded-lg"><p className="text-slate-400">Leads</p><p className="text-xl font-bold text-slate-800">{viewItem.total_leads}</p></div>
-                <div className="p-3 bg-slate-50 rounded-lg"><p className="text-slate-400">Lịch hẹn</p><p className="text-xl font-bold text-slate-800">{viewItem.total_appointments}</p></div>
-                <div className="p-3 bg-slate-50 rounded-lg"><p className="text-slate-400">Giao dịch</p><p className="text-xl font-bold text-green-700">{viewItem.successful_deals}</p></div>
+                <div className="p-3 bg-bg-subtle rounded-lg"><p className="text-ink-muted">Leads</p><p className="text-xl font-bold text-ink">{viewItem.total_leads}</p></div>
+                <div className="p-3 bg-bg-subtle rounded-lg"><p className="text-ink-muted">Lịch hẹn</p><p className="text-xl font-bold text-ink">{viewItem.total_appointments}</p></div>
+                <div className="p-3 bg-bg-subtle rounded-lg"><p className="text-ink-muted">Giao dịch</p><p className="text-xl font-bold text-green-700">{viewItem.successful_deals}</p></div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg">
+              <div className="p-3 bg-bg-subtle rounded-lg">
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-slate-500">Doanh thu</span>
+                  <span className="text-ink-muted">Doanh thu</span>
                   <span className="font-medium">{formatVND(viewItem.revenue_generated)} / {formatVND(viewItem.target_revenue)}</span>
                 </div>
-                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-border-subtle rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${viewItem.revenue_generated >= viewItem.target_revenue ? 'bg-green-500' : 'bg-blue-500'}`}
                     style={{ width: `${Math.min(viewItem.target_revenue ? (viewItem.revenue_generated / viewItem.target_revenue) * 100 : 0, 100)}%` }}
@@ -547,7 +547,7 @@ export function KpiPage() {
           <form onSubmit={handleSave} className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Nhân viên</label>
+                <label className="text-sm font-medium text-ink block mb-1">Nhân viên</label>
                 <select name="employeeId" defaultValue={editItem?.employee_id ?? ''} required className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">-- Chọn nhân viên --</option>
                   {employees.filter((e) => e.status === 'active').map((e) => (
@@ -556,31 +556,31 @@ export function KpiPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Kỳ (YYYY-MM)</label>
+                <label className="text-sm font-medium text-ink block mb-1">Kỳ (YYYY-MM)</label>
                 <Input name="period" defaultValue={editItem?.period ?? ''} required placeholder="2024-01" />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Leads</label>
+                <label className="text-sm font-medium text-ink block mb-1">Leads</label>
                 <Input name="total_leads" type="number" defaultValue={editItem?.total_leads ?? 0} min={0} />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Lịch hẹn</label>
+                <label className="text-sm font-medium text-ink block mb-1">Lịch hẹn</label>
                 <Input name="total_appointments" type="number" defaultValue={editItem?.total_appointments ?? 0} min={0} />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Giao dịch thành công</label>
+                <label className="text-sm font-medium text-ink block mb-1">Giao dịch thành công</label>
                 <Input name="successful_deals" type="number" defaultValue={editItem?.successful_deals ?? 0} min={0} />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Điểm (0–100)</label>
+                <label className="text-sm font-medium text-ink block mb-1">Điểm (0–100)</label>
                 <Input name="score" type="number" defaultValue={editItem?.score ?? 0} min={0} max={100} required />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Doanh thu thực (đ)</label>
+                <label className="text-sm font-medium text-ink block mb-1">Doanh thu thực (đ)</label>
                 <Input name="revenue_generated" type="number" defaultValue={editItem?.revenue_generated ?? 0} min={0} />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Mục tiêu (đ)</label>
+                <label className="text-sm font-medium text-ink block mb-1">Mục tiêu (đ)</label>
                 <Input name="target_revenue" type="number" defaultValue={editItem?.target_revenue ?? 0} min={0} />
               </div>
             </div>
@@ -611,7 +611,7 @@ export function KpiPage() {
 
               <div className="border border-border rounded-xl overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm min-w-[700px]">
-                  <thead className="bg-slate-50 text-slate-800 border-b border-border">
+                  <thead className="bg-bg-subtle text-ink border-b border-border">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold">Nhân viên</th>
                       <th className="px-4 py-3 text-center font-semibold">Giao dịch mới</th>
@@ -623,20 +623,20 @@ export function KpiPage() {
                       <th className="px-4 py-3 text-center font-semibold">Trạng thái</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border text-slate-700">
+                  <tbody className="divide-y divide-border text-ink">
                     {autoKpiPreview.map((item, idx) => {
                       const sc = statusConfig[item.status] ?? statusConfig.on_track;
                       const StatusIcon = sc.icon;
                       return (
-                        <tr key={idx} className="hover:bg-slate-50/50">
-                          <td className="px-4 py-3 font-medium text-slate-800">{item.employee_name}</td>
-                          <td className="px-4 py-3 text-center text-slate-600 font-semibold">{item.successful_deals}</td>
+                        <tr key={idx} className="hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all">
+                          <td className="px-4 py-3 font-medium text-ink">{item.employee_name}</td>
+                          <td className="px-4 py-3 text-center text-ink-muted font-semibold">{item.successful_deals}</td>
                           <td className="px-4 py-3 text-center text-indigo-600 font-semibold">{item.converted_leads_count || 0}</td>
                           <td className="px-4 py-3 text-right text-emerald-600 font-bold font-mono">{formatVND(item.revenue_generated)}</td>
                           <td className="px-4 py-3 text-right text-indigo-600 font-bold font-mono">{formatVND(item.commission_earned)}</td>
-                          <td className="px-4 py-3 text-right text-slate-700 font-mono">{formatVND(item.target_revenue)}</td>
+                          <td className="px-4 py-3 text-right text-ink font-mono">{formatVND(item.target_revenue)}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-slate-100 text-slate-800 font-bold text-xs">{item.score}</span>
+                            <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-bg-subtle text-ink font-bold text-xs">{item.score}</span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc.color}`}>
@@ -651,8 +651,8 @@ export function KpiPage() {
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0 bg-slate-50/50">
-            <Button type="button" variant="ghost" className="text-slate-750 hover:bg-slate-100 rounded-lg" onClick={() => setIsPreviewOpen(false)}>Hủy</Button>
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0 bg-bg-subtle/50">
+            <Button type="button" variant="ghost" className="text-ink hover:bg-bg-subtle rounded-lg" onClick={() => setIsPreviewOpen(false)}>Hủy</Button>
             <Button type="button" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg gap-2 font-semibold" disabled={savingAuto} onClick={handleSaveAutoKPIs}>
               {savingAuto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Xác nhận và Lưu vào hệ thống
@@ -672,12 +672,12 @@ export function KpiPage() {
           </DialogHeader>
           {kpiConfig ? (
             <form onSubmit={handleSaveConfig} className="space-y-4 pt-4 text-sm text-ink">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs text-slate-500">
+              <div className="bg-bg-subtle p-3 rounded-xl border border-border-subtle text-xs text-ink-muted">
                 Lưu ý: Tổng trọng số các chỉ số (Doanh thu + Lịch hẹn + Leads) phải đạt đúng 100%.
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <label htmlFor="revenue_weight" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Doanh thu (%)</label>
+                  <label htmlFor="revenue_weight" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Doanh thu (%)</label>
                   <Input 
                     id="revenue_weight" 
                     name="revenue_weight" 
@@ -690,7 +690,7 @@ export function KpiPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="appointment_weight" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Lịch hẹn (%)</label>
+                  <label htmlFor="appointment_weight" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Lịch hẹn (%)</label>
                   <Input 
                     id="appointment_weight" 
                     name="appointment_weight" 
@@ -703,7 +703,7 @@ export function KpiPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="lead_weight" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Leads (%)</label>
+                  <label htmlFor="lead_weight" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Leads (%)</label>
                   <Input 
                     id="lead_weight" 
                     name="lead_weight" 
@@ -718,10 +718,10 @@ export function KpiPage() {
               </div>
 
               <div className="space-y-3 pt-2 border-t border-border">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">Mục tiêu mặc định hàng tháng</h4>
+                <h4 className="font-bold text-xs uppercase tracking-wider text-ink-muted">Mục tiêu mặc định hàng tháng</h4>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label htmlFor="default_target_revenue" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Doanh thu mục tiêu (đ)</label>
+                    <label htmlFor="default_target_revenue" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Doanh thu mục tiêu (đ)</label>
                     <Input 
                       id="default_target_revenue" 
                       name="default_target_revenue" 
@@ -733,7 +733,7 @@ export function KpiPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label htmlFor="default_target_appointments" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Mục tiêu cuộc hẹn</label>
+                      <label htmlFor="default_target_appointments" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Mục tiêu cuộc hẹn</label>
                       <Input 
                         id="default_target_appointments" 
                         name="default_target_appointments" 
@@ -744,7 +744,7 @@ export function KpiPage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label htmlFor="default_target_leads" className="text-slate-600 block text-xs font-semibold uppercase tracking-wider">Mục tiêu lead chốt</label>
+                      <label htmlFor="default_target_leads" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Mục tiêu lead chốt</label>
                       <Input 
                         id="default_target_leads" 
                         name="default_target_leads" 
@@ -764,7 +764,7 @@ export function KpiPage() {
               </Button>
             </form>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+            <div className="flex flex-col items-center justify-center py-12 text-ink-muted">
               <Loader2 className="h-8 w-8 animate-spin mb-3 text-indigo-600" />
               <p className="text-sm">Đang tải cấu hình...</p>
             </div>

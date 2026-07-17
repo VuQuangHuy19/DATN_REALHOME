@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -40,100 +41,106 @@ interface NavItem {
   children?: { label: string; href: string; icon?: React.ElementType; permission?: string }[];
 }
 
-const navItems: NavItem[] = [
-  { label: 'Xem trang khách', href: '/customer/properties', icon: Home },
-  { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+const getNavItems = (isEn: boolean): NavItem[] => [
+  { label: isEn ? 'View Client Page' : 'Xem trang khách', href: '/customer/properties', icon: Home },
+  { label: isEn ? 'Dashboard' : 'Tổng quan', href: '/admin', icon: LayoutDashboard },
   {
-    label: 'Bất động sản',
+    label: isEn ? 'Properties' : 'Bất động sản',
     href: '/admin/realhome/buildings',
     icon: Building2,
     children: [
-      { label: 'Tòa nhà', href: '/admin/realhome/buildings', icon: Building2, permission: 'buildings.read' },
-      { label: 'Phòng', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
-      { label: 'Danh mục', href: '/admin/categories', icon: List, permission: 'buildings.read' },
+      { label: isEn ? 'Buildings' : 'Tòa nhà', href: '/admin/realhome/buildings', icon: Building2, permission: 'buildings.read' },
+      { label: isEn ? 'Rooms' : 'Phòng', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
+      { label: isEn ? 'Categories' : 'Danh mục', href: '/admin/categories', icon: List, permission: 'buildings.read' },
     ],
   },
   {
-    label: 'Khách hàng',
+    label: isEn ? 'Customers' : 'Khách hàng',
     href: '/admin/customers/leads',
     icon: UserSearch,
     children: [
-      { label: 'Khách hàng tiềm năng', href: '/admin/customers/leads', icon: UserSearch, permission: 'leads.read' },
-      { label: 'Yêu cầu tư vấn', href: '/admin/customers/consultations', icon: MessageSquare, permission: 'consultations.read' },
-      { label: 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
+      { label: isEn ? 'Leads' : 'Khách hàng tiềm năng', href: '/admin/customers/leads', icon: UserSearch, permission: 'leads.read' },
+      { label: isEn ? 'Consultations' : 'Yêu cầu tư vấn', href: '/admin/customers/consultations', icon: MessageSquare, permission: 'consultations.read' },
+      { label: isEn ? 'Appointments' : 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
     ],
   },
-  { label: 'Chủ nhà', href: '/admin/landlords', icon: UserCheck, permission: 'landlords.read' },
-  { label: 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
+  { label: isEn ? 'Landlords' : 'Chủ nhà', href: '/admin/landlords', icon: UserCheck, permission: 'landlords.read' },
+  { label: isEn ? 'Contracts' : 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
   {
-    label: 'Hóa đơn & Dịch vụ',
+    label: isEn ? 'Invoices & Services' : 'Hóa đơn & Dịch vụ',
     href: '/admin/services/readings',
     icon: Receipt,
     children: [
-      { label: 'Chỉ số dịch vụ', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
-      { label: 'Hóa đơn tháng', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
+      { label: isEn ? 'Service Readings' : 'Chỉ số dịch vụ', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
+      { label: isEn ? 'Monthly Invoices' : 'Hóa đơn tháng', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
     ],
   },
   {
-    label: 'Nhân sự',
+    label: isEn ? 'Human Resources' : 'Nhân sự',
     href: '/admin/hr/employees',
     icon: Users,
     children: [
-      { label: 'Nhân viên', href: '/admin/hr/employees', icon: Users, permission: 'employees.read' },
-      { label: 'KPI', href: '/admin/hr/kpi', icon: TrendingUp, permission: 'reports.read' },
+      { label: isEn ? 'Employees' : 'Nhân viên', href: '/admin/hr/employees', icon: Users, permission: 'employees.read' },
+      { label: isEn ? 'KPI' : 'KPI', href: '/admin/hr/kpi', icon: TrendingUp, permission: 'reports.read' },
     ],
   },
   {
-    label: 'Hệ thống',
+    label: isEn ? 'System' : 'Hệ thống',
     href: '/admin/system/accounts',
     icon: Settings,
     children: [
-      { label: 'Tài khoản', href: '/admin/system/accounts', icon: UserCog, permission: 'accounts.read' },
-      { label: 'Vai trò & Phân quyền', href: '/admin/system/roles', icon: Shield, permission: 'roles.read' },
-      { label: 'Thông báo', href: '/admin/system/notifications', icon: Bell },
-      { label: 'Nhật ký hoạt động', href: '/admin/system/activity-logs', icon: ClipboardList, permission: 'accounts.read' },
+      { label: isEn ? 'Accounts' : 'Tài khoản', href: '/admin/system/accounts', icon: UserCog, permission: 'accounts.read' },
+      { label: isEn ? 'Roles & Permissions' : 'Vai trò & Phân quyền', href: '/admin/system/roles', icon: Shield, permission: 'roles.read' },
+      { label: isEn ? 'Notifications' : 'Thông báo', href: '/admin/system/notifications', icon: Bell },
+      { label: isEn ? 'Activity Logs' : 'Nhật ký hoạt động', href: '/admin/system/activity-logs', icon: ClipboardList, permission: 'accounts.read' },
     ],
   },
 ];
 
-const landlordNavItems: NavItem[] = [
-  { label: 'Xem trang khách', href: '/customer/properties', icon: Home },
-  { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+const getLandlordNavItems = (isEn: boolean): NavItem[] => [
+  { label: isEn ? 'View Client Page' : 'Xem trang khách', href: '/customer/properties', icon: Home },
+  { label: isEn ? 'Dashboard' : 'Tổng quan', href: '/admin', icon: LayoutDashboard },
   {
-    label: 'Bất động sản',
+    label: isEn ? 'Properties' : 'Bất động sản',
     href: '/admin/realhome/buildings',
     icon: Building2,
     children: [
-      { label: 'Tòa nhà', href: '/admin/realhome/buildings', icon: Building2, permission: 'buildings.read' },
-      { label: 'Phòng', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
+      { label: isEn ? 'Buildings' : 'Tòa nhà', href: '/admin/realhome/buildings', icon: Building2, permission: 'buildings.read' },
+      { label: isEn ? 'Rooms' : 'Phòng', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
     ],
   },
-  { label: 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
+  { label: isEn ? 'Contracts' : 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
   {
-    label: 'Hóa đơn & Dịch vụ',
+    label: isEn ? 'Invoices & Services' : 'Hóa đơn & Dịch vụ',
     href: '/admin/services/readings',
     icon: Receipt,
     children: [
-      { label: 'Chỉ số dịch vụ', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
-      { label: 'Hóa đơn tháng', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
+      { label: isEn ? 'Service Readings' : 'Chỉ số dịch vụ', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
+      { label: isEn ? 'Monthly Invoices' : 'Hóa đơn tháng', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
     ],
   },
 ];
 
-const salesNavItems: NavItem[] = [
-  { label: 'Xem trang khách', href: '/customer/properties', icon: Home },
-  { label: 'Tổng quan', href: '/admin', icon: LayoutDashboard },
-  { label: 'Khách hàng của tôi', href: '/admin/customers/leads', icon: UserSearch, permission: 'leads.read' },
-  { label: 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
-  { label: 'Tra cứu phòng trống', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
-  { label: 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
+const getSalesNavItems = (isEn: boolean): NavItem[] => [
+  { label: isEn ? 'View Client Page' : 'Xem trang khách', href: '/customer/properties', icon: Home },
+  { label: isEn ? 'Dashboard' : 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+  { label: isEn ? 'My Customers' : 'Khách hàng của tôi', href: '/admin/customers/leads', icon: UserSearch, permission: 'leads.read' },
+  { label: isEn ? 'Appointments' : 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
+  { label: isEn ? 'Available Rooms' : 'Tra cứu phòng trống', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },
+  { label: isEn ? 'Contracts' : 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const { hasPermission, role } = useAuth();
+  const { language } = useAppPreferences();
+  const isEn = language === 'en';
+
   const [expandedItems, setExpandedItems] = useState<string[]>([
-    'Bất động sản', 'Khách hàng', 'Nhân sự', 'Hệ thống',
+    isEn ? 'Properties' : 'Bất động sản', 
+    isEn ? 'Customers' : 'Khách hàng', 
+    isEn ? 'Human Resources' : 'Nhân sự', 
+    isEn ? 'System' : 'Hệ thống',
   ]);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -151,10 +158,10 @@ export function AdminSidebar() {
   };
 
   const currentNavItems = role === 'landlord'
-    ? landlordNavItems
+    ? getLandlordNavItems(isEn)
     : role === 'sales_agent'
-    ? salesNavItems
-    : navItems;
+    ? getSalesNavItems(isEn)
+    : getNavItems(isEn);
 
   const visibleNavItems = currentNavItems.filter(canViewItem);
 
@@ -186,7 +193,7 @@ export function AdminSidebar() {
                     'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     groupActive
                       ? 'bg-accent-soft text-ink font-semibold'
-                      : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-bg-base hover:text-ink'
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -207,7 +214,7 @@ export function AdminSidebar() {
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive(item.href)
                       ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
-                      : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-bg-base hover:text-ink'
                   )}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
@@ -230,7 +237,7 @@ export function AdminSidebar() {
                             'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
                             pathname === child.href || pathname.startsWith(child.href + '/')
                               ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
-                              : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-bg-base hover:text-ink'
                           )}
                         >
                           {ChildIcon && <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />}

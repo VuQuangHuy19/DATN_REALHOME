@@ -14,7 +14,7 @@ const typeConfig: Record<string, { label: string; icon: React.ElementType; color
   appointment:  { label: 'Lịch hẹn',   icon: CalendarDays, color: 'text-green-600',  bg: 'bg-green-100' },
   contract:     { label: 'Hợp đồng',   icon: Building2,    color: 'text-orange-600', bg: 'bg-orange-100' },
   consultation: { label: 'Tư vấn',     icon: MessageSquare, color: 'text-purple-600', bg: 'bg-purple-100' },
-  system:       { label: 'Hệ thống',   icon: Settings,     color: 'text-slate-600',  bg: 'bg-slate-100' },
+  system:       { label: 'Hệ thống',   icon: Settings,     color: 'text-ink-muted',  bg: 'bg-bg-subtle' },
   new_lead:         { label: 'Lead mới',    icon: UserSearch,   color: 'text-blue-600',   bg: 'bg-blue-100' },
   new_appointment:  { label: 'Lịch hẹn',   icon: CalendarDays, color: 'text-green-600',  bg: 'bg-green-100' },
   contract_expiring: { label: 'Hợp đồng',  icon: Building2,    color: 'text-orange-600', bg: 'bg-orange-100' },
@@ -37,8 +37,8 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Thông báo</h1>
-          <p className="text-slate-500">
+          <h1 className="text-2xl font-bold text-ink">Thông báo</h1>
+          <p className="text-ink-muted">
             {loading ? 'Đang tải...' : unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Tất cả thông báo đã đọc'}
           </p>
         </div>
@@ -50,20 +50,20 @@ export default function NotificationsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setTypeFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${typeFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-        >
-          Tất cả ({list.length})
-        </button>
-        {uniqueTypes.map((t) => {
-          const tc = typeConfig[t] ?? { label: t, icon: Bell, color: 'text-slate-600', bg: 'bg-slate-100' };
-          return (
-            <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${typeFilter === t ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-            >
+          <button
+            onClick={() => setTypeFilter('all')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${typeFilter === 'all' ? 'bg-accent text-accent-foreground' : 'bg-bg-subtle text-ink-muted hover:bg-border-subtle'}`}
+          >
+            Tất cả ({list.length})
+          </button>
+          {uniqueTypes.map((t) => {
+            const tc = typeConfig[t] ?? { label: t, icon: Bell, color: 'text-ink-muted', bg: 'bg-bg-subtle' };
+            return (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${typeFilter === t ? 'bg-accent text-accent-foreground' : 'bg-bg-subtle text-ink-muted hover:bg-border-subtle'}`}
+              >
               {tc.label} ({list.filter((n) => n.type === t).length})
             </button>
           );
@@ -71,24 +71,24 @@ export default function NotificationsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
       ) : (
         <div className="space-y-2">
           {filtered.length === 0 && (
             <Card>
-              <CardContent className="py-12 text-center text-slate-400">
+              <CardContent className="py-12 text-center text-ink-muted">
                 <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p>Không có thông báo</p>
               </CardContent>
             </Card>
           )}
           {filtered.map((notif) => {
-            const tc = typeConfig[notif.type] ?? { label: notif.type, icon: Bell, color: 'text-slate-600', bg: 'bg-slate-100' };
+            const tc = typeConfig[notif.type] ?? { label: notif.type, icon: Bell, color: 'text-ink-muted', bg: 'bg-bg-subtle' };
             const Icon = tc.icon;
             return (
               <div
                 key={notif.id}
-                className={`flex items-start gap-4 p-4 rounded-lg border transition-colors ${notif.is_read ? 'bg-white' : 'bg-blue-50 border-blue-100'}`}
+                className={`flex items-start gap-4 p-4 rounded-lg border transition-colors ${notif.is_read ? 'bg-card border-border-subtle' : 'bg-accent-soft/50 dark:bg-accent/10 border-accent/30'}`}
               >
                 <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${tc.bg}`}>
                   <Icon className={`h-5 w-5 ${tc.color}`} />
@@ -96,13 +96,13 @@ export default function NotificationsPage() {
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                     <div>
-                      <p className={`font-medium text-sm ${notif.is_read ? 'text-slate-700' : 'text-slate-900'}`}>{notif.title}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{notif.body}</p>
+                      <p className={`text-sm ${notif.is_read ? 'font-medium text-ink' : 'font-bold text-ink'}`}>{notif.title}</p>
+                      <p className="text-xs text-ink-muted mt-0.5">{notif.body}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0 self-start sm:self-center">
-                      <span className="text-[10px] text-slate-400 font-mono">{formatDate(notif.created_at)}</span>
+                      <span className="text-[10px] text-ink-muted font-mono">{formatDate(notif.created_at)}</span>
                       {!notif.is_read && (
-                        <button onClick={() => markRead(notif.id)} className="text-blue-600 hover:text-blue-700 p-1 bg-blue-100/50 rounded-full" title="Đánh dấu đã đọc">
+                        <button onClick={() => markRead(notif.id)} className="text-accent hover:text-accent-500 p-1 bg-accent-soft dark:bg-accent/20 rounded-full" title="Đánh dấu đã đọc">
                           <Check className="h-3.5 w-3.5" />
                         </button>
                       )}

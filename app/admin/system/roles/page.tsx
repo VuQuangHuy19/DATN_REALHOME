@@ -198,8 +198,8 @@ export default function RolesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Vai trò & Phân quyền</h1>
-          <p className="text-slate-500">Quản lý vai trò và quyền hạn trong hệ thống</p>
+          <h1 className="text-2xl font-bold text-ink">Vai trò & Phân quyền</h1>
+          <p className="text-ink-muted">Quản lý vai trò và quyền hạn trong hệ thống</p>
         </div>
         {hasPermission('roles.write') && (
           <Button onClick={openAdd}>
@@ -218,7 +218,7 @@ export default function RolesPage() {
       <Card>
         <CardHeader>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
             <Input
               placeholder="Tìm vai trò..."
               value={searchQuery}
@@ -230,7 +230,7 @@ export default function RolesPage() {
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-ink-muted" />
             </div>
           ) : (
             <div className="grid gap-3">
@@ -239,32 +239,32 @@ export default function RolesPage() {
                 return (
                   <div
                     key={item.id}
-                    className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 p-4 border rounded-lg hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all transition-colors cursor-pointer"
                     onClick={(e) => { if ((e.target as HTMLElement).closest('button')) return; openView(item); }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${item.is_system ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 ${item.is_system ? 'bg-slate-900 text-white' : 'bg-bg-subtle text-ink-muted'}`}>
                         {item.is_system ? <Lock className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-slate-800">{item.name}</span>
+                          <span className="font-semibold text-ink">{item.name}</span>
                           {item.is_system && (
-                            <span className="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">Hệ thống</span>
+                            <span className="text-xs bg-border-subtle text-ink-muted px-2 py-0.5 rounded-full">Hệ thống</span>
                           )}
-                          <span className="text-xs text-slate-400">{item.users_count} người dùng</span>
+                          <span className="text-xs text-ink-muted">{item.users_count} người dùng</span>
                         </div>
-                        <p className="text-sm text-slate-500 mt-0.5">{item.description}</p>
+                        <p className="text-sm text-ink-muted mt-0.5">{item.description}</p>
                         <div className="flex flex-wrap gap-1 mt-2">
                           {isSuperAdmin ? (
                             <span className="text-xs bg-slate-800 text-white px-2 py-0.5 rounded">Toàn quyền</span>
                           ) : (
                             item.permissions.slice(0, 5).map((p) => (
-                              <span key={p} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{p}</span>
+                              <span key={p} className="text-xs bg-bg-subtle text-ink-muted px-2 py-0.5 rounded">{p}</span>
                             ))
                           )}
                           {!isSuperAdmin && item.permissions.length > 5 && (
-                            <span className="text-xs text-slate-400">+{item.permissions.length - 5} quyền khác</span>
+                            <span className="text-xs text-ink-muted">+{item.permissions.length - 5} quyền khác</span>
                           )}
                         </div>
                       </div>
@@ -279,7 +279,7 @@ export default function RolesPage() {
                 );
               })}
               {filtered.length === 0 && (
-                <p className="text-slate-500 text-center py-4">Không tìm thấy vai trò nào</p>
+                <p className="text-ink-muted text-center py-4">Không tìm thấy vai trò nào</p>
               )}
             </div>
           )}
@@ -297,7 +297,7 @@ export default function RolesPage() {
           </DialogHeader>
           {viewItem && (
             <div className="space-y-4 pt-2">
-              <p className="text-sm text-slate-500">{viewItem.description}</p>
+              <p className="text-sm text-ink-muted">{viewItem.description}</p>
               {viewItem.permissions.includes('*') ? (
                 <div className="p-3 bg-slate-900 text-white rounded-lg text-sm text-center">Toàn quyền hệ thống</div>
               ) : (
@@ -306,7 +306,7 @@ export default function RolesPage() {
                   if (!active.length) return null;
                   return (
                     <div key={group.group}>
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{group.group}</p>
+                      <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{group.group}</p>
                       <div className="flex flex-wrap gap-2">
                         {active.map((item) => (
                           <span key={item.key} className="flex items-center gap-1 text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded">
@@ -340,11 +340,11 @@ export default function RolesPage() {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-slate-700 mb-3">Phân quyền</p>
+              <p className="text-sm font-medium text-ink mb-3">Phân quyền</p>
               <div className="space-y-4">
                 {ALL_PERMISSIONS.map((group) => (
                   <div key={group.group}>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{group.group}</p>
+                    <p className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-2">{group.group}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {group.items.map((perm) => (
                         <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
@@ -354,7 +354,7 @@ export default function RolesPage() {
                             onChange={() => togglePerm(perm.key)}
                             className="rounded border-slate-300"
                           />
-                          <span className="text-sm text-slate-600">{perm.label}</span>
+                          <span className="text-sm text-ink-muted">{perm.label}</span>
                         </label>
                       ))}
                     </div>

@@ -14,8 +14,8 @@ const actionConfig: Record<string, { label: string; color: string }> = {
   CREATE: { label: 'Tạo mới',    color: 'bg-green-100 text-green-700' },
   UPDATE: { label: 'Cập nhật',   color: 'bg-blue-100 text-blue-700' },
   DELETE: { label: 'Xóa',        color: 'bg-red-100 text-red-700' },
-  LOGIN:  { label: 'Đăng nhập',  color: 'bg-slate-100 text-slate-700' },
-  LOGOUT: { label: 'Đăng xuất',  color: 'bg-slate-100 text-slate-600' },
+  LOGIN:  { label: 'Đăng nhập',  color: 'bg-bg-subtle text-ink' },
+  LOGOUT: { label: 'Đăng xuất',  color: 'bg-bg-subtle text-ink-muted' },
 };
 
 function formatDate(iso: string) {
@@ -46,15 +46,15 @@ export default function ActivityLogsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Nhật ký hoạt động</h1>
-        <p className="text-slate-500">Theo dõi toàn bộ hành động của người dùng trong hệ thống</p>
+        <h1 className="text-2xl font-bold text-ink">Nhật ký hoạt động</h1>
+        <p className="text-ink-muted">Theo dõi toàn bộ hành động của người dùng trong hệ thống</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="flex gap-2">
           <button
             onClick={() => setActionFilter('all')}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${actionFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${actionFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-bg-subtle text-ink-muted hover:bg-border-subtle'}`}
           >
             Tất cả
           </button>
@@ -62,14 +62,14 @@ export default function ActivityLogsPage() {
             <button
               key={action}
               onClick={() => setActionFilter(action)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${actionFilter === action ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${actionFilter === action ? 'bg-slate-800 text-white' : 'bg-bg-subtle text-ink-muted hover:bg-border-subtle'}`}
             >
               {actionConfig[action].label}
             </button>
           ))}
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
           <Input
             placeholder="Tìm người dùng, đối tượng..."
             value={searchQuery}
@@ -82,44 +82,44 @@ export default function ActivityLogsPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
           ) : (
             <div className="overflow-hidden">
               {/* Desktop view */}
               <table className="w-full text-sm hidden md:table min-w-[700px]">
-                <thead className="bg-slate-50">
+                <thead className="bg-bg-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Thời gian</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Người dùng</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Hành động</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Đối tượng</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Nội dung</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">IP</th>
-                    <th className="px-4 py-3 text-right font-medium text-slate-600">Chi tiết</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Thời gian</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Người dùng</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Hành động</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Đối tượng</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Nội dung</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">IP</th>
+                    <th className="px-4 py-3 text-right font-medium text-ink-muted">Chi tiết</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filtered.map((log) => {
-                    const ac = actionConfig[log.action] || { label: log.action, color: 'bg-slate-100 text-slate-600' };
+                    const ac = actionConfig[log.action] || { label: log.action, color: 'bg-bg-subtle text-ink-muted' };
                     return (
-                      <tr key={log.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => { setViewItem(log); setIsViewOpen(true); }}>
-                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{formatDate(log.created_at)}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{log.user_name}</td>
+                      <tr key={log.id} className="hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all cursor-pointer" onClick={() => { setViewItem(log); setIsViewOpen(true); }}>
+                        <td className="px-4 py-3 text-xs text-ink-muted whitespace-nowrap">{formatDate(log.created_at)}</td>
+                        <td className="px-4 py-3 font-medium text-ink">{log.user_name}</td>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ac.color}`}>{ac.label}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-slate-700 font-medium">{log.entity_label}</div>
-                          <div className="text-xs text-slate-400">{log.entity}</div>
+                          <div className="text-ink font-medium">{log.entity_label}</div>
+                          <div className="text-xs text-ink-muted">{log.entity}</div>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 max-w-xs">
+                        <td className="px-4 py-3 text-ink-muted max-w-xs">
                           <p className="truncate text-sm">{log.detail}</p>
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-400 font-mono">{log.ip_address}</td>
+                        <td className="px-4 py-3 text-xs text-ink-muted font-mono">{log.ip_address}</td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => { setViewItem(log); setIsViewOpen(true); }}
-                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                            className="text-ink-muted hover:text-ink-muted transition-colors"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
@@ -133,7 +133,7 @@ export default function ActivityLogsPage() {
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border bg-white">
                 {filtered.map((log) => {
-                  const ac = actionConfig[log.action] || { label: log.action, color: 'bg-slate-100 text-slate-600' };
+                  const ac = actionConfig[log.action] || { label: log.action, color: 'bg-bg-subtle text-ink-muted' };
                   return (
                     <div
                       key={log.id}
@@ -172,7 +172,7 @@ export default function ActivityLogsPage() {
                         <span className="text-xs text-accent font-semibold">Bấm để xem chi tiết</span>
                         <button
                           onClick={() => { setViewItem(log); setIsViewOpen(true); }}
-                          className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+                          className="text-ink-muted hover:text-ink-muted transition-colors p-1"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -183,7 +183,7 @@ export default function ActivityLogsPage() {
               </div>
 
               {filtered.length === 0 && (
-                <div className="text-center py-10 text-slate-400">
+                <div className="text-center py-10 text-ink-muted">
                   <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-40" />
                   <p>Không tìm thấy nhật ký hoạt động</p>
                 </div>
@@ -200,19 +200,19 @@ export default function ActivityLogsPage() {
           </DialogHeader>
           {viewItem && (
             <div className="space-y-3 pt-2 text-sm">
-              <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 rounded-lg">
-                <div><p className="text-slate-400 text-xs">Người dùng</p><p className="font-medium text-slate-800">{viewItem.user_name}</p></div>
-                <div><p className="text-slate-400 text-xs">Hành động</p>
+              <div className="grid grid-cols-2 gap-3 p-4 bg-bg-subtle rounded-lg">
+                <div><p className="text-ink-muted text-xs">Người dùng</p><p className="font-medium text-ink">{viewItem.user_name}</p></div>
+                <div><p className="text-ink-muted text-xs">Hành động</p>
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${(actionConfig[viewItem.action] || {}).color}`}>
                     {(actionConfig[viewItem.action] || { label: viewItem.action }).label}
                   </span>
                 </div>
-                <div><p className="text-slate-400 text-xs">Đối tượng</p><p className="font-medium text-slate-800">{viewItem.entity}</p></div>
-                <div><p className="text-slate-400 text-xs">ID</p><p className="font-mono text-xs text-slate-600">{viewItem.entity_id}</p></div>
-                <div className="col-span-2"><p className="text-slate-400 text-xs">Tên đối tượng</p><p className="font-medium text-slate-800">{viewItem.entity_label}</p></div>
-                <div className="col-span-2"><p className="text-slate-400 text-xs">Nội dung</p><p className="text-slate-700">{viewItem.detail}</p></div>
-                <div><p className="text-slate-400 text-xs">IP</p><p className="font-mono text-xs text-slate-600">{viewItem.ip_address}</p></div>
-                <div><p className="text-slate-400 text-xs">Thời gian</p><p className="text-slate-600 text-xs">{formatDate(viewItem.created_at)}</p></div>
+                <div><p className="text-ink-muted text-xs">Đối tượng</p><p className="font-medium text-ink">{viewItem.entity}</p></div>
+                <div><p className="text-ink-muted text-xs">ID</p><p className="font-mono text-xs text-ink-muted">{viewItem.entity_id}</p></div>
+                <div className="col-span-2"><p className="text-ink-muted text-xs">Tên đối tượng</p><p className="font-medium text-ink">{viewItem.entity_label}</p></div>
+                <div className="col-span-2"><p className="text-ink-muted text-xs">Nội dung</p><p className="text-ink">{viewItem.detail}</p></div>
+                <div><p className="text-ink-muted text-xs">IP</p><p className="font-mono text-xs text-ink-muted">{viewItem.ip_address}</p></div>
+                <div><p className="text-ink-muted text-xs">Thời gian</p><p className="text-ink-muted text-xs">{formatDate(viewItem.created_at)}</p></div>
               </div>
             </div>
           )}

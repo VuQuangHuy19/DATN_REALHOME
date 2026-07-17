@@ -15,16 +15,20 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import WebPushManager from '@/src/features/notifications/components/WebPushManager';
 
+import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
+
 export function AdminHeader() {
   const { profile, company, signOut, user } = useAuth();
   const { unreadCount } = useNotifications(user?.id, company?.id);
+  const { language } = useAppPreferences();
+  const isEn = language === 'en';
 
   return (
-    <header className="h-16 bg-white border-b border-border-subtle pl-16 pr-6 md:px-6 flex items-center justify-between shadow-none">
+    <header className="h-16 bg-white dark:bg-bg-subtle border-b border-border-subtle pl-16 pr-6 md:px-6 flex items-center justify-between shadow-none">
       <div className="flex items-center gap-4 flex-1">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-          <Input placeholder="Tìm kiếm..." className="pl-9 w-full" />
+          <Input placeholder={isEn ? "Search..." : "Tìm kiếm..."} className="pl-9 w-full" />
         </div>
       </div>
 
@@ -50,7 +54,7 @@ export function AdminHeader() {
               </div>
               <div className="hidden sm:block text-left">
                 <p className="text-sm font-medium text-ink leading-tight">
-                  {profile?.full_name || 'Người dùng'}
+                  {profile?.full_name || (isEn ? 'User' : 'Người dùng')}
                 </p>
                 <p className="text-xs text-ink-muted leading-tight">
                   {company?.name || '—'}
@@ -60,21 +64,21 @@ export function AdminHeader() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem asChild>
-              <Link href="/admin/system/accounts" className="flex items-center gap-2">
+              <Link href="/admin/profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                Hồ sơ
+                {isEn ? 'Profile' : 'Hồ sơ'}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/admin/system/roles" className="flex items-center gap-2">
+              <Link href="/admin/settings" className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
-                Cài đặt
+                {isEn ? 'Settings' : 'Cài đặt'}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/admin/change-password" className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
-                Đổi mật khẩu
+                {isEn ? 'Change Password' : 'Đổi mật khẩu'}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -83,7 +87,7 @@ export function AdminHeader() {
               className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
             >
               <LogOut className="h-4 w-4" />
-              Đăng xuất
+              {isEn ? 'Sign Out' : 'Đăng xuất'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

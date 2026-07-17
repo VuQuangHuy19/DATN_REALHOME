@@ -113,8 +113,8 @@ export function EmployeesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý Nhân viên</h1>
-          <p className="text-slate-500">Quản lý nhân sự và thông tin nhân viên</p>
+          <h1 className="text-2xl font-bold text-ink">Quản lý Nhân viên</h1>
+          <p className="text-ink-muted">Quản lý nhân sự và thông tin nhân viên</p>
         </div>
         {hasPermission('employees.write') && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -179,41 +179,41 @@ export function EmployeesPage() {
       <Card>
         <CardHeader>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
             <Input placeholder="Tìm theo tên, email hoặc phòng ban..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
           </div>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
           ) : (
             <div className="overflow-hidden">
               {/* Desktop view */}
               <table className="w-full text-sm hidden md:table">
-                <thead className="bg-slate-50">
+                <thead className="bg-bg-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Họ tên</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Email</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Phòng ban</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Chức vụ</th>
-                    <th className="px-4 py-3 text-left font-medium text-slate-600">Trạng thái</th>
-                    {hasPermission('employees.write') && <th className="px-4 py-3 text-right font-medium text-slate-600">Thao tác</th>}
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Họ tên</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Email</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Phòng ban</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Chức vụ</th>
+                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Trạng thái</th>
+                    {hasPermission('employees.write') && <th className="px-4 py-3 text-right font-medium text-ink-muted">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filtered.map((item) => (
                     <tr
                       key={item.id}
-                      className="hover:bg-slate-50 cursor-pointer"
+                      className="hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all cursor-pointer"
                       onClick={(e) => {
                         if ((e.target as HTMLElement).closest('button')) return;
                         openView(item);
                       }}
                     >
-                      <td className="px-4 py-3 font-medium text-slate-800">{item.name}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.email ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.department ?? '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.position ?? '—'}</td>
+                      <td className="px-4 py-3 font-medium text-ink">{item.name}</td>
+                      <td className="px-4 py-3 text-ink-muted">{item.email ?? '—'}</td>
+                      <td className="px-4 py-3 text-ink-muted">{item.department ?? '—'}</td>
+                      <td className="px-4 py-3 text-ink-muted">{item.position ?? '—'}</td>
                       <td className="px-4 py-3">
                         <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
                           {statusLabels[item.status]}
@@ -233,7 +233,7 @@ export function EmployeesPage() {
               </table>
 
               {/* Mobile Card View */}
-              <div className="md:hidden divide-y divide-border bg-white">
+              <div className="md:hidden divide-y divide-border bg-card">
                 {filtered.map((item) => (
                   <div
                     key={item.id}
@@ -282,7 +282,7 @@ export function EmployeesPage() {
               </div>
 
               {filtered.length === 0 && (
-                <div className="text-center py-10 text-slate-400">
+                <div className="text-center py-10 text-ink-muted opacity-80">
                   <User className="h-8 w-8 mx-auto mb-2 opacity-40" />
                   <p className="text-sm">Chưa có nhân viên nào</p>
                 </div>
@@ -299,14 +299,14 @@ export function EmployeesPage() {
           </DialogHeader>
           {viewItem && (
             <div className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-slate-500">Họ tên:</span> <span className="font-medium">{viewItem.name}</span></div>
-                <div><span className="text-slate-500">Email:</span> {viewItem.email ?? '—'}</div>
-                <div><span className="text-slate-500">SĐT:</span> {viewItem.phone ?? '—'}</div>
-                <div><span className="text-slate-500">Phòng ban:</span> {viewItem.department ?? '—'}</div>
-                <div><span className="text-slate-500">Chức vụ:</span> {viewItem.position ?? '—'}</div>
-                <div><span className="text-slate-500">Ngày vào làm:</span> {viewItem.join_date ?? '—'}</div>
-                <div><span className="text-slate-500">Trạng thái:</span> <Badge variant={viewItem.status === 'active' ? 'default' : 'secondary'}>{statusLabels[viewItem.status]}</Badge></div>
+              <div className="grid grid-cols-2 gap-4 text-sm text-ink">
+                <div><span className="text-ink-muted">Họ tên:</span> <span className="font-medium">{viewItem.name}</span></div>
+                <div><span className="text-ink-muted">Email:</span> {viewItem.email ?? '—'}</div>
+                <div><span className="text-ink-muted">SĐT:</span> {viewItem.phone ?? '—'}</div>
+                <div><span className="text-ink-muted">Phòng ban:</span> {viewItem.department ?? '—'}</div>
+                <div><span className="text-ink-muted">Chức vụ:</span> {viewItem.position ?? '—'}</div>
+                <div><span className="text-ink-muted">Ngày vào làm:</span> {viewItem.join_date ?? '—'}</div>
+                <div><span className="text-ink-muted">Trạng thái:</span> <Badge variant={viewItem.status === 'active' ? 'default' : 'secondary'}>{statusLabels[viewItem.status]}</Badge></div>
               </div>
             </div>
           )}
