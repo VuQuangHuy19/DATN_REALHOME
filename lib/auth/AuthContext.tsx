@@ -22,6 +22,7 @@ interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   hasPermission: (perm: string) => boolean;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -60,28 +61,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    // Lấy session tùy chỉnh từ API route nội bộ khi tải lại trang
+  const refreshSession = useCallback(async () => {
     const localToken = typeof window !== 'undefined' ? localStorage.getItem('bds_auth_token') : null;
     const headers: Record<string, string> = {};
     if (localToken) {
       headers['Authorization'] = `Bearer ${localToken}`;
     }
 
-    fetch('/api/auth/session', { headers })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.user) {
-          hydrateUser(data.user, data.profile, data.company, data.permissions);
-        } else {
-          hydrateUser(null, null, null, []);
-        }
-      })
-      .catch((err) => {
-        console.error('Lỗi lấy thông tin session:', err);
+    try {
+      const res = await fetch('/api/auth/session', { headers });
+      const data = await res.json();
+      if (data.user) {
+        hydrateUser(data.user, data.profile, data.company, data.permissions);
+      } else {
         hydrateUser(null, null, null, []);
-      });
+      }
+    } catch (err) {
+      console.error('Lỗi lấy thông tin session:', err);
+      hydrateUser(null, null, null, []);
+    }
   }, [hydrateUser]);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -143,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [state.permissions]);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signOut, hasPermission }}>
+    <AuthContext.Provider value={{ ...state, signIn, signOut, hasPermission, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

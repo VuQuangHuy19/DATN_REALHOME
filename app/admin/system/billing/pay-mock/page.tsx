@@ -6,10 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle, Loader2, ArrowLeft, CreditCard } from 'lucide-react';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 function PayMockContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { refreshSession } = useAuth();
   
   const invoiceId = searchParams.get('invoice_id');
   const orderCode = searchParams.get('order_code');
@@ -41,6 +43,10 @@ function PayMockContent() {
       const data = await response.json();
       if (!response.ok || data.error) {
         throw new Error(data.error || 'Lỗi xử lý phản hồi từ cổng thanh toán');
+      }
+
+      if (success) {
+        await refreshSession();
       }
 
       setStatus(success ? 'success' : 'failed');
