@@ -188,48 +188,53 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
   const [
-    buildings,
-    rooms,
-    leads,
-    appointments,
-    consultations,
-    notifications,
-    landlords,
-    paidInvoices,
-    expiringContracts,
-    pendingApptsToday,
-    unassignedConsults,
-    overdueInvs,
-    revenueData,
-    topEmployees,
+    buildingsRes,
+    roomsRes,
+    leadsRes,
+    appointmentsRes,
+    consultationsRes,
+    notificationsRes,
+    landlordsRes,
+    paidInvoicesRes,
+    expiringContractsRes,
+    pendingApptsTodayRes,
+    unassignedConsultsRes,
+    overdueInvsRes,
+    revenueDataRes,
+    topEmployeesRes,
+    activeContractsRes,
   ] = await Promise.all([
-    supabase.from('buildings').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
-    supabase.from('rooms').select('id, status', { count: 'exact' }).eq('company_id', companyId),
-    supabase.from('leads').select('id, status', { count: 'exact' }).eq('company_id', companyId),
+    supabase.from('buildings').select('id, name, code, area, address, total_rooms, total_floors').eq('company_id', companyId),
+    supabase.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months').eq('company_id', companyId),
+    supabase.from('leads').select('*').eq('company_id', companyId),
     supabase.from('appointments').select('id, status, customer_name, room_title, date, time').eq('company_id', companyId).order('date', { ascending: false }).limit(5),
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new'),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_read', false),
     supabase.from('landlords').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
-    supabase.from('invoices').select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount').eq('company_id', companyId).eq('status', 'paid').eq('period', currentPeriod),
+    supabase.from('invoices').select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id').eq('company_id', companyId).eq('status', 'paid').eq('period', currentPeriod),
     supabase.from('rental_contracts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active').gte('end_date', todayStr).lte('end_date', in30DaysStr),
     supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['Pending', 'pending']).eq('date', todayStr),
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new').is('assigned_to', null),
     supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'overdue'),
     supabase.from('invoices').select('period, total_amount, management_fee_amount').eq('company_id', companyId).eq('status', 'paid').order('period', { ascending: true }),
     supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
+    supabase.from('rental_contracts').select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone').eq('company_id', companyId).eq('status', 'active'),
   ]);
 
-  const roomRows = (rooms.data ?? []) as { id: string; status: string }[];
-  const leadRows = (leads.data ?? []) as { id: string; status: string }[];
-  const recentAppointments = (appointments.data ?? []) as any[];
+  const buildingRows = buildingsRes.data ?? [];
+  const roomRows = (roomsRes.data ?? []) as any[];
+  const leadRows = (leadsRes.data ?? []) as any[];
+  const recentAppointments = (appointmentsRes.data ?? []) as any[];
+  const activeContractsList = (activeContractsRes.data ?? []) as any[];
+  const paidInvoicesList = paidInvoicesRes.data ?? [];
 
   const totalRooms = roomRows.length;
   const rentedRooms = roomRows.filter((r) => r.status === 'rented').length;
   const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
 
-  const totalCollectedAmount = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
-  const companyRevenue = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
-  const landlordRevenue = (paidInvoices.data ?? []).reduce((sum: number, inv: any) => {
+  const totalCollectedAmount = paidInvoicesList.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
+  const companyRevenue = paidInvoicesList.reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
+  const landlordRevenue = paidInvoicesList.reduce((sum: number, inv: any) => {
     const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
       ? Number(inv.landlord_payout_amount)
       : Number(inv.rent_amount || 0);
@@ -237,7 +242,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   }, 0);
 
   // revenueHistory logic
-  const periodMap = (revenueData.data ?? []).reduce((acc: Record<string, { total: number; company: number }>, inv: any) => {
+  const periodMap = (revenueDataRes.data ?? []).reduce((acc: Record<string, { total: number; company: number }>, inv: any) => {
     if (!acc[inv.period]) {
       acc[inv.period] = { total: 0, company: 0 };
     }
@@ -257,34 +262,58 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     .sort((a, b) => a.period.localeCompare(b.period))
     .slice(-6);
 
+  // Calculate building details with real occupancy and revenue for Admin
+  const buildingsList = buildingRows.map((building: any) => {
+    const bRooms = roomRows.filter((r: any) => r.building_id === building.code);
+    const bRoomsCount = bRooms.length;
+    const bRentedCount = bRooms.filter((r: any) => r.status === 'rented').length;
+    const bRoomIds = bRooms.map((r: any) => r.id);
+    
+    const bRevenue = paidInvoicesList
+      .filter((inv: any) => bRoomIds.includes(inv.room_id))
+      .reduce((sum: number, inv: any) => {
+        const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
+          ? Number(inv.landlord_payout_amount)
+          : Number(inv.rent_amount || 0);
+        return sum + payout;
+      }, 0);
+
+    return {
+      ...building,
+      totalRooms: bRoomsCount,
+      rentedRooms: bRentedCount,
+      revenue: bRevenue,
+    };
+  });
+
   return {
-    totalBuildings: buildings.count ?? 0,
+    totalBuildings: buildingRows.length,
     totalRooms,
     availableRooms: roomRows.filter((r) => r.status === 'available').length,
     rentedRooms,
     totalLeads: leadRows.length,
     newLeads: leadRows.filter((l) => ['new', 'contacted', 'consulting'].includes(l.status)).length,
-    newConsultations: consultations.count ?? 0,
-    unreadNotifications: notifications.count ?? 0,
+    newConsultations: consultationsRes.count ?? 0,
+    unreadNotifications: notificationsRes.count ?? 0,
     recentAppointments,
     recentLeads: leadRows.slice(0, 5),
-    totalLandlords: landlords.count ?? 0,
+    totalLandlords: landlordsRes.count ?? 0,
     isLandlord: false,
     monthlyRevenue: companyRevenue,
     companyRevenue,
     landlordRevenue,
     totalCollectedAmount,
-    activeContractsCount: roomRows.filter((r) => r.status === 'rented').length, // active count
+    activeContractsCount: rentedRooms,
     occupancyRate,
-    buildingsList: [],
-    roomsList: [],
-    contractsList: [],
-    expiringContractsCount: expiringContracts.count ?? 0,
-    pendingAppointmentsToday: pendingApptsToday.count ?? 0,
-    unassignedConsultations: unassignedConsults.count ?? 0,
-    overdueInvoices: overdueInvs.count ?? 0,
+    buildingsList,
+    roomsList: roomRows,
+    contractsList: activeContractsList,
+    expiringContractsCount: expiringContractsRes.count ?? 0,
+    pendingAppointmentsToday: pendingApptsTodayRes.count ?? 0,
+    unassignedConsultations: unassignedConsultsRes.count ?? 0,
+    overdueInvoices: overdueInvsRes.count ?? 0,
     revenueHistory,
-    topEmployees: topEmployees.data ?? [],
+    topEmployees: topEmployeesRes.data ?? [],
   };
 }
 

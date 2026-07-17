@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   try {
     const { appointmentId, newStatus } = await request.json();
 
-    if (newStatus === 'Confirm') {
+    if (newStatus === 'Confirm' || newStatus === 'confirmed') {
       // 1. Lấy thông tin lịch hẹn
       const { data: apt, error: aptError } = await supabaseAdmin
         .from('appointments')

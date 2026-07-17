@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBContractTemplate } from '@/lib/supabase/types';
 import Link from 'next/link';
 import Image from 'next/image';
+import { supabase } from '@/lib/supabase/client';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { getContractTermMonths, calculateCommissionAmount } from '@/src/features/finance/services/commission';
@@ -70,6 +71,7 @@ export function ContractsPage() {
     loading: rentalsLoading,
     error: rentalsError,
     remove: removeRental,
+    refetch: refetchRentals,
   } = useRentalContracts(company?.id);
   const [rentalSearch, setRentalSearch] = useState('');
 
@@ -122,6 +124,29 @@ export function ContractsPage() {
         setViewDeposit({ ...viewDeposit, status: newStatus });
       }
       refetchDeposits();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleRentalStatusChange = async (id: string, newStatus: string) => {
+    try {
+      const response = await fetch('/api/contracts/rental/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Lỗi cập nhật trạng thái');
+      }
+      toast.success('Cập nhật trạng thái hợp đồng thành công!');
+      
+      // Update local state if details dialog is open
+      if (viewRental && viewRental.id === id) {
+        setViewRental({ ...viewRental, status: newStatus });
+      }
+      refetchRentals();
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -608,9 +633,20 @@ export function ContractsPage() {
                                   variant="ghost" 
                                   size="icon"
                                   className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
-                                  onClick={() => {
-                                    if (confirm('Bạn có chắc muốn xóa hợp đồng thuê này?')) {
-                                      removeRental(item.id);
+                               onClick={async () => {
+                                    if (confirm('Bạn có chắc muốn xóa hợp đồng thuê này và giải phóng phòng về trạng thái trống?')) {
+                                      try {
+                                        await removeRental(item.id);
+                                        if (item.room_id) {
+                                          await supabase
+                                            .from('rooms')
+                                            .update({ status: 'available' })
+                                            .eq('id', item.room_id);
+                                        }
+                                        toast.success('Xóa hợp đồng và giải phóng phòng thành công!');
+                                      } catch (err: any) {
+                                        toast.error('Lỗi khi xóa hợp đồng: ' + err.message);
+                                      }
                                     }
                                   }} 
                                   title="Xóa"
@@ -981,6 +1017,33 @@ export function ContractsPage() {
                   {viewRental.note && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Ghi chú & Thỏa thuận thêm:</span> <span className="text-ink text-xs block bg-bg-subtle/40 p-2 border border-border rounded mt-1">{viewRental.note}</span></p>}
                 </div>
               </div>
+
+              {/* Cập nhật trạng thái hợp đồng (Chỉ Admin/Manager) */}
+              {role !== 'sales_agent' && role !== 'landlord' && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border mt-4">
+                  <span className="text-xs font-bold text-ink uppercase tracking-wider">Cập nhật trạng thái hợp đồng:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { status: 'active', label: 'Hiệu lực', color: 'bg-green-600 hover:bg-green-700 text-white' },
+                      { status: 'ended', label: 'Kết thúc (Hết hạn)', color: 'bg-slate-500 hover:bg-slate-650 text-white' },
+                      { status: 'terminated', label: 'Thanh lý sớm', color: 'bg-amber-600 hover:bg-amber-700 text-white' },
+                      { status: 'cancelled', label: 'Hủy hợp đồng', color: 'bg-rose-600 hover:bg-rose-700 text-white' },
+                    ].map((btn) => (
+                      <Button
+                        key={btn.status}
+                        size="sm"
+                        disabled={viewRental.status === btn.status}
+                        className={`text-xs h-8 px-3 rounded-lg font-semibold border-none ${btn.color} ${
+                          viewRental.status === btn.status ? 'opacity-40 cursor-not-allowed' : ''
+                        }`}
+                        onClick={() => handleRentalStatusChange(viewRental.id, btn.status)}
+                      >
+                        {btn.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
