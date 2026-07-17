@@ -298,11 +298,13 @@ function LocationFilter({
 }
 
 // ─── Sort options ─────────────────────────────────────────────────────────────
-type SortOption = 'price_asc' | 'price_desc' | 'newest';
+type SortOption = 'price_asc' | 'price_desc' | 'newest' | 'size_desc' | 'size_asc';
 const SORT_LABELS: Record<SortOption, string> = {
   price_asc: 'Giá từ thấp tới cao',
   price_desc: 'Giá từ cao tới thấp',
-  newest: 'Tòa mới',
+  newest: 'Tin đăng mới nhất',
+  size_desc: 'Diện tích từ lớn tới nhỏ',
+  size_asc: 'Diện tích từ nhỏ tới lớn',
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -409,9 +411,34 @@ export default function PropertiesPage() {
   // Sắp xếp
   const sortedGroups = useMemo(() => {
     const arr = [...filteredGroups];
-    if (sortBy === 'price_asc') arr.sort((a, b) => a.minPrice - b.minPrice);
-    else if (sortBy === 'price_desc') arr.sort((a, b) => b.maxPrice - a.maxPrice);
-    else arr.sort((a, b) => b.rooms[0].buildingId.localeCompare(a.rooms[0].buildingId));
+    if (sortBy === 'price_asc') {
+      arr.sort((a, b) => a.minPrice - b.minPrice);
+    } else if (sortBy === 'price_desc') {
+      arr.sort((a, b) => b.maxPrice - a.maxPrice);
+    } else if (sortBy === 'size_desc') {
+      arr.sort((a, b) => {
+        const aMax = a.rooms.length ? Math.max(...a.rooms.map((r) => r.size)) : 0;
+        const bMax = b.rooms.length ? Math.max(...b.rooms.map((r) => r.size)) : 0;
+        return bMax - aMax;
+      });
+    } else if (sortBy === 'size_asc') {
+      arr.sort((a, b) => {
+        const aMin = a.rooms.length ? Math.min(...a.rooms.map((r) => r.size)) : 0;
+        const bMin = b.rooms.length ? Math.min(...b.rooms.map((r) => r.size)) : 0;
+        return aMin - bMin;
+      });
+    } else { // newest
+      arr.sort((a, b) => {
+        const aDates = a.rooms.map((r) => r.createdAt).filter(Boolean) as string[];
+        const bDates = b.rooms.map((r) => r.createdAt).filter(Boolean) as string[];
+        const aLatest = aDates.length ? Math.max(...aDates.map((d) => new Date(d).getTime())) : 0;
+        const bLatest = bDates.length ? Math.max(...bDates.map((d) => new Date(d).getTime())) : 0;
+        if (aLatest === bLatest) {
+          return b.rooms[0].buildingId.localeCompare(a.rooms[0].buildingId);
+        }
+        return bLatest - aLatest;
+      });
+    }
     return arr;
   }, [filteredGroups, sortBy]);
 

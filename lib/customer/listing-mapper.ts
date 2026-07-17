@@ -21,6 +21,7 @@ type RoomRow = {
   min_contract_months?: number | null;
   landlord_id?: string | null;
   deposit_terms?: string | null;
+  created_at?: string;
   buildings: {
     id: string;
     name: string;
@@ -153,5 +154,6 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     wardId: building?.ward_id ?? null,
     latitude: building?.latitude ?? null,
     longitude: building?.longitude ?? null,
+    createdAt: room.created_at || null,
   };
 }

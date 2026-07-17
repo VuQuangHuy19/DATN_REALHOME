@@ -45,6 +45,7 @@ export interface CustomerListing {
   wardId?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  createdAt?: string | null;
 }
 
 export interface PublicCompany {
