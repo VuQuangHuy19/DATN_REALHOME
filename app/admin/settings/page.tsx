@@ -10,7 +10,7 @@ import { useAppPreferences, AccentColor, AppLanguage } from '@/components/provid
 import { Switch } from '@/components/ui/switch';
 import { useEffect, useState } from 'react';
 
-const COLORS: { value: AccentColor; label: string; tailwind: string } = [
+const COLORS: { value: AccentColor; label: string; tailwind: string }[] = [
   { value: 'blue', label: 'Blue (Mặc định)', tailwind: 'bg-blue-600' },
   { value: 'emerald', label: 'Emerald', tailwind: 'bg-emerald-600' },
   { value: 'violet', label: 'Violet', tailwind: 'bg-violet-600' },
