@@ -31,11 +31,13 @@ interface CrudTableProps {
   columns: { key: string; label: string }[];
   onEdit: (item: any) => void;
   onDelete: (id: string) => void;
+  onBulkDelete?: (ids: string[]) => Promise<void>;
   loading?: boolean;
   icon: React.ElementType;
 }
 
-function CrudTable({ data, columns, onEdit, onDelete, loading, icon: Icon }: CrudTableProps) {
+function CrudTable({ data, columns, onEdit, onDelete, onBulkDelete, loading, icon: Icon }: CrudTableProps) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -51,11 +53,57 @@ function CrudTable({ data, columns, onEdit, onDelete, loading, icon: Icon }: Cru
       </div>
     );
   }
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(data.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!onBulkDelete) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} mục đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await onBulkDelete(selectedIds);
+      setSelectedIds([]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="border border-border rounded-lg overflow-hidden bg-white">
-      <table className="w-full text-sm border-collapse">
-        <thead className="bg-bg-subtle border-b border-border">
-          <tr>
+    <div className="space-y-3">
+      {selectedIds.length > 0 && onBulkDelete && (
+        <div className="flex justify-end">
+          <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-9">
+            <Trash2 className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
+          </Button>
+        </div>
+      )}
+      <div className="border border-border rounded-lg overflow-hidden bg-white">
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-bg-subtle border-b border-border">
+            <tr>
+              {onBulkDelete && (
+                <th className="px-4 py-3 text-left w-12">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                    onChange={handleSelectAll}
+                    checked={selectedIds.length > 0 && selectedIds.length === data.length}
+                  />
+                </th>
+              )}
             {columns.map((col) => (
               <th key={col.key} className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">
                 {col.label}
@@ -67,6 +115,16 @@ function CrudTable({ data, columns, onEdit, onDelete, loading, icon: Icon }: Cru
         <tbody className="divide-y divide-border text-ink">
           {data.map((item) => (
             <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors">
+              {onBulkDelete && (
+                <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={(e) => handleSelect(item.id, e.target.checked)}
+                  />
+                </td>
+              )}
               {columns.map((col) => (
                 <td key={col.key} className="px-6 py-4 text-sm font-medium text-ink">
                   {col.key === 'min' || col.key === 'max'
@@ -88,7 +146,11 @@ function CrudTable({ data, columns, onEdit, onDelete, loading, icon: Icon }: Cru
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md"
-                    onClick={() => onDelete(item.id)}
+                    onClick={() => {
+                      if (window.confirm('Bạn có chắc muốn xóa mục này? Thao tác này không thể hoàn tác.')) {
+                        onDelete(item.id);
+                      }
+                    }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -99,6 +161,7 @@ function CrudTable({ data, columns, onEdit, onDelete, loading, icon: Icon }: Cru
         </tbody>
       </table>
     </div>
+  </div>
   );
 }
 
@@ -138,7 +201,7 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Bạn có chắc muốn xóa mục này?')) return;
+    // Confirmation is now handled in CrudTable
     if (activeTab === 'prices') await removePrice(id);
     if (activeTab === 'amenities') await removeAmenity(id);
     if (activeTab === 'roomtypes') await removeRoomType(id);
@@ -300,6 +363,9 @@ export default function CategoriesPage() {
                 ]}
                 onEdit={openEdit}
                 onDelete={handleDelete}
+                onBulkDelete={async (ids) => {
+                  await Promise.all(ids.map(id => removePrice(id)));
+                }}
                 icon={DollarSign}
               />
             </CardContent>
@@ -324,6 +390,9 @@ export default function CategoriesPage() {
                 ]}
                 onEdit={openEdit}
                 onDelete={handleDelete}
+                onBulkDelete={async (ids) => {
+                  await Promise.all(ids.map(id => removeAmenity(id)));
+                }}
                 icon={Sparkles}
               />
             </CardContent>
@@ -348,6 +417,9 @@ export default function CategoriesPage() {
                 ]}
                 onEdit={openEdit}
                 onDelete={handleDelete}
+                onBulkDelete={async (ids) => {
+                  await Promise.all(ids.map(id => removeRoomType(id)));
+                }}
                 icon={BedDouble}
               />
             </CardContent>

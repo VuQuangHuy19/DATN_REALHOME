@@ -35,6 +35,8 @@ export default function InvoicesPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [payMethod, setPayMethod] = useState<string>('transfer');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const loadInvoices = useCallback(async () => {
     if (!company?.id) return;
@@ -119,6 +121,34 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} hóa đơn đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => deleteInvoice(id)));
+      toast.success(`Đã xóa ${selectedIds.length} hóa đơn.`);
+      setSelectedIds([]);
+      loadInvoices();
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa hóa đơn: ' + err.message);
+    }
+  };
+
   const statusBadges: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
     unpaid: { label: 'Chưa thanh toán', variant: 'outline' },
     paid: { label: 'Đã thanh toán', variant: 'default' },
@@ -135,10 +165,15 @@ export default function InvoicesPage() {
           <p className="text-ink-muted text-sm mt-0.5">Quản lý thanh toán hóa đơn tiền phòng và dịch vụ hàng tháng</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={loadInvoices} variant="outline" size="icon" disabled={loading} title="Tải lại" className="border-border hover:bg-bg-subtle text-ink rounded-lg">
+          {selectedIds.length > 0 && (
+            <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10 shadow-none">
+              <XCircle className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
+            </Button>
+          )}
+          <Button onClick={loadInvoices} variant="outline" size="icon" disabled={loading} title="Tải lại" className="border-border hover:bg-bg-subtle text-ink rounded-lg h-10 w-10">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={handleBatchGenerate} disabled={generating || loading} className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none">
+          <Button onClick={handleBatchGenerate} disabled={generating || loading} className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none h-10">
             {generating ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -191,6 +226,14 @@ export default function InvoicesPage() {
               <table className="w-full text-sm hidden md:table border-collapse">
                 <thead className="bg-bg-subtle border-b border-border text-ink-muted">
                   <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Mã hóa đơn</th>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Phòng</th>
                     <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Khách thuê</th>
@@ -210,7 +253,18 @@ export default function InvoicesPage() {
                     if (item.status === 'overdue') statusColor = 'bg-red-50 text-red-750 border-red-250';
                     
                     return (
-                      <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors cursor-pointer" onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}>
+                      <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors cursor-pointer" onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                        setViewInvoice(item); setIsViewOpen(true); 
+                      }}>
+                        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={(e) => handleSelect(item.id, e.target.checked)}
+                          />
+                        </td>
                         <td className="px-6 py-4 font-mono font-bold text-xs">{item.invoice_code}</td>
                         <td className="px-6 py-4 font-bold text-accent">Phòng {item.rooms?.code || '—'}</td>
                         <td className="px-6 py-4 font-semibold">{item.rental_contracts?.party_b_name || 'Khách thuê lẻ'}</td>

@@ -654,6 +654,39 @@ export async function handleImportSheet(request: Request) {
       }
     }
 
+    // 4. CẬP NHẬT LẠI SỐ PHÒNG VÀ SỐ TẦNG CỦA TÒA NHÀ
+    // Sau khi import phòng xong, tự động tính toán lại total_floors và total_rooms
+    const buildingCodesToUpdate = new Set<string>();
+    for (const room of rooms) {
+      if (room.building_code) buildingCodesToUpdate.add(room.building_code);
+    }
+    
+    for (const buildingCode of Array.from(buildingCodesToUpdate)) {
+      try {
+        const { data: bldRooms } = await supabaseAdmin
+          .from('rooms')
+          .select('floor')
+          .eq('company_id', companyId)
+          .eq('building_id', buildingCode);
+          
+        if (bldRooms && bldRooms.length > 0) {
+          const totalRooms = bldRooms.length;
+          const totalFloors = Math.max(...bldRooms.map(r => r.floor ? Number(r.floor) : 1));
+          
+          await supabaseAdmin
+            .from('buildings')
+            .update({
+              total_rooms: totalRooms,
+              total_floors: totalFloors
+            })
+            .eq('company_id', companyId)
+            .eq('code', buildingCode);
+        }
+      } catch (err: any) {
+        console.error(`Lỗi cập nhật số phòng/tầng cho tòa nhà ${buildingCode}:`, err);
+      }
+    }
+
     return NextResponse.json({ success: true, results });
   } catch (error: any) {
     console.error('Lỗi khi import dữ liệu sheet:', error);

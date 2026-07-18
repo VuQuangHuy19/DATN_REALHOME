@@ -93,6 +93,7 @@ export default function LandlordAppointmentsPage() {
   const [filterDate, setFilterDate]     = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSource, setFilterSource] = useState('all');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const [viewItem, setViewItem]   = useState<AppointmentWithRelations | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -131,6 +132,33 @@ export default function LandlordAppointmentsPage() {
   }, [aptList, searchQuery, filterDate, filterStatus, filterSource]);
 
   /* ── Actions ─────────────────────────────────────────────────── */
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(sortedAndFiltered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn hủy ${selectedIds.length} lịch hẹn đã chọn không?`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => update(id, { status: 'Cancel' })));
+      setSelectedIds([]);
+      toast.success(`Đã hủy ${selectedIds.length} lịch hẹn.`);
+    } catch {
+      toast.error('Lỗi khi hủy lịch hẹn.');
+    }
+  };
+
   const handleStatusChange = async (
     id: string,
     status: AppointmentWithRelations['status'],
@@ -183,7 +211,7 @@ export default function LandlordAppointmentsPage() {
 
       {/* ── Filters ──────────────────────────────────────────────── */}
       <Card className="border-border shadow-none rounded-lg bg-white">
-        <CardContent className="pt-5 pb-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="pt-5 pb-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
           {/* Search */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
@@ -230,22 +258,29 @@ export default function LandlordAppointmentsPage() {
           </div>
 
           {/* Status */}
-          <div className="space-y-1.5">
-            <Label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
-              Trạng thái
-            </Label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/40"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="Pending">Chờ duyệt</option>
-              <option value="Confirm">Đã xác nhận</option>
-              <option value="Viewed">Đã xem phòng</option>
-              <option value="Dealed">Đã chốt</option>
-              <option value="Cancel">Đã hủy</option>
-            </select>
+          <div className="space-y-1.5 flex gap-2">
+            <div className="flex-1">
+              <Label className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
+                Trạng thái
+              </Label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/40"
+              >
+                <option value="">Tất cả</option>
+                <option value="Pending">Chờ duyệt</option>
+                <option value="Confirm">Đã xác nhận</option>
+                <option value="Viewed">Đã xem phòng</option>
+                <option value="Dealed">Đã chốt</option>
+                <option value="Cancel">Đã hủy</option>
+              </select>
+            </div>
+            {selectedIds.length > 0 && (
+              <Button onClick={handleBulkDelete} size="icon" className="bg-red-500 hover:bg-red-600 text-white rounded-lg h-10 w-10 flex-shrink-0" title="Hủy các lịch đã chọn">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -262,6 +297,14 @@ export default function LandlordAppointmentsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-bg-subtle border-b border-border">
                   <tr>
+                    <th className="px-4 py-3.5 w-10">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === sortedAndFiltered.length}
+                      />
+                    </th>
                     <th className="px-5 py-3.5 text-left text-[11px] font-bold text-ink-muted uppercase tracking-wider">
                       Khách hàng
                     </th>
@@ -287,8 +330,19 @@ export default function LandlordAppointmentsPage() {
                     <tr
                       key={item.id}
                       className="hover:bg-bg-subtle/60 transition-colors cursor-pointer"
-                      onClick={() => { setViewItem(item); setIsViewOpen(true); }}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                        setViewItem(item); setIsViewOpen(true); 
+                      }}
                     >
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={(e) => handleSelect(item.id, e.target.checked)}
+                        />
+                      </td>
                       {/* Customer */}
                       <td className="px-5 py-4">
                         <div className="font-semibold text-ink">{item.customer_name}</div>

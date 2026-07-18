@@ -63,8 +63,35 @@ export function BuildingListPage() {
   const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>('');
   const [selectedWardId, setSelectedWardId] = useState<string>('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} mục đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => remove(id)));
+      setSelectedIds([]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Load all provinces once
   useEffect(() => {
@@ -613,6 +640,13 @@ export function BuildingListPage() {
                 ))}
               </select>
             )}
+            {selectedIds.length > 0 && (
+              <PermissionGate roles={['company_admin']}>
+                <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">
+                  <Trash2 className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
+                </Button>
+              </PermissionGate>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -622,6 +656,14 @@ export function BuildingListPage() {
               <table className="w-full text-sm hidden md:table border-collapse">
                 <thead className="bg-bg-subtle border-b border-border">
                   <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Tên</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khu vực</th>
@@ -634,10 +676,18 @@ export function BuildingListPage() {
                 <tbody className="divide-y divide-border text-ink">
                   {filtered.map((item) => (
                     <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors cursor-pointer" onClick={(e) => { 
-                      if ((e.target as HTMLElement).closest('button')) return; 
+                      if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return; 
                       const targetPrefix = pathname.startsWith('/landlord') ? '/landlord/buildings' : '/admin/realhome/buildings';
                       router.push(`${targetPrefix}/${item.id}`); 
                     }}>
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={(e) => handleSelect(item.id, e.target.checked)}
+                        />
+                      </td>
                       <td className="px-6 py-4 font-mono font-medium text-ink-muted text-xs">{item.code}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -678,7 +728,11 @@ export function BuildingListPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md"
-                              onClick={() => remove(item.id)}
+                              onClick={() => {
+                                if (window.confirm('Bạn có chắc muốn xóa tòa nhà này? Thao tác này không thể hoàn tác.')) {
+                                  remove(item.id);
+                                }
+                              }}
                               title="Xóa"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -744,7 +798,18 @@ export function BuildingListPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle rounded-md" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
                       </PermissionGate>
                       <PermissionGate roles={['company_admin']}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md" 
+                          onClick={() => {
+                            if (window.confirm('Bạn có chắc muốn xóa tòa nhà này? Thao tác này không thể hoàn tác.')) {
+                              remove(item.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </PermissionGate>
                     </div>
                   </div>

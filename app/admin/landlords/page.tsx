@@ -28,6 +28,7 @@ export default function LandlordsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const filtered = landlordList.filter((l) =>
     l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -95,6 +96,32 @@ export default function LandlordsPage() {
     setSaving(false);
     setIsDialogOpen(false);
     setEditItem(null);
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} chủ nhà đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => remove(id)));
+      setSelectedIds([]);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const openAdd = () => {
@@ -177,9 +204,16 @@ export default function LandlordsPage() {
 
       <Card className="border-border rounded-lg shadow-none bg-white">
         <CardHeader className="pb-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-            <Input placeholder="Tìm theo tên, SĐT hoặc email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input placeholder="Tìm theo tên, SĐT hoặc email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
+            </div>
+            {selectedIds.length > 0 && (
+              <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">
+                <Trash2 className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -191,6 +225,14 @@ export default function LandlordsPage() {
               <table className="w-full text-sm hidden md:table border-collapse">
                 <thead className="bg-bg-subtle border-b border-border">
                   <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Họ tên</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Số điện thoại</th>
@@ -207,10 +249,18 @@ export default function LandlordsPage() {
                         key={item.id}
                         className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
                         onClick={(e) => {
-                          if ((e.target as HTMLElement).closest('button')) return;
+                          if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
                           openBuildings(item);
                         }}
                       >
+                        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={(e) => handleSelect(item.id, e.target.checked)}
+                          />
+                        </td>
                         <td className="px-6 py-4 font-mono font-medium text-ink-muted text-xs">{item.code ?? '—'}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
@@ -255,7 +305,11 @@ export default function LandlordsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md"
-                              onClick={() => remove(item.id)}
+                              onClick={() => {
+                                if (window.confirm('Bạn có chắc muốn xóa chủ nhà này? Thao tác này không thể hoàn tác.')) {
+                                  remove(item.id);
+                                }
+                              }}
                               title="Xóa"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -349,7 +403,11 @@ export default function LandlordsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10 rounded-md"
-                            onClick={() => remove(item.id)}
+                            onClick={() => {
+                              if (window.confirm('Bạn có chắc muốn xóa chủ nhà này? Thao tác này không thể hoàn tác.')) {
+                                remove(item.id);
+                              }
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

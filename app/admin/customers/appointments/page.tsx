@@ -73,7 +73,7 @@ function formatDate(dateStr: string): string {
 
 export default function CustomersAppointmentsPage() {
   const { company, role, user } = useAuth();
-  const { items: aptList, loading, error, update } = useAppointments(company?.id);
+  const { items: aptList, loading, error, update, remove } = useAppointments(company?.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -140,6 +140,35 @@ export default function CustomersAppointmentsPage() {
 
     return matchesSearch && matchesDate && matchesStatus && matchesAssignee;
   });
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} lịch hẹn đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => remove(id)));
+      toast.success(`Đã xóa ${selectedIds.length} lịch hẹn.`);
+      setSelectedIds([]);
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa lịch hẹn: ' + err.message);
+    }
+  };
 
   const sortedAndFiltered = [...filtered].sort((a, b) => {
     const now = new Date();
@@ -256,6 +285,11 @@ export default function CustomersAppointmentsPage() {
                 ))}
               </select>
             )}
+            {selectedIds.length > 0 && (
+              <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg h-10 px-4 ml-auto">
+                <Trash2 className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -268,6 +302,14 @@ export default function CustomersAppointmentsPage() {
               <table className="w-full text-sm border-collapse">
                 <thead className="bg-bg-subtle border-b border-border-subtle">
                   <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã chủ nhà</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Bất động sản</th>
@@ -284,8 +326,19 @@ export default function CustomersAppointmentsPage() {
                     <tr
                       key={item.id}
                       className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
-                      onClick={() => openView(item)}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                        openView(item);
+                      }}
                     >
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={(e) => handleSelect(item.id, e.target.checked)}
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="font-semibold text-ink">{item.customer_name}</div>
                         <div className="text-xs text-ink-muted font-mono mt-0.5">{item.customer_phone}</div>
@@ -348,8 +401,12 @@ export default function CustomersAppointmentsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
-                            onClick={() => handleStatusChange(item.id, 'Cancel')}
-                            title="Hủy lịch hẹn"
+                            onClick={() => {
+                              if (window.confirm('Bạn có chắc chắn muốn xóa lịch hẹn này? Thao tác này không thể hoàn tác.')) {
+                                remove(item.id);
+                              }
+                            }}
+                            title="Xóa lịch hẹn"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

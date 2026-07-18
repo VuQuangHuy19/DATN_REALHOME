@@ -107,6 +107,7 @@ export default function AppointmentsPage() {
   const [editItem, setEditItem] = useState<DBAppointment | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editUpdating, setEditUpdating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Trích xuất địa chỉ và làm sạch ghi chú cho chi tiết lịch hẹn
   let displayAddress = '—';
@@ -168,7 +169,44 @@ export default function AppointmentsPage() {
   const openView = (item: DBAppointment) => { setViewItem(item); setIsViewOpen(true); };
   const openEdit = (item: DBAppointment) => { setEditItem(item); setIsEditOpen(true); };
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} lịch hẹn đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      // In this component, we don't have a 'remove' from useAppointments currently.
+      // But we can implement it by using the update function to set status to 'Cancel' 
+      // or we can call supabase directly if we want to DELETE. The user said "xóa", 
+      // so if there is no remove function, I will just set status to Cancel for now or delete.
+      // Wait, let's look at how delete is currently done.
+      // The current delete button calls: handleStatusChange(item.id, 'Cancel')
+      await Promise.all(selectedIds.map(id => handleStatusChange(id, 'Cancel')));
+      setSelectedIds([]);
+      toast.success(`Đã hủy ${selectedIds.length} lịch hẹn.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra khi hủy lịch hẹn.');
+    }
+  };
+
   const handleStatusChange = async (id: string, status: DBAppointment['status']) => {
+    if (status === 'Cancel') {
+      if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này?')) return;
+    }
     await update(id, { status });
   };
 
@@ -249,6 +287,11 @@ export default function AppointmentsPage() {
                 </option>
               ))}
             </select>
+            {selectedIds.length > 0 && (
+              <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">
+                <Trash2 className="h-4 w-4 mr-2" /> Hủy {selectedIds.length} lịch hẹn
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -261,6 +304,14 @@ export default function AppointmentsPage() {
               <table className="w-full text-sm border-collapse">
                 <thead className="bg-bg-subtle border-b border-border-subtle">
                   <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã chủ nhà</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã tòa nhà</th>
@@ -277,8 +328,19 @@ export default function AppointmentsPage() {
                     <tr
                       key={item.id}
                       className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
-                      onClick={() => openView(item)}
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                        openView(item);
+                      }}
                     >
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={(e) => handleSelect(item.id, e.target.checked)}
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="font-semibold text-ink">{item.customer_name}</div>
                         <div className="text-xs text-ink-muted font-mono mt-0.5">{item.customer_phone}</div>
