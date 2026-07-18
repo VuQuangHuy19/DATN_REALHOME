@@ -15,6 +15,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2 } from 'lucide-react';
+import { CustomerAppointmentPrintDialog } from './CustomerAppointmentPrintDialog';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBAppointment } from '@/lib/supabase/types';
@@ -356,7 +358,7 @@ export default function CustomersAppointmentsPage() {
                       <td className="px-6 py-4 text-ink-muted font-mono">{formatDate(item.date)}</td>
                       <td className="px-6 py-4 text-ink-muted font-mono">{item.time}</td>
                       <td className="px-6 py-4">
-                        {item.area ? <Badge variant="outline" className="border-border-subtle text-ink-muted">{item.area}</Badge> : '—'}
+                        {item.area ? <Badge variant="outline" className={`border-border-subtle text-ink-muted ${getAreaColorClass(item.area)}`}>{item.area}</Badge> : '—'}
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
@@ -445,7 +447,7 @@ export default function CustomersAppointmentsPage() {
                 <div><span className="text-slate-500">BĐS:</span> <span className="font-semibold text-indigo-600">{viewItem.room_title || '—'}</span></div>
                 <div><span className="text-slate-500">Ngày:</span> {formatDate(viewItem.date)}</div>
                 <div><span className="text-slate-500">Giờ:</span> {viewItem.time}</div>
-                <div><span className="text-slate-500">Khu vực:</span> {viewItem.area ? <Badge variant="outline">{viewItem.area}</Badge> : '—'}</div>
+                <div><span className="text-slate-500">Khu vực:</span> {viewItem.area ? <Badge variant="outline" className={getAreaColorClass(viewItem.area)}>{viewItem.area}</Badge> : '—'}</div>
                 <div>
                   <span className="text-slate-500">Trạng thái:</span>{' '}
                   <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusColors[viewItem.status] || 'bg-slate-100 text-slate-700'}`}>

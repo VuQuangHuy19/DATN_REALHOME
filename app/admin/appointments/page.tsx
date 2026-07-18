@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
+import { AppointmentPrintDialog } from './AppointmentPrintDialog';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -367,7 +369,7 @@ export default function AppointmentsPage() {
                       <td className="px-6 py-4 text-ink-muted font-mono">{formatDate(item.date)}</td>
                       <td className="px-6 py-4 text-ink-muted font-mono">{item.time}</td>
                       <td className="px-6 py-4">
-                        {item.area ? <Badge variant="outline" className="border-border-subtle text-ink-muted">{item.area}</Badge> : '—'}
+                        {item.area ? <Badge variant="outline" className={`border-border-subtle text-ink-muted ${getAreaColorClass(item.area)}`}>{item.area}</Badge> : '—'}
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-wrap gap-1.5 max-w-[280px]">
@@ -455,7 +457,7 @@ export default function AppointmentsPage() {
                 <div><span className="text-slate-500">Mã tòa nhà:</span> <span className="font-mono font-semibold text-blue-700">{viewItem.building_id || '—'}</span></div>
                 <div><span className="text-slate-500">Ngày:</span> {formatDate(viewItem.date)}</div>
                 <div><span className="text-slate-500">Giờ:</span> {viewItem.time}</div>
-                <div><span className="text-slate-500">Khu vực:</span> {viewItem.area ? <Badge variant="outline">{viewItem.area}</Badge> : '—'}</div>
+                <div><span className="text-slate-500">Khu vực:</span> {viewItem.area ? <Badge variant="outline" className={getAreaColorClass(viewItem.area)}>{viewItem.area}</Badge> : '—'}</div>
                 <div>
                   <span className="text-slate-500">Trạng thái:</span>{' '}
                   <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusColors[viewItem.status] || 'bg-slate-100 text-slate-700'}`}>

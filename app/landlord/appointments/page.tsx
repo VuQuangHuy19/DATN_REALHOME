@@ -18,6 +18,8 @@ import {
   User, Phone, Building, Briefcase, CalendarClock, MessageSquare,
   CheckCircle2, Trash2,
 } from 'lucide-react';
+import { LandlordAppointmentPrintDialog } from './LandlordAppointmentPrintDialog';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { AppointmentWithRelations } from '@/src/features/staff/services/appointments';
@@ -367,6 +369,7 @@ export default function LandlordAppointmentsPage() {
                         <div className="font-semibold text-ink flex items-center gap-1.5 tabular-nums">
                           <CalendarClock className="h-3.5 w-3.5 text-ink-muted flex-shrink-0" />
                           <span className="font-mono text-sm">{formatDate(item.date)}</span>
+
                         </div>
                         <div className="text-xs text-ink-muted mt-0.5 font-mono tabular-nums">
                           {item.time}
@@ -465,6 +468,7 @@ export default function LandlordAppointmentsPage() {
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider block">Căn hộ / Phòng</span>
+                  <div><span className="text-slate-500">Khu vực:</span> {viewItem.area ? <Badge variant="outline" className={getAreaColorClass(viewItem.area)}>{viewItem.area}</Badge> : '—'}</div>
                   <div className="font-bold text-accent text-base">{viewItem.room_title || '—'}</div>
                   <div className="text-ink-muted text-sm flex items-center gap-1">
                     <Building className="h-3.5 w-3.5" /> {viewItem.building_address || '—'}

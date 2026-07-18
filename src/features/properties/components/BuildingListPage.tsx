@@ -21,6 +21,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import type { DBBuilding } from '@/lib/supabase/types';
 import { useLandlords, useEmployees } from '@/lib/hooks/useEntities';
 import { supabase } from '@/lib/supabase/client';
+import { getAreaColorClass } from '@/lib/utils/colors';
 
 type VnProvince = { id: string; name: string };
 type VnDistrict = { id: string; name: string; province_id: string };
@@ -728,7 +729,7 @@ export function BuildingListPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge variant="outline" className="border-border text-ink-muted rounded-md bg-white font-medium">{item.area}</Badge>
+                        <Badge variant="outline" className={`border text-ink-muted rounded-md font-medium ${getAreaColorClass(item.area)}`}>{item.area}</Badge>
                       </td>
                       <td className="px-6 py-4 text-ink-muted font-mono text-sm">{item.year_built ?? '—'}</td>
                       <td className="px-6 py-4 text-ink-muted font-mono text-sm">{item.total_floors}</td>

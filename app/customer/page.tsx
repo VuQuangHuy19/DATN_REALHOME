@@ -12,6 +12,7 @@ import { usePublicListings } from '@/lib/hooks/usePublicListings';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { ArrowRight, MapPin, Bed, Bath, Square, Phone, Building2, Loader2, Search } from 'lucide-react';
+import { getAreaColorClass } from '@/lib/utils/colors';
 
 export default function CustomerHomePage() {
   const router = useRouter();
@@ -136,9 +137,9 @@ export default function CustomerHomePage() {
                         {property.title}
                       </h3>
                       <div className="flex items-center gap-1 text-sm text-ink-muted">
-                        <MapPin className="h-3.5 w-3.5 text-accent" />
-                        <span className="line-clamp-1">{property.area}</span>
+                        <Badge variant="outline" className={`line-clamp-1 ${getAreaColorClass(property.area)}`}>{property.area}</Badge>
                       </div>
+
                     </CardHeader>
                     <CardContent className="px-5 pb-5 mt-auto">
                       <div className="flex items-center gap-4 text-xs text-ink-muted mb-4 border-b border-border-subtle pb-3">

@@ -11,7 +11,8 @@ import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvide
 import { usePublicListingsByIds } from '@/lib/hooks/usePublicListings';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
-import { Heart, MapPin, Bed, Bath, Square, Trash2, Loader2 } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Square, ArrowLeft, Loader2, Calendar, Trash2 } from 'lucide-react';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import { useFavorites } from '@/src/lib/hooks/useFavorites';
 import { toast } from 'sonner';
 
@@ -77,9 +78,9 @@ export default function FavoritesPage() {
                   <h3 className="text-base font-bold text-ink leading-snug hover:text-accent font-heading transition-colors line-clamp-1">{property.title}</h3>
                 </Link>
                 <div className="flex items-center gap-1 text-sm text-ink-muted">
-                  <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-                  <span className="line-clamp-1">{property.area}</span>
+                  <Badge variant="outline" className={`line-clamp-1 ${getAreaColorClass(property.area)}`}>{property.area}</Badge>
                 </div>
+
               </CardHeader>
               <CardContent className="px-5 pb-4 mt-auto">
                 <div className="flex items-center gap-4 text-xs text-ink-muted mb-4 border-b border-border-subtle pb-3">

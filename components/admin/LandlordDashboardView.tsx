@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -299,8 +300,7 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
                               {building.name}
                             </p>
                             <p className="text-xs text-ink-muted mt-0.5 flex items-center gap-1">
-                              <MapPin className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{building.area}</span>
+                              <Badge variant="outline" className={`truncate ${getAreaColorClass(building.area)}`}>{building.area}</Badge>
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">

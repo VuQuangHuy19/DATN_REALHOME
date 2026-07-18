@@ -16,6 +16,7 @@ import {
   MapPin, Phone, Calendar, Loader2, AlertCircle,
   SlidersHorizontal, Filter, ArrowUpDown, FileText
 } from 'lucide-react';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import Pagination from '@/components/Pagination';
@@ -99,9 +100,9 @@ function BuildingCard({
         {/* Khu vực */}
         <div className="flex items-center justify-between gap-1 text-sm text-ink-muted">
           <div className="flex items-center gap-1">
-            <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-            <span className="line-clamp-1">{formatArea(group.area)}</span>
+            <Badge variant="outline" className={`line-clamp-1 ${getAreaColorClass(group.area)}`}>{formatArea(group.area)}</Badge>
           </div>
+
           {group.representativeRoom && (
             <FavoriteButton roomId={group.representativeRoom.id} className="h-7 w-7 [&>svg]:w-3.5 [&>svg]:h-3.5" />
           )}

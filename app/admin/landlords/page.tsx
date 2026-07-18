@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { getAreaColorClass } from '@/lib/utils/colors';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
@@ -474,9 +475,9 @@ export default function LandlordsPage() {
                             <Badge variant="outline" className="text-[10px] font-mono border-border bg-white text-ink-muted rounded-md">{building.code}</Badge>
                           </div>
                           <div className="flex items-center gap-1 text-xs text-ink-muted mt-1">
-                            <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span className="truncate">{building.area}</span>
+                            <Badge variant="outline" className={`truncate ${getAreaColorClass(building.area)}`}>{building.area}</Badge>
                           </div>
+
                           <div className="text-[11px] text-ink-muted mt-0.5 truncate">{building.address}</div>
                         </div>
                         <div className="text-right flex-shrink-0">
