@@ -81,7 +81,7 @@ export async function GET(request: Request) {
                 recipientId: profile.id,
                 type: 'contract',
                 title: 'Hợp đồng thuê hết hạn',
-                message: \`Hợp đồng thuê mã \${contract.contract_code} tại phòng \${roomCode} (\${buildingName}) đã hết hạn. Hệ thống đã tự động chuyển phòng về trạng thái "Còn trống".\`,
+                message: `Hợp đồng thuê mã ${contract.contract_code} tại phòng ${roomCode} (${buildingName}) đã hết hạn. Hệ thống đã tự động chuyển phòng về trạng thái "Còn trống".`,
                 link: '/landlord/contracts',
                 channels: ['in_app', 'email']
               });
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
 
         successCount++;
       } catch (err: any) {
-        errorLogs.push(\`Lỗi xử lý HĐ \${contract.id}: \${err.message}\`);
+        errorLogs.push(`Lỗi xử lý HĐ ${contract.id}: ${err.message}`);
       }
     }
 
