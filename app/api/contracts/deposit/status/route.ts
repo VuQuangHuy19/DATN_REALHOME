@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/mail';
+import { syncAgentKPI } from '@/lib/kpi-utils';
 
 export const runtime = 'nodejs';
 
@@ -139,6 +140,13 @@ export async function POST(request: Request) {
           }).catch((err) => console.error('Lỗi gửi mail cập nhật trạng thái cọc:', err));
         }
       }
+    }
+
+    // 5. Đồng bộ KPI nếu trạng thái chuyển sang hoàn thành giao dịch cọc (thường là signed)
+    if (contract.sales_agent_id && (status === 'signed' || status === 'converted')) {
+      const period = new Date().toISOString().substring(0, 7);
+      syncAgentKPI(contract.company_id, contract.sales_agent_id, period)
+        .catch(err => console.error('Lỗi đồng bộ KPI:', err));
     }
 
     return NextResponse.json({ success: true, contract: updatedContract, roomStatus: roomStatusUpdate });

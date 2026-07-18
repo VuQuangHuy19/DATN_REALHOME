@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/mail';
+import { syncAgentKPI } from '@/lib/kpi-utils';
 
 export const runtime = 'nodejs';
 
@@ -135,6 +136,13 @@ export async function POST(request: Request) {
           }).catch((err) => console.error('Lỗi gửi mail cập nhật trạng thái HĐ thuê:', err));
         }
       }
+    }
+
+    // 5. Đồng bộ KPI nếu hợp đồng thuê có hiệu lực (active) hoặc thay đổi sang trạng thái hoàn thành khác
+    if (contract.sales_agent_id && ['active', 'ended'].includes(status)) {
+      const period = new Date().toISOString().substring(0, 7);
+      syncAgentKPI(contract.company_id, contract.sales_agent_id, period)
+        .catch(err => console.error('Lỗi đồng bộ KPI cho HĐ thuê:', err));
     }
 
     return NextResponse.json({ success: true, contract: updatedContract, roomStatus: roomStatusUpdate });

@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getSubscriptionsByProfileId, getSubscriptionsByCompanyId } from '@/src/features/notifications/services/push-subscriptions';
 import { sendWebPushNotification } from '@/src/features/notifications/services/web-push-sender';
-
+import { sendEmail as sendEmailViaMailjet } from '@/lib/mail';
 export type NotificationChannel = 'in_app' | 'push' | 'email';
 // Đã bỏ 'sms' ra khỏi type vì yêu cầu để lại làm sau
 
@@ -143,9 +143,18 @@ async function sendEmail(
   body: string
 ) {
   try {
-    // TODO: Gọi hàm từ lib/mail.ts
-    // ... logic gửi email ...
-
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #4f46e5; margin-bottom: 20px;">${subject}</h2>
+        <p style="white-space: pre-line;">${body}</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="color: #94a3b8; font-size: 12px; text-align: center;">Đây là email tự động từ hệ thống RealHome.</p>
+      </div>
+    `;
+    const result = await sendEmailViaMailjet({ to: emailTo, subject, html });
+    if (!result.success) {
+      throw new Error(result.error);
+    }
     console.log(`[notify:email] Đã gửi email tới ${emailTo}`);
     await updateNotificationStatus(notificationId, 'sent');
   } catch (error) {

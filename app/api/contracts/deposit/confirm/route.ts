@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/mail';
+import { syncAgentKPI } from '@/lib/kpi-utils';
 
 export const runtime = 'nodejs';
 
@@ -142,6 +143,13 @@ export async function POST(request: Request) {
           sendEmail(opts).catch((err) => console.error('Lỗi gửi mail xác nhận cọc:', err))
         )
       ).catch((err) => console.error(err));
+    }
+
+    // 5. Cập nhật KPI cho Sale (bất đồng bộ)
+    if (contract.sales_agent_id) {
+      const period = new Date().toISOString().substring(0, 7); // YYYY-MM
+      syncAgentKPI(contract.company_id, contract.sales_agent_id, period)
+        .catch(err => console.error('Lỗi đồng bộ KPI sau khi xác nhận cọc:', err));
     }
 
     return NextResponse.json({ success: true, contract: updatedContract });
