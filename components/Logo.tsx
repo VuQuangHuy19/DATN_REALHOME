@@ -17,7 +17,7 @@ export function Logo({ className, showSlogan = false, align = 'center' }: LogoPr
     return (
       <div className={cn(`flex flex-col justify-center select-none ${align === 'start' ? 'items-start' : 'items-center'}`, className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logo_url} alt={name || 'Company Logo'} className="h-10 object-contain" />
+        <img src={logo_url} alt={name || 'Company Logo'} className="h-8 md:h-10 object-contain" />
         {showSlogan && (
           <span className="text-[0.65em] font-bold tracking-[0.25em] mt-1 text-slate-500 uppercase">
             {name || 'Giá trị thực'}

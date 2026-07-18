@@ -212,18 +212,18 @@ export default function ImageGallery({
           <>
             {isDetail ? (
               <>
-                {/* Detail style — round buttons, hidden until hover */}
+                {/* Detail style — always visible on mobile, hidden until hover on desktop */}
                 <button
                   onClick={prev}
                   aria-label="Ảnh trước"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </button>
                 <button
                   onClick={next}
                   aria-label="Ảnh tiếp"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-ink border border-border-subtle flex items-center justify-center transition-all sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 z-10 shadow-none"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </button>

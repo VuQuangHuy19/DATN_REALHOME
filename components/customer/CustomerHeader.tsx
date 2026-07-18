@@ -68,8 +68,8 @@ export function CustomerHeader() {
       <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
         {/* Left: Logo */}
-        <Link href="/customer" className="flex items-center flex-shrink-0 mr-4">
-          <Logo className="text-[28px]" />
+        <Link href="/customer" className="flex items-center flex-shrink-0 mr-2 md:mr-4">
+          <Logo className="text-[20px] md:text-[28px]" />
         </Link>
 
         {/* Center: Search bar */}
