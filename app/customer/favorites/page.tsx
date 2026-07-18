@@ -12,62 +12,14 @@ import { usePublicListingsByIds } from '@/lib/hooks/usePublicListings';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { Heart, MapPin, Bed, Bath, Square, Trash2, Loader2 } from 'lucide-react';
-import { getFavoritesClient, removeFavoriteClient } from '@/src/features/customer/services/favorites.client';
+import { useFavorites } from '@/src/lib/hooks/useFavorites';
 import { toast } from 'sonner';
 
-function useFavorites() {
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
-
-  const fetchFavorites = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const data = await getFavoritesClient();
-      setFavorites(new Set(data));
-    } catch (err: any) {
-      if (err.message === 'Unauthorized') {
-        toast.error('Vui lòng đăng nhập để xem danh sách yêu thích');
-        router.push('/login?redirectTo=/customer/favorites');
-      } else {
-        toast.error('Không thể tải danh sách yêu thích');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => {
-    fetchFavorites();
-  }, [fetchFavorites]);
-
-  const remove = useCallback(async (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-
-    try {
-      await removeFavoriteClient(id);
-      toast.success('Đã xóa khỏi danh sách yêu thích');
-    } catch (err: any) {
-      if (err.message === 'Unauthorized') {
-        toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-        router.push('/login?redirectTo=/customer/favorites');
-      } else {
-        toast.error('Không thể xóa yêu thích. Vui lòng thử lại.');
-        fetchFavorites();
-      }
-    }
-  }, [fetchFavorites, router]);
-
-  return { favorites, remove, loading: isLoading };
-}
+// We now use the useFavorites hook from '@/src/lib/hooks/useFavorites'
 
 export default function FavoritesPage() {
   const { company, companies } = useCustomerCompany();
-  const { favorites, remove, loading: favLoading } = useFavorites();
+  const { favorites, removeFavorite, loading: favLoading } = useFavorites();
   const favoriteIds = Array.from(favorites);
   const { listings: favoriteProperties, loading: propertiesLoading } = usePublicListingsByIds(
     favoriteIds,
@@ -148,7 +100,10 @@ export default function FavoritesPage() {
                     variant="ghost"
                     size="sm"
                     className="h-9 w-9 p-0 text-danger hover:text-danger hover:bg-danger/10 shadow-none"
-                    onClick={() => remove(property.id)}
+                    onClick={() => {
+                      removeFavorite(property.id);
+                      toast.success('Đã xóa khỏi danh sách yêu thích');
+                    }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

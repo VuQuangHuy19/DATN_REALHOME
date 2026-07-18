@@ -11,6 +11,7 @@ import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicListing } from '@/lib/hooks/usePublicListings';
 import { SimilarRoomsWidget } from '@/src/features/properties/components/SimilarRoomsWidget';
+import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { LISTING_STATUS_LABELS, DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, Check, X, Zap, PawPrint, Globe, Award, Layers, FileText } from 'lucide-react';
@@ -77,12 +78,15 @@ export default function RoomDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold font-heading text-ink">{property.title}</h1>
-            <div className="flex items-center gap-2 mt-2 text-ink-muted">
-              <MapPin className="h-5 w-5 text-accent" />
-              {property.address}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold font-heading text-ink">{property.title}</h1>
+              <div className="flex items-center gap-2 mt-2 text-ink-muted">
+                <MapPin className="h-5 w-5 text-accent" />
+                {property.address}
+              </div>
             </div>
+            <FavoriteButton roomId={property.id} className="h-10 w-10 [&>svg]:w-5 [&>svg]:h-5 flex-shrink-0" />
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-muted py-3 border-y border-border-subtle font-medium">

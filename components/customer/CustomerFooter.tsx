@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { Building2, Mail, Phone, MapPin } from 'lucide-react';
+import { Logo } from '@/components/Logo';
 
 export function CustomerFooter() {
   return (
@@ -9,7 +9,7 @@ export function CustomerFooter() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Link href="/customer" className="flex items-center">
-              <Image src="/logo.png" alt="RealHome Logo" width={180} height={80} className="h-20 w-auto object-contain" />
+              <Logo className="text-[32px] md:text-[36px]" showSlogan={true} align="start" />
             </Link>
             <p className="text-sm text-ink-muted leading-relaxed">
               Đối tác đáng tin cậy của bạn trong việc tìm kiếm bất động sản phù hợp. Chúng tôi cung cấp các giải pháp bất động sản toàn diện cho mọi nhu cầu.

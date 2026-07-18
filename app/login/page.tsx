@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Building2, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/Logo';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -49,7 +50,7 @@ export default function LoginPage() {
       <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-xl shadow-slate-200/40 border border-border-subtle p-6 sm:p-8">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <Image src="/logo.png" alt="RealHome Logo" width={160} height={68} className="h-16 w-auto object-contain" />
+          <Logo className="text-[32px]" />
         </div>
 
         <div className="mb-6 text-center">

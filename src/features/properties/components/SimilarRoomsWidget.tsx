@@ -2,13 +2,14 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { CustomerListing } from '@/lib/customer/types';
 import { usePublicListings } from '@/lib/hooks/usePublicListings';
+import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { getRoomDisplayStatus } from '@/lib/room-status';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import ImageGallery from '@/src/features/properties/components/ImageGallery';
 
 export function SimilarRoomsWidget({ currentRoom }: { currentRoom: CustomerListing }) {
   // Only recommend available or soon_available rooms by passing showAll=false
@@ -67,29 +68,35 @@ export function SimilarRoomsWidget({ currentRoom }: { currentRoom: CustomerListi
               href={`/customer/properties/rooms/${room.id}`}
               className="group border border-border-subtle rounded-lg overflow-hidden bg-card hover:border-accent transition-all flex flex-col"
             >
-              <div className="relative h-40 w-full bg-slate-100 border-b border-border-subtle">
-                <Image
-                  src={room.thumbnailUrl || room.imageUrl || '/placeholder.jpg'}
+              <div className="relative w-full border-b border-border-subtle" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                <ImageGallery
+                  items={Array.from(
+                    new Set(
+                      (room.thumbnailUrls ?? [])
+                        .concat(room.imageUrls ?? [])
+                        .concat([room.thumbnailUrl, room.imageUrl])
+                        .filter(Boolean)
+                    )
+                  )}
                   alt={room.title}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 250px"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  aspectRatio="card"
                 />
-                <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
-                  <Badge className={`${ds.colorClass} text-[9px] font-bold px-2 py-0.5 border rounded-full shadow-none`}>
+                <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1 pointer-events-none">
+                  <Badge className={`${ds.colorClass} text-[9px] font-bold px-2 py-0.5 border rounded-full shadow-none pointer-events-auto`}>
                     {LISTING_STATUS_LABELS[room.status] || ds.label}
                   </Badge>
                 </div>
               </div>
               <div className="p-3 flex-1 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-bold font-mono text-ink line-clamp-1" title={room.title}>
-                    {room.title.split('—')[1]?.trim() || room.title}
-                  </h3>
-                  <p className="text-[10px] text-ink-muted line-clamp-1 mt-0.5 flex items-center gap-0.5" title={room.buildingName}>
-                    <MapPin className="w-3 h-3 flex-shrink-0" />
-                    {room.buildingName}
-                  </p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold font-mono text-ink line-clamp-1">Phòng {room.title.split('—')[1]?.trim() || room.id}</span>
+                    <div className="flex items-center gap-1.5" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                      <span className="text-[10px] text-ink-muted font-medium">Tầng {room.floor}</span>
+                      <FavoriteButton roomId={room.id} className="h-6 w-6 [&>svg]:w-3.5 [&>svg]:h-3.5" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-ink-muted line-clamp-1">{room.address}</p>
                   <div className="text-[10px] text-ink-muted flex gap-1.5 mt-1.5">
                     <span>{room.size}m²</span>
                     <span>•</span>

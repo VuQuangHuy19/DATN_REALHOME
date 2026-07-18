@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { Logo } from '@/components/Logo';
 
 type AllowedRole = 'super_admin' | 'company_admin' | 'manager' | 'sales_agent' | 'landlord';
 
@@ -36,7 +37,7 @@ export function AuthGuard({ children, allowedRoles, redirectTo = '/login' }: Aut
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
-          <Image src="/logo.png" alt="RealHome Logo" width={200} height={112} className="h-28 w-auto object-contain mb-2 animate-pulse" />
+          <Logo className="text-[40px] mb-2 animate-pulse" />
           <div className="flex items-center gap-2 text-slate-500">
             <span className="h-4 w-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
             <span className="text-sm">Đang tải...</span>

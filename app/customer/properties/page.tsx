@@ -22,6 +22,7 @@ import Pagination from '@/components/Pagination';
 import { supabase } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
+import { FavoriteButton } from '@/components/customer/FavoriteButton';
 
 const PropertiesMapViewDynamic = dynamic(() => import('@/src/features/properties/components/PropertiesMapView'), { ssr: false, loading: () => <div className="h-[600px] w-full rounded-md border bg-slate-100 animate-pulse flex items-center justify-center text-sm text-slate-500">Đang tải bản đồ...</div> });
 
@@ -96,9 +97,14 @@ function BuildingCard({
         </h3>
 
         {/* Khu vực */}
-        <div className="flex items-center gap-1 text-sm text-ink-muted">
-          <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-          <span className="line-clamp-1">{formatArea(group.area)}</span>
+        <div className="flex items-center justify-between gap-1 text-sm text-ink-muted">
+          <div className="flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+            <span className="line-clamp-1">{formatArea(group.area)}</span>
+          </div>
+          {group.representativeRoom && (
+            <FavoriteButton roomId={group.representativeRoom.id} className="h-7 w-7 [&>svg]:w-3.5 [&>svg]:h-3.5" />
+          )}
         </div>
 
         {/* Phòng trống */}

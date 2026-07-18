@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import Image from 'next/image';
+import { Logo } from '@/components/Logo';
 import { Menu, Home, Building2, Phone, Search, Heart, MessageSquare, LogIn, LayoutDashboard, LogOut, User, Settings, Calendar } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -68,8 +68,8 @@ export function CustomerHeader() {
       <div className="container mx-auto px-4 h-16 grid grid-cols-[auto_1fr_auto] items-center gap-4">
 
         {/* Left: Logo */}
-        <Link href="/customer" className="flex items-center flex-shrink-0">
-          <Image src="/logo.png" alt="RealHome Logo" width={150} height={64} className="h-16 w-auto object-contain" />
+        <Link href="/customer" className="flex items-center flex-shrink-0 mr-4">
+          <Logo className="text-[28px]" />
         </Link>
 
         {/* Center: Search bar */}

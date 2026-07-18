@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
+import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicBuilding, usePublicListingsByBuilding } from '@/lib/hooks/usePublicListings';
 import { PLACEHOLDER_LISTING_IMAGE, DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
@@ -369,20 +370,25 @@ export default function BuildingDetailPage() {
                       className="group border border-border-subtle rounded-lg overflow-hidden bg-card hover:border-accent transition-all flex flex-col"
                     >
                       {/* Room Card Thumbnail */}
-                      <div className="relative h-44 w-full bg-slate-100">
-                        <Image
-                          src={room.thumbnailUrl || room.imageUrl}
+                      <div className="relative w-full border-b border-border-subtle group-hover:opacity-95" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                        <ImageGallery
+                          items={Array.from(
+                            new Set(
+                              (room.thumbnailUrls ?? [])
+                                .concat(room.imageUrls ?? [])
+                                .concat([room.thumbnailUrl, room.imageUrl])
+                                .filter(Boolean)
+                            )
+                          )}
                           alt={room.title}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 350px"
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          aspectRatio="card"
                         />
-                        <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1">
-                          <Badge className={`${ds.colorClass} text-[10px] font-bold px-2 py-0.5 border rounded-full`}>
+                        <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1 pointer-events-none">
+                          <Badge className={`${ds.colorClass} text-[10px] font-bold px-2 py-0.5 border rounded-full pointer-events-auto`}>
                             {statusLabels[room.status] || ds.label}
                           </Badge>
                           {room.status === 'soon_available' && room.expectedAvailableDate && (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-accent text-white select-none">
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-accent text-white select-none pointer-events-auto">
                               Trống từ: {formatDateDisplay(room.expectedAvailableDate)}
                             </span>
                           )}
@@ -393,8 +399,11 @@ export default function BuildingDetailPage() {
                       <div className="p-4 flex-1 flex flex-col justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold font-mono text-ink">Phòng {room.title.split('—')[1]?.trim() || room.id}</span>
-                            <span className="text-xs text-ink-muted font-medium">Tầng {room.floor}</span>
+                            <span className="text-sm font-bold font-mono text-ink line-clamp-1">Phòng {room.title.split('—')[1]?.trim() || room.id}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-ink-muted font-medium">Tầng {room.floor}</span>
+                              <FavoriteButton roomId={room.id} className="h-6 w-6 [&>svg]:w-3.5 [&>svg]:h-3.5" />
+                            </div>
                           </div>
                           <div className="text-xs text-ink-muted flex gap-2">
                             <span>{room.roomType}</span>
