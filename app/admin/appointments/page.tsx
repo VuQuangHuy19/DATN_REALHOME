@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { AppointmentPrintDialog } from './AppointmentPrintDialog';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

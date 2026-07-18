@@ -15,7 +15,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2 } from 'lucide-react';
-import { CustomerAppointmentPrintDialog } from './CustomerAppointmentPrintDialog';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';

@@ -18,7 +18,6 @@ import {
   User, Phone, Building, Briefcase, CalendarClock, MessageSquare,
   CheckCircle2, Trash2,
 } from 'lucide-react';
-import { LandlordAppointmentPrintDialog } from './LandlordAppointmentPrintDialog';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
