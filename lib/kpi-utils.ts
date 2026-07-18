@@ -82,12 +82,12 @@ export async function syncAgentKPI(companyId: string, employeeId: string, period
       .lt('created_at', endDate)
       .neq('status', 'cancelled');
 
-    const totalDepositsRent = (deposits ?? []).reduce((sum: number, c) => sum + (Number(c.rent_price) || 0), 0);
-    const totalDepositsComm = (deposits ?? []).reduce((sum: number, c) => sum + (Number(c.commission_amount) || 0), 0);
+    const totalDepositsRent = (deposits ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.rent_price) || 0), 0);
+    const totalDepositsComm = (deposits ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.commission_amount) || 0), 0);
     const totalDepositsCount = (deposits ?? []).length;
 
-    const totalRentalsRent = (rentals ?? []).reduce((sum: number, c) => sum + (Number(c.rent_price) || 0), 0);
-    const totalRentalsComm = (rentals ?? []).reduce((sum: number, c) => sum + (Number(c.commission_amount) || 0), 0);
+    const totalRentalsRent = (rentals ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.rent_price) || 0), 0);
+    const totalRentalsComm = (rentals ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.commission_amount) || 0), 0);
     const totalRentalsCount = (rentals ?? []).length;
 
     // 5. Cross check with converted leads count
