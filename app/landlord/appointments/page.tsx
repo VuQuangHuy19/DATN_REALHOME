@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Eye, Search, CalendarDays, Loader2, AlertCircle, Share2,
   User, Phone, Building, Briefcase, CalendarClock, MessageSquare,
-  CheckCircle2,
+  CheckCircle2, Trash2,
 } from 'lucide-react';
 import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
 import { useAuth } from '@/lib/auth/AuthContext';
