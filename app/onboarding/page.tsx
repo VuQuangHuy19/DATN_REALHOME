@@ -94,7 +94,9 @@ function OnboardingForm() {
     <div className="w-full">
       {/* Logo */}
       <div className="flex flex-col items-center mb-8">
-        <Image src="/logo.png" alt="RealHome Logo" width={160} height={68} className="h-16 w-auto object-contain" />
+        <Link href="/customer/properties">
+          <Image src="/logo.png" alt="RealHome Logo" width={160} height={68} className="h-16 w-auto object-contain" />
+        </Link>
       </div>
 
       <div className="mb-6 text-center">

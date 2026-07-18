@@ -203,6 +203,8 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     revenueDataRes,
     topEmployeesRes,
     activeContractsRes,
+    dynamicDepositsRes,
+    dynamicRentalsRes,
   ] = await Promise.all([
     supabase.from('buildings').select('id, name, code, area, address, total_rooms, total_floors').eq('company_id', companyId),
     supabase.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months').eq('company_id', companyId),
@@ -219,6 +221,8 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     supabase.from('invoices').select('period, total_amount, management_fee_amount').eq('company_id', companyId).eq('status', 'paid').order('period', { ascending: true }),
     supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
     supabase.from('rental_contracts').select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone').eq('company_id', companyId).eq('status', 'active'),
+    supabase.from('deposit_contracts').select('rent_price, commission_amount, sales_agent_id, created_by').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
+    supabase.from('rental_contracts').select('rent_price, commission_amount, sales_agent_id, created_by').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
   ]);
 
   const buildingRows = buildingsRes.data ?? [];
@@ -250,17 +254,23 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     acc[inv.period].company += Number(inv.management_fee_amount) || 0;
     return acc;
   }, {});
-  const revenueHistory = Object.entries(periodMap)
-    .map(([period, val]) => {
-      const dataVal = val as { total: number; company: number };
-      return { 
-        period, 
-        amount: dataVal.company, 
-        totalCollected: dataVal.total 
-      };
-    })
-    .sort((a, b) => a.period.localeCompare(b.period))
-    .slice(-6);
+
+  const last6Months = [];
+  const nowForChart = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(nowForChart.getFullYear(), nowForChart.getMonth() - i, 1);
+    const pStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    last6Months.push(pStr);
+  }
+
+  const revenueHistory = last6Months.map(period => {
+    const val = periodMap[period] || { total: 0, company: 0 };
+    return {
+      period,
+      amount: val.company,
+      totalCollected: val.total
+    };
+  });
 
   // Calculate building details with real occupancy and revenue for Admin
   const buildingsList = buildingRows.map((building: any) => {
@@ -285,6 +295,50 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       revenue: bRevenue,
     };
   });
+
+  // Dynamic KPI for Top Employees
+  const depositsList = dynamicDepositsRes?.data ?? [];
+  const rentalsList = dynamicRentalsRes?.data ?? [];
+
+  const agentStatsMap = new Map<string, { deals: number; revenue: number }>();
+
+  const processContract = (c: any) => {
+    const agentId = c.sales_agent_id || c.created_by;
+    if (!agentId) return;
+    if (!agentStatsMap.has(agentId)) {
+      agentStatsMap.set(agentId, { deals: 0, revenue: 0 });
+    }
+    const stats = agentStatsMap.get(agentId)!;
+    stats.deals += 1;
+    stats.revenue += (Number(c.rent_price) || 0);
+  };
+
+  depositsList.forEach(processContract);
+  rentalsList.forEach(processContract);
+
+  const agentIds = Array.from(agentStatsMap.keys());
+  let dynamicTopEmployees: any[] = [];
+  
+  if (agentIds.length > 0) {
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', agentIds);
+    
+    dynamicTopEmployees = (profilesData ?? []).map((prof: any) => {
+      const stats = agentStatsMap.get(prof.id);
+      return {
+        employee_name: prof.full_name || prof.email,
+        score: stats ? Math.round(stats.deals * 10 + (stats.revenue / 1000000) * 2) : 0,
+        revenue_generated: stats?.revenue || 0,
+        successful_deals: stats?.deals || 0
+      };
+    });
+  }
+
+  dynamicTopEmployees.sort((a, b) => b.score - a.score);
+  const topEmployees = dynamicTopEmployees.length > 0 ? dynamicTopEmployees.slice(0, 5) : (topEmployeesRes.data ?? []);
+
 
   return {
     totalBuildings: buildingRows.length,
@@ -313,7 +367,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     unassignedConsultations: unassignedConsultsRes.count ?? 0,
     overdueInvoices: overdueInvsRes.count ?? 0,
     revenueHistory,
-    topEmployees: topEmployeesRes.data ?? [],
+    topEmployees,
   };
 }
 
