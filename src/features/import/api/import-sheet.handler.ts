@@ -464,15 +464,13 @@ export async function handleImportSheet(request: Request) {
           }
         }
 
-        const payload = {
+        const payload: any = {
           company_id: companyId,
           code,
           name,
           landlord_id: landlord_id || null,
           area,
           address: address || null,
-          total_floors: total_floors ? Number(total_floors) : 1,
-          total_rooms: total_rooms ? Number(total_rooms) : 0,
           year_built: year_built ? Number(year_built) : null,
           has_elevator: has_elevator === true || has_elevator === 'Y' || has_elevator === 'Yes',
           pccc_certified: pccc_certified === true || pccc_certified === 'Y' || pccc_certified === 'Yes',
@@ -493,6 +491,13 @@ export async function handleImportSheet(request: Request) {
           updated_at: new Date().toISOString()
         };
 
+        if (total_floors !== undefined && total_floors !== null && total_floors !== '') {
+          payload.total_floors = Number(total_floors);
+        }
+        if (total_rooms !== undefined && total_rooms !== null && total_rooms !== '') {
+          payload.total_rooms = Number(total_rooms);
+        }
+
         if (existing) {
           const { error } = await supabaseAdmin
             .from('buildings')
@@ -500,6 +505,9 @@ export async function handleImportSheet(request: Request) {
             .eq('id', existing.id);
           if (error) throw error;
         } else {
+          if (payload.total_floors === undefined) payload.total_floors = 1;
+          if (payload.total_rooms === undefined) payload.total_rooms = 0;
+          
           const { error } = await supabaseAdmin
             .from('buildings')
             .insert({ ...payload, created_at: new Date().toISOString() });
