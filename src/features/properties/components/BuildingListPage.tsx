@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload, RefreshCw } from 'lucide-react';
 import { PermissionGate } from '@/components/ui/PermissionGate';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
@@ -43,6 +43,7 @@ export function BuildingListPage() {
   const [editItem, setEditItem] = useState<DBBuilding | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -307,6 +308,28 @@ export function BuildingListPage() {
           <div className="flex items-center gap-2">
             <Button onClick={() => router.push('/admin/system/import')} variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg">
               <Upload className="mr-2 h-4 w-4" /> Nhập Excel
+            </Button>
+            <Button
+              onClick={async () => {
+                setSyncing(true);
+                try {
+                  const res = await fetch('/api/buildings/sync-counts', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.success) {
+                    window.location.reload();
+                  }
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setSyncing(false);
+                }
+              }}
+              variant="outline"
+              className="border-border hover:bg-bg-subtle text-ink rounded-lg"
+              title="Đồng bộ lại số phòng/tầng từ dữ liệu thực tế"
+            >
+              {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Đồng bộ số phòng
             </Button>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
