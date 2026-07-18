@@ -32,10 +32,10 @@ export function Logo({ className, showSlogan = false, align = 'center' }: LogoPr
       <div className="flex items-center tracking-tighter">
         {/* Chữ Real: Sử dụng màu text-brand (màu tenant) thay vì text-slate-900 để tự động đổi màu */}
         <span className="font-black text-[1.5em] font-heading text-brand drop-shadow-sm">Real</span>
-        {/* Chữ Home: Màu đỏ nổi bật, Nét dày */}
-        <span className="font-black text-[1.5em] font-heading text-red-600 drop-shadow-sm">Home</span>
+        {/* Chữ Home: Màu vàng ánh kim nổi bật, Nét dày */}
+        <span className="font-black text-[1.5em] font-heading text-amber-500 drop-shadow-sm">Home</span>
         {/* Dấu chấm phá cách */}
-        <span className="font-black text-[1.5em] text-red-600 ml-[2px]">.</span>
+        <span className="font-black text-[1.5em] text-amber-500 ml-[2px]">.</span>
       </div>
       {showSlogan && (
         <span className="text-[0.65em] font-bold tracking-[0.25em] mt-0.5 text-slate-500 uppercase">
