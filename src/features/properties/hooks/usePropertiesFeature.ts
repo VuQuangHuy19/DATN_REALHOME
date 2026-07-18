@@ -22,17 +22,10 @@ export function usePropertiesFeature(companyId?: string) {
     setError(null);
     try {
       const res = await getBuildingsClient(companyId, landlordId);
-      console.log('[DEBUG usePropertiesFeature] getBuildingsClient result:', {
-        companyId,
-        landlordId,
-        role,
-        profileId: profile?.id,
-        count: res.length,
-        items: res
-      });
+
       setItems(res);
     } catch (e: any) {
-      console.error('[DEBUG usePropertiesFeature] getBuildingsClient error:', e);
+
       setError(e.message);
     } finally {
       setLoading(false);

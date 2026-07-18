@@ -36,16 +36,10 @@ function makeHook<T>(
       setError(null);
       try {
         const res = await fetcher(companyId, landlordId);
-        console.log(`[DEBUG useEntities] fetch result:`, {
-          companyId,
-          landlordId,
-          role,
-          count: res.length,
-          items: res
-        });
+
         setItems(res);
       } catch (e: any) {
-        console.error(`[DEBUG useEntities] fetch error:`, e);
+
         setError(e.message);
       } finally {
         setLoading(false);
