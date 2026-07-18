@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyJWT } from '@/lib/auth-utils';
-import { hashPassword } from '@/lib/password-utils';
+import { hashPassword, verifyPassword } from '@/lib/password-utils';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
@@ -28,12 +28,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn' }, { status: 401 });
     }
 
-    // 3. Đọc dữ liệu mật khẩu mới từ body
+    // 3. Đọc dữ liệu từ body
     const body = await request.json();
-    const { password } = body;
+    const { oldPassword, password } = body;
+
+    if (!oldPassword) {
+      return NextResponse.json({ error: 'Vui lòng nhập mật khẩu cũ' }, { status: 400 });
+    }
 
     if (!password || password.length < 6) {
       return NextResponse.json({ error: 'Mật khẩu mới phải có tối thiểu 6 ký tự' }, { status: 400 });
+    }
+
+    // Lấy profile hiện tại để xác thực mật khẩu cũ
+    const { data: profile, error: fetchError } = await supabaseAdmin
+      .from('profiles')
+      .select('password_hash')
+      .eq('id', payload.id)
+      .single();
+
+    if (fetchError || !profile) {
+      return NextResponse.json({ error: 'Không tìm thấy thông tin tài khoản' }, { status: 404 });
+    }
+
+    // Kiểm tra mật khẩu cũ
+    const { valid } = await verifyPassword(oldPassword, profile.password_hash);
+    if (!valid) {
+      return NextResponse.json({ error: 'Mật khẩu cũ không chính xác' }, { status: 400 });
     }
 
     // 4. Băm mật khẩu mới bằng helper hashPassword

@@ -392,7 +392,12 @@ export default function PropertiesPage() {
       const available = rooms.filter((r) => r.status === 'available' || r.status === 'soon_available');
       const prices = rooms.map((r) => r.price).filter((p) => p > 0);
       const allImages = Array.from(
-        new Set(rooms.flatMap((r) => r.thumbnailUrls ?? [r.thumbnailUrl]).filter(Boolean))
+        new Set(rooms.flatMap((r) => 
+          (r.imageUrls ?? [])
+            .concat(r.thumbnailUrls ?? [])
+            .concat([r.imageUrl, r.thumbnailUrl])
+            .filter(Boolean)
+        ))
       );
 
       return {

@@ -374,9 +374,9 @@ export default function BuildingDetailPage() {
                         <ImageGallery
                           items={Array.from(
                             new Set(
-                              (room.thumbnailUrls ?? [])
-                                .concat(room.imageUrls ?? [])
-                                .concat([room.thumbnailUrl, room.imageUrl])
+                              (room.imageUrls ?? [])
+                                .concat(room.thumbnailUrls ?? [])
+                                .concat([room.imageUrl, room.thumbnailUrl])
                                 .filter(Boolean)
                             )
                           )}
