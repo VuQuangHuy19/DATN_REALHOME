@@ -1046,7 +1046,10 @@ export function ExcelImportPage() {
     }
   };
 
-  // Import operation
+  // Import operation - chia nhỏ thành batch để tránh timeout Vercel
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStage, setImportStage] = useState('');
+
   const handleImportExecute = async () => {
     if (validationErrors.length > 0) {
       toast.error('Vui lòng sửa các lỗi trong file Excel trước khi import!');
@@ -1054,29 +1057,83 @@ export function ExcelImportPage() {
     }
 
     setImporting(true);
+    setImportProgress(0);
+    setImportStage('');
+
+    const ROOM_BATCH_SIZE = 10; // Mỗi lần gửi 10 phòng để tránh timeout
+    const totalSteps = 2 + Math.ceil(roomsData.length / ROOM_BATCH_SIZE) + 1; // landlords + buildings + room batches + sync
+    let stepsDone = 0;
+
+    const allResults = {
+      landlordsImported: 0,
+      buildingsImported: 0,
+      roomsImported: 0,
+      errors: [] as string[]
+    };
+
     try {
-      const response = await fetch('/api/import/sheet', {
+      // BƯỚC 1: Import chủ nhà
+      setImportStage('Đang import chủ nhà...');
+      const res1 = await fetch('/api/import/sheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          landlords: landlordsData,
-          buildings: buildingsData,
-          rooms: roomsData
-        })
+        body: JSON.stringify({ landlords: landlordsData, buildings: [], rooms: [] })
       });
+      if (!res1.ok) throw new Error((await res1.json()).error || 'Lỗi import chủ nhà');
+      const d1 = await res1.json();
+      allResults.landlordsImported += d1.results.landlordsImported;
+      allResults.errors.push(...(d1.results.errors || []));
+      stepsDone++;
+      setImportProgress(Math.round((stepsDone / totalSteps) * 100));
 
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.error || 'Lỗi xử lý import');
+      // BƯỚC 2: Import tòa nhà
+      setImportStage('Đang import tòa nhà...');
+      const res2 = await fetch('/api/import/sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ landlords: [], buildings: buildingsData, rooms: [] })
+      });
+      if (!res2.ok) throw new Error((await res2.json()).error || 'Lỗi import tòa nhà');
+      const d2 = await res2.json();
+      allResults.buildingsImported += d2.results.buildingsImported;
+      allResults.errors.push(...(d2.results.errors || []));
+      stepsDone++;
+      setImportProgress(Math.round((stepsDone / totalSteps) * 100));
+
+      // BƯỚC 3: Import phòng theo batch
+      for (let i = 0; i < roomsData.length; i += ROOM_BATCH_SIZE) {
+        const batch = roomsData.slice(i, i + ROOM_BATCH_SIZE);
+        const batchNum = Math.floor(i / ROOM_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(roomsData.length / ROOM_BATCH_SIZE);
+        setImportStage(`Đang import phòng (${Math.min(i + ROOM_BATCH_SIZE, roomsData.length)}/${roomsData.length})...`);
+
+        const res3 = await fetch('/api/import/sheet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ landlords: [], buildings: [], rooms: batch })
+        });
+        if (!res3.ok) throw new Error((await res3.json()).error || `Lỗi import phòng batch ${batchNum}/${totalBatches}`);
+        const d3 = await res3.json();
+        allResults.roomsImported += d3.results.roomsImported;
+        allResults.errors.push(...(d3.results.errors || []));
+        stepsDone++;
+        setImportProgress(Math.round((stepsDone / totalSteps) * 100));
       }
 
-      setImportResults(resData.results);
+      // BƯỚC 4: Đồng bộ số phòng/tầng
+      setImportStage('Đang đồng bộ số phòng, số tầng...');
+      await fetch('/api/buildings/sync-counts', { method: 'POST' });
+      stepsDone++;
+      setImportProgress(100);
+
+      setImportResults(allResults);
       setImported(true);
       toast.success('Nhập dữ liệu Excel thành công!');
     } catch (err: any) {
       toast.error(`Lỗi import: ${err.message}`);
     } finally {
       setImporting(false);
+      setImportStage('');
     }
   };
 
@@ -1259,24 +1316,40 @@ export function ExcelImportPage() {
                   </div>
 
                   {/* Buttons */}
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t">
-                    <Button variant="ghost" onClick={() => setFile(null)}>
-                      Hủy bỏ
-                    </Button>
-                    <Button 
-                      onClick={handleImportExecute} 
-                      disabled={validationErrors.length > 0 || importing}
-                      className="bg-slate-900 text-white hover:bg-slate-800"
-                    >
-                      {importing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Đang import dữ liệu...
-                        </>
-                      ) : (
-                        'Bắt đầu Import'
-                      )}
-                    </Button>
+                  <div className="flex flex-col gap-3 pt-3 border-t">
+                    {importing && (
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>{importStage}</span>
+                          <span>{importProgress}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${importProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-3">
+                      <Button variant="ghost" onClick={() => setFile(null)} disabled={importing}>
+                        Hủy bỏ
+                      </Button>
+                      <Button 
+                        onClick={handleImportExecute} 
+                        disabled={validationErrors.length > 0 || importing}
+                        className="bg-slate-900 text-white hover:bg-slate-800"
+                      >
+                        {importing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            {importStage || 'Đang import...'}
+                          </>
+                        ) : (
+                          'Bắt đầu Import'
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
