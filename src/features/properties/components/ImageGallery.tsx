@@ -147,7 +147,8 @@ export default function ImageGallery({
           src="/placeholder.jpg"
           alt={alt}
           fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 50vw"
+          quality={90}
           className="object-cover"
         />
       </div>
@@ -199,8 +200,9 @@ export default function ImageGallery({
             sizes={
               isDetail
                 ? '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px'
-                : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
+                : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 50vw'
             }
+            quality={90}
             className={`${objectFit} transition-opacity duration-300 cursor-zoom-in`}
             priority={priority && idx === 0}
             onClick={openLightbox}
