@@ -671,7 +671,7 @@ export async function handleImportSheet(request: Request) {
           
         if (bldRooms && bldRooms.length > 0) {
           const totalRooms = bldRooms.length;
-          const totalFloors = Math.max(...bldRooms.map(r => r.floor ? Number(r.floor) : 1));
+          const totalFloors = Math.max(...bldRooms.map((r: { floor: number | null }) => r.floor ? Number(r.floor) : 1));
           
           await supabaseAdmin
             .from('buildings')
