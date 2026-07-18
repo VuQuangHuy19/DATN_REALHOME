@@ -168,6 +168,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
     setUserLoc(latlng);
     setMapCenter(latlng);
     setIsSelectingLocation(false);
+    setLocError('');
   };
 
   return (
