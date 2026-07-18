@@ -104,9 +104,8 @@ function injectHeaders(response: NextResponse, hostname: string): NextResponse {
     !hostname.startsWith('192.168.')
   ) {
     const withoutPort = hostname.split(':')[0];
-    if (withoutPort.endsWith(`.${rootDomain}`)) {
-      companyDomain = withoutPort.slice(0, -(rootDomain.length + 1));
-    } else if (withoutPort !== rootDomain) {
+    if (withoutPort !== rootDomain) {
+      // Pass the FULL custom domain or subdomain + domain (e.g., congtya.realhome.vn or congtya.com)
       companyDomain = withoutPort;
     }
   }

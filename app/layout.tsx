@@ -16,22 +16,33 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+import { headers } from 'next/headers';
+import { getTenantByDomain, getTenantStyleVariables } from '@/lib/tenant-utils';
+import { TenantProvider } from '@/components/providers/TenantProvider';
+
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = headers();
+  const domain = headersList.get('x-company-domain');
+  const tenant = await getTenantByDomain(domain);
+  const styleVariables = getTenantStyleVariables(tenant?.theme_color);
+
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning style={styleVariables}>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <AppPreferencesProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </AppPreferencesProvider>
-          <Toaster richColors position="top-center" />
-        </ThemeProvider>
+        <TenantProvider tenant={tenant}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <AppPreferencesProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </AppPreferencesProvider>
+            <Toaster richColors position="top-center" />
+          </ThemeProvider>
+        </TenantProvider>
       </body>
     </html>
   );

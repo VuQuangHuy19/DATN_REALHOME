@@ -26,6 +26,7 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       colors: {
+        'brand': 'var(--primary-color, #1e3a8a)',
         'bg-base': 'var(--bg-base)',
         'bg-subtle': 'var(--bg-subtle)',
         'ink': 'var(--ink)',

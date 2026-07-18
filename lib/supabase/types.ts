@@ -35,6 +35,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           jwt_duration: number | null;
+          theme_color: string | null;
         };
         Insert: Omit<Database['public']['Tables']['companies']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
