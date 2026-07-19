@@ -292,7 +292,13 @@ export default function BuildingDetailPage() {
                 <PawPrint className="h-4.5 w-4.5 text-accent flex-shrink-0" />
                 <div>
                   <div className="text-[10px] text-ink-muted uppercase font-medium">Nuôi thú cưng</div>
-                  <div className="font-semibold text-ink text-xs">{building.allow_pet ? 'Cho phép nuôi' : 'Không cho nuôi'}</div>
+                  <div className="font-semibold text-ink text-xs">
+                    {(() => {
+                      const petVal = building.allow_pet as any;
+                      const isPetAllowed = petVal === true || petVal === 'true' || (typeof petVal === 'string' && petVal !== 'Không' && petVal !== 'false');
+                      return (typeof petVal === 'string' && petVal !== 'Có' && petVal !== 'true' && petVal !== 'Không' && petVal !== 'false') ? petVal : (isPetAllowed ? 'Cho phép nuôi' : 'Không cho nuôi');
+                    })()}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">

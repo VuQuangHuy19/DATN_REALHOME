@@ -380,7 +380,8 @@ export function BuildingDetailPage() {
       max_occupants: Number(fd.get('max_occupants')) || 2,
       max_vehicles_per_room: Number(fd.get('max_vehicles_per_room')) || 2,
       min_contract_months: Number(fd.get('min_contract_months')) || 12,
-      rose: (fd.get('rose') as string) || null,
+      rose: (fd.get('rose') as string) || '',
+      deposit_terms: '', // also provide empty string for deposit_terms if it's required
     };
 
     if (editItem) {
@@ -723,15 +724,22 @@ export function BuildingDetailPage() {
                   </div>
                   <span className="text-[11px] font-bold uppercase tracking-wider">An toàn PCCC</span>
                 </div>
-                <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.allow_pet ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
-                  <div className="flex items-center justify-between">
-                    <PawPrint className="h-4.5 w-4.5" />
-                    <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${building.allow_pet ? 'bg-white border-accent/20 text-accent' : 'bg-white border-border text-ink-muted'}`}>
-                      {building.allow_pet ? 'Cho phép' : 'Cấm'}
-                    </Badge>
+              {(() => {
+                const petVal = building.allow_pet as any;
+                const isPetAllowed = petVal === true || petVal === 'true' || (typeof petVal === 'string' && petVal !== 'Không' && petVal !== 'false');
+                const petLabel = (typeof petVal === 'string' && petVal !== 'Có' && petVal !== 'true' && petVal !== 'Không' && petVal !== 'false') ? petVal : (isPetAllowed ? 'Cho phép' : 'Cấm');
+                return (
+                  <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${isPetAllowed ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
+                    <div className="flex items-center justify-between">
+                      <PawPrint className="h-4.5 w-4.5" />
+                      <Badge className={`text-[10px] px-1.5 py-0 rounded-md border font-bold ${isPetAllowed ? 'bg-white border-accent/20 text-accent' : 'bg-white border-border text-ink-muted'}`} title={petLabel}>
+                        {petLabel.length > 15 ? petLabel.substring(0, 15) + '...' : petLabel}
+                      </Badge>
+                    </div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Nuôi Pet</span>
                   </div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Nuôi Pet</span>
-                </div>
+                );
+              })()}
                 <div className={`p-3 rounded-lg border flex flex-col justify-between h-20 transition-colors ${building.allow_foreigners ? 'bg-accent-soft/20 border-accent/20 text-accent' : 'bg-bg-subtle/50 border-border text-ink-muted'}`}>
                   <div className="flex items-center justify-between">
                     <Globe className="h-4.5 w-4.5" />

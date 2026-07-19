@@ -438,7 +438,7 @@ export async function handleImportSheet(request: Request) {
           year_built, has_elevator, pccc_certified, allow_pet, allow_foreigners,
           allow_vinfast_electric, image_url, deposit_terms, washing_machine_type,
           electricity_price, water_price, internet_price, common_service_price,
-          latitude, longitude, electric_vehicle_fee
+          latitude, longitude, electric_vehicle_fee, manager_raw
         } = building;
 
         if (!code || !name || !area) {
@@ -461,6 +461,42 @@ export async function handleImportSheet(request: Request) {
           if (processedList.length > 0) {
             processedImageUrl = processedList[0].url;
             processedThumbnailUrl = processedList[0].thumbnail_url || processedList[0].url;
+          }
+        }
+
+        let finalManagerIds: string[] = [];
+        if (manager_raw) {
+          const parts = manager_raw.split('-');
+          const mName = parts[0]?.trim();
+          let mPhone = parts[1]?.trim() || '';
+          mPhone = mPhone.replace(/[^\d]/g, '');
+
+          if (mName) {
+            // Find manager
+            const { data: existingMgr } = await supabaseAdmin
+              .from('managers')
+              .select('id')
+              .eq('company_id', companyId)
+              .eq('name', mName)
+              .maybeSingle();
+            
+            let mId = existingMgr?.id;
+            if (!mId) {
+              const { data: newMgr, error: mErr } = await supabaseAdmin
+                .from('managers')
+                .insert({
+                  company_id: companyId,
+                  name: mName,
+                  phone: mPhone || null,
+                  manager_type: 'individual'
+                })
+                .select('id')
+                .single();
+              if (!mErr && newMgr) {
+                mId = newMgr.id;
+              }
+            }
+            if (mId) finalManagerIds.push(mId);
           }
         }
 
@@ -488,6 +524,7 @@ export async function handleImportSheet(request: Request) {
           electric_vehicle_fee: electric_vehicle_fee ? Number(electric_vehicle_fee) : 0,
           latitude: latitude !== undefined ? latitude : null,
           longitude: longitude !== undefined ? longitude : null,
+          manager_ids: finalManagerIds.length > 0 ? finalManagerIds : null,
           updated_at: new Date().toISOString()
         };
 

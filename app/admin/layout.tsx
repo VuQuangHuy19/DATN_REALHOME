@@ -5,7 +5,10 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { ShieldAlert, ArrowRight } from 'lucide-react';
+import { ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 const pathPermissions: Record<string, string> = {
   '/admin/realhome/buildings': 'buildings.read',
@@ -35,6 +38,29 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
   const hasAccess = !requiredPerm || hasPermission(requiredPerm);
   const isSuspended = company?.status === 'suspended';
   const showBanner = isSuspended && pathname !== '/admin/system/billing';
+
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
+
+  useEffect(() => {
+    const handleStart = () => setIsBackgroundSyncing(true);
+    window.addEventListener('import-sync-started', handleStart);
+    return () => window.removeEventListener('import-sync-started', handleStart);
+  }, []);
+
+  useEffect(() => {
+    if (!company?.id) return;
+    
+    const channel = supabase.channel(`import-progress-${company.id}`);
+    channel.on('broadcast', { event: 'sync-complete' }, (payload: any) => {
+      setIsBackgroundSyncing(false);
+      const msg = payload.payload?.message || 'Đồng bộ ảnh hoàn tất!';
+      toast.success(msg);
+    }).subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [company?.id]);
 
   return (
     <div className="flex min-h-screen bg-bg-base">
@@ -70,6 +96,14 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
           )}
         </main>
       </div>
+
+      {/* Global Sync Animation Popup */}
+      {isBackgroundSyncing && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border shadow-xl rounded-full px-5 py-3 flex items-center space-x-3 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+          <span className="text-sm font-medium text-slate-700">Đang đồng bộ ảnh ngầm...</span>
+        </div>
+      )}
     </div>
   );
 }

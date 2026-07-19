@@ -164,13 +164,30 @@ export default function LandlordsPage() {
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại <span className="text-red-500">*</span></Label>
-                  <Input id="phone" name="phone" defaultValue={editItem?.phone ?? ''} className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
+                  <Input 
+                    id="phone" 
+                    name="phone" 
+                    defaultValue={editItem?.phone ?? ''} 
+                    required 
+                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Không được để trống')}
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                    className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" 
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email <span className="text-red-500">*</span></Label>
-                  <Input id="email" name="email" type="email" defaultValue={editItem?.email ?? ''} className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
+                  <Input 
+                    id="email" 
+                    name="email" 
+                    type="email" 
+                    defaultValue={editItem?.email ?? ''} 
+                    required 
+                    onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Không được để trống')}
+                    onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
+                    className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã Chủ Nhà <span className="text-red-500">*</span></Label>

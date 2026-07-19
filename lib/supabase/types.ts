@@ -77,6 +77,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           landlord_id: string | null;
+          manager_id: string | null;
         };
         Insert: Omit<Database['public']['Tables']['profiles']['Row'], 'created_at' | 'updated_at'>;
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
@@ -290,7 +291,7 @@ export interface Database {
           has_elevator: boolean;
           pccc_certified: boolean;
           common_drying_area: string | null;
-          allow_pet: boolean;
+          allow_pet: string | null;
           allow_foreigners: boolean;
           allow_vinfast_electric: boolean;
           has_air_conditioner: boolean;
@@ -322,7 +323,7 @@ export interface Database {
           has_elevator?: boolean;
           pccc_certified?: boolean;
           common_drying_area?: string | null;
-          allow_pet?: boolean;
+          allow_pet?: string | null;
           allow_foreigners?: boolean;
           allow_vinfast_electric?: boolean;
           latitude?: number | null;
@@ -347,13 +348,59 @@ export interface Database {
           created_by?: string | null;
           updated_by?: string | null;
           image_url: string | null;
+          owner_type: 'individual' | 'company' | null;
+          company_name: string | null;
         };
         Insert: Omit<Database['public']['Tables']['landlords']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
           code?: string | null;
           image_url?: string | null;
+          owner_type?: 'individual' | 'company' | null;
+          company_name?: string | null;
         };
         Update: Partial<Database['public']['Tables']['landlords']['Insert']>;
+        Relationships: [];
+      };
+      building_owners: {
+        Row: {
+          building_id: string;
+          landlord_id: string;
+          ownership_percent: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['building_owners']['Row'], 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['building_owners']['Insert']>;
+        Relationships: [];
+      };
+      managers: {
+        Row: {
+          id: string;
+          company_id: string | null;
+          name: string;
+          phone: string | null;
+          email: string | null;
+          manager_type: 'individual' | 'company' | null;
+          company_name: string | null;
+          profile_id: string | null;
+          created_at: string;
+          updated_at: string;
+          avatar_url: string | null;
+          landlord_id: string | null;
+          code: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['managers']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string, avatar_url?: string | null, landlord_id?: string | null, code?: string | null };
+        Update: Partial<Database['public']['Tables']['managers']['Insert']>;
+        Relationships: [];
+      };
+      building_managers: {
+        Row: {
+          building_id: string;
+          manager_id: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['building_managers']['Row'], 'created_at'>;
+        Update: Partial<Database['public']['Tables']['building_managers']['Insert']>;
         Relationships: [];
       };
       rooms: {
@@ -744,3 +791,6 @@ export type DBRoomImage = Database['public']['Tables']['room_images']['Row'];
 export type DBKPI = Database['public']['Tables']['kpis']['Row'];
 export type DBBuildingService = Database['public']['Tables']['building_services']['Row'];
 export type DBKPIConfiguration = Database['public']['Tables']['kpi_configurations']['Row'];
+export type DBManager = Database['public']['Tables']['managers']['Row'];
+export type DBBuildingOwner = Database['public']['Tables']['building_owners']['Row'];
+export type DBBuildingManager = Database['public']['Tables']['building_managers']['Row'];

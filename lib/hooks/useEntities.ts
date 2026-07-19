@@ -15,7 +15,8 @@ import { getBuildingServices, createBuildingService, updateBuildingService, dele
 import { getPriceRanges, createPriceRange, updatePriceRange, deletePriceRange, getAmenities, createAmenity, updateAmenity, deleteAmenity, getRoomTypes, createRoomType, updateRoomType, deleteRoomType, type DBPriceRange, type DBAmenity, type DBRoomType } from '@/lib/supabase/repositories/categories';
 import { getProvinces, getDistricts, getWards, type VnProvince, type VnDistrict, type VnWard } from '@/lib/supabase/repositories/vn_locations';
 import { getProfiles } from '@/src/features/staff/services/profiles';
-import type { DBBuilding, DBLandlord, DBRoom, DBAppointment, DBContractTemplate, DBEmployee, DBDepositContract, DBRentalContract, DBRoomImage, DBBuildingService } from '@/lib/supabase/types';
+import { getManagers, createManager, updateManager, deleteManager } from '@/src/features/managers/services/managers';
+import type { DBBuilding, DBLandlord, DBRoom, DBAppointment, DBContractTemplate, DBEmployee, DBDepositContract, DBRentalContract, DBRoomImage, DBBuildingService, DBManager } from '@/lib/supabase/types';
 
 
 function makeHook<T>(
@@ -77,6 +78,7 @@ function makeHook<T>(
 
 export const useBuildings = makeHook<DBBuilding>(getBuildings, createBuilding, updateBuilding, deleteBuilding);
 export const useLandlords = makeHook<DBLandlord>(getLandlords, createLandlord, updateLandlord, deleteLandlord);
+export const useManagers = makeHook<DBManager>(getManagers, createManager as any, updateManager, deleteManager);
 
 export function useAppointments(companyId?: string) {
   const { role, profile } = useAuth();

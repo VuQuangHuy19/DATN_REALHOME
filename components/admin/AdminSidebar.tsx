@@ -64,7 +64,15 @@ const getNavItems = (isEn: boolean): NavItem[] => [
       { label: isEn ? 'Appointments' : 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
     ],
   },
-  { label: isEn ? 'Landlords' : 'Chủ nhà', href: '/admin/landlords', icon: UserCheck, permission: 'landlords.read' },
+  {
+    label: isEn ? 'Landlords & Managers' : 'Chủ sở hữu & Quản lý',
+    href: '/admin/landlords',
+    icon: UserCheck,
+    children: [
+      { label: isEn ? 'Landlords' : 'Chủ sở hữu', href: '/admin/landlords', icon: UserCheck, permission: 'landlords.read' },
+      { label: isEn ? 'Managers' : 'Người quản lý', href: '/admin/managers', icon: UserCog, permission: 'landlords.read' },
+    ],
+  },
   { label: isEn ? 'Contracts' : 'Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
   {
     label: isEn ? 'Invoices & Services' : 'Hóa đơn & Dịch vụ',
@@ -139,6 +147,7 @@ export function AdminSidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([
     isEn ? 'Properties' : 'Bất động sản', 
     isEn ? 'Customers' : 'Khách hàng', 
+    isEn ? 'Landlords & Managers' : 'Chủ sở hữu & Quản lý',
     isEn ? 'Human Resources' : 'Nhân sự', 
     isEn ? 'System' : 'Hệ thống',
   ]);

@@ -13,15 +13,17 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload, RefreshCw } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload, RefreshCw, FileSpreadsheet } from 'lucide-react';
 import { PermissionGate } from '@/components/ui/PermissionGate';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import type { DBBuilding } from '@/lib/supabase/types';
-import { useLandlords, useEmployees } from '@/lib/hooks/useEntities';
+import { useLandlords, useManagers } from '@/lib/hooks/useEntities';
 import { supabase } from '@/lib/supabase/client';
 import { getAreaColorClass } from '@/lib/utils/colors';
+import { ExcelImportModal } from './ExcelImportModal';
+import { toast } from 'sonner';
 
 type VnProvince = { id: string; name: string };
 type VnDistrict = { id: string; name: string; province_id: string };
@@ -33,7 +35,7 @@ export function BuildingListPage() {
   const router = useRouter();
   const { items: buildingList, loading, error, add, update, remove } = usePropertiesFeature(company?.id);
   const { items: landlordList } = useLandlords(company?.id);
-  const { items: employeeList } = useEmployees(company?.id);
+  const { items: managerList } = useManagers(company?.id);
 
   const currentLandlord = landlordList.find(l => l.id === profile?.landlord_id);
   const currentLandlordCode = currentLandlord?.code || null;
@@ -42,9 +44,11 @@ export function BuildingListPage() {
   const [filterArea, setFilterArea] = useState('');
   const [filterLandlord, setFilterLandlord] = useState('');
   const [editItem, setEditItem] = useState<DBBuilding | null>(null);
+  const [formLandlordCode, setFormLandlordCode] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -55,8 +59,11 @@ export function BuildingListPage() {
   const [waterPrice, setWaterPrice] = useState('');
   const [internetPrice, setInternetPrice] = useState('');
   const [commonServicePrice, setCommonServicePrice] = useState('');
+  
   const [extraOccupantFee, setExtraOccupantFee] = useState('');
   const [electricVehicleFee, setElectricVehicleFee] = useState('');
+  const [isPetAllowed, setIsPetAllowed] = useState(false);
+  const [allowPetText, setAllowPetText] = useState('');
 
   // --- Location cascade state ---
   const [provinces, setProvinces] = useState<VnProvince[]>([]);
@@ -217,7 +224,7 @@ export function BuildingListPage() {
       has_elevator: formData.get('has_elevator') === 'true',
       pccc_certified: formData.get('pccc_certified') === 'true',
       common_drying_area: (formData.get('common_drying_area') as string) || null,
-      allow_pet: formData.get('allow_pet') === 'true',
+      allow_pet: isPetAllowed ? (allowPetText || 'Có') : 'Không',
       allow_foreigners: formData.get('allow_foreigners') === 'true',
       allow_vinfast_electric: formData.get('allow_vinfast_electric') === 'true',
       has_air_conditioner: formData.get('has_air_conditioner') === 'true',
@@ -257,6 +264,7 @@ export function BuildingListPage() {
 
   const openAdd = () => {
     setEditItem(null);
+    setFormLandlordCode('');
     setSelectedManagers([]);
     setImageUrl(null);
     setThumbnailUrl(null);
@@ -266,6 +274,8 @@ export function BuildingListPage() {
     setCommonServicePrice('200.000');
     setExtraOccupantFee('0');
     setElectricVehicleFee('0');
+    setIsPetAllowed(false);
+    setAllowPetText('');
     setLatitude(null);
     setLongitude(null);
     setSelectedProvinceId('');
@@ -278,6 +288,7 @@ export function BuildingListPage() {
 
   const openEdit = (item: DBBuilding) => {
     setEditItem(item);
+    setFormLandlordCode(item.landlord_id || '');
     setSelectedManagers(item.manager_ids || []);
     setImageUrl(item.image_url || null);
     setThumbnailUrl(item.thumbnail_url || null);
@@ -287,6 +298,10 @@ export function BuildingListPage() {
     setCommonServicePrice(formatNumber(item.common_service_price ?? 200000));
     setExtraOccupantFee(formatNumber(item.extra_occupant_fee ?? 0));
     setElectricVehicleFee(formatNumber(item.electric_vehicle_fee ?? 0));
+    const petVal = item.allow_pet as any;
+    const isPet = petVal === true || petVal === 'true' || (typeof petVal === 'string' && petVal !== 'Không' && petVal !== 'false');
+    setIsPetAllowed(isPet);
+    setAllowPetText(typeof petVal === 'string' && petVal !== 'Có' && petVal !== 'true' && petVal !== 'Không' && petVal !== 'false' ? petVal : '');
     setLatitude(item.latitude ?? null);
     setLongitude(item.longitude ?? null);
     // Reset location selects — user can re-select if they want to change area
@@ -307,9 +322,6 @@ export function BuildingListPage() {
         </div>
         <PermissionGate roles={['company_admin']}>
           <div className="flex items-center gap-2">
-            <Button onClick={() => router.push('/admin/system/import')} variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg">
-              <Upload className="mr-2 h-4 w-4" /> Nhập Excel
-            </Button>
             <Button
               onClick={async () => {
                 setSyncing(true);
@@ -332,11 +344,22 @@ export function BuildingListPage() {
               {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Đồng bộ số phòng
             </Button>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="mr-2 h-4 w-4" /> Thêm tòa nhà</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white">
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setIsImportModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"><FileSpreadsheet className="mr-2 h-4 w-4" /> Nhập Excel</Button>
+              <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="mr-2 h-4 w-4" /> Thêm tòa nhà</Button>
+            </div>
+        <ExcelImportModal 
+          isOpen={isImportModalOpen} 
+          onClose={() => setIsImportModalOpen(false)} 
+          landlords={landlordList}
+          onSuccess={() => {
+            // refresh data if needed
+            window.location.reload();
+          }}
+        />
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white">
                 <DialogHeader className="flex-shrink-0 px-6 pt-6">
                   <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Cập nhật tòa nhà' : 'Thêm tòa nhà mới'}</DialogTitle>
                 </DialogHeader>
@@ -407,7 +430,13 @@ export function BuildingListPage() {
                     {role !== 'landlord' ? (
                       <div className="space-y-1.5">
                         <Label htmlFor="landlord_id" className="text-ink font-semibold text-xs uppercase tracking-wider">Chủ nhà phụ trách</Label>
-                        <select id="landlord_id" name="landlord_id" defaultValue={editItem?.landlord_id ?? ''} className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                        <select 
+                          id="landlord_id" 
+                          name="landlord_id" 
+                          value={formLandlordCode}
+                          onChange={(e) => setFormLandlordCode(e.target.value)}
+                          className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        >
                           <option value="">-- Chọn chủ nhà --</option>
                           {landlordList.map((l) => <option key={l.id} value={l.code || ''}>{l.code ? `${l.code} - ` : ''}{l.name}</option>)}
                         </select>
@@ -471,11 +500,23 @@ export function BuildingListPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="space-y-1">
-                          <Label htmlFor="allow_pet" className="text-[11px] font-semibold text-ink-muted uppercase">Nuôi thú cưng <span className="text-red-500">*</span></Label>
-                          <select id="allow_pet" name="allow_pet" defaultValue={editItem ? String(editItem.allow_pet) : 'false'} className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent">
+                          <Label className="text-[11px] font-semibold text-ink-muted uppercase">Nuôi thú cưng <span className="text-red-500">*</span></Label>
+                          <select 
+                            value={isPetAllowed ? 'true' : 'false'} 
+                            onChange={(e) => setIsPetAllowed(e.target.value === 'true')}
+                            className="w-full h-9 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-ink focus-visible:ring-accent"
+                          >
                             <option value="false">Không cho phép</option>
                             <option value="true">Cho phép</option>
                           </select>
+                          {isPetAllowed && (
+                            <Input
+                              placeholder="Ví dụ: Chỉ nuôi mèo, không chó"
+                              value={allowPetText}
+                              onChange={(e) => setAllowPetText(e.target.value)}
+                              className="h-9 mt-2 text-xs rounded-lg border-border focus-visible:ring-accent"
+                            />
+                          )}
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor="allow_foreigners" className="text-[11px] font-semibold text-ink-muted uppercase">Người nước ngoài <span className="text-red-500">*</span></Label>
@@ -619,14 +660,25 @@ export function BuildingListPage() {
                       <ImageUpload allowVideo={true} value={imageUrl} onChange={(url, thumbUrl) => { setImageUrl(url); setThumbnailUrl(thumbUrl); }} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Quản lý tòa nhà</Label>
+                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Người quản lý tòa nhà</Label>
                       <div className="flex flex-wrap gap-2 p-2.5 border border-border rounded-lg min-h-[44px] bg-white">
-                        {employeeList.map((emp) => (
-                          <Badge key={emp.id} variant={selectedManagers.includes(emp.id) ? 'default' : 'outline'} className={`cursor-pointer select-none rounded-md px-2 py-0.5 text-xs font-semibold ${selectedManagers.includes(emp.id) ? 'bg-accent text-white hover:bg-accent-500' : 'text-ink-muted border-border hover:bg-bg-subtle'}`} onClick={() => setSelectedManagers((prev) => prev.includes(emp.id) ? prev.filter((id) => id !== emp.id) : [...prev, emp.id])}>
-                            {emp.name}
-                          </Badge>
-                        ))}
-                        {employeeList.length === 0 && <div className="text-ink-muted text-xs py-1 text-center w-full">Chưa có nhân viên nào</div>}
+                        {(() => {
+                          const effectiveLandlordCode = role === 'landlord' ? currentLandlordCode : formLandlordCode;
+                          const selectedLandlordUuid = landlordList.find(l => l.code === effectiveLandlordCode)?.id;
+                          const filteredManagerList = managerList.filter(mgr => mgr.landlord_id === selectedLandlordUuid);
+                          
+                          if (!effectiveLandlordCode) {
+                            return <div className="text-ink-muted text-xs py-1 text-center w-full">Vui lòng chọn chủ nhà trước</div>;
+                          }
+                          if (filteredManagerList.length === 0) {
+                            return <div className="text-ink-muted text-xs py-1 text-center w-full">Chưa có người quản lý nào thuộc chủ nhà này</div>;
+                          }
+                          return filteredManagerList.map((mgr) => (
+                            <Badge key={mgr.id} variant={selectedManagers.includes(mgr.id) ? 'default' : 'outline'} className={`cursor-pointer select-none rounded-md px-2 py-0.5 text-xs font-semibold ${selectedManagers.includes(mgr.id) ? 'bg-accent text-white hover:bg-accent-500' : 'text-ink-muted border-border hover:bg-bg-subtle'}`} onClick={() => setSelectedManagers((prev) => prev.includes(mgr.id) ? prev.filter((id) => id !== mgr.id) : [...prev, mgr.id])}>
+                              {mgr.name} {mgr.phone ? `(${mgr.phone})` : ''}
+                            </Badge>
+                          ));
+                        })()}
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
@@ -689,9 +741,9 @@ export function BuildingListPage() {
                       />
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã chủ nhà</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Tên</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khu vực</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Năm XD</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Số tầng</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Số phòng</th>
                     <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
@@ -713,6 +765,7 @@ export function BuildingListPage() {
                         />
                       </td>
                       <td className="px-6 py-4 font-mono font-medium text-ink-muted text-xs">{item.code}</td>
+                      <td className="px-6 py-4 font-mono font-medium text-ink-muted text-xs">{item.landlord_id || '—'}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           {item.thumbnail_url || item.image_url ? (
@@ -731,7 +784,6 @@ export function BuildingListPage() {
                       <td className="px-6 py-4">
                         <Badge variant="outline" className={`border text-ink-muted rounded-md font-medium ${getAreaColorClass(item.area)}`}>{item.area}</Badge>
                       </td>
-                      <td className="px-6 py-4 text-ink-muted font-mono text-sm">{item.year_built ?? '—'}</td>
                       <td className="px-6 py-4 text-ink-muted font-mono text-sm">{item.total_floors}</td>
                       <td className="px-6 py-4 text-ink-muted font-mono text-sm">{item.total_rooms}</td>
                       <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -791,7 +843,7 @@ export function BuildingListPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-bold text-ink text-sm truncate">{item.name}</span>
-                          <span className="font-mono text-xs text-ink-muted font-bold">{item.code}</span>
+                          <span className="font-mono text-xs text-ink-muted font-bold">{item.code} {item.landlord_id ? `(${item.landlord_id})` : ''}</span>
                         </div>
                         <span className="text-xs text-ink-muted block mt-1 line-clamp-1">{item.address || 'Không có địa chỉ'}</span>
                         <div className="mt-1.5">
@@ -802,7 +854,7 @@ export function BuildingListPage() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs text-ink-muted border-t border-border/50">
+                    <div className="grid grid-cols-2 gap-2 pt-2 text-center text-xs text-ink-muted border-t border-border/50">
                       <div>
                         <div className="font-bold text-ink">{item.total_floors}</div>
                         <div className="text-[10px] text-ink-muted">Số tầng</div>
@@ -810,10 +862,6 @@ export function BuildingListPage() {
                       <div>
                         <div className="font-bold text-ink">{item.total_rooms}</div>
                         <div className="text-[10px] text-ink-muted">Số phòng</div>
-                      </div>
-                      <div>
-                        <div className="font-bold text-ink font-mono">{item.year_built ?? '—'}</div>
-                        <div className="text-[10px] text-ink-muted">Năm XD</div>
                       </div>
                     </div>
 

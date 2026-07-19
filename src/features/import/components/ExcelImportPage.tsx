@@ -400,6 +400,7 @@ export function ExcelImportPage() {
           let imageColIdx = 11;
           let roseColIdx = -1;
           let minContractColIdx = -1;
+          let managerRawColIdx = -1;
 
           headerRow.forEach((cell: any, idx: number) => {
             const cellStr = String(cell || '').toLowerCase();
@@ -435,6 +436,7 @@ export function ExcelImportPage() {
             else if (cellStr.includes('link') || cellStr.includes('ảnh') || cellStr.includes('video')) imageColIdx = idx;
             else if (cellStr.includes('hoa hồng') || cellStr.includes('rose')) roseColIdx = idx;
             else if (cellStr.includes('hợp đồng tối thiểu') || cellStr.includes('tối thiểu')) minContractColIdx = idx;
+            else if (cellStr.includes('liên hệ sales') || cellStr.includes('quản lý')) managerRawColIdx = idx;
           });
 
           const uniqueBuildings = new Set<string>();
@@ -512,7 +514,7 @@ export function ExcelImportPage() {
                   year_built: null,
                   has_elevator: false,
                   pccc_certified: true,
-                  allow_pet: false,
+                  allow_pet: 'Không',
                   allow_foreigners: false,
                   allow_vinfast_electric: false,
                   electric_vehicle_fee: 0,
@@ -524,7 +526,8 @@ export function ExcelImportPage() {
                   internet_price: 100000,
                   common_service_price: 200000,
                   latitude: lastBuildingLat,
-                  longitude: lastBuildingLng
+                  longitude: lastBuildingLng,
+                  manager_raw: managerRawColIdx !== -1 && row[managerRawColIdx] ? String(row[managerRawColIdx]).trim() : null
                 });
               }
             } else {
@@ -565,6 +568,10 @@ export function ExcelImportPage() {
                         });
                       }
                     }
+                  }
+                  if (managerRawColIdx !== -1 && row[managerRawColIdx]) {
+                    const rawManager = String(row[managerRawColIdx]).trim();
+                    if (rawManager && !bld.manager_raw) bld.manager_raw = rawManager;
                   }
                 }
               }
@@ -615,6 +622,8 @@ export function ExcelImportPage() {
                 cleanStatus.includes('sẵn')
               ) {
                 status = 'available';
+              } else if (cleanStatus.includes('khách') || cleanStatus.includes('thuê') || cleanStatus.includes('rented')) {
+                status = 'rented';
               } else {
                 status = 'rented';
               }
@@ -665,9 +674,11 @@ export function ExcelImportPage() {
                 if (petColIdx !== -1 && row[petColIdx] !== undefined && row[petColIdx] !== null && String(row[petColIdx]).trim() !== '') {
                   const rawPet = String(row[petColIdx]).trim().toLowerCase();
                   if (rawPet === 'y' || rawPet === 'yes' || rawPet.includes('có') || rawPet === '1') {
-                    bld.allow_pet = true;
+                    bld.allow_pet = 'Có';
                   } else if (rawPet === 'n' || rawPet === 'no' || rawPet.includes('không') || rawPet === '0') {
-                    bld.allow_pet = false;
+                    bld.allow_pet = 'Không';
+                  } else {
+                    bld.allow_pet = String(row[petColIdx]).trim();
                   }
                 }
 
@@ -831,7 +842,7 @@ export function ExcelImportPage() {
                 year_built: null,
                 has_elevator: row[7] === 'Y' || row[7] === 'Yes' || row[7] === true,
                 pccc_certified: row[8] === 'Y' || row[8] === 'Yes' || row[8] === true,
-                allow_pet: row[9] === 'Y' || row[9] === 'Yes' || row[9] === true,
+                allow_pet: (row[9] === 'Y' || row[9] === 'Yes' || row[9] === true || String(row[9]).trim().toLowerCase().includes('có') || String(row[9]).trim() === '1') ? 'Có' : (row[9] ? String(row[9]) : 'Không'),
                 allow_foreigners: row[10] === 'Y' || row[10] === 'Yes' || row[10] === true,
                 allow_vinfast_electric: row[11] === 'Y' || row[11] === 'Yes' || row[11] === true,
                 image_url: getCellHyperlink(wsToaNha, i, 12) || (row[12] ? String(row[12]).trim() : ''),
@@ -877,6 +888,8 @@ export function ExcelImportPage() {
                   cleanStatus.includes('sẵn')
                 ) {
                   status = 'available';
+                } else if (cleanStatus.includes('khách') || cleanStatus.includes('thuê') || cleanStatus.includes('rented')) {
+                  status = 'rented';
                 } else {
                   status = 'rented';
                 }

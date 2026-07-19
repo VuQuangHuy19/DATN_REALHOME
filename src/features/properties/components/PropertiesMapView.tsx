@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { BuildingGroup } from '@/app/customer/properties/page';
@@ -183,8 +183,10 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         center={mapCenter}
         zoom={mapZoom}
         scrollWheelZoom={true}
+        zoomControl={false}
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
+        <ZoomControl position="bottomright" />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -243,10 +245,9 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         ))}
       </MapContainer>
 
-      {/* Control overlay */}
-      <div className="absolute top-4 left-14 sm:left-16 right-4 z-[400] pointer-events-none flex flex-col md:flex-row justify-between items-start gap-3">
-        {/* Search Bar - Top Left */}
-        <div className="pointer-events-auto bg-card shadow-md rounded-lg flex p-1 w-full max-w-[260px] sm:max-w-sm border border-border-subtle">
+      {/* Top Search Overlay */}
+      <div className="absolute top-4 left-[60px] z-[400] w-full max-w-[280px] sm:max-w-[320px] pointer-events-none">
+        <div className="pointer-events-auto bg-card shadow-lg rounded-xl flex items-center border border-border-subtle overflow-hidden w-full">
           <form className="flex w-full" onSubmit={handleSearchAddress}>
             <Input 
               placeholder="Tìm địa điểm, ví dụ: Cầu Giấy..." 
@@ -264,19 +265,20 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
             </Button>
           </form>
         </div>
+      </div>
 
-        {/* Action Buttons - Top Right */}
-        <div className="pointer-events-auto flex flex-col gap-2 items-end self-end md:self-auto">
-          <div className="flex flex-col gap-2">
-            <Button
-              variant={isSelectingLocation ? "default" : "secondary"}
-              className="shadow-md bg-card text-ink hover:bg-slate-50 dark:hover:bg-slate-900/30 flex items-center justify-center gap-2 border border-border-subtle w-10 sm:w-auto px-0 sm:px-4"
-              onClick={() => {
-                setIsSelectingLocation(!isSelectingLocation);
-                setLocError(isSelectingLocation ? '' : 'Vui lòng nhấp vào một điểm trên bản đồ');
-              }}
-              title="Chọn vị trí trên bản đồ"
-            >
+      {/* Action Buttons - Top Right */}
+      <div className="absolute top-4 right-4 z-[400] pointer-events-auto flex flex-col gap-2 items-end">
+        <div className="flex flex-col gap-2">
+          <Button
+            variant={isSelectingLocation ? "default" : "secondary"}
+            className="shadow-md bg-card text-ink hover:bg-slate-50 dark:hover:bg-slate-900/30 flex items-center justify-center gap-2 border border-border-subtle w-10 sm:w-auto px-0 sm:px-4"
+            onClick={() => {
+              setIsSelectingLocation(!isSelectingLocation);
+              setLocError(isSelectingLocation ? '' : 'Vui lòng nhấp vào một điểm trên bản đồ');
+            }}
+            title="Chọn vị trí trên bản đồ"
+          >
               {isSelectingLocation ? <Crosshair className="h-4 w-4" /> : <MousePointerClick className="h-4 w-4 text-accent" />}
               <span className="hidden sm:inline">{isSelectingLocation ? 'Hủy chọn' : 'Chọn vị trí'}</span>
             </Button>
@@ -298,7 +300,6 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
             </div>
           )}
         </div>
-      </div>
 
       {/* Bottom Slider Pill */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] pointer-events-auto w-[90%] max-w-[340px]">
