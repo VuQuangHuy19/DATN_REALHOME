@@ -214,13 +214,24 @@ export async function POST(req: Request) {
         const rawStatus = row['Trạng thái(*)']?.toString().trim() || '';
         let status = 'rented'; // Mặc định nếu để trống là đã thuê
         let soonAvailableDate = '';
+        const numVal = Number(rawStatus);
         
-        const dateMatch = rawStatus.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/);
-        if (dateMatch) {
-          status = 'rented';
-          soonAvailableDate = dateMatch[0];
-        } else if (rawStatus.toLowerCase().includes('trống') || rawStatus.toLowerCase().includes('ở luôn') || rawStatus.toLowerCase().includes('luôn')) {
-          status = 'available';
+        if (rawStatus && !isNaN(numVal) && numVal > 40000 && numVal < 50000) {
+            // Trường hợp Excel tự động format thành serial number (ngày tháng của Excel)
+            const date = new Date((numVal - 25569) * 86400 * 1000);
+            soonAvailableDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+            status = 'rented';
+        } else {
+            const textDateMatch = rawStatus.match(/((\d{1,4}[\/\-]\d{1,2}[\/\-]\d{1,4})|(\d{1,2}[\/\-]\d{1,2}))/)
+                               || rawStatus.match(/((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s\-]*\d{1,2})/i)
+                               || rawStatus.match(/(\d{1,2}[\s\-]*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)/i);
+            
+            if (textDateMatch) {
+              status = 'rented';
+              soonAvailableDate = textDateMatch[0];
+            } else if (rawStatus.toLowerCase().includes('trống') || rawStatus.toLowerCase().includes('ở luôn') || rawStatus.toLowerCase().includes('luôn')) {
+              status = 'available';
+            }
         }
         
         const rawRoomType = row['Loại Phòng(*)']?.toString() || 'Phòng trọ';
