@@ -211,10 +211,11 @@ export async function POST(req: Request) {
         
         const areaSize = parseFloat(row['Diện tích(*)']?.toString().replace(',', '.')) || 0;
         
-        const emptyStatus = row['Trạng thái(*)']?.toString().trim() || 'Trống';
-        let status = 'available';
-        if (emptyStatus.toLowerCase().includes('có khách') || emptyStatus.toLowerCase().includes('đã thuê')) {
-          status = 'rented';
+        const rawStatus = row['Trạng thái(*)']?.toString().trim() || '';
+        let status = 'rented'; // Mặc định nếu để trống là đã thuê
+        
+        if (rawStatus.toLowerCase().includes('trống')) {
+          status = 'available';
         }
         
         const rawRoomType = row['Loại Phòng(*)']?.toString() || 'Phòng trọ';
