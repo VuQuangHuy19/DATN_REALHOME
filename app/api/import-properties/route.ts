@@ -213,8 +213,13 @@ export async function POST(req: Request) {
         
         const rawStatus = row['Trạng thái(*)']?.toString().trim() || '';
         let status = 'rented'; // Mặc định nếu để trống là đã thuê
+        let soonAvailableDate = '';
         
-        if (rawStatus.toLowerCase().includes('trống')) {
+        const dateMatch = rawStatus.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/);
+        if (dateMatch) {
+          status = 'rented';
+          soonAvailableDate = dateMatch[0];
+        } else if (rawStatus.toLowerCase().includes('trống') || rawStatus.toLowerCase().includes('ở luôn') || rawStatus.toLowerCase().includes('luôn')) {
           status = 'available';
         }
         
@@ -261,6 +266,7 @@ export async function POST(req: Request) {
         if (interiorNote) finalNotesList.push(`Nội thất: ${interiorNote}`);
         if (driveLink) finalNotesList.push(`Link ảnh gốc: ${driveLink}`);
         if (autoNote) finalNotesList.push(`Lưu ý: ${autoNote}`);
+        if (soonAvailableDate) finalNotesList.push(`[Sắp trống: ${soonAvailableDate}]`);
         const finalNotes = finalNotesList.join('\n');
         // Extract floor from room code (e.g., 602 -> 6, 1205 -> 12)
         let floor = 1;
