@@ -70,12 +70,13 @@ export async function syncGoogleDriveImagesForProperty(roomId: string, driveUrl:
       // Attempt to detect from headers first
       let ext = 'jpg';
       let mime = 'image/jpeg';
+      const cType = String(contentType);
       
-      if (contentType.includes('png')) { ext = 'png'; mime = 'image/png'; }
-      else if (contentType.includes('gif')) { ext = 'gif'; mime = 'image/gif'; }
-      else if (contentType.includes('webp')) { ext = 'webp'; mime = 'image/webp'; }
-      else if (contentType.includes('mp4')) { ext = 'mp4'; mime = 'video/mp4'; }
-      else if (contentType.includes('quicktime') || contentType.includes('mov')) { ext = 'mov'; mime = 'video/quicktime'; }
+      if (cType.includes('png')) { ext = 'png'; mime = 'image/png'; }
+      else if (cType.includes('gif')) { ext = 'gif'; mime = 'image/gif'; }
+      else if (cType.includes('webp')) { ext = 'webp'; mime = 'image/webp'; }
+      else if (cType.includes('mp4')) { ext = 'mp4'; mime = 'video/mp4'; }
+      else if (cType.includes('quicktime') || cType.includes('mov')) { ext = 'mov'; mime = 'video/quicktime'; }
       else {
         // Fallback to magic bytes detection
         if (buffer.length >= 12) {

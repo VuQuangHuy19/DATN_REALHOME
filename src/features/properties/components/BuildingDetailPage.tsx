@@ -15,7 +15,9 @@ import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Load
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { useRoomsFeature } from '@/src/features/rooms/hooks/useRoomsFeature';
-import { useRoomImages, useRentalContracts, useRoomTypesCatalog, useDepositContracts } from '@/lib/hooks/useEntities';
+import { useRoomImages } from '@/src/features/properties/hooks/useRoomImages';
+import { useRentalContracts, useDepositContracts } from '@/src/features/finance/hooks/useContracts';
+import { useRoomTypesCatalog } from '@/src/features/categories/hooks/useCategories';;
 import { DepositCountdown } from '@/components/ui/DepositCountdown';
 import { getRoomImages, addRoomImage } from '@/lib/supabase/repositories/room_images';
 import { supabase } from '@/lib/supabase/client';
@@ -797,8 +799,8 @@ export function BuildingDetailPage() {
                     <td className="p-2 text-accent font-bold font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</td>
                   </tr>
                   <tr className="hover:bg-bg-subtle/50 transition-colors">
-                    <td className="p-2 font-medium">Dịch vụ chung</td>
-                    <td className="p-2 text-accent font-bold font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</td>
+                    <td className="p-2 text-ink font-semibold">Phí dịch vụ chung</td>
+                    <td className="p-2 text-accent font-bold font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/{(building as any).common_service_unit || 'người'}</td>
                   </tr>
                   <tr className="hover:bg-bg-subtle/50 transition-colors">
                     <td className="p-2 font-medium">Phí xe điện</td>

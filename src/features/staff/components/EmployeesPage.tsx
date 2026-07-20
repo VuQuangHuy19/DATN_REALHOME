@@ -10,7 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, User, Loader2, AlertCircle } from 'lucide-react';
-import { useEmployees } from '@/lib/hooks/useEntities';
+import { useEmployees } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import { authFetch } from '@/lib/supabase/auth-fetch';
 import type { DBEmployee, DBRole } from '@/lib/supabase/types';

@@ -12,7 +12,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, Phone, User, Building2, MapPin, Layers, Loader2, AlertCircle, Mail } from 'lucide-react';
-import { useLandlords, useBuildings } from '@/lib/hooks/useEntities';
+import { useLandlords } from '@/src/features/properties/hooks/useLandlords';
+import { useBuildings } from '@/src/features/properties/hooks/useBuildings';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { toast } from 'sonner';

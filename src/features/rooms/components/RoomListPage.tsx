@@ -10,7 +10,12 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, Eye, DoorOpen, Loader2, AlertCircle, Image as LucideImage } from 'lucide-react';
-import { useRooms, useBuildings, useRoomImages, useRentalContracts, useRoomTypesCatalog, useDepositContracts, useLandlords } from '@/lib/hooks/useEntities';
+import { useRooms } from '@/src/features/rooms/hooks/useRooms';
+import { useBuildings } from '@/src/features/properties/hooks/useBuildings';
+import { useRoomImages } from '@/src/features/properties/hooks/useRoomImages';
+import { useRentalContracts, useDepositContracts } from '@/src/features/finance/hooks/useContracts';
+import { useRoomTypesCatalog } from '@/src/features/categories/hooks/useCategories';
+import { useLandlords } from '@/src/features/properties/hooks/useLandlords';;
 import { DepositCountdown } from '@/components/ui/DepositCountdown';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ImageUpload } from '@/components/ui/ImageUpload';
@@ -533,16 +538,11 @@ export function RoomListPage() {
               </select>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <select value={filterBuildingId} onChange={(e) => setFilterBuildingId(e.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <option value="">Tất cả tòa nhà</option>
-                {buildings.map((b) => (
-                  <option key={b.id} value={b.code}>
-                    {b.code} — {b.name}
-                  </option>
-                ))}
-              </select>
               {role !== 'landlord' && (
-                <select value={filterLandlordCode} onChange={(e) => setFilterLandlordCode(e.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <select value={filterLandlordCode} onChange={(e) => {
+                  setFilterLandlordCode(e.target.value);
+                  setFilterBuildingId(''); // Reset building filter when landlord changes
+                }} className="h-10 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   <option value="">Tất cả chủ nhà</option>
                   {landlords.map((l) => (
                     <option key={l.id} value={l.code || ''}>
@@ -551,6 +551,16 @@ export function RoomListPage() {
                   ))}
                 </select>
               )}
+              <select value={filterBuildingId} onChange={(e) => setFilterBuildingId(e.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <option value="">Tất cả tòa nhà</option>
+                {buildings
+                  .filter((b) => !filterLandlordCode || b.landlord_id === filterLandlordCode)
+                  .map((b) => (
+                    <option key={b.id} value={b.code}>
+                      {b.code} — {b.name}
+                    </option>
+                ))}
+              </select>
             </div>
           </div>
         </CardHeader>

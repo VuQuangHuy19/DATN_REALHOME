@@ -48,6 +48,14 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
   return d;
 }
 
+const formatShortPrice = (price: number) => {
+  if (price >= 1000000) {
+    const p = price / 1000000;
+    return Number.isInteger(p) ? `${p}tr` : `${p.toFixed(1)}tr`;
+  }
+  return `${Math.floor(price / 1000)}k`;
+};
+
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
   const map = useMap();
   useEffect(() => {
@@ -98,25 +106,24 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
     if (userLoc) {
       m = m
         .map(g => ({
-          group: g,
+          ...g,
           distance: getDistanceFromLatLonInKm(
             userLoc[0], userLoc[1],
             g.representativeRoom.latitude!, g.representativeRoom.longitude!
           ),
         }))
         .filter(x => x.distance <= radiusKm)       // chỉ giữ BĐS trong bán kính
-        .sort((a, b) => a.distance - b.distance)   // gần nhất trước
-        .map(x => x.group);
+        .sort((a, b) => a.distance - b.distance);   // gần nhất trước
     }
     return m;
   }, [groups, userLoc, radiusKm]);
 
   // Adjust center if markers exist and no userLoc
   useEffect(() => {
-    if (markers.length > 0 && !userLoc) {
+    if (!isSelectingLocation && markers.length > 0 && !userLoc) {
       setMapCenter([markers[0].representativeRoom.latitude!, markers[0].representativeRoom.longitude!]);
     }
-  }, [markers, userLoc]);
+  }, [markers, isSelectingLocation, userLoc]);
 
   const handleFindAround = () => {
     if (!navigator.geolocation) {
@@ -178,6 +185,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         .custom-leaflet-popup .leaflet-popup-content { margin: 0; width: 100% !important; min-width: 250px; }
         .custom-leaflet-popup .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 0.5rem; }
         .leaflet-popup-content-wrapper div a { color: #fff !important; }
+        .custom-price-marker { background: transparent; border: none; }
       ` }} />
       <MapContainer
         center={mapCenter}
@@ -211,6 +219,12 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
           <Marker
             key={g.buildingId}
             position={[g.representativeRoom.latitude!, g.representativeRoom.longitude!]}
+            icon={L.divIcon({
+              className: 'custom-price-marker',
+              html: `<div style="background-color: #2563eb; color: white; padding: 4px 8px; border-radius: 9999px; font-weight: 700; font-size: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 2px solid white; white-space: nowrap; text-align: center; display: inline-block;">${formatShortPrice(g.minPrice)}</div>`,
+              iconAnchor: [20, 15],
+              popupAnchor: [0, -15]
+            })}
           >
             <Popup className="custom-leaflet-popup">
               <div className="flex flex-col">
@@ -246,7 +260,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
       </MapContainer>
 
       {/* Top Search Overlay */}
-      <div className="absolute top-4 left-[60px] z-[400] w-full max-w-[280px] sm:max-w-[320px] pointer-events-none">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] w-[calc(100%-100px)] max-w-[320px] pointer-events-none">
         <div className="pointer-events-auto bg-card shadow-lg rounded-xl flex items-center border border-border-subtle overflow-hidden w-full">
           <form className="flex w-full" onSubmit={handleSearchAddress}>
             <Input 

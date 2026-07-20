@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { TrendingUp, TrendingDown, Minus, Search, Loader2, AlertCircle, Settings, Sparkles, Check } from 'lucide-react';
 import { getKPIs, createKPI, updateKPI, computeAutoKPI } from '@/src/features/staff/services/kpis';
 import { getProfiles } from '@/src/features/staff/services/profiles';
-import { useEmployees } from '@/lib/hooks/useEntities';
+import { useEmployees } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getKPIConfiguration, saveKPIConfiguration } from '@/src/features/staff/services/kpi_configurations';
 import type { DBEmployeeKPI, DBKPIConfiguration } from '@/lib/supabase/types';

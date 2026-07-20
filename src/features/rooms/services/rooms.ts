@@ -44,7 +44,7 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
   const roomsWithLandlord = (data ?? []).map((room: any) => {
     return {
       ...room,
-      landlord_code: room.landlord_id ?? '—',
+      landlord_code: room.buildings?.landlord_id ?? room.landlord_id ?? '—',
     };
   });
 

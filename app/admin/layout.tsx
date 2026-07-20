@@ -51,7 +51,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
     if (!company?.id) return;
     
     const channel = supabase.channel(`import-progress-${company.id}`);
-    channel.on('broadcast', { event: 'sync-complete' }, (payload: any) => {
+    channel.on('broadcast', { event: 'sync-complete' }, (payload: { payload?: { message?: string } }) => {
       setIsBackgroundSyncing(false);
       const msg = payload.payload?.message || 'Đồng bộ ảnh hoàn tất!';
       toast.success(msg);

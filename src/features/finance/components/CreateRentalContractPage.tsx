@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useRooms } from '@/lib/hooks/useEntities';
+import { useRooms } from '@/src/features/rooms/hooks/useRooms';;
 import { createRentalContract } from '@/src/features/finance/services/rental_contracts';
 import { updateDepositContract } from '@/src/features/finance/services/deposit_contracts';
 import { updateRoom } from '@/src/features/rooms/services/rooms';
@@ -149,7 +149,7 @@ export function CreateRentalContractPage() {
           setInternetPrice(room.buildings.internet_price);
         }
         if (room.buildings.common_service_price !== undefined && room.buildings.common_service_price !== null) {
-          const unit = room.buildings.common_service_price > 50000 ? '/người/tháng' : '/người/tháng';
+          const unit = (room.buildings as any).common_service_unit === 'phòng' ? '/phòng/tháng' : '/người/tháng';
           setServicePrice(`${room.buildings.common_service_price}${unit}`);
         }
         const wm = room.buildings.washing_machine_type;

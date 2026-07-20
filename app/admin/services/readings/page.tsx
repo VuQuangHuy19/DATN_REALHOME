@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useBuildings } from '@/lib/hooks/useEntities';
+import { useBuildings } from '@/src/features/properties/hooks/useBuildings';;
 import { supabase } from '@/lib/supabase/client';
 import { getServiceReadings, getPreviousReading, saveServiceReading } from '@/src/features/rooms/services/service_readings';
 import { getRentalContracts } from '@/src/features/finance/services/rental_contracts';

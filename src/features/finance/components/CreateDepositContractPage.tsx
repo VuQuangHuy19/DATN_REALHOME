@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useRooms } from '@/lib/hooks/useEntities';
+import { useRooms } from '@/src/features/rooms/hooks/useRooms';;
 import { supabase } from '@/lib/supabase/client';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { authFetch } from '@/lib/supabase/auth-fetch';
@@ -298,7 +298,7 @@ export function CreateDepositContractPage() {
           setInternetPrice(room.buildings.internet_price);
         }
         if (room.buildings.common_service_price !== undefined && room.buildings.common_service_price !== null) {
-          const unit = room.buildings.common_service_price > 50000 ? '/người/tháng' : '/người/tháng';
+          const unit = (room.buildings as any).common_service_unit === 'phòng' ? '/phòng/tháng' : '/người/tháng';
           setServicePrice(`${room.buildings.common_service_price}${unit}`);
         }
         const wm = room.buildings.washing_machine_type;

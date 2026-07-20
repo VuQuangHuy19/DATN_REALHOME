@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 
-import { useRoomTypesCatalog, useProfiles } from '@/lib/hooks/useEntities';
+import { useRoomTypesCatalog } from '@/src/features/categories/hooks/useCategories';
+import { useProfiles } from '@/src/features/staff/hooks/useStaff';;
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';

@@ -153,7 +153,7 @@ export async function POST(req: Request) {
           common_service_price: commonServicePrice,
           allow_pet: allowPetText as any
         };
-        if (!existingBuilding?.landlord_id || existingBuilding?.landlord_id !== landlord_id) {
+        if (!existingBuilding || !existingBuilding.landlord_id || existingBuilding.landlord_id !== landlord_id) {
           updateData.landlord_id = landlord_id;
         }
         if (latitude !== null && longitude !== null) {
@@ -163,20 +163,23 @@ export async function POST(req: Request) {
         await supabase.from('buildings').update(updateData).eq('id', buildingId);
       }
       
-      // Now insert rooms
+      // Get existing rooms for this building to track which ones are omitted
+      const { data: existingRoomsList } = await supabase
+        .from('rooms')
+        .select('id, code')
+        .eq('building_id', buildingCode)
+        .eq('company_id', company_id);
+        
+      const existingRooms = existingRoomsList || [];
+      const processedRoomCodes = new Set<string>();
+
+      // Now insert or update rooms
       for (const row of rows) {
         const roomNumber = row['Phòng trống (*)']?.toString().trim();
         if (!roomNumber) continue;
         
-        // Check if room exists
-        const { data: existingRoom } = await supabase
-          .from('rooms')
-          .select('id')
-          .eq('building_id', buildingCode)
-          .eq('code', roomNumber)
-          .single();
-          
-        if (existingRoom) continue; // skip existing
+        processedRoomCodes.add(roomNumber);
+        const existingRoom = existingRooms.find(r => r.code === roomNumber);
         
         const priceStr = String(row['Giá Phòng (*)'] || '0').trim();
         let price = 0;
@@ -283,6 +286,7 @@ export async function POST(req: Request) {
           room_type: rawRoomType,
           status: status,
           description: finalNotes,
+          landlord_id: landlord_id,
           bedrooms: bedrooms,
           bathrooms: 1,
           max_occupants: maxOccupants,
@@ -290,17 +294,41 @@ export async function POST(req: Request) {
           min_contract_months: 12
         };
         
-        const { data: newRoom, error: rError } = await supabase.from('rooms').insert(payload).select('id').single();
-        if (!rError && newRoom) {
-          propertiesCreated++;
-          
-          // Collect sync task to process sequentially later
-          if (driveLink) {
-            syncTasks.push({ roomId: newRoom.id, driveLink, companyId: company_id });
+        if (existingRoom) {
+          // Update existing room
+          const { error: rError } = await supabase.from('rooms').update(payload).eq('id', existingRoom.id);
+          if (!rError) {
+            propertiesCreated++; // (Reused count for updated rooms conceptually)
+            if (driveLink) {
+              syncTasks.push({ roomId: existingRoom.id, driveLink, companyId: company_id });
+            }
+          } else {
+            console.error(`Lỗi cập nhật phòng ${roomNumber}:`, rError.message || rError);
           }
-        } else if (rError) {
-          console.error(`Lỗi tạo phòng ${roomNumber}:`, rError.message || rError);
+        } else {
+          // Insert new room
+          const { data: newRoom, error: rError } = await supabase.from('rooms').insert(payload).select('id').single();
+          if (!rError && newRoom) {
+            propertiesCreated++;
+            if (driveLink) {
+              syncTasks.push({ roomId: newRoom.id, driveLink, companyId: company_id });
+            }
+          } else if (rError) {
+            console.error(`Lỗi tạo phòng ${roomNumber}:`, rError.message || rError);
+          }
         }
+      }
+
+      // Mark omitted existing rooms as rented
+      const omittedRoomIds = existingRooms
+        .filter(r => !processedRoomCodes.has(r.code))
+        .map(r => r.id);
+        
+      if (omittedRoomIds.length > 0) {
+        await supabase
+          .from('rooms')
+          .update({ status: 'rented' })
+          .in('id', omittedRoomIds);
       }
     }
     

@@ -15,7 +15,8 @@ import {
   Printer, CreditCard, Calendar, User, ShieldCheck, HelpCircle,
   Building, Landmark, RefreshCw, ClipboardCheck
 } from 'lucide-react';
-import { useContractTemplates, useDepositContracts, useRentalContracts, useProfiles } from '@/lib/hooks/useEntities';
+import { useContractTemplates, useDepositContracts, useRentalContracts } from '@/src/features/finance/hooks/useContracts';
+import { useProfiles } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBContractTemplate } from '@/lib/supabase/types';
 import Link from 'next/link';

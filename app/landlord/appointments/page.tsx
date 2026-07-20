@@ -19,7 +19,7 @@ import {
   CheckCircle2, Trash2,
 } from 'lucide-react';
 import { getAreaColorClass } from '@/lib/utils/colors';
-import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
+import { useAppointments, useProfiles } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { AppointmentWithRelations } from '@/src/features/staff/services/appointments';
 

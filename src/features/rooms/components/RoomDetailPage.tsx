@@ -18,7 +18,9 @@ import {
   Bath, Banknote, Pencil, Trash2, Loader2, AlertCircle, CheckCircle2,
   Image as LucideImage
 } from 'lucide-react';
-import { useRoomsByBuilding, useRoomImages, useRentalContracts } from '@/lib/hooks/useEntities';
+import { useRoomsByBuilding } from '@/src/features/rooms/hooks/useRooms';
+import { useRoomImages } from '@/src/features/properties/hooks/useRoomImages';
+import { useRentalContracts } from '@/src/features/finance/hooks/useContracts';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getRoom, getRoomWithBuilding, type RoomWithBuilding } from '@/src/features/rooms/services/rooms';
 import { ImageUpload } from '@/components/ui/ImageUpload';

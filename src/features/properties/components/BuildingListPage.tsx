@@ -19,10 +19,12 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import type { DBBuilding } from '@/lib/supabase/types';
-import { useLandlords, useManagers } from '@/lib/hooks/useEntities';
+import { useLandlords } from '@/src/features/properties/hooks/useLandlords';
+import { useManagers } from '@/src/features/managers/hooks/useManagers';;
 import { supabase } from '@/lib/supabase/client';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { ExcelImportModal } from './ExcelImportModal';
+import { QuickCreateManagerModal } from './QuickCreateManagerModal';
 import { toast } from 'sonner';
 
 type VnProvince = { id: string; name: string };
@@ -49,6 +51,7 @@ export function BuildingListPage() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
   const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -57,10 +60,10 @@ export function BuildingListPage() {
 
   const [electricityPrice, setElectricityPrice] = useState('');
   const [waterPrice, setWaterPrice] = useState('');
-  const [internetPrice, setInternetPrice] = useState('');
-  const [commonServicePrice, setCommonServicePrice] = useState('');
-  
-  const [extraOccupantFee, setExtraOccupantFee] = useState('');
+  const [internetPrice, setInternetPrice] = useState('100.000');
+  const [commonServicePrice, setCommonServicePrice] = useState('200.000');
+  const [commonServiceUnit, setCommonServiceUnit] = useState('người');
+  const [extraOccupantFee, setExtraOccupantFee] = useState('0');
   const [electricVehicleFee, setElectricVehicleFee] = useState('');
   const [isPetAllowed, setIsPetAllowed] = useState(false);
   const [allowPetText, setAllowPetText] = useState('');
@@ -239,6 +242,7 @@ export function BuildingListPage() {
       water_price: parseNumber(waterPrice),
       internet_price: parseNumber(internetPrice),
       common_service_price: parseNumber(commonServicePrice),
+      common_service_unit: commonServiceUnit,
       common_service_description: (formData.get('common_service_description') as string) || null,
       fingerprint_lock_desc: (formData.get('fingerprint_lock_desc') as string) || null,
       extra_occupant_fee: parseNumber(extraOccupantFee),
@@ -272,6 +276,7 @@ export function BuildingListPage() {
     setWaterPrice('35.000');
     setInternetPrice('100.000');
     setCommonServicePrice('200.000');
+    setCommonServiceUnit('người');
     setExtraOccupantFee('0');
     setElectricVehicleFee('0');
     setIsPetAllowed(false);
@@ -296,6 +301,7 @@ export function BuildingListPage() {
     setWaterPrice(formatNumber(item.water_price ?? 35000));
     setInternetPrice(formatNumber(item.internet_price ?? 100000));
     setCommonServicePrice(formatNumber(item.common_service_price ?? 200000));
+    setCommonServiceUnit((item as any).common_service_unit || 'người');
     setExtraOccupantFee(formatNumber(item.extra_occupant_fee ?? 0));
     setElectricVehicleFee(formatNumber(item.electric_vehicle_fee ?? 0));
     const petVal = item.allow_pet as any;
@@ -354,6 +360,15 @@ export function BuildingListPage() {
           landlords={landlordList}
           onSuccess={() => {
             // refresh data if needed
+            window.location.reload();
+          }}
+        />
+        <QuickCreateManagerModal
+          isOpen={isManagerModalOpen}
+          onClose={() => setIsManagerModalOpen(false)}
+          landlordId={role === 'landlord' ? (currentLandlord?.id || '') : (landlordList.find(l => l.code === formLandlordCode)?.id || '')}
+          onCreated={(newManager) => {
+            setSelectedManagers((prev) => [...prev, newManager.id]);
             window.location.reload();
           }}
         />
@@ -448,6 +463,37 @@ export function BuildingListPage() {
                         </span>
                       </div>
                     )}
+                    
+                    <div className="space-y-1.5">
+                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Người quản lý tòa nhà</Label>
+                      <div className="flex flex-wrap gap-2 p-2.5 border border-border rounded-lg min-h-[44px] bg-white">
+                        {(() => {
+                          const effectiveLandlordCode = role === 'landlord' ? currentLandlordCode : formLandlordCode;
+                          const selectedLandlordUuid = landlordList.find(l => l.code === effectiveLandlordCode)?.id;
+                          const filteredManagerList = managerList.filter(mgr => mgr.landlord_id === selectedLandlordUuid);
+                          
+                          if (!effectiveLandlordCode) {
+                            return <div className="text-ink-muted text-xs py-1 text-center w-full">Vui lòng chọn chủ nhà trước</div>;
+                          }
+                          if (filteredManagerList.length === 0) {
+                            return (
+                              <div className="flex flex-col items-center justify-center w-full gap-2 py-2">
+                                <span className="text-ink-muted text-xs">Chưa có người quản lý nào thuộc chủ nhà này</span>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setIsManagerModalOpen(true)} className="h-7 text-xs bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-700">
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Tạo nhanh Quản lý tòa nhà
+                                </Button>
+                              </div>
+                            );
+                          }
+                          return filteredManagerList.map((mgr) => (
+                            <Badge key={mgr.id} variant={selectedManagers.includes(mgr.id) ? 'default' : 'outline'} className={`cursor-pointer select-none rounded-md px-2 py-0.5 text-xs font-semibold ${selectedManagers.includes(mgr.id) ? 'bg-accent text-white hover:bg-accent-500' : 'text-ink-muted border-border hover:bg-bg-subtle'}`} onClick={() => setSelectedManagers((prev) => prev.includes(mgr.id) ? prev.filter((id) => id !== mgr.id) : [...prev, mgr.id])}>
+                              {mgr.name} {mgr.phone ? `(${mgr.phone})` : ''}
+                            </Badge>
+                          ));
+                        })()}
+                      </div>
+                    </div>
                     <div className="space-y-1.5">
                       <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-red-500">*</span> <span className="text-ink-muted font-normal text-xs">(Số nhà, tên đường...)</span></Label>
                       <Input name="address" defaultValue={editItem?.address ?? ''} placeholder="Ví dụ: 123 Nguyễn Trãi" className="rounded-lg border-border focus-visible:ring-accent" />
@@ -619,8 +665,18 @@ export function BuildingListPage() {
                           <Input id="internet_price" name="internet_price" value={internetPrice} onChange={handlePriceChange(setInternetPrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent" />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="common_service_price" className="text-[11px] font-semibold text-ink-muted uppercase">Dịch vụ chung (VND/người) <span className="text-red-500">*</span></Label>
-                          <Input id="common_service_price" name="common_service_price" value={commonServicePrice} onChange={handlePriceChange(setCommonServicePrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent" />
+                          <Label htmlFor="common_service_price" className="text-[11px] font-semibold text-ink-muted uppercase">Dịch vụ chung <span className="text-red-500">*</span></Label>
+                          <div className="flex gap-2">
+                            <Input id="common_service_price" name="common_service_price" value={commonServicePrice} onChange={handlePriceChange(setCommonServicePrice)} className="h-9 text-xs rounded-lg border-border focus-visible:ring-accent flex-1" />
+                            <select
+                              value={commonServiceUnit}
+                              onChange={(e) => setCommonServiceUnit(e.target.value)}
+                              className="h-9 w-24 text-xs rounded-lg border border-border bg-background px-2 text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            >
+                              <option value="người">/ người</option>
+                              <option value="phòng">/ phòng</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
 
@@ -659,28 +715,7 @@ export function BuildingListPage() {
                       <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Hình ảnh tòa nhà</Label>
                       <ImageUpload allowVideo={true} value={imageUrl} onChange={(url, thumbUrl) => { setImageUrl(url); setThumbnailUrl(thumbUrl); }} />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Người quản lý tòa nhà</Label>
-                      <div className="flex flex-wrap gap-2 p-2.5 border border-border rounded-lg min-h-[44px] bg-white">
-                        {(() => {
-                          const effectiveLandlordCode = role === 'landlord' ? currentLandlordCode : formLandlordCode;
-                          const selectedLandlordUuid = landlordList.find(l => l.code === effectiveLandlordCode)?.id;
-                          const filteredManagerList = managerList.filter(mgr => mgr.landlord_id === selectedLandlordUuid);
-                          
-                          if (!effectiveLandlordCode) {
-                            return <div className="text-ink-muted text-xs py-1 text-center w-full">Vui lòng chọn chủ nhà trước</div>;
-                          }
-                          if (filteredManagerList.length === 0) {
-                            return <div className="text-ink-muted text-xs py-1 text-center w-full">Chưa có người quản lý nào thuộc chủ nhà này</div>;
-                          }
-                          return filteredManagerList.map((mgr) => (
-                            <Badge key={mgr.id} variant={selectedManagers.includes(mgr.id) ? 'default' : 'outline'} className={`cursor-pointer select-none rounded-md px-2 py-0.5 text-xs font-semibold ${selectedManagers.includes(mgr.id) ? 'bg-accent text-white hover:bg-accent-500' : 'text-ink-muted border-border hover:bg-bg-subtle'}`} onClick={() => setSelectedManagers((prev) => prev.includes(mgr.id) ? prev.filter((id) => id !== mgr.id) : [...prev, mgr.id])}>
-                              {mgr.name} {mgr.phone ? `(${mgr.phone})` : ''}
-                            </Badge>
-                          ));
-                        })()}
-                      </div>
-                    </div>
+
                     <div className="flex justify-end gap-2 pt-2">
                       <Button type="button" variant="ghost" className="text-ink hover:bg-bg-subtle rounded-lg" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
                       <Button type="submit" form="building-form" className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu thông tin</Button>

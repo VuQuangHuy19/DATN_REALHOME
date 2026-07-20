@@ -11,6 +11,7 @@
     "db:create-admin": "node scripts/create-super-admin.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^0.0.55",
     "@ducanh2912/next-pwa": "^9.7.2",
     "@hookform/resolvers": "^3.9.0",
     "@netlify/plugin-nextjs": "^5.15.1",
@@ -50,6 +51,7 @@
     "@types/node": "20.6.2",
     "@types/react": "18.2.22",
     "@types/react-dom": "18.2.7",
+    "ai": "^3.4.33",
     "autoprefixer": "10.4.15",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.0",
@@ -76,6 +78,7 @@
     "react-dom": "18.2.0",
     "react-hook-form": "^7.53.0",
     "react-leaflet": "^4.2.1",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.3",
     "recharts": "^2.12.7",
     "resend": "^6.16.0",
@@ -94,5 +97,8 @@
     "@types/leaflet": "^1.9.21",
     "@types/web-push": "^3.6.4",
     "sharp": "^0.35.3"
+  },
+  "overrides": {
+    "zod-to-json-schema": "3.23.1"
   }
 }

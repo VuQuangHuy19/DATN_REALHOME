@@ -14,14 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Trash2, Plus, DollarSign, Sparkles, BedDouble, MapPin, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
-import {
-  usePriceRanges,
-  useAmenities,
-  useRoomTypesCatalog,
-  useVnProvinces,
-  useVnDistricts,
-  useVnWards,
-} from '@/lib/hooks/useEntities';
+import { usePriceRanges, useAmenities, useRoomTypesCatalog, useVnProvinces, useVnDistricts, useVnWards } from '@/src/features/categories/hooks/useCategories';;
 import type { DBPriceRange, DBAmenity, DBRoomType } from '@/lib/supabase/repositories/categories';
 
 // ─── Generic CRUD Table ──────────────────────────────────────────────────────

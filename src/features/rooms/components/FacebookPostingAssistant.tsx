@@ -76,7 +76,7 @@ export function FacebookPostingAssistant({ room, images }: FacebookPostingAssist
     const electricity = room.buildings?.electricity_price ? `${room.buildings.electricity_price.toLocaleString('vi-VN')}đ/kWh` : '—';
     const water = room.buildings?.water_price ? `${room.buildings.water_price.toLocaleString('vi-VN')}đ/người` : '—';
     const internet = room.buildings?.internet_price ? `${room.buildings.internet_price.toLocaleString('vi-VN')}đ/phòng` : '—';
-    const commonService = room.buildings?.common_service_price ? `${room.buildings.common_service_price.toLocaleString('vi-VN')}đ/phòng` : '—';
+    const commonService = room.buildings?.common_service_price ? `${room.buildings.common_service_price.toLocaleString('vi-VN')}đ/${(room.buildings as any).common_service_unit || 'người'}` : '—';
     const washMachine = room.buildings?.washing_machine_type || 'Chưa cập nhật';
     const dryer = room.buildings?.dryer_type || 'Chưa cập nhật';
 

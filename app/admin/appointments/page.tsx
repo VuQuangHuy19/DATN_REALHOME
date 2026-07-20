@@ -15,7 +15,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2 } from 'lucide-react';
-import { useAppointments, useProfiles } from '@/lib/hooks/useEntities';
+import { useAppointments, useProfiles } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBAppointment } from '@/lib/supabase/types';
 
