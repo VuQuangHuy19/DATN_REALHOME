@@ -168,10 +168,10 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
         />
       )}
 
-      {/* Thẻ Chat Slide-up (Thiết kế dạng Sheet/Drawer trượt từ dưới lên, chừa khoảng trống phía trên) */}
+      {/* Thẻ Chat Slide-up dạng Bottom Sheet trên Mobile (chừa 15% khoảng trống phía trên, h-[85dvh], luôn thấy ô nhập) */}
       {isOpen && (
         <div
-          className="fixed inset-x-0 bottom-0 top-14 sm:top-auto sm:bottom-22 sm:right-6 sm:inset-x-auto w-full sm:w-[410px] h-[calc(100vh-56px)] sm:h-[580px] max-h-full sm:max-h-[85vh] bg-white dark:bg-bg-base border-t border-x sm:border border-border-subtle rounded-t-[28px] sm:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
+          className="fixed inset-x-0 bottom-0 sm:bottom-22 sm:right-6 sm:inset-x-auto w-full sm:w-[410px] h-[85dvh] sm:h-[580px] max-h-[85dvh] sm:max-h-[85vh] bg-white dark:bg-bg-base border-t border-x sm:border border-border-subtle rounded-t-[28px] sm:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
         >
           {/* Header Mobile Friendly kèm Vùng nhận diện Vuốt xuống (Swipe Handle) */}
           <div
@@ -217,8 +217,8 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
             </div>
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-bg-subtle/50 dark:bg-bg-base">
+          {/* Messages Area (min-h-0 đảm bảo flexbox cuộn tin nhắn ở giữa mà KHÔNG đẩy mất ô nhập ở dưới) */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 bg-bg-subtle/50 dark:bg-bg-base">
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -286,8 +286,8 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
             </div>
           )}
 
-          {/* Input Area */}
-          <div className="p-3 bg-white dark:bg-bg-base border-t border-border-subtle shrink-0">
+          {/* Input Area (shrink-0 + safe area inset padding cho thiết bị di động Android / Redmi / iPhone) */}
+          <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white dark:bg-bg-base border-t border-border-subtle shrink-0">
             <form onSubmit={handleCustomSubmit} className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
