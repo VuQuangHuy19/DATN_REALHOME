@@ -154,6 +154,18 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       recentInvoices = invoices ?? [];
     }
 
+    let landlordRevenueHistory: any[] = [];
+    if (roomIds.length > 0) {
+      const { data: invoiceHistory } = await supabase
+        .from('invoices')
+        .select('period, rent_amount, electricity_amount, water_amount, service_amount, total_amount, status')
+        .eq('company_id', companyId)
+        .eq('status', 'paid')
+        .in('room_id', roomIds)
+        .order('period', { ascending: true });
+      landlordRevenueHistory = invoiceHistory ?? [];
+    }
+
     return {
       totalBuildings: landlordBuildings.length,
       totalRooms,
@@ -177,6 +189,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       roomsList: roomRows,
       contractsList: activeContractsList,
       recentInvoices,
+      landlordRevenueHistory,
     };
   }
 
@@ -186,6 +199,10 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   const in30Days = new Date();
   in30Days.setDate(today.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  const startOf6MonthsAgoStr = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, '0')}-01T00:00:00.000Z`;
 
   const [
     buildingsRes,
@@ -200,11 +217,12 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     pendingApptsTodayRes,
     unassignedConsultsRes,
     overdueInvsRes,
-    revenueDataRes,
+    depositContractsHistoryRes,
     topEmployeesRes,
     activeContractsRes,
     dynamicDepositsRes,
     dynamicRentalsRes,
+    rentalContractsHistoryRes,
   ] = await Promise.all([
     supabase.from('buildings').select('id, name, code, area, address, total_rooms, total_floors').eq('company_id', companyId),
     supabase.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months').eq('company_id', companyId),
@@ -218,11 +236,12 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['Pending', 'pending']).eq('date', todayStr),
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new').is('assigned_to', null),
     supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'overdue'),
-    supabase.from('invoices').select('period, total_amount, management_fee_amount').eq('company_id', companyId).eq('status', 'paid').order('period', { ascending: true }),
+    supabase.from('deposit_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
     supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
     supabase.from('rental_contracts').select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone').eq('company_id', companyId).eq('status', 'active'),
     supabase.from('deposit_contracts').select('rent_price, commission_amount, sales_agent_id, created_by').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
     supabase.from('rental_contracts').select('rent_price, commission_amount, sales_agent_id, created_by').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
+    supabase.from('rental_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
   ]);
 
   const buildingRows = buildingsRes.data ?? [];
@@ -237,7 +256,10 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
 
   const totalCollectedAmount = paidInvoicesList.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
-  const companyRevenue = paidInvoicesList.reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
+  const depositCommission = (dynamicDepositsRes.data ?? []).reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const rentalCommission = (dynamicRentalsRes.data ?? []).reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const companyRevenue = depositCommission + rentalCommission;
+
   const landlordRevenue = paidInvoicesList.reduce((sum: number, inv: any) => {
     const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
       ? Number(inv.landlord_payout_amount)
@@ -245,15 +267,20 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     return sum + payout;
   }, 0);
 
-  // revenueHistory logic
-  const periodMap = (revenueDataRes.data ?? []).reduce((acc: Record<string, { total: number; company: number }>, inv: any) => {
-    if (!acc[inv.period]) {
-      acc[inv.period] = { total: 0, company: 0 };
-    }
-    acc[inv.period].total += Number(inv.total_amount) || 0;
-    acc[inv.period].company += Number(inv.management_fee_amount) || 0;
-    return acc;
-  }, {});
+  // revenueHistory logic (tổng hợp hoa hồng sale của cả cọc và thuê theo từng tháng)
+  const periodMap = new Map<string, number>();
+
+  (depositContractsHistoryRes.data ?? []).forEach((c: any) => {
+    if (!c.created_at) return;
+    const p = c.created_at.substring(0, 7);
+    periodMap.set(p, (periodMap.get(p) || 0) + (Number(c.commission_amount) || 0));
+  });
+
+  (rentalContractsHistoryRes.data ?? []).forEach((c: any) => {
+    if (!c.created_at) return;
+    const p = c.created_at.substring(0, 7);
+    periodMap.set(p, (periodMap.get(p) || 0) + (Number(c.commission_amount) || 0));
+  });
 
   const last6Months = [];
   const nowForChart = new Date();
@@ -264,11 +291,11 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   }
 
   const revenueHistory = last6Months.map(period => {
-    const val = periodMap[period] || { total: 0, company: 0 };
+    const comm = periodMap.get(period) || 0;
     return {
       period,
-      amount: val.company,
-      totalCollected: val.total
+      amount: comm,
+      totalCollected: 0
     };
   });
 
@@ -368,6 +395,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     overdueInvoices: overdueInvsRes.count ?? 0,
     revenueHistory,
     topEmployees,
+    leadsList: leadRows,
   };
 }
 

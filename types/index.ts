@@ -231,7 +231,7 @@ export interface Notification {
   id: string;
   title: string;
   body: string;
-  type: 'lead' | 'appointment' | 'contract' | 'system' | 'consultation';
+  type: 'lead' | 'appointment' | 'contract' | 'system' | 'consultation' | 'invoice';
   isRead: boolean;
   recipientId: string;
   link?: string;

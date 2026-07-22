@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,7 @@ import { LandlordDashboardView } from '@/components/admin/LandlordDashboardView'
 import { SalesDashboardView } from '@/components/admin/SalesDashboardView';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend
 } from 'recharts';
 
 function formatCurrency(n: number) {
@@ -34,6 +34,102 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const { logs: activityLogs } = useActivityLogs(company?.id);
+
+  const [activeTab, setActiveTab] = useState<'kpi' | 'growth' | 'area' | 'revenue'>('kpi');
+  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
+
+  // 1. Phân tích Tăng trưởng Khách hàng (Leads)
+  const leadGrowthData = useMemo(() => {
+    if (!stats?.leadsList) return [];
+    
+    const leads = stats.leadsList as any[];
+    const now = new Date();
+    const dataMap = new Map<string, number>();
+    
+    leads.forEach((l) => {
+      const createdDate = new Date(l.created_at);
+      if (isNaN(createdDate.getTime())) return;
+      
+      let key = '';
+      if (timeRange === 'day') {
+        if (createdDate.getMonth() === now.getMonth() && createdDate.getFullYear() === now.getFullYear()) {
+          key = createdDate.getDate().toString().padStart(2, '0') + '/' + String(createdDate.getMonth() + 1).padStart(2, '0');
+        }
+      } else if (timeRange === 'week') {
+        const startOfYear = new Date(createdDate.getFullYear(), 0, 1);
+        const pastDaysOfYear = (createdDate.getTime() - startOfYear.getTime()) / 86400000;
+        const weekNum = Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
+        if (createdDate.getFullYear() === now.getFullYear()) {
+          key = `Tuần ${weekNum}`;
+        }
+      } else if (timeRange === 'month') {
+        if (createdDate.getFullYear() === now.getFullYear()) {
+          key = `T${createdDate.getMonth() + 1}`;
+        }
+      } else if (timeRange === 'quarter') {
+        if (createdDate.getFullYear() === now.getFullYear()) {
+          const q = Math.floor(createdDate.getMonth() / 3) + 1;
+          key = `Quý ${q}`;
+        }
+      } else if (timeRange === 'year') {
+        key = createdDate.getFullYear().toString();
+      }
+      
+      if (key) {
+        dataMap.set(key, (dataMap.get(key) || 0) + 1);
+      }
+    });
+
+    let sortedKeys = Array.from(dataMap.keys());
+    if (timeRange === 'day') {
+      sortedKeys.sort((a, b) => {
+        const [da, ma] = a.split('/').map(Number);
+        const [db, mb] = b.split('/').map(Number);
+        return ma !== mb ? ma - mb : da - db;
+      });
+    } else if (timeRange === 'week') {
+      sortedKeys.sort((a, b) => Number(a.replace('Tuần ', '')) - Number(b.replace('Tuần ', '')));
+    } else if (timeRange === 'month') {
+      sortedKeys.sort((a, b) => Number(a.replace('T', '')) - Number(b.replace('T', '')));
+    } else if (timeRange === 'quarter') {
+      sortedKeys.sort((a, b) => Number(a.replace('Quý ', '')) - Number(b.replace('Quý ', '')));
+    } else if (timeRange === 'year') {
+      sortedKeys.sort((a, b) => Number(a) - Number(b));
+    }
+
+    return sortedKeys.map(key => ({
+      name: key,
+      count: dataMap.get(key) || 0
+    }));
+  }, [stats?.leadsList, timeRange]);
+
+  // 2. Phân bổ Khách hàng theo Khu vực
+  const areaData = useMemo(() => {
+    if (!stats?.leadsList) return [];
+    const leads = stats.leadsList as any[];
+    const areaMap = new Map<string, number>();
+    
+    leads.forEach((l) => {
+      const area = l.interested_area || l.preferred_area || 'Chưa xác định';
+      areaMap.set(area, (areaMap.get(area) || 0) + 1);
+    });
+    
+    return Array.from(areaMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [stats?.leadsList]);
+
+  // 3. Hiệu suất KPI của Sale
+  const salesPerformanceData = useMemo(() => {
+    if (!stats?.topEmployees) return [];
+    return stats.topEmployees.map((emp: any) => ({
+      name: emp.employee_name || 'Nhân viên',
+      deals: emp.successful_deals || 0,
+      revenue: (emp.revenue_generated || 0) / 1000000,
+      score: emp.score || 0
+    }));
+  }, [stats?.topEmployees]);
 
   const isSale = role === 'sales_agent';
 
@@ -193,7 +289,7 @@ export default function AdminDashboardPage() {
           <Card className="border-border shadow-none rounded-lg">
             <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
               <div>
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu công ty (Phí QL)</p>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu công ty (Hoa hồng)</p>
                 <p className="text-xl font-bold font-mono text-emerald-600 mt-2 truncate tabular-nums">
                   {formatCurrency(stats.companyRevenue !== undefined ? stats.companyRevenue : stats.monthlyRevenue)}
                 </p>
@@ -304,71 +400,179 @@ export default function AdminDashboardPage() {
       {/* Main Charts / Metrics Grid */}
       {stats && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Doanh thu 6 tháng */}
+          {/* Cụm biểu đồ phân tích trung tâm */}
           <Card className="lg:col-span-8 border-border shadow-none rounded-lg bg-white">
-            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
-                <TrendingUp className="h-4.5 w-4.5 text-accent" />
-                Biểu đồ doanh thu 6 tháng gần nhất
-              </CardTitle>
+            <CardHeader className="pb-3 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { id: 'kpi', label: 'Hiệu suất Sale' },
+                  { id: 'growth', label: 'Tăng trưởng khách' },
+                  { id: 'area', label: 'Khu vực khách' },
+                  { id: 'revenue', label: 'Dòng tiền công ty' },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setActiveTab(t.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      activeTab === t.id
+                        ? 'bg-accent text-accent-foreground shadow-sm'
+                        : 'text-ink-muted hover:text-ink hover:bg-bg-subtle'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Bộ lọc thời gian dành cho Tăng trưởng khách hàng */}
+              {activeTab === 'growth' && (
+                <div className="flex items-center gap-1.5 bg-bg-subtle p-0.5 rounded-lg border border-border">
+                  {[
+                    { id: 'day', label: 'Ngày' },
+                    { id: 'week', label: 'Tuần' },
+                    { id: 'month', label: 'Tháng' },
+                    { id: 'quarter', label: 'Quý' },
+                    { id: 'year', label: 'Năm' },
+                  ].map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => setTimeRange(r.id as any)}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all uppercase ${
+                        timeRange === r.id
+                          ? 'bg-white text-ink shadow-sm'
+                          : 'text-ink-muted hover:text-ink'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-5">
-              {mounted && stats.revenueHistory?.length > 0 ? (
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={stats.revenueHistory} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.2}/>
-                          <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="period" stroke="hsl(var(--ink-muted))" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis
-                        stroke="hsl(var(--ink-muted))"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'white',
-                          borderColor: 'hsl(var(--border))',
-                          borderRadius: '0.5rem',
-                          fontSize: '12px'
-                        }}
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="p-2.5 bg-white border border-border rounded-lg shadow-sm space-y-1">
-                                <p className="text-xs font-bold text-ink">{data.period}</p>
-                                <p className="text-xs text-emerald-600 font-semibold">Doanh thu phí QL: {formatCurrency(data.amount)}</p>
-                                {data.totalCollected !== undefined && (
-                                  <p className="text-[10px] text-ink-muted">Tổng thu hộ: {formatCurrency(data.totalCollected)}</p>
-                                )}
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="amount"
-                        stroke="hsl(var(--accent))"
-                        strokeWidth={2}
-                        fillOpacity={1}
-                        fill="url(#colorRevenue)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-ink-muted text-sm">
-                  Chưa có dữ liệu thanh toán hóa đơn để lập biểu đồ.
+              {mounted && (
+                <div className="h-72 w-full">
+                  {activeTab === 'kpi' && (
+                    salesPerformanceData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={salesPerformanceData} margin={{ top: 15, right: 10, left: -10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '0.5rem', fontSize: '11px' }}
+                            formatter={(value: any, name: any) => {
+                              if (name === 'revenue') return [`${value.toFixed(1)}M`, 'Doanh số'];
+                              if (name === 'deals') return [value, 'Số phòng chốt'];
+                              if (name === 'score') return [`${value}đ`, 'Điểm KPI'];
+                              return [value, name];
+                            }}
+                          />
+                          <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                          <Bar dataKey="deals" name="Số phòng chốt" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} barSize={20} />
+                          <Bar dataKey="revenue" name="Doanh số (Triệu VNĐ)" fill="hsl(142,52%,42%)" radius={[4, 4, 0, 0]} barSize={20} />
+                          <Bar dataKey="score" name="Điểm KPI" fill="hsl(38,90%,55%)" radius={[4, 4, 0, 0]} barSize={20} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-ink-muted text-sm">
+                        Chưa có dữ liệu hiệu suất của sale tháng này.
+                      </div>
+                    )
+                  )}
+
+                  {activeTab === 'growth' && (
+                    leadGrowthData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={leadGrowthData} margin={{ top: 15, right: 15, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '0.5rem', fontSize: '11px' }}
+                            formatter={(value: any) => [`${value} khách`, 'Lượng khách mới']}
+                          />
+                          <Line type="monotone" dataKey="count" name="Lượng khách mới" stroke="hsl(var(--accent))" strokeWidth={2.5} activeDot={{ r: 6 }} dot={{ strokeWidth: 2, r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-ink-muted text-sm">
+                        Không có dữ liệu khách hàng trong khoảng thời gian đã chọn.
+                      </div>
+                    )
+                  )}
+
+                  {activeTab === 'area' && (
+                    areaData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={areaData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                          <XAxis type="number" stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                          <YAxis dataKey="name" type="category" stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} width={80} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '0.5rem', fontSize: '11px' }}
+                            formatter={(value: any) => [`${value} khách quan tâm`, 'Số lượng']}
+                          />
+                          <Bar dataKey="count" name="Số lượng khách quan tâm" fill="hsl(262,80%,60%)" radius={[0, 4, 4, 0]} barSize={12} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-ink-muted text-sm">
+                        Chưa có dữ liệu khu vực quan tâm của khách hàng.
+                      </div>
+                    )
+                  )}
+
+                  {activeTab === 'revenue' && (
+                    stats.revenueHistory?.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={stats.revenueHistory} margin={{ top: 15, right: 10, left: -10, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="period" stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} />
+                          <YAxis
+                            stroke="hsl(var(--ink-muted))"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(val) => `${(val / 1000000).toFixed(0)}M`}
+                          />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '0.5rem', fontSize: '11px' }}
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="p-2.5 bg-white border border-border rounded-lg shadow-sm space-y-1">
+                                    <p className="text-xs font-bold text-ink">{data.period}</p>
+                                    <p className="text-xs text-emerald-600 font-semibold">Doanh thu hoa hồng: {formatCurrency(data.amount)}</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="amount"
+                            stroke="hsl(var(--accent))"
+                            strokeWidth={2}
+                            fillOpacity={1}
+                            fill="url(#colorRevenue)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-ink-muted text-sm">
+                        Chưa có dữ liệu doanh thu của công ty.
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </CardContent>
@@ -376,7 +580,7 @@ export default function AdminDashboardPage() {
 
           {/* Nhân viên xuất sắc */}
           <Card className="lg:col-span-4 border-border shadow-none rounded-lg bg-white">
-            <CardHeader className="pb-3 border-b border-border">
+            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
               <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
                 <Award className="h-4.5 w-4.5 text-accent" />
                 Vinh danh Sale xuất sắc

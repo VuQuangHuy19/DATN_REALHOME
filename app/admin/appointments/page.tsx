@@ -320,6 +320,7 @@ export default function AppointmentsPage() {
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Ngày</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Giờ</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khu vực</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Sale phụ trách</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
                     <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
                   </tr>
@@ -369,6 +370,34 @@ export default function AppointmentsPage() {
                       <td className="px-6 py-4 text-ink-muted font-mono">{item.time}</td>
                       <td className="px-6 py-4">
                         {item.area ? <Badge variant="outline" className={`border-border-subtle text-ink-muted ${getAreaColorClass(item.area)}`}>{item.area}</Badge> : '—'}
+                      </td>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={item.assigned_to ?? ''}
+                          onChange={async (e) => {
+                            const newAssignVal = e.target.value || null;
+                            const toastId = toast.loading('Đang phân công...');
+                            try {
+                              const prof = profiles.find(p => p.id === newAssignVal);
+                              const assignedToName = prof?.full_name || prof?.email || null;
+                              await update(item.id, { 
+                                assigned_to: newAssignVal,
+                                assigned_to_name: assignedToName 
+                              });
+                              toast.success('Phân công thành công!', { id: toastId });
+                            } catch (err) {
+                              toast.error('Lỗi phân công!', { id: toastId });
+                            }
+                          }}
+                          className="text-xs font-semibold text-ink bg-white border border-border-subtle rounded-md px-2 py-1 max-w-[150px] outline-none focus:border-accent cursor-pointer"
+                        >
+                          <option value="">-- Chưa phân công --</option>
+                          {assignableProfiles.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.full_name || p.email}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex flex-wrap gap-1.5 max-w-[280px]">

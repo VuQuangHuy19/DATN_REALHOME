@@ -12,6 +12,7 @@ import { Home, Search, Heart, MessageSquare, LayoutDashboard, Calendar } from 'l
 import { CompareProvider } from '@/src/lib/customer/RoomCompareContext';
 import { RoomComparisonDrawer } from '@/src/features/properties/components/RoomComparisonDrawer';
 import { FloatingConsultation } from '@/components/customer/FloatingConsultation';
+import { AIChatWidget } from '@/components/ui/AIChatWidget';
 
 function MobileBottomNav() {
   const pathname = usePathname();
@@ -67,6 +68,7 @@ function CustomerShell({ children }: { children: React.ReactNode }) {
         <MobileBottomNav />
         <RoomComparisonDrawer />
         <FloatingConsultation />
+        <AIChatWidget role="tenant" />
         <CustomerFooter />
       </CompareProvider>
     </CustomerCompanyProvider>

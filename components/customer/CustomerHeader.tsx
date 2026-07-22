@@ -168,12 +168,14 @@ export function CustomerHeader() {
                             Cài đặt
                           </Link>
                         </Button>
-                        <Button asChild onClick={() => setIsOpen(false)}>
-                          <Link href={dashboardHref}>
-                            <LayoutDashboard className="h-4 w-4 mr-2" />
-                            Vào trang quản trị
-                          </Link>
-                        </Button>
+                        {role !== 'customer' && (
+                          <Button asChild onClick={() => setIsOpen(false)}>
+                            <Link href={dashboardHref}>
+                              <LayoutDashboard className="h-4 w-4 mr-2" />
+                              Vào trang quản trị
+                            </Link>
+                          </Button>
+                        )}
                         <Button variant="ghost" onClick={() => { signOut(); setIsOpen(false); }}>
                           <LogOut className="h-4 w-4 mr-2" />
                           Đăng xuất
@@ -216,12 +218,14 @@ export function CustomerHeader() {
                     Cài đặt
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={dashboardHref} className="flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4 text-slate-500 group-focus:text-accent-foreground transition-colors" />
-                    Trang quản trị
-                  </Link>
-                </DropdownMenuItem>
+                {role !== 'customer' && (
+                  <DropdownMenuItem asChild>
+                    <Link href={dashboardHref} className="flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4 text-slate-500 group-focus:text-accent-foreground transition-colors" />
+                      Trang quản trị
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={signOut}

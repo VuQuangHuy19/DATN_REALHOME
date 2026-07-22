@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar, MapPin, Loader2 } from 'lucide-react';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { useEffect } from 'react';
 
 
 const schema = z.object({
@@ -43,14 +45,24 @@ export function ViewingRequestDialog({
   companyId,
   property,
 }: ViewingRequestDialogProps) {
+  const { profile } = useAuth();
+  
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
+
+  useEffect(() => {
+    if (open && profile) {
+      if (profile.full_name) setValue('customerName', profile.full_name);
+      if (profile.phone) setValue('customerPhone', profile.phone);
+    }
+  }, [open, profile, setValue]);
 
   const onSubmit = async (data: FormValues) => {
     if (!property) return;

@@ -9,14 +9,27 @@ import { MessageSquare, X, Send, PhoneCall, CheckCircle2, AlertCircle } from 'lu
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { createConsultation } from '@/src/features/staff/services/consultations';
 import { createLead, createLeadActivity } from '@/src/features/staff/services/leads';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { useEffect, useRef } from 'react';
 
 export function FloatingConsultation() {
   const { company } = useCustomerCompany();
+  const { profile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{fullName?: string; phone?: string}>({});
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (isOpen && profile && formRef.current) {
+      const nameInput = formRef.current.elements.namedItem('fullName') as HTMLInputElement;
+      const phoneInput = formRef.current.elements.namedItem('phone') as HTMLInputElement;
+      if (nameInput && !nameInput.value) nameInput.value = profile.full_name || '';
+      if (phoneInput && !phoneInput.value) phoneInput.value = profile.phone || '';
+    }
+  }, [isOpen, profile]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -96,7 +109,7 @@ export function FloatingConsultation() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-24 lg:bottom-6 right-6 z-50 h-14 w-14 bg-accent hover:bg-accent-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+        className={`fixed bottom-36 lg:bottom-22 right-6 z-50 h-14 w-14 bg-accent hover:bg-accent-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
         aria-label="Tư vấn và Liên hệ"
       >
         <MessageSquare className="h-6 w-6" />
@@ -104,7 +117,7 @@ export function FloatingConsultation() {
 
       {/* Floating Dialog/Panel */}
       <div
-        className={`fixed bottom-24 lg:bottom-6 right-6 z-50 w-[calc(100vw-48px)] max-w-[360px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'}`}
+        className={`fixed bottom-36 lg:bottom-22 right-6 z-50 w-[calc(100vw-48px)] max-w-[360px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'}`}
       >
         {/* Header */}
         <div className="bg-accent p-4 flex items-center justify-between text-white">
@@ -142,7 +155,7 @@ export function FloatingConsultation() {
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
               <p className="text-sm text-ink-muted text-center mb-4">
                 Để lại thông tin, chuyên viên sẽ hỗ trợ bạn tìm bất động sản phù hợp.
               </p>

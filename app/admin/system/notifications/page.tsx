@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Bell, Building2, CalendarDays, MessageSquare, Settings, UserSearch, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Building2, CalendarDays, MessageSquare, Settings, UserSearch, Check, CheckCheck, Loader2, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -19,6 +19,7 @@ const typeConfig: Record<string, { label: string; icon: React.ElementType; color
   new_appointment:  { label: 'Lịch hẹn',   icon: CalendarDays, color: 'text-green-600',  bg: 'bg-green-100' },
   contract_expiring: { label: 'Hợp đồng',  icon: Building2,    color: 'text-orange-600', bg: 'bg-orange-100' },
   new_landlord:     { label: 'Chủ nhà',    icon: Building2,    color: 'text-teal-600',   bg: 'bg-teal-100' },
+  invoice:          { label: 'Hóa đơn',    icon: Receipt,      color: 'text-rose-600',   bg: 'bg-rose-100' },
 };
 
 function formatDate(iso: string) {
@@ -30,8 +31,22 @@ export default function NotificationsPage() {
   const { notifications: list, loading, unreadCount, markRead, markAllRead } = useNotifications(user?.id, company?.id);
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const filtered = list.filter((n) => typeFilter === 'all' || n.type === typeFilter);
-  const uniqueTypes = Array.from(new Set(list.map((n) => n.type)));
+  const mappedList = useMemo(() => {
+    return list.map((n) => {
+      let type: any = n.type;
+      if (n.type === 'system') {
+        if (n.title?.includes('Hóa đơn') || n.body?.includes('Hóa đơn') || n.body?.includes('hóa đơn')) {
+          type = 'invoice';
+        } else if (n.title?.includes('Hợp đồng') || n.body?.includes('Hợp đồng') || n.body?.includes('hợp đồng')) {
+          type = 'contract';
+        }
+      }
+      return { ...n, type };
+    });
+  }, [list]);
+
+  const filtered = mappedList.filter((n) => typeFilter === 'all' || n.type === typeFilter);
+  const uniqueTypes = Array.from(new Set(mappedList.map((n) => n.type)));
 
   return (
     <div className="space-y-6">

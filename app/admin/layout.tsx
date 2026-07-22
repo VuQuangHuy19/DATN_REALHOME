@@ -9,6 +9,7 @@ import { ShieldAlert, ArrowRight, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { AIChatWidget } from '@/components/ui/AIChatWidget';
 
 const pathPermissions: Record<string, string> = {
   '/admin/realhome/buildings': 'buildings.read',
@@ -95,6 +96,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
             </div>
           )}
         </main>
+        <AIChatWidget role="manager" />
       </div>
 
       {/* Global Sync Animation Popup */}

@@ -157,7 +157,7 @@ export interface Database {
           company_id: string | null;
           title: string;
           body: string;
-          type: 'new_lead' | 'new_appointment' | 'contract_expiring' | 'new_landlord' | 'lead' | 'appointment' | 'contract' | 'system' | 'consultation';
+          type: 'new_lead' | 'new_appointment' | 'contract_expiring' | 'new_landlord' | 'lead' | 'appointment' | 'contract' | 'system' | 'consultation' | 'invoice';
           is_read: boolean;
           recipient_id: string | null;
           link: string | null;

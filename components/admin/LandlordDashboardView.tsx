@@ -14,6 +14,10 @@ import {
   ExternalLink, ArrowRight, Activity, Calendar
 } from 'lucide-react';
 import Link from 'next/link';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
 
 interface LandlordDashboardProps {
   stats: {
@@ -29,6 +33,7 @@ interface LandlordDashboardProps {
     roomsList: any[];
     contractsList: any[];
     recentInvoices?: any[];
+    landlordRevenueHistory?: any[];
   };
 }
 
@@ -92,6 +97,57 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
   };
 
   const roomStatusSafe = (s: string) => statusStyle[s] ?? statusStyle.maintenance;
+
+  // 1. Dữ liệu phân tích Doanh thu (Phòng, Điện, Nước, Dịch vụ)
+  const revenueChartData = useMemo(() => {
+    const history = stats.landlordRevenueHistory || [];
+    const periodMap = new Map<string, { rent: number; electricity: number; water: number; service: number }>();
+    
+    history.forEach((inv: any) => {
+      const p = inv.period;
+      if (!periodMap.has(p)) {
+        periodMap.set(p, { rent: 0, electricity: 0, water: 0, service: 0 });
+      }
+      const data = periodMap.get(p)!;
+      data.rent += Number(inv.rent_amount || 0);
+      data.electricity += Number(inv.electricity_amount || 0);
+      data.water += Number(inv.water_amount || 0);
+      data.service += Number(inv.service_amount || 0);
+    });
+
+    const sortedPeriods = Array.from(periodMap.keys()).sort();
+    const last6 = sortedPeriods.slice(-6);
+
+    return last6.map(p => {
+      const data = periodMap.get(p)!;
+      return {
+        period: p,
+        rent: data.rent / 1000000,
+        electricity: data.electricity / 1000000,
+        water: data.water / 1000000,
+        service: data.service / 1000000
+      };
+    });
+  }, [stats.landlordRevenueHistory]);
+
+  // 2. Dữ liệu Tỷ lệ Lấp đầy Phòng trống
+  const occupancyPieData = useMemo(() => {
+    const rooms = stats.roomsList || [];
+    const counts: Record<string, number> = { available: 0, rented: 0, maintenance: 0, reserved: 0 };
+    
+    rooms.forEach((r: any) => {
+      if (counts[r.status] !== undefined) {
+        counts[r.status]++;
+      }
+    });
+
+    return [
+      { name: 'Còn trống', value: counts.available, color: '#10b981' },
+      { name: 'Đã thuê', value: counts.rented, color: '#ef4444' },
+      { name: 'Bảo trì', value: counts.maintenance, color: '#f59e0b' },
+      { name: 'Đang giữ', value: counts.reserved, color: '#3b82f6' }
+    ].filter(item => item.value > 0);
+  }, [stats.roomsList]);
 
   // Lọc phòng đang trống để hiển thị ở danh sách phòng trống cần cho thuê
   const vacantRooms = useMemo(() => {
@@ -177,6 +233,103 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
                 <DollarSign className="h-4 w-4" />
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Biểu đồ phân tích doanh thu chi tiết */}
+        <Card className="lg:col-span-8 border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="pb-3 border-b border-border">
+            <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
+              <Activity className="h-4.5 w-4.5 text-emerald-600" />
+              Phân tích doanh thu chi tiết (6 kỳ gần nhất)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5">
+            {revenueChartData.length > 0 ? (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="period" stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="hsl(var(--ink-muted))" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `${val.toFixed(0)}M`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'white', borderColor: 'hsl(var(--border))', borderRadius: '0.5rem', fontSize: '11px' }}
+                      formatter={(value: any, name: any) => {
+                        const labelMap = { rent: 'Tiền phòng', electricity: 'Tiền điện', water: 'Tiền nước', service: 'Phí dịch vụ' };
+                        return [`${value.toFixed(2)}M`, labelMap[name as keyof typeof labelMap] || name];
+                      }}
+                    />
+                    <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                    <Bar dataKey="rent" stackId="a" fill="#3b82f6" name="Tiền phòng" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="electricity" stackId="a" fill="#f59e0b" name="Tiền điện" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="water" stackId="a" fill="#06b6d4" name="Tiền nước" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="service" stackId="a" fill="#a855f7" name="Phí dịch vụ" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-ink-muted text-sm">
+                Chưa có lịch sử thanh toán hóa đơn để lập biểu đồ doanh thu.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Biểu đồ tròn tỷ lệ trống phòng */}
+        <Card className="lg:col-span-4 border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="pb-3 border-b border-border">
+            <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
+              <Percent className="h-4.5 w-4.5 text-indigo-650" />
+              Tỷ lệ trống phòng
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 flex flex-col items-center justify-center">
+            {occupancyPieData.length > 0 ? (
+              <div className="w-full flex flex-col items-center justify-center">
+                <div className="h-44 w-full relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={occupancyPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {occupancyPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any, name: any) => [`${value} phòng`, name]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center Text */}
+                  <div className="absolute text-center">
+                    <p className="text-2xl font-bold font-heading tracking-tight text-ink">{stats.occupancyRate}%</p>
+                    <p className="text-[10px] text-ink-muted uppercase font-bold tracking-wider leading-none">Lấp đầy</p>
+                  </div>
+                </div>
+                {/* Custom Legends */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 w-full text-xs">
+                  {occupancyPieData.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 justify-center">
+                      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="text-ink-muted truncate font-medium">{item.name}:</span>
+                      <span className="font-bold text-ink">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="h-44 flex items-center justify-center text-ink-muted text-xs">
+                Chưa có dữ liệu phòng để vẽ biểu đồ.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import Image from 'next/image';
+import { Logo } from '@/components/Logo';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, ShieldCheck, AlertCircle, KeyRound, CheckCircle2, Building2 } from 'lucide-react';
@@ -95,7 +95,7 @@ function OnboardingForm() {
       {/* Logo */}
       <div className="flex flex-col items-center mb-8">
         <Link href="/customer/properties">
-          <Image src="/logo.png" alt="RealHome Logo" width={160} height={68} className="h-16 w-auto object-contain" />
+          <Logo />
         </Link>
       </div>
 

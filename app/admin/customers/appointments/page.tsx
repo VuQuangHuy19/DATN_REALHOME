@@ -100,7 +100,7 @@ export default function CustomersAppointmentsPage() {
     return prof?.full_name || prof?.email || 'Chưa phân công';
   };
 
-  const handleAssigneeChange = async (id: string, assignedToId: string) => {
+  const handleAssigneeChange = async (id: string, assignedToId: string | null) => {
     const prof = profiles.find(p => p.id === assignedToId);
     const assignedToName = prof?.full_name || prof?.email || null;
     await update(id, {
@@ -359,10 +359,34 @@ export default function CustomersAppointmentsPage() {
                       <td className="px-6 py-4">
                         {item.area ? <Badge variant="outline" className={`border-border-subtle text-ink-muted ${getAreaColorClass(item.area)}`}>{item.area}</Badge> : '—'}
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
-                          {getAssigneeName(item.assigned_to)}
-                        </span>
+                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                        {isSale ? (
+                          <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
+                            {getAssigneeName(item.assigned_to)}
+                          </span>
+                        ) : (
+                          <select
+                            value={item.assigned_to ?? ''}
+                            onChange={async (e) => {
+                              const newAssignVal = e.target.value || null;
+                              const toastId = toast.loading('Đang phân công...');
+                              try {
+                                await handleAssigneeChange(item.id, newAssignVal);
+                                toast.success('Phân công thành công!', { id: toastId });
+                              } catch (err) {
+                                toast.error('Lỗi phân công!', { id: toastId });
+                              }
+                            }}
+                            className="text-xs font-semibold text-ink bg-white border border-border-subtle rounded-md px-2 py-1 max-w-[150px] outline-none focus:border-accent cursor-pointer"
+                          >
+                            <option value="">-- Chưa phân công --</option>
+                            {assignableProfiles.map((p: any) => (
+                              <option key={p.id} value={p.id}>
+                                {p.full_name || p.email}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusColors[item.status] || 'bg-slate-100 text-slate-700'}`}>

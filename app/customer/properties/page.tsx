@@ -422,7 +422,9 @@ export default function PropertiesPage() {
       const matchSearch = !searchQuery ||
         g.buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         g.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        g.address.toLowerCase().includes(searchQuery.toLowerCase());
+        g.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        g.rooms.some((r) => r.address?.toLowerCase().includes(searchQuery.toLowerCase()));
+
       // Lọc theo quận/huyện (districtId) hoặc phường/xã (wardId) nếu đã chọn
       // Fallback: nếu dữ liệu import từ file csv ko có districtId/wardId, ta parse tên quận/phường và so khớp với g.area hoặc g.address
       const distNameClean = selectedDistrictName.replace(/^(Quận|Huyện|Thị xã)\s+/i, '').trim().toLowerCase();
