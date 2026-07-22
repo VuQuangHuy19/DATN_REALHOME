@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/automations/overdue?secret=Realhome2026_Cron",
-      "schedule": "0 2,7 5-7 * *"
+      "schedule": "0 0 * *"
     }
   ]
 }
