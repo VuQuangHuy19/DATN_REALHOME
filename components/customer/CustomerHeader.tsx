@@ -168,7 +168,7 @@ export function CustomerHeader() {
                             Cài đặt
                           </Link>
                         </Button>
-                        {role !== 'customer' && (
+                        {!!role && (
                           <Button asChild onClick={() => setIsOpen(false)}>
                             <Link href={dashboardHref}>
                               <LayoutDashboard className="h-4 w-4 mr-2" />
@@ -218,7 +218,7 @@ export function CustomerHeader() {
                     Cài đặt
                   </Link>
                 </DropdownMenuItem>
-                {role !== 'customer' && (
+                {!!role && (
                   <DropdownMenuItem asChild>
                     <Link href={dashboardHref} className="flex items-center gap-2">
                       <LayoutDashboard className="h-4 w-4 text-slate-500 group-focus:text-accent-foreground transition-colors" />
