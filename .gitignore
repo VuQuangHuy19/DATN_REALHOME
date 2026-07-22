@@ -59,7 +59,8 @@ secrets.json
 *.tsbuildinfo
 next-env.d.ts
 
-# database migrations
+# database migrations & documentation
 *.sql
-
 *.md
+docs/
+supabase/migrations/
