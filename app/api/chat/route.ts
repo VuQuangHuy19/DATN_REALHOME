@@ -9,15 +9,15 @@ export const runtime = 'nodejs';
 
 // Danh sách Model dự phòng theo thứ tự ưu tiên (Tự động chuyển đổi khi hết quota)
 const CANDIDATE_MODELS = [
-  'gemini-3.5-flash',      // Ưu tiên 1 (5 RPM, 20 RPD)
-  'gemini-3.5-flash-lite', // Ưu tiên 2 (15 RPM, 500 RPD - Fallback nhiều lượt)
-  'gemini-3.1-flash-lite', // Ưu tiên 3 (15 RPM, 500 RPD)
-  'gemini-2.5-flash-lite', // Ưu tiên 4 (High RPD)
-  'gemini-2.0-flash-lite', // Ưu tiên 5 (High RPD)
-  'gemini-3.6-flash',      // Ưu tiên 6 (5 RPM, 20 RPD)
-  'gemini-2.5-flash',      // Ưu tiên 7 (5 RPM, 20 RPD)
-  'gemini-3-flash',        // Ưu tiên 8 (5 RPM, 20 RPD)
-  'gemini-2.0-flash',      // Ưu tiên 9 (Fallback cuối)
+  'gemini-3.5-flash',      
+  'gemini-3.5-flash-lite', 
+  'gemini-3.1-flash-lite', 
+  'gemini-2.5-flash-lite', 
+  'gemini-2.0-flash-lite', 
+  'gemini-3.6-flash',      
+  'gemini-2.5-flash',      
+  'gemini-3-flash',        
+  'gemini-2.0-flash',      
 ];
 
 // Helper: thử gọi một hàm qua lần lượt các model, trả về kết quả + model đã dùng
