@@ -11,6 +11,7 @@ import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicListing } from '@/lib/hooks/usePublicListings';
 import { SimilarRoomsWidget } from '@/src/features/properties/components/SimilarRoomsWidget';
+import { SameLandlordRoomsWidget } from '@/src/features/properties/components/SameLandlordRoomsWidget';
 import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { LISTING_STATUS_LABELS, DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
@@ -370,6 +371,7 @@ export default function RoomDetailPage() {
         </div>
       </div>
 
+      <SameLandlordRoomsWidget currentRoom={property} />
       <SimilarRoomsWidget currentRoom={property} />
 
       {/* Sticky Bottom Bar for Mobile */}

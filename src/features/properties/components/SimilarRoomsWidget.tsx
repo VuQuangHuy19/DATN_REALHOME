@@ -88,16 +88,29 @@ export function SimilarRoomsWidget({ currentRoom }: { currentRoom: CustomerListi
                 </div>
               </div>
               <div className="p-3 flex-1 flex flex-col justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold font-mono text-ink line-clamp-1">Phòng {room.title.split('—')[1]?.trim() || room.id}</span>
-                    <div className="flex items-center gap-1.5" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                      <span className="text-[10px] text-ink-muted font-medium">Tầng {room.floor}</span>
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-xs font-bold text-ink line-clamp-2 leading-snug">
+                      <span className="font-mono text-accent font-extrabold">
+                        Phòng {room.title.split('—')[1]?.trim() || room.id}
+                      </span>
+                      <span className="text-ink-muted font-normal mx-1">-</span>
+                      <span className="text-ink font-semibold">{room.address}</span>
+                    </h3>
+                    <div
+                      className="flex items-center gap-1 flex-shrink-0"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    >
+                      <span className="text-[10px] text-ink-muted font-medium bg-bg-subtle px-1.5 py-0.5 rounded border border-border-subtle">
+                        Tầng {room.floor}
+                      </span>
                       <FavoriteButton roomId={room.id} className="h-6 w-6 [&>svg]:w-3.5 [&>svg]:h-3.5" />
                     </div>
                   </div>
-                  <p className="text-[10px] text-ink-muted line-clamp-1">{room.address}</p>
-                  <div className="text-[10px] text-ink-muted flex gap-1.5 mt-1.5">
+                  <div className="text-[10px] text-ink-muted flex gap-1.5 pt-0.5">
                     <span>{room.size}m²</span>
                     <span>•</span>
                     <span>{room.roomType}</span>

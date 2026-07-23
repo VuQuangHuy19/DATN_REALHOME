@@ -27,6 +27,7 @@ type RoomRow = {
     name: string;
     area: string;
     address: string | null;
+    landlord_id?: string | null;
     year_built: number | null;
     image_url: string | null;
     thumbnail_url?: string | null;
@@ -129,7 +130,7 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     thumbnailUrl,
     thumbnailUrls,
     companyId: room.company_id,
-    landlordId: room.landlord_id ?? null,
+    landlordId: room.landlord_id ?? building?.landlord_id ?? null,
     buildingCode: room.building_id ?? null,
     depositTerms: room.deposit_terms || building?.deposit_terms || null,
     hasElevator: building?.has_elevator ?? undefined,
