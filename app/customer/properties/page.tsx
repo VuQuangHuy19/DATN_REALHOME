@@ -87,22 +87,22 @@ function BuildingCard({
   return (
     <Link
       href={`/customer/properties/${group.buildingId}`}
-      className="rounded-lg overflow-hidden bg-card border border-border-subtle shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col cursor-pointer group"
+      className="rounded-2xl overflow-hidden bg-card border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-amber-400/60 hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer group"
     >
       <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
         <ImageGallery items={group.allImages} alt={group.buildingName} />
       </div>
 
-      <div className="p-4 flex flex-col gap-3 flex-1">
+      <div className="p-4 sm:p-5 flex flex-col gap-3 flex-1">
         {/* Tên tòa nhà */}
-        <h3 className="text-base font-bold text-ink leading-snug group-hover:text-accent font-heading transition-colors line-clamp-1">
+        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 font-heading transition-colors line-clamp-1">
           {group.buildingName}
         </h3>
 
-        {/* Khu vực */}
-        <div className="flex items-center justify-between gap-1 text-sm text-ink-muted">
+        {/* Khu vực & Yêu thích */}
+        <div className="flex items-center justify-between gap-1 text-sm text-slate-500">
           <div className="flex items-center gap-1">
-            <Badge variant="outline" className={`line-clamp-1 ${getAreaColorClass(group.area)}`}>{formatArea(group.area)}</Badge>
+            <Badge variant="outline" className={`line-clamp-1 font-semibold text-xs ${getAreaColorClass(group.area)}`}>{formatArea(group.area)}</Badge>
           </div>
 
           {group.representativeRoom && (
@@ -111,32 +111,34 @@ function BuildingCard({
         </div>
 
         {/* Phòng trống */}
-        <div className="text-sm">
+        <div className="text-xs sm:text-sm py-1.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
           {hasAvailable ? (
-            <span className="text-green-700 font-medium">
-              Phòng trống:{' '}
-              <span className="text-ink">
-                {group.availableRoomCodes.slice(0, 6).join(', ')}
-                {group.availableRoomCodes.length > 6 && ` +${group.availableRoomCodes.length - 6} phòng`}
+            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+              🟢 Phòng trống:{' '}
+              <span className="text-slate-900 dark:text-slate-100 font-semibold">
+                {group.availableRoomCodes.slice(0, 5).join(', ')}
+                {group.availableRoomCodes.length > 5 && ` +${group.availableRoomCodes.length - 5} phòng`}
               </span>
             </span>
           ) : (
-            <span className="text-ink-muted italic text-xs">Hiện tại không còn phòng trống</span>
+            <span className="text-slate-400 italic text-xs">Hiện tại hết phòng trống</span>
           )}
         </div>
 
         {/* Giá */}
-        <p className="text-lg font-bold text-ink font-mono">
-          {priceLabel}
-          <span className="text-sm font-normal text-ink-muted"> / tháng</span>
-        </p>
+        <div className="flex items-baseline justify-between pt-1">
+          <p className="text-lg sm:text-xl font-extrabold text-amber-500 dark:text-amber-400 font-mono">
+            {priceLabel}
+            <span className="text-xs font-normal text-slate-400"> / tháng</span>
+          </p>
+        </div>
 
         {/* Nút action */}
-        <div className="flex flex-col gap-2 pt-1 mt-auto">
+        <div className="flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 mt-auto">
           {canComposeDeposit && (
             <Button
               size="sm"
-              className="w-full h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
+              className="w-full h-9 text-xs rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-950 font-bold shadow-md shadow-amber-500/20"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -151,7 +153,7 @@ function BuildingCard({
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 h-9 text-sm"
+              className="flex-1 h-9 text-xs rounded-xl border-slate-300 text-slate-700 dark:text-slate-200 hover:border-blue-500 hover:text-blue-600"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -163,7 +165,7 @@ function BuildingCard({
             </Button>
             <Button
               size="sm"
-              className="flex-1 h-9 text-sm bg-accent hover:bg-accent-500 text-white font-semibold"
+              className="flex-1 h-9 text-xs rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-950 font-bold shadow-md shadow-amber-500/20"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

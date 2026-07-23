@@ -277,38 +277,38 @@ export default function CustomerHomePage() {
             </Button>
           </form>
 
-          {/* Quick Search Chips (Từ khóa HOT) */}
-          <div className="mt-5 flex flex-wrap justify-center items-center gap-2 text-xs font-medium text-white/90">
-            <span className="text-white/60 flex items-center gap-1 font-semibold">
-              <Zap className="h-3.5 w-3.5 text-amber-400" /> Tìm nhanh:
+          {/* Quick Search Chips (Từ khóa HOT - Chỉnh rõ chữ, nổi bật) */}
+          <div className="mt-5 flex flex-wrap justify-center items-center gap-2 text-xs font-semibold text-white">
+            <span className="text-amber-300 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/30">
+              <Zap className="h-3.5 w-3.5 text-amber-400 fill-amber-400" /> Tìm nhanh:
             </span>
             <button
               onClick={() => handleTagClick('Cầu Giấy')}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-amber-400 hover:text-slate-950 border border-white/20 transition-all"
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
             >
               🔥 Cầu Giấy
             </button>
             <button
               onClick={() => handleTagClick('Đống Đa')}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-amber-400 hover:text-slate-950 border border-white/20 transition-all"
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
             >
               📍 Đống Đa
             </button>
             <button
               onClick={() => handleTagClick('nuôi thú cưng')}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-amber-400 hover:text-slate-950 border border-white/20 transition-all"
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
             >
               🐾 Cho nuôi mèo
             </button>
             <button
               onClick={() => handleTagClick('Đại học Ngoại Thương')}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-amber-400 hover:text-slate-950 border border-white/20 transition-all"
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
             >
               🎓 Quanh ĐH Ngoại Thương
             </button>
             <button
               onClick={() => handleTagClick('thang máy')}
-              className="px-3 py-1 rounded-full bg-white/10 hover:bg-amber-400 hover:text-slate-950 border border-white/20 transition-all hidden sm:inline-block"
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer hidden sm:inline-block"
             >
               ⚡ Có Thang máy
             </button>

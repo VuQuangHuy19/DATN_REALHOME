@@ -41,33 +41,33 @@ export default function FavoritesPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
         </div>
       ) : favoriteProperties.length === 0 ? (
-        <div className="text-center py-20 bg-card border border-border-subtle rounded-lg max-w-lg mx-auto p-8 shadow-none">
-          <Heart className="h-16 w-16 text-ink-muted/30 mx-auto mb-4" />
-          <h2 className="text-xl font-bold font-heading text-ink mb-2">Danh sách yêu thích trống</h2>
-          <p className="text-ink-muted text-sm mb-6 leading-relaxed">
+        <div className="text-center py-20 bg-card border border-slate-200/80 dark:border-slate-800 rounded-3xl max-w-lg mx-auto p-8 shadow-sm">
+          <Heart className="h-16 w-16 text-rose-500/40 mx-auto mb-4" />
+          <h2 className="text-xl font-bold font-heading text-slate-900 dark:text-slate-100 mb-2">Danh sách yêu thích trống</h2>
+          <p className="text-slate-500 text-sm mb-6 leading-relaxed">
             Bạn chưa lưu bất kỳ căn phòng nào vào danh sách yêu thích. Hãy quay lại trang danh sách phòng và nhấn nút trái tim để lưu lại những lựa chọn bạn ưng ý nhất.
           </p>
-          <Button asChild className="bg-accent hover:bg-accent-500 text-white font-semibold shadow-none">
+          <Button asChild className="bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-950 font-bold shadow-md shadow-amber-500/20 rounded-full px-6">
             <Link href="/customer/properties">Khám phá bất động sản</Link>
           </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {favoriteProperties.map((property) => (
-            <Card key={property.id} className="overflow-hidden border border-border-subtle rounded-lg bg-card shadow-none hover:border-accent hover:shadow-sm transition-all flex flex-col group">
+            <Card key={property.id} className="overflow-hidden border border-slate-200/80 dark:border-slate-800 rounded-2xl bg-card shadow-sm hover:border-amber-400/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
               <div className="relative h-52 overflow-hidden flex-shrink-0">
-                <Link href={`/customer/properties/${property.id}`} className="block w-full h-full animate-fade">
-                  <Image src={property.imageUrl} alt={property.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
+                <Link href={`/customer/properties/${property.id}`} className="block w-full h-full">
+                  <Image src={property.imageUrl} alt={property.title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
                 </Link>
                 <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                  <Badge variant={property.status === 'available' ? 'default' : 'secondary'} className="shadow-none">
+                  <Badge variant={property.status === 'available' ? 'default' : 'secondary'} className="shadow-md">
                     {LISTING_STATUS_LABELS[property.status]}
                   </Badge>
                   {property.status === 'soon_available' && property.expectedAvailableDate && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-accent-900/80 text-white backdrop-blur-sm shadow-sm select-none">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-900/80 text-white backdrop-blur-sm shadow-sm select-none">
                       Trống từ: {formatDateDisplay(property.expectedAvailableDate)}
                     </span>
                   )}
@@ -75,32 +75,31 @@ export default function FavoritesPage() {
               </div>
               <CardHeader className="pb-2 pt-4 px-5">
                 <Link href={`/customer/properties/${property.id}`} className="block">
-                  <h3 className="text-base font-bold text-ink leading-snug hover:text-accent font-heading transition-colors line-clamp-1">{property.title}</h3>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 font-heading transition-colors line-clamp-1">{property.title}</h3>
                 </Link>
-                <div className="flex items-center gap-1 text-sm text-ink-muted">
-                  <Badge variant="outline" className={`line-clamp-1 ${getAreaColorClass(property.area)}`}>{property.area}</Badge>
+                <div className="flex items-center gap-1 text-sm text-slate-500">
+                  <Badge variant="outline" className={`line-clamp-1 font-semibold text-xs ${getAreaColorClass(property.area)}`}>{property.area}</Badge>
                 </div>
-
               </CardHeader>
               <CardContent className="px-5 pb-4 mt-auto">
-                <div className="flex items-center gap-4 text-xs text-ink-muted mb-4 border-b border-border-subtle pb-3">
-                  <span className="flex items-center gap-1"><Bed className="h-4 w-4 text-accent/80" />{property.bedrooms} phòng ngủ</span>
-                  <span className="flex items-center gap-1"><Bath className="h-4 w-4 text-accent/80" />{property.bathrooms} WC</span>
-                  <span className="flex items-center gap-1"><Square className="h-4 w-4 text-accent/80" />{property.size}m²</span>
+                <div className="flex items-center gap-4 text-xs text-slate-500 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <span className="flex items-center gap-1"><Bed className="h-4 w-4 text-blue-500" />{property.bedrooms} phòng ngủ</span>
+                  <span className="flex items-center gap-1"><Bath className="h-4 w-4 text-blue-500" />{property.bathrooms} WC</span>
+                  <span className="flex items-center gap-1"><Square className="h-4 w-4 text-blue-500" />{property.size}m²</span>
                 </div>
-                <p className="text-lg font-bold text-ink font-mono">
-                  {property.price.toLocaleString('vi-VN')}đ<span className="text-xs font-normal text-ink-muted">/tháng</span>
+                <p className="text-lg sm:text-xl font-extrabold text-amber-500 dark:text-amber-400 font-mono">
+                  {property.price.toLocaleString('vi-VN')}đ<span className="text-xs font-normal text-slate-400">/tháng</span>
                 </p>
               </CardContent>
-              <div className="px-5 pb-4 pt-3 border-t border-border-subtle bg-bg-subtle/50 rounded-b-lg">
+              <div className="px-5 pb-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 rounded-b-2xl">
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 h-9 text-sm text-ink border-border-subtle bg-card shadow-none" asChild>
+                  <Button variant="outline" size="sm" className="flex-1 h-9 text-xs rounded-xl border-slate-300 text-slate-700 dark:text-slate-200 hover:border-blue-500 hover:text-blue-600" asChild>
                     <Link href={`/customer/properties/${property.id}`}>Xem chi tiết</Link>
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-9 w-9 p-0 text-danger hover:text-danger hover:bg-danger/10 shadow-none"
+                    className="h-9 w-9 p-0 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                     onClick={() => {
                       removeFavorite(property.id);
                       toast.success('Đã xóa khỏi danh sách yêu thích');

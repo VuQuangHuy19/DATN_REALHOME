@@ -467,49 +467,49 @@ export default function BuildingDetailPage() {
           <Card className="border border-border-subtle bg-card shadow-none rounded-lg">
             <CardContent className="p-6 space-y-5">
               <div>
-                <span className="text-xs text-ink-muted uppercase font-semibold block mb-1">Khoảng giá tòa nhà</span>
-                <div className="text-2xl font-bold text-ink font-mono tracking-tight">
+                <span className="text-xs text-slate-400 uppercase font-semibold block mb-1">Khoảng giá tòa nhà</span>
+                <div className="text-2xl sm:text-3xl font-extrabold text-amber-500 dark:text-amber-400 font-mono tracking-tight">
                   {priceRangeStr}
                 </div>
               </div>
 
               {/* Cost specifications */}
-              <div className="border-t border-border-subtle pt-4 space-y-3">
-                <span className="text-xs font-semibold text-ink-muted block uppercase tracking-wider">Chi phí & dịch vụ</span>
-                <div className="border border-border-subtle rounded-lg overflow-hidden bg-card text-xs">
-                  <div className="flex justify-between p-2.5 border-b border-border-subtle bg-bg-subtle/50">
-                    <span className="text-ink-muted font-medium">Giá điện:</span>
-                    <span className="font-bold text-ink font-mono">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</span>
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-3">
+                <span className="text-xs font-semibold text-slate-400 block uppercase tracking-wider">Chi phí & dịch vụ</span>
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-card text-xs">
+                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <span className="text-slate-500 font-medium">Giá điện:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</span>
                   </div>
-                  <div className="flex justify-between p-2.5 border-b border-border-subtle">
-                    <span className="text-ink-muted font-medium">Giá nước:</span>
-                    <span className="font-bold text-ink font-mono">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</span>
+                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-500 font-medium">Giá nước:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</span>
                   </div>
-                  <div className="flex justify-between p-2.5 border-b border-border-subtle bg-bg-subtle/50">
-                    <span className="text-ink-muted font-medium">Internet:</span>
-                    <span className="font-bold text-ink font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</span>
+                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <span className="text-slate-500 font-medium">Internet:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</span>
                   </div>
-                  <div className="flex justify-between p-2.5 border-b border-border-subtle">
-                    <span className="text-ink-muted font-medium">Dịch vụ chung:</span>
-                    <span className="font-bold text-ink font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</span>
+                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-500 font-medium">Dịch vụ chung:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</span>
                   </div>
                   <div className="flex justify-between p-2.5">
-                    <span className="text-ink-muted font-medium">Phí sạc xe điện:</span>
-                    <span className="font-bold text-ink font-mono">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</span>
+                    <span className="text-slate-500 font-medium">Phí sạc xe điện:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</span>
                   </div>
                 </div>
                 {building.common_service_description && (
-                  <p className="text-[10px] text-ink-muted leading-tight font-medium">
+                  <p className="text-[10px] text-slate-400 leading-tight font-medium">
                     * Dịch vụ chung: {building.common_service_description}
                   </p>
                 )}
                 {building.fingerprint_lock_desc && (
-                  <p className="text-[10px] text-ink-muted leading-tight font-medium">
+                  <p className="text-[10px] text-slate-400 leading-tight font-medium">
                     * Khóa vân tay: {building.fingerprint_lock_desc}
                   </p>
                 )}
                 {building.deposit_terms && (
-                  <p className="text-[10px] text-ink-muted leading-tight font-medium">
+                  <p className="text-[10px] text-slate-400 leading-tight font-medium">
                     * Quy định cọc: {building.deposit_terms}
                   </p>
                 )}
@@ -519,7 +519,7 @@ export default function BuildingDetailPage() {
               <div className="space-y-3 pt-2">
                 {canComposeDeposit && (
                   <Button
-                    className="w-full bg-accent hover:bg-accent-500 text-white font-semibold rounded-lg"
+                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-950 font-bold rounded-xl shadow-md shadow-amber-500/20"
                     size="lg"
                     onClick={() => router.push(`${contractsBasePath}/contracts/create?building_id=${buildingId}`)}
                   >
@@ -527,7 +527,7 @@ export default function BuildingDetailPage() {
                     Soạn cọc
                   </Button>
                 )}
-                <Button variant="outline" className="w-full text-ink border-border-subtle shadow-none rounded-lg" size="lg" onClick={handleOpenContact}>
+                <Button variant="outline" className="w-full text-slate-800 dark:text-slate-100 border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:text-blue-600 rounded-xl" size="lg" onClick={handleOpenContact}>
                   <Phone className="h-4 w-4 mr-2" />
                   Liên Hệ Môi Giới
                 </Button>
