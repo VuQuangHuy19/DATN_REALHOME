@@ -39,15 +39,17 @@ export async function POST(req: Request) {
     const { messages, data } = await req.json();
     const companyId = data?.companyId;
 
-    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chưa cấu hình GOOGLE_GENERATIVE_AI_API_KEY' },
+        { error: 'Chưa cấu hình GOOGLE_GENERATIVE_AI_API_KEY hoặc GEMINI_API_KEY trên Vercel' },
         { status: 500 }
       );
     }
 
     const google = createGoogleGenerativeAI({
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      apiKey,
     });
 
     const systemPrompt = `Bạn là Trợ lý AI hệ thống RealHome - Nền tảng tìm kiếm & quản lý bất động sản.
@@ -201,7 +203,7 @@ export async function POST(req: Request) {
             address: r.buildings?.address,
             distance_from_landmark: r.distance_km !== undefined && r.distance_km !== null ? `${r.distance_km} km` : undefined,
             allow_pet: (r.buildings?.allow_pet === 'yes' || r.buildings?.allow_pet === 'small_only') ? 'Có' : 'Không',
-            detail_link: `/customer/properties/${r.id}`,
+            detail_link: `/customer/properties/rooms/${r.id}`,
           })),
         };
       } catch (err: any) {
