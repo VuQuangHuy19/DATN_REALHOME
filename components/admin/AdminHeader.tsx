@@ -4,6 +4,7 @@ import { Bell, Search, User, LogOut, Settings, Lock, CreditCard } from 'lucide-r
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,11 +118,14 @@ export function AdminHeader() {
 
   return (
     <header className="h-16 bg-white dark:bg-bg-subtle border-b border-border-subtle px-4 md:px-6 flex items-center justify-between shadow-none">
-      <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0">
+      <div className="flex items-center gap-1.5 sm:gap-4 flex-1 min-w-0">
         {/* Logo RealHome trên Mobile */}
-        <Link href="/customer/properties" className="md:hidden flex items-center shrink-0 hover:opacity-90 transition-opacity mr-1">
+        <Link href="/customer/properties" className="md:hidden flex items-center shrink-0 hover:opacity-90 transition-opacity">
           <Logo className="text-[18px] sm:text-[20px]" />
         </Link>
+        <Badge className="md:hidden bg-accent-soft text-accent border border-accent/20 font-semibold px-2 py-0.5 rounded-lg text-[10px] shrink-0">
+          🏢 Quản lý
+        </Badge>
         <div ref={searchRef} className="hidden md:block relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
           <Input

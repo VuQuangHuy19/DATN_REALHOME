@@ -65,9 +65,9 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
   }, [company?.id]);
 
   return (
-    <div className="flex min-h-screen bg-bg-base">
+    <div className="flex min-h-screen bg-bg-base w-full max-w-full overflow-x-hidden">
       <AdminSidebar />
-      <div className="flex-1 flex flex-col ml-0 md:ml-64">
+      <div className="flex-1 flex flex-col ml-0 md:ml-64 w-full max-w-full min-w-0 overflow-x-hidden">
         <AdminHeader />
         {showBanner && (
           <div className="bg-rose-600 text-white px-6 py-3 text-center flex items-center justify-center gap-2 text-sm font-medium animate-pulse shadow-md z-50">
@@ -80,7 +80,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
             </a>
           </div>
         )}
-        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6 overflow-auto">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 pb-24 md:pb-6 w-full max-w-full min-w-0 overflow-x-hidden">
           {hasAccess ? (
             children
           ) : (
