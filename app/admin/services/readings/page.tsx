@@ -836,7 +836,17 @@ export default function ServiceReadingsPage() {
                           </div>
                         </div>
 
-                        <div className="pt-2 flex items-center justify-end gap-2">
+                        {/* Tiêu thụ tức thì & Cảnh báo */}
+                        <div className="flex items-center justify-between text-[11px] font-bold px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 rounded-lg border border-slate-200/80">
+                          <span className={row.electricityNew < row.electricityOld ? 'text-rose-600 font-extrabold animate-bounce' : 'text-amber-700 font-mono'}>
+                            {row.electricityNew < row.electricityOld ? '⚠️ Điện mới < Điện cũ' : `⚡ Dùng: ${row.electricityNew - row.electricityOld} số`}
+                          </span>
+                          <span className={row.waterNew < row.waterOld ? 'text-rose-600 font-extrabold animate-bounce' : 'text-sky-700 font-mono'}>
+                            {row.waterNew < row.waterOld ? '⚠️ Nước mới < Nước cũ' : `💧 Dùng: ${row.waterNew - row.waterOld} m³`}
+                          </span>
+                        </div>
+
+                        <div className="pt-1 flex items-center justify-end gap-2">
                           <Button
                             size="sm"
                             onClick={() => handleSaveRowByRoomId(row.roomId)}

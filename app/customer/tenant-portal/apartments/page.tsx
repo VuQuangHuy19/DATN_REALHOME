@@ -232,6 +232,51 @@ export default function ApartmentsPage() {
         <p className="text-sm text-ink-muted mt-1">Quản lý thông tin căn hộ, thiết bị và báo cáo sự cố</p>
       </div>
 
+      {/* Smart Resident Mobile Pass & Quick Actions */}
+      {apartmentInfo && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-amber-100 block">Thẻ cư dân điện tử</span>
+              <h3 className="text-lg font-black font-heading tracking-tight">Phòng {apartmentInfo.code} — {apartmentInfo.buildingName}</h3>
+            </div>
+            <Badge className="bg-white/20 text-white border-white/30 backdrop-blur-md text-xs font-mono font-bold px-3 py-1">
+              ĐÃ XÁC THỰC
+            </Badge>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/20">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-amber-100 font-medium">Mật khẩu khóa cửa:</span>
+              <span className="bg-black/20 backdrop-blur-md font-mono font-bold px-2.5 py-0.5 rounded text-xs tracking-widest text-amber-200">
+                ••••••
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => window.location.href = '/customer/tenant-portal/finance'}
+                className="bg-white/90 hover:bg-white text-amber-900 font-bold text-xs h-8 px-3 rounded-xl shadow-xs"
+              >
+                💳 Thanh toán Hóa đơn
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  const el = document.getElementById('report-issue-card');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="bg-amber-900/40 hover:bg-amber-900/60 text-white font-bold text-xs h-8 px-3 rounded-xl border border-white/30"
+              >
+                <Wrench className="h-3.5 w-3.5 mr-1" /> Báo sự cố
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Thông tin Căn hộ */}
       <Card className="border border-border-subtle">
         <CardHeader className="pb-2">
@@ -375,7 +420,7 @@ export default function ApartmentsPage() {
       )}
 
       {/* Form Báo sự cố */}
-      <Card className="border border-border-subtle">
+      <Card id="report-issue-card" className="border border-border-subtle scroll-mt-20">
         <CardHeader className="pb-2">
           <h2 className="text-lg font-bold text-ink font-heading flex items-center gap-2">
             <Wrench className="h-5 w-5 text-red-500" />

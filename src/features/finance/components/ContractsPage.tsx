@@ -669,7 +669,7 @@ export function ContractsPage() {
                                   </DropdownMenu>
                                 )}
 
-                                {['confirmed', 'signed', 'deposited', 'active'].includes(item.status) && (
+                                {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active'].includes(item.status) && (
                                   <Button 
                                     variant="outline" 
                                     size="sm" 
@@ -685,7 +685,7 @@ export function ContractsPage() {
                                   </Button>
                                 )}
 
-                                {['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(item.status) && (
+                                {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(item.status) && (
                                   <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -829,22 +829,24 @@ export function ContractsPage() {
 
                         {/* Action buttons footer */}
                         <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7 text-indigo-600"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHandoverSourceType('rental');
-                              setHandoverContract(item);
-                              setIsHandoverOpen(true);
-                            }}
-                            title="Biên bản bàn giao phòng"
-                          >
-                            <ClipboardCheck className="h-3.5 w-3.5" />
-                          </Button>
+                          {role !== 'sales_agent' && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 text-indigo-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setHandoverSourceType('rental');
+                                setHandoverContract(item);
+                                setIsHandoverOpen(true);
+                              }}
+                              title="Biên bản bàn giao phòng"
+                            >
+                              <ClipboardCheck className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
 
-                          {role !== 'landlord' && (
+                          {role !== 'sales_agent' && role !== 'landlord' && (
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" asChild title="Gia hạn">
                               <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
                                 <RefreshCw className="h-3.5 w-3.5" />
@@ -948,21 +950,23 @@ export function ContractsPage() {
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setHandoverSourceType('rental');
-                                  setHandoverContract(item);
-                                  setIsHandoverOpen(true);
-                                }}
-                                title="Biên bản bàn giao phòng"
-                              >
-                                <ClipboardCheck className="h-4 w-4" />
-                              </Button>
-                              {role !== 'landlord' && (
+                              {role !== 'sales_agent' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setHandoverSourceType('rental');
+                                    setHandoverContract(item);
+                                    setIsHandoverOpen(true);
+                                  }}
+                                  title="Biên bản bàn giao phòng"
+                                >
+                                  <ClipboardCheck className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {role !== 'sales_agent' && role !== 'landlord' && (
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Gia hạn hợp đồng">
                                   <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
                                     <RefreshCw className="h-4 w-4" />
@@ -1254,41 +1258,46 @@ export function ContractsPage() {
 
       {/* Dialog chi tiết hợp đồng cọc */}
       <Dialog open={isViewDepositOpen} onOpenChange={setIsViewDepositOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-white shadow-lg p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-ink text-lg font-bold font-heading">
-              <FileText className="h-5 w-5 text-accent" />
-              Chi tiết Hợp đồng Đặt cọc #{viewDeposit?.contract_code}
+        <DialogContent className="max-w-4xl w-[94vw] sm:w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl border border-border bg-white dark:bg-zinc-900 shadow-2xl z-50">
+          <DialogHeader className="shrink-0 p-4 sm:p-5 pr-12 border-b border-border bg-white dark:bg-zinc-900 relative z-10">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 text-ink text-base sm:text-lg font-bold font-heading">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-accent shrink-0" />
+                <span>Chi tiết Hợp đồng Đặt cọc</span>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs text-slate-800 bg-slate-100 border-slate-300 w-fit">
+                #{viewDeposit?.contract_code}
+              </Badge>
             </DialogTitle>
           </DialogHeader>
           {viewDeposit && (
-            <div className="space-y-6 pt-4 text-sm text-ink-muted">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-xs sm:text-sm text-ink-muted">
               {/* Thông tin chung */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-bg-subtle p-4 rounded-lg border border-border">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 dark:bg-zinc-800/60 p-3.5 sm:p-4 rounded-xl border border-border">
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Mã hợp đồng:</span>
-                  <span className="font-bold text-ink text-xs font-mono">{viewDeposit.contract_code}</span>
+                  <span className="font-bold text-ink text-xs sm:text-sm font-mono mt-0.5 block">{viewDeposit.contract_code}</span>
                 </div>
-                <div>
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Trạng thái:</span>
                   <Badge className={`${statusLabels[viewDeposit.status]?.color || ''} border font-bold text-[9px] rounded-full uppercase tracking-wider mt-1`} variant="outline">
                     {statusLabels[viewDeposit.status]?.label || viewDeposit.status}
                   </Badge>
                 </div>
-                <div>
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Ngày lập HĐ:</span>
-                  <span className="font-semibold text-ink text-xs font-mono">{formatDateDisplay(viewDeposit.agreement_date)}</span>
+                  <span className="font-semibold text-ink text-xs sm:text-sm font-mono mt-0.5 block">{formatDateDisplay(viewDeposit.agreement_date)}</span>
                 </div>
-                <div>
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Nhân viên Sale:</span>
                   {(() => {
                     const agentId = viewDeposit.sales_agent_id || viewDeposit.created_by;
                     const saleProfile = agentId ? profilesMap.get(agentId) : null;
-                    if (!saleProfile) return <span className="font-semibold text-ink text-xs">Hệ thống</span>;
+                    if (!saleProfile) return <span className="font-semibold text-ink text-xs block mt-0.5">Hệ thống</span>;
                     return (
                       <>
-                        <span className="font-semibold text-ink text-xs block truncate">{saleProfile.full_name || '—'}</span>
-                        <span className="text-ink-muted text-[10px] font-mono block mt-0.5">{saleProfile.phone || '—'}</span>
+                        <span className="font-semibold text-ink text-xs block truncate mt-0.5">{saleProfile.full_name || '—'}</span>
+                        <span className="text-ink-muted text-[10px] font-mono block">{saleProfile.phone || '—'}</span>
                       </>
                     );
                   })()}
@@ -1296,90 +1305,202 @@ export function ContractsPage() {
               </div>
 
               {/* Thông tin 2 bên */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
-                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 p-3.5 sm:p-4 border rounded-xl bg-slate-50/50 dark:bg-zinc-800/30 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
                     <User className="h-4 w-4 text-accent" /> Bên Cho Thuê (Bên A)
                   </h4>
-                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewDeposit.party_a_name}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewDeposit.party_a_phone}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_a_dob)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewDeposit.party_a_id_card || '—'}</span></p>
-                  {viewDeposit.party_a_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_a_id_date)}</span> (Nơi cấp: {viewDeposit.party_a_id_place || '—'})</p>}
-                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewDeposit.party_a_address || '—'}</span></p>
+                  <div className="space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Họ và tên:</span>
+                      <span className="font-semibold text-ink">{viewDeposit.party_a_name}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số điện thoại:</span>
+                      <span className="font-mono text-ink font-semibold">{viewDeposit.party_a_phone}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Ngày sinh:</span>
+                      <span className="font-mono text-ink">{formatDateDisplay(viewDeposit.party_a_dob)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số CCCD:</span>
+                      <span className="font-mono text-ink font-semibold">{viewDeposit.party_a_id_card || '—'}</span>
+                    </div>
+                    {viewDeposit.party_a_id_date && (
+                      <div className="flex justify-between items-center py-0.5">
+                        <span className="text-ink-muted font-medium">Ngày &amp; Nơi cấp:</span>
+                        <span className="font-mono text-ink text-right">{formatDateDisplay(viewDeposit.party_a_id_date)} ({viewDeposit.party_a_id_place || '—'})</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start py-0.5">
+                      <span className="text-ink-muted font-medium shrink-0">Địa chỉ:</span>
+                      <span className="text-ink font-medium text-right ml-2">{viewDeposit.party_a_address || '—'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
-                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                <div className="space-y-2 p-3.5 sm:p-4 border rounded-xl bg-slate-50/50 dark:bg-zinc-800/30 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
                     <User className="h-4 w-4 text-accent" /> Bên Đặt Cọc (Bên B)
                   </h4>
-                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewDeposit.party_b_name}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewDeposit.party_b_phone}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_b_dob)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewDeposit.party_b_id_card || '—'}</span></p>
-                  {viewDeposit.party_b_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.party_b_id_date)}</span> (Nơi cấp: {viewDeposit.party_b_id_place || '—'})</p>}
-                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewDeposit.party_b_address || '—'}</span></p>
+                  <div className="space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Họ và tên:</span>
+                      <span className="font-semibold text-ink">{viewDeposit.party_b_name}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số điện thoại:</span>
+                      <span className="font-mono text-ink font-semibold">{viewDeposit.party_b_phone}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Ngày sinh:</span>
+                      <span className="font-mono text-ink">{formatDateDisplay(viewDeposit.party_b_dob)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số CCCD:</span>
+                      <span className="font-mono text-ink font-semibold">{viewDeposit.party_b_id_card || '—'}</span>
+                    </div>
+                    {viewDeposit.party_b_id_date && (
+                      <div className="flex justify-between items-center py-0.5">
+                        <span className="text-ink-muted font-medium">Ngày &amp; Nơi cấp:</span>
+                        <span className="font-mono text-ink text-right">{formatDateDisplay(viewDeposit.party_b_id_date)} ({viewDeposit.party_b_id_place || '—'})</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start py-0.5">
+                      <span className="text-ink-muted font-medium shrink-0">Địa chỉ:</span>
+                      <span className="text-ink font-medium text-right ml-2">{viewDeposit.party_b_address || '—'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Thông tin phòng & điều khoản đặt cọc */}
-              <div className="space-y-4 p-4 border rounded-lg bg-white border-border">
-                <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
-                  <Building className="h-4 w-4 text-accent" /> Thông tin phòng đặt cọc & Điều khoản
+              <div className="space-y-3 p-3.5 sm:p-4 border rounded-xl bg-white dark:bg-zinc-800/80 border-border">
+                <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
+                  <Building className="h-4 w-4 text-accent" /> Thông tin phòng đặt cọc &amp; Điều khoản
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phòng cọc giữ chỗ:</span> <span className="font-bold text-accent">Phòng {viewDeposit.rooms?.code || '---'} - {viewDeposit.rooms?.buildings?.name || 'Khu vực khác'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Giá thuê thỏa thuận:</span> <span className="font-bold font-mono text-ink">{Number(viewDeposit.rent_price).toLocaleString('vi-VN')}đ/tháng</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số tiền đặt cọc giữ chỗ:</span> <span className="font-bold font-mono text-accent">{Number(viewDeposit.deposit_amount).toLocaleString('vi-VN')}đ</span></p>
-                  {viewDeposit.deposit_terms && <p><span className="text-ink-muted text-xs font-medium">Thời hạn cọc / cọc hợp đồng:</span> <span className="text-ink font-semibold">{viewDeposit.deposit_terms}</span></p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2.5 gap-x-4">
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <span className="text-ink-muted text-xs font-medium block">Phòng cọc giữ chỗ:</span>
+                    <span className="font-bold text-accent text-sm">Phòng {viewDeposit.rooms?.code || '---'} - {viewDeposit.rooms?.buildings?.name || 'Khu vực khác'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Giá thuê thỏa thuận:</span>
+                    <span className="font-bold font-mono text-ink">{Number(viewDeposit.rent_price).toLocaleString('vi-VN')}đ/tháng</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Số tiền đặt cọc giữ chỗ:</span>
+                    <span className="font-bold font-mono text-accent">{Number(viewDeposit.deposit_amount).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  {viewDeposit.deposit_terms && (
+                    <div>
+                      <span className="text-ink-muted text-xs font-medium block">Thời hạn cọc / cọc hợp đồng:</span>
+                      <span className="text-ink font-semibold">{viewDeposit.deposit_terms}</span>
+                    </div>
+                  )}
                   {viewDeposit.commission_rate_raw && (
-                    <p>
-                      <span className="text-ink-muted text-xs font-medium">Hoa hồng:</span>{' '}
+                    <div>
+                      <span className="text-ink-muted text-xs font-medium block">Hoa hồng:</span>
                       <span className="font-semibold text-emerald-600">
                         {viewDeposit.commission_rate_raw} ({(viewDeposit.commission_amount !== undefined && viewDeposit.commission_amount !== null && Number(viewDeposit.commission_amount) > 0
                           ? Number(viewDeposit.commission_amount)
                           : calculateCommissionAmount(viewDeposit.rooms?.price || 0, viewDeposit.rooms?.rose || '', viewDeposit.lease_duration_months)
                         ).toLocaleString('vi-VN')}đ)
                       </span>
-                    </p>
+                    </div>
                   )}
-                  <p><span className="text-ink-muted text-xs font-medium">Hạn ký HĐ chính thức:</span> <span className="font-semibold text-danger font-mono">{formatDateDisplay(viewDeposit.deadline_sign_contract)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Tiền điện:</span> <span className="font-mono text-ink font-semibold">{Number(viewDeposit.electricity_price).toLocaleString('vi-VN')}đ/số</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Tiền nước:</span> <span className="text-ink font-semibold">{viewDeposit.water_price}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Phí dịch vụ:</span> <span className="text-ink font-semibold">{viewDeposit.service_price}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Mạng internet:</span> <span className="text-ink font-semibold">{viewDeposit.other_services?.internet || 'Chưa thỏa thuận'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Phí giặt sấy:</span> <span className="text-ink font-semibold">{viewDeposit.other_services?.laundry || 'Chưa thỏa thuận'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số người đăng ký:</span> <span className="text-ink font-semibold">{viewDeposit.tenant_count} người</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Thời hạn dự kiến:</span> <span className="text-ink font-semibold">{viewDeposit.lease_duration_months} tháng</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Báo trước khi đòi nhà:</span> <span className="text-ink font-semibold">{viewDeposit.termination_notice_days} ngày</span></p>
-                  {viewDeposit.room_repair_support_date && <p><span className="text-ink-muted text-xs font-medium">Hạn hỗ trợ sửa phòng:</span> <span className="font-mono">{formatDateDisplay(viewDeposit.room_repair_support_date)}</span></p>}
-                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phương thức thanh toán:</span> <span className="text-ink">{viewDeposit.payment_method}</span></p>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Hạn ký HĐ chính thức:</span>
+                    <span className="font-semibold text-danger font-mono">{formatDateDisplay(viewDeposit.deadline_sign_contract)}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Tiền điện:</span>
+                    <span className="font-mono text-ink font-semibold">{Number(viewDeposit.electricity_price).toLocaleString('vi-VN')}đ/số</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Tiền nước:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.water_price}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Phí dịch vụ:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.service_price}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Mạng internet:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.other_services?.internet || 'Chưa thỏa thuận'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Phí giặt sấy:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.other_services?.laundry || 'Chưa thỏa thuận'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Số người đăng ký:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.tenant_count} người</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Thời hạn dự kiến:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.lease_duration_months} tháng</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Báo trước khi đòi nhà:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.termination_notice_days} ngày</span>
+                  </div>
+                  {viewDeposit.room_repair_support_date && (
+                    <div>
+                      <span className="text-ink-muted text-xs font-medium block">Hạn hỗ trợ sửa phòng:</span>
+                      <span className="font-mono">{formatDateDisplay(viewDeposit.room_repair_support_date)}</span>
+                    </div>
+                  )}
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <span className="text-ink-muted text-xs font-medium block">Phương thức thanh toán:</span>
+                    <span className="text-ink">{viewDeposit.payment_method}</span>
+                  </div>
                 </div>
               </div>
 
               {/* Thông tin thanh toán ngân hàng */}
-              <div className="space-y-4 p-4 border rounded-lg bg-bg-subtle border-border">
-                <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+              <div className="space-y-3 p-3.5 sm:p-4 border rounded-xl bg-slate-50 dark:bg-zinc-800/40 border-border">
+                <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
                   <Landmark className="h-4 w-4 text-accent" /> Thông tin tài khoản nhận cọc
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <p><span className="text-ink-muted text-xs font-medium">Ngân hàng:</span> <span className="text-ink font-semibold">{viewDeposit.bank_name || '—'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số tài khoản:</span> <span className="text-ink font-mono font-semibold">{viewDeposit.bank_account_number || '—'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Chủ tài khoản:</span> <span className="text-ink font-semibold uppercase">{viewDeposit.bank_account_owner || '—'}</span></p>
-                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nội dung chuyển khoản mẫu:</span> <span className="font-mono bg-white px-2 py-1 border border-border rounded text-ink text-xs block mt-1">{viewDeposit.transfer_content_template || '—'}</span></p>
-                  {viewDeposit.note && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Ghi chú thêm:</span> <span className="text-ink">{viewDeposit.note}</span></p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2.5 gap-x-4">
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Ngân hàng:</span>
+                    <span className="text-ink font-semibold">{viewDeposit.bank_name || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Số tài khoản:</span>
+                    <span className="text-ink font-mono font-semibold">{viewDeposit.bank_account_number || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Chủ tài khoản:</span>
+                    <span className="text-ink font-semibold uppercase">{viewDeposit.bank_account_owner || '—'}</span>
+                  </div>
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <span className="text-ink-muted text-xs font-medium block">Nội dung chuyển khoản mẫu:</span>
+                    <span className="font-mono bg-white dark:bg-zinc-800 px-2.5 py-1 border border-border rounded-lg text-ink text-xs block mt-1 break-all">
+                      {viewDeposit.transfer_content_template || '—'}
+                    </span>
+                  </div>
+                  {viewDeposit.note && (
+                    <div className="sm:col-span-2 md:col-span-3">
+                      <span className="text-ink-muted text-xs font-medium block">Ghi chú thêm:</span>
+                      <span className="text-ink">{viewDeposit.note}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Ảnh minh chứng */}
               {(viewDeposit.lead_view_image_url || viewDeposit.transfer_proof_url) && (
-                <div className="space-y-4 p-4 border rounded-lg bg-white border-border">
-                  <h4 className="font-bold font-heading text-ink border-b pb-2 uppercase text-xs tracking-wider border-border">📸 Ảnh minh chứng giao dịch</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3 p-3.5 sm:p-4 border rounded-xl bg-white dark:bg-zinc-800/80 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b border-border pb-2 uppercase text-xs tracking-wider">📸 Ảnh minh chứng giao dịch</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {viewDeposit.lead_view_image_url && (
                       <div className="space-y-1">
                         <span className="text-ink-muted block text-xs font-medium">Ảnh dẫn khách xem phòng:</span>
-                        <a href={viewDeposit.lead_view_image_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90 transition-opacity relative w-full h-[250px]">
+                        <a href={viewDeposit.lead_view_image_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-xl overflow-hidden hover:opacity-90 transition-opacity relative w-full h-48 sm:h-56">
                           <Image src={viewDeposit.lead_view_image_url} alt="Ảnh dẫn khách" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
                         </a>
                       </div>
@@ -1387,7 +1508,7 @@ export function ContractsPage() {
                     {viewDeposit.transfer_proof_url && (
                       <div className="space-y-1">
                         <span className="text-ink-muted block text-xs font-medium">Ảnh hóa đơn chuyển khoản đặt cọc:</span>
-                        <a href={viewDeposit.transfer_proof_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-lg overflow-hidden max-h-[300px] hover:opacity-90 transition-opacity relative w-full h-[250px]">
+                        <a href={viewDeposit.transfer_proof_url} target="_blank" rel="noopener noreferrer" className="block border border-border rounded-xl overflow-hidden hover:opacity-90 transition-opacity relative w-full h-48 sm:h-56">
                           <Image src={viewDeposit.transfer_proof_url} alt="Ảnh chuyển khoản cọc" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
                         </a>
                       </div>
@@ -1398,45 +1519,55 @@ export function ContractsPage() {
 
               {/* Landlord Confirmation Button inside Modal */}
               {role === 'landlord' && viewDeposit.status === 'active' && (
-                <div className="flex justify-end pt-4 border-t border-border mt-4">
+                <div className="flex justify-end pt-3 border-t border-border mt-3">
                   <Button 
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 h-10 flex items-center gap-2 rounded-lg"
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2 h-10 flex items-center gap-2 rounded-xl text-xs sm:text-sm w-full sm:w-auto"
                     onClick={() => handleLandlordConfirm(viewDeposit.id)}
                   >
-                    <ShieldCheck className="h-5 w-5" />
+                    <ShieldCheck className="h-4 w-4" />
                     Xác nhận đã nhận đặt cọc
                   </Button>
                 </div>
               )}
 
-              {/* Biên bản bàn giao phòng & Lập HĐ thuê */}
-              {['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(viewDeposit.status) && (
-                <div className="flex justify-end gap-2.5 pt-4 border-t border-border mt-4">
-                  {['confirmed', 'signed', 'deposited', 'active'].includes(viewDeposit.status) && (
-                    <Button 
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2 h-10 flex items-center gap-2 rounded-lg shadow-sm"
-                      onClick={() => {
-                        setIsViewOpen(false);
-                        router.push(`${pathPrefix}/contracts/create-rental?deposit_id=${viewDeposit.id}`);
-                      }}
-                    >
-                      <FileSignature className="h-5 w-5" />
-                      Lập Hợp Đồng Thuê Chính Thức
-                    </Button>
-                  )}
+              {/* Biên bản bàn giao phòng & Lập HĐ thuê (Chỉ Admin/Manager/Landlord mới thao tác) */}
+              <div className="flex flex-col sm:flex-row justify-end gap-2.5 pt-3 border-t border-border mt-3">
+                <Button 
+                  variant="outline"
+                  className="border-slate-300 dark:border-zinc-700 text-ink font-semibold h-10 px-4 flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto"
+                  asChild
+                >
+                  <Link href={`${pathPrefix}/contracts/${viewDeposit.id}/print`} target="_blank">
+                    <Printer className="h-4 w-4 text-slate-600" />
+                    In / Tải PDF Hợp đồng
+                  </Link>
+                </Button>
+                {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active'].includes(viewDeposit.status) && (
                   <Button 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2 h-10 flex items-center gap-2 rounded-lg shadow-sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 h-10 flex items-center justify-center gap-2 rounded-xl shadow-xs text-xs sm:text-sm w-full sm:w-auto"
+                    onClick={() => {
+                      setIsViewDepositOpen(false);
+                      router.push(`${pathPrefix}/contracts/create-rental?deposit_id=${viewDeposit.id}`);
+                    }}
+                  >
+                    <FileSignature className="h-4 w-4" />
+                    Lập Hợp Đồng Thuê Chính Thức
+                  </Button>
+                )}
+                {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(viewDeposit.status) && (
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 h-10 flex items-center justify-center gap-2 rounded-xl shadow-xs text-xs sm:text-sm w-full sm:w-auto"
                     onClick={() => {
                       setHandoverSourceType('deposit');
                       setHandoverContract(viewDeposit);
                       setIsHandoverOpen(true);
                     }}
                   >
-                    <ClipboardCheck className="h-5 w-5" />
+                    <ClipboardCheck className="h-4 w-4" />
                     Biên bản bàn giao phòng
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
@@ -1444,43 +1575,48 @@ export function ContractsPage() {
 
       {/* Dialog chi tiết hợp đồng thuê */}
       <Dialog open={isViewRentalOpen} onOpenChange={setIsViewRentalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-white shadow-lg p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-ink text-lg font-bold font-heading">
-              <FileText className="h-5 w-5 text-accent" />
-              Chi tiết Hợp đồng Thuê chính thức #{viewRental?.contract_code}
+        <DialogContent className="max-w-4xl w-[94vw] sm:w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl border border-border bg-white dark:bg-zinc-900 shadow-2xl z-50">
+          <DialogHeader className="shrink-0 p-4 sm:p-5 pr-12 border-b border-border bg-white dark:bg-zinc-900 relative z-10">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 text-ink text-base sm:text-lg font-bold font-heading">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-accent shrink-0" />
+                <span>Chi tiết Hợp đồng Thuê chính thức</span>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs text-emerald-800 bg-emerald-50 border-emerald-300 w-fit">
+                #{viewRental?.contract_code}
+              </Badge>
             </DialogTitle>
           </DialogHeader>
           {viewRental && (
-            <div className="space-y-6 pt-4 text-sm text-ink-muted">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 text-xs sm:text-sm text-ink-muted">
               {/* Thông tin chung */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-bg-subtle p-4 rounded-lg border border-border">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 dark:bg-zinc-800/60 p-3.5 sm:p-4 rounded-xl border border-border">
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Mã hợp đồng:</span>
-                  <span className="font-bold text-ink text-xs font-mono">{viewRental.contract_code}</span>
+                  <span className="font-bold text-ink text-xs sm:text-sm font-mono mt-0.5 block">{viewRental.contract_code}</span>
                 </div>
-                <div>
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Trạng thái:</span>
                   <Badge className="bg-green-50 text-green-700 border-green-250 border font-bold text-[9px] rounded-full uppercase tracking-wider mt-1" variant="outline">
                     {viewRental.status === 'active' ? 'Hiệu lực' : viewRental.status}
                   </Badge>
                 </div>
-                <div>
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Thời hạn:</span>
-                  <span className="font-semibold text-ink text-xs font-mono block mt-1">
+                  <span className="font-semibold text-ink text-xs font-mono block mt-0.5">
                     {formatDateDisplay(viewRental.start_date)} - {formatDateDisplay(viewRental.end_date)}
                   </span>
                 </div>
-                <div>
+                <div className="p-2.5 bg-white dark:bg-zinc-800 rounded-lg border border-slate-200/80 dark:border-zinc-700">
                   <span className="text-[10px] font-bold text-ink-muted uppercase tracking-wider block">Nhân viên Sale:</span>
                   {(() => {
                     const agentId = viewRental.sales_agent_id || viewRental.created_by;
                     const saleProfile = agentId ? profilesMap.get(agentId) : null;
-                    if (!saleProfile) return <span className="font-semibold text-ink text-xs">Hệ thống</span>;
+                    if (!saleProfile) return <span className="font-semibold text-ink text-xs block mt-0.5">Hệ thống</span>;
                     return (
                       <>
-                        <span className="font-semibold text-ink text-xs block truncate">{saleProfile.full_name || '—'}</span>
-                        <span className="text-ink-muted text-[10px] font-mono block mt-0.5">{saleProfile.phone || '—'}</span>
+                        <span className="font-semibold text-ink text-xs block truncate mt-0.5">{saleProfile.full_name || '—'}</span>
+                        <span className="text-ink-muted text-[10px] font-mono block">{saleProfile.phone || '—'}</span>
                       </>
                     );
                   })()}
@@ -1488,73 +1624,177 @@ export function ContractsPage() {
               </div>
 
               {/* Thông tin 2 bên */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
-                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-2 p-3.5 sm:p-4 border rounded-xl bg-slate-50/50 dark:bg-zinc-800/30 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
                     <User className="h-4 w-4 text-accent" /> Bên Cho Thuê (Bên A)
                   </h4>
-                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewRental.party_a_name}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewRental.party_a_phone}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_a_dob)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewRental.party_a_id_card || '—'}</span></p>
-                  {viewRental.party_a_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_a_id_date)}</span> (Nơi cấp: {viewRental.party_a_id_place || '—'})</p>}
-                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewRental.party_a_address || '—'}</span></p>
+                  <div className="space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Họ và tên:</span>
+                      <span className="font-semibold text-ink">{viewRental.party_a_name}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số điện thoại:</span>
+                      <span className="font-mono text-ink font-semibold">{viewRental.party_a_phone}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Ngày sinh:</span>
+                      <span className="font-mono text-ink">{formatDateDisplay(viewRental.party_a_dob)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số CCCD:</span>
+                      <span className="font-mono text-ink font-semibold">{viewRental.party_a_id_card || '—'}</span>
+                    </div>
+                    {viewRental.party_a_id_date && (
+                      <div className="flex justify-between items-center py-0.5">
+                        <span className="text-ink-muted font-medium">Ngày &amp; Nơi cấp:</span>
+                        <span className="font-mono text-ink text-right">{formatDateDisplay(viewRental.party_a_id_date)} ({viewRental.party_a_id_place || '—'})</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start py-0.5">
+                      <span className="text-ink-muted font-medium shrink-0">Địa chỉ:</span>
+                      <span className="text-ink font-medium text-right ml-2">{viewRental.party_a_address || '—'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2.5 p-4 border rounded-lg bg-bg-subtle/20 border-border">
-                  <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
+                <div className="space-y-2 p-3.5 sm:p-4 border rounded-xl bg-slate-50/50 dark:bg-zinc-800/30 border-border">
+                  <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
                     <User className="h-4 w-4 text-accent" /> Bên Thuê Phòng (Bên B)
                   </h4>
-                  <p><span className="text-ink-muted text-xs font-medium">Họ và tên:</span> <span className="font-semibold text-ink">{viewRental.party_b_name}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số điện thoại:</span> <span className="font-mono text-ink font-semibold">{viewRental.party_b_phone}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày sinh:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_b_dob)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số CCCD:</span> <span className="font-mono text-ink font-medium">{viewRental.party_b_id_card || '—'}</span></p>
-                  {viewRental.party_b_id_date && <p><span className="text-ink-muted text-xs font-medium">Ngày cấp:</span> <span className="font-mono">{formatDateDisplay(viewRental.party_b_id_date)}</span> (Nơi cấp: {viewRental.party_b_id_place || '—'})</p>}
-                  <p><span className="text-ink-muted text-xs font-medium">Địa chỉ:</span> <span className="text-ink">{viewRental.party_b_address || '—'}</span></p>
+                  <div className="space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Họ và tên:</span>
+                      <span className="font-semibold text-ink">{viewRental.party_b_name}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số điện thoại:</span>
+                      <span className="font-mono text-ink font-semibold">{viewRental.party_b_phone}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Ngày sinh:</span>
+                      <span className="font-mono text-ink">{formatDateDisplay(viewRental.party_b_dob)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span className="text-ink-muted font-medium">Số CCCD:</span>
+                      <span className="font-mono text-ink font-semibold">{viewRental.party_b_id_card || '—'}</span>
+                    </div>
+                    {viewRental.party_b_id_date && (
+                      <div className="flex justify-between items-center py-0.5">
+                        <span className="text-ink-muted font-medium">Ngày &amp; Nơi cấp:</span>
+                        <span className="font-mono text-ink text-right">{formatDateDisplay(viewRental.party_b_id_date)} ({viewRental.party_b_id_place || '—'})</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start py-0.5">
+                      <span className="text-ink-muted font-medium shrink-0">Địa chỉ:</span>
+                      <span className="text-ink font-medium text-right ml-2">{viewRental.party_b_address || '—'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Thông tin phòng & điều khoản thuê */}
-              <div className="space-y-4 p-4 border rounded-lg bg-white border-border">
-                <h4 className="font-bold font-heading text-ink border-b pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider border-border">
-                  <Building className="h-4 w-4 text-accent" /> Thông tin phòng & Chi tiết thuê
+              <div className="space-y-3 p-3.5 sm:p-4 border rounded-xl bg-white dark:bg-zinc-800/80 border-border">
+                <h4 className="font-bold font-heading text-ink border-b border-border pb-2 flex items-center gap-1.5 uppercase text-xs tracking-wider">
+                  <Building className="h-4 w-4 text-accent" /> Thông tin phòng &amp; Chi tiết thuê
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-y-3 gap-x-4">
-                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phòng thuê chính thức:</span> <span className="font-bold text-accent">Phòng {viewRental.rooms?.code || '---'} - {viewRental.rooms?.buildings?.name || 'Khu vực khác'}</span></p>
-                  {viewRental.sign_location && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Nơi ký hợp đồng:</span> <span className="text-ink">{viewRental.sign_location}</span></p>}
-                  <p><span className="text-ink-muted text-xs font-medium">Giá thuê hàng tháng:</span> <span className="font-bold font-mono text-ink">{Number(viewRental.rent_price).toLocaleString('vi-VN')}đ</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số tiền cọc đã đóng:</span> <span className="font-bold font-mono text-accent">{Number(viewRental.deposit_amount).toLocaleString('vi-VN')}đ</span></p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2.5 gap-x-4">
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <span className="text-ink-muted text-xs font-medium block">Phòng thuê chính thức:</span>
+                    <span className="font-bold text-accent text-sm">Phòng {viewRental.rooms?.code || '---'} - {viewRental.rooms?.buildings?.name || 'Khu vực khác'}</span>
+                  </div>
+                  {viewRental.sign_location && (
+                    <div className="sm:col-span-2 md:col-span-3">
+                      <span className="text-ink-muted text-xs font-medium block">Nơi ký hợp đồng:</span>
+                      <span className="text-ink">{viewRental.sign_location}</span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Giá thuê hàng tháng:</span>
+                    <span className="font-bold font-mono text-ink">{Number(viewRental.rent_price).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Số tiền cọc đã đóng:</span>
+                    <span className="font-bold font-mono text-accent">{Number(viewRental.deposit_amount).toLocaleString('vi-VN')}đ</span>
+                  </div>
                   {(viewRental.commission_rate_raw || viewRental.rooms?.rose) && (
-                    <p>
-                      <span className="text-ink-muted text-xs font-medium">Hoa hồng Sale:</span>{' '}
+                    <div>
+                      <span className="text-ink-muted text-xs font-medium block">Hoa hồng Sale:</span>
                       <span className="font-bold font-mono text-emerald-600">
                         {(viewRental.commission_amount !== undefined && viewRental.commission_amount !== null && Number(viewRental.commission_amount) > 0
                           ? Number(viewRental.commission_amount)
                           : calculateCommissionAmount(viewRental.rooms?.price || 0, viewRental.rooms?.rose || '', getContractTermMonths(viewRental.start_date, viewRental.end_date))
                         ).toLocaleString('vi-VN')}đ ({viewRental.commission_rate_raw || viewRental.rooms?.rose})
                       </span>
-                    </p>
+                    </div>
                   )}
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày đóng tiền:</span> <span className="text-ink font-semibold">Ngày {viewRental.payment_day_of_month} hàng tháng</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Chu kỳ đóng tiền:</span> <span className="text-ink font-semibold">{viewRental.billing_cycle_months} tháng/lần</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày bắt đầu:</span> <span className="font-mono text-ink">{formatDateDisplay(viewRental.start_date)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày kết thúc:</span> <span className="font-mono text-ink">{formatDateDisplay(viewRental.end_date)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Ngày bàn giao:</span> <span className="font-mono text-ink">{formatDateDisplay(viewRental.handover_date)}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Tiền điện:</span> <span className="font-mono text-ink font-semibold">{Number(viewRental.electricity_price).toLocaleString('vi-VN')}đ/số</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Tiền nước:</span> <span className="text-ink font-semibold">{viewRental.water_price}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Phí dịch vụ:</span> <span className="text-ink font-semibold">{viewRental.service_price}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Mạng internet:</span> <span className="text-ink font-semibold">{viewRental.other_services?.internet || 'Chưa thỏa thuận'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Phí giặt sấy:</span> <span className="text-ink font-semibold">{viewRental.other_services?.laundry || 'Chưa thỏa thuận'}</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Số người ở thực tế:</span> <span className="text-ink font-semibold">{viewRental.tenant_count} người</span></p>
-                  <p><span className="text-ink-muted text-xs font-medium">Báo trước khi hủy HĐ:</span> <span className="text-ink font-semibold">{viewRental.termination_notice_days} ngày</span></p>
-                  <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Phương thức thanh toán:</span> <span className="text-ink">{viewRental.payment_method}</span></p>
-                  {viewRental.note && <p className="md:col-span-3"><span className="text-ink-muted text-xs font-medium">Ghi chú & Thỏa thuận thêm:</span> <span className="text-ink text-xs block bg-bg-subtle/40 p-2 border border-border rounded mt-1">{viewRental.note}</span></p>}
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Ngày đóng tiền:</span>
+                    <span className="text-ink font-semibold">Ngày {viewRental.payment_day_of_month} hàng tháng</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Chu kỳ đóng tiền:</span>
+                    <span className="text-ink font-semibold">{viewRental.billing_cycle_months} tháng/lần</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Ngày bắt đầu:</span>
+                    <span className="font-mono text-ink">{formatDateDisplay(viewRental.start_date)}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Ngày kết thúc:</span>
+                    <span className="font-mono text-ink">{formatDateDisplay(viewRental.end_date)}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Ngày bàn giao:</span>
+                    <span className="font-mono text-ink">{formatDateDisplay(viewRental.handover_date)}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Tiền điện:</span>
+                    <span className="font-mono text-ink font-semibold">{Number(viewRental.electricity_price).toLocaleString('vi-VN')}đ/số</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Tiền nước:</span>
+                    <span className="text-ink font-semibold">{viewRental.water_price}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Phí dịch vụ:</span>
+                    <span className="text-ink font-semibold">{viewRental.service_price}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Mạng internet:</span>
+                    <span className="text-ink font-semibold">{viewRental.other_services?.internet || 'Chưa thỏa thuận'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Phí giặt sấy:</span>
+                    <span className="text-ink font-semibold">{viewRental.other_services?.laundry || 'Chưa thỏa thuận'}</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Số người ở thực tế:</span>
+                    <span className="text-ink font-semibold">{viewRental.tenant_count} người</span>
+                  </div>
+                  <div>
+                    <span className="text-ink-muted text-xs font-medium block">Báo trước khi hủy HĐ:</span>
+                    <span className="text-ink font-semibold">{viewRental.termination_notice_days} ngày</span>
+                  </div>
+                  <div className="sm:col-span-2 md:col-span-3">
+                    <span className="text-ink-muted text-xs font-medium block">Phương thức thanh toán:</span>
+                    <span className="text-ink">{viewRental.payment_method}</span>
+                  </div>
+                  {viewRental.note && (
+                    <div className="sm:col-span-2 md:col-span-3">
+                      <span className="text-ink-muted text-xs font-medium block">Ghi chú &amp; Thỏa thuận thêm:</span>
+                      <span className="text-ink text-xs block bg-slate-50 dark:bg-zinc-800 p-2.5 border border-border rounded-lg mt-1 break-words">
+                        {viewRental.note}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Cập nhật trạng thái hợp đồng (Chỉ Admin/Manager) */}
               {role !== 'sales_agent' && role !== 'landlord' && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border mt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border mt-3">
                   <span className="text-xs font-bold text-ink uppercase tracking-wider">Cập nhật trạng thái hợp đồng:</span>
                   <div className="flex flex-wrap items-center gap-2">
                     {[
@@ -1579,20 +1819,32 @@ export function ContractsPage() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-border mt-4">
+              <div className="flex flex-col sm:flex-row justify-end gap-2.5 pt-3 border-t border-border mt-3">
                 <Button 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold h-9 px-4 flex items-center gap-2"
-                  onClick={() => {
-                    setHandoverSourceType('rental');
-                    setHandoverContract(viewRental);
-                    setIsHandoverOpen(true);
-                  }}
+                  variant="outline"
+                  className="border-slate-300 dark:border-zinc-700 text-ink font-semibold h-10 px-4 flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto"
+                  asChild
                 >
-                  <ClipboardCheck className="h-4 w-4" />
-                  Biên bản bàn giao phòng
+                  <Link href={`${pathPrefix}/contracts/${viewRental.id}/print`} target="_blank">
+                    <Printer className="h-4 w-4 text-slate-600" />
+                    In / Tải PDF Hợp đồng
+                  </Link>
                 </Button>
-                {role !== 'landlord' && (
-                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold h-9 px-4">
+                {role !== 'sales_agent' && (
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold h-10 px-4 flex items-center justify-center gap-2 text-xs sm:text-sm w-full sm:w-auto"
+                    onClick={() => {
+                      setHandoverSourceType('rental');
+                      setHandoverContract(viewRental);
+                      setIsHandoverOpen(true);
+                    }}
+                  >
+                    <ClipboardCheck className="h-4 w-4" />
+                    Biên bản bàn giao phòng
+                  </Button>
+                )}
+                {role !== 'sales_agent' && role !== 'landlord' && (
+                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold h-10 px-4 text-xs sm:text-sm w-full sm:w-auto">
                     <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${viewRental.id}`}>
                       <RefreshCw className="h-4 w-4 mr-2" /> Gia hạn hợp đồng này
                     </Link>

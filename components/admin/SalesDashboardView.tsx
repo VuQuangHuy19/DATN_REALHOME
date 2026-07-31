@@ -9,8 +9,15 @@ import {
   Users, CalendarDays, FileText, Bell, TrendingUp, Phone,
   PlusCircle, ArrowRight, Clock, CheckCircle2, AlertCircle,
   Home, DollarSign, Target, Flame, UserCheck, XCircle, BarChart3,
-  ExternalLink, Award, Percent, Sparkles, Trophy
+  ExternalLink, Award, Percent, Sparkles, Trophy, Plus, ChevronDown,
+  UserPlus, FileSignature
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 type SalesStats = {
@@ -158,24 +165,42 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
         <div className="flex items-center gap-2">
           {stats.unreadNotifications > 0 && (
             <Link href="/admin/system/notifications">
-              <Button variant="outline" size="sm" className="gap-2 border-rose-200 text-rose-600 hover:bg-rose-50">
-                <Bell className="h-4 w-4" />
+              <Button variant="outline" size="sm" className="gap-1.5 border-rose-200 text-rose-600 hover:bg-rose-50 text-xs px-2.5 sm:px-3">
+                <Bell className="h-3.5 w-3.5" />
                 {stats.unreadNotifications} thông báo mới
               </Button>
             </Link>
           )}
-          <Link href="/customer/properties" target="_blank">
-            <Button variant="outline" size="sm" className="gap-2 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
-              <ExternalLink className="h-4 w-4" />
-              Xem trang khách
-            </Button>
-          </Link>
-          <Link href="/admin/customers/leads">
-            <Button size="sm" className="gap-2 bg-accent hover:bg-accent/90 text-white font-semibold shadow-sm">
-              <PlusCircle className="h-4 w-4" />
-              Thêm lead mới
-            </Button>
-          </Link>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="gap-1.5 bg-accent hover:bg-accent/90 text-white font-bold shadow-sm text-xs px-3">
+                <Plus className="h-4 w-4" />
+                <span>Thêm mới</span>
+                <ChevronDown className="h-3.5 w-3.5 opacity-75" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl border border-border shadow-xl bg-white dark:bg-zinc-900 z-50">
+              <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2 px-3 text-xs font-semibold hover:bg-accent-soft hover:text-accent">
+                <Link href="/admin/customers/leads" className="flex items-center gap-2.5">
+                  <UserPlus className="h-4 w-4 text-accent" />
+                  <span>1. Thêm khách hàng</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2 px-3 text-xs font-semibold hover:bg-indigo-50 hover:text-indigo-600">
+                <Link href="/admin/customers/appointments" className="flex items-center gap-2.5">
+                  <CalendarDays className="h-4 w-4 text-indigo-600" />
+                  <span>2. Thêm lịch hẹn</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="rounded-lg cursor-pointer py-2 px-3 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-600">
+                <Link href="/admin/contracts/create" className="flex items-center gap-2.5">
+                  <FileSignature className="h-4 w-4 text-emerald-600" />
+                  <span>3. Soạn cọc</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

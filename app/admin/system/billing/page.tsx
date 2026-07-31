@@ -32,6 +32,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 interface Subscription {
   id: string;
@@ -79,6 +80,7 @@ const PLAN_INFO: Record<string, { name: string; price: number; desc: string; col
 };
 
 export default function BillingPage() {
+  const { role } = useAuth();
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [company, setCompany] = useState<any>(null);
@@ -284,6 +286,22 @@ export default function BillingPage() {
   // Calculations
   const unitPrice = PLAN_INFO[selectedPlan]?.price || 0;
   const totalPrice = unitPrice * selectedSeats * selectedMonths;
+
+  if (role === 'sales_agent') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="bg-white p-8 rounded-2xl border border-border text-center max-w-md w-full space-y-4 shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+            <AlertTriangle className="h-7 w-7" />
+          </div>
+          <h2 className="text-xl font-bold text-ink">Không có quyền truy cập</h2>
+          <p className="text-ink-muted text-sm leading-relaxed">
+            Trang Gói dịch vụ & Gia hạn không mở cho tài khoản Nhân viên Kinh doanh (Sale).
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

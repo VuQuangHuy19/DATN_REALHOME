@@ -597,19 +597,19 @@ export function RoomListPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
           ) : (
-            <div className="border-t border-border overflow-hidden">
+            <div className="border-t border-border overflow-x-auto overflow-y-auto max-h-[calc(100vh-230px)] relative">
               {/* Desktop view */}
-              <table className="w-full text-sm hidden md:table border-collapse">
-                <thead className="bg-bg-subtle border-b border-border">
+              <table className="w-full text-sm hidden md:table min-w-[780px] border-collapse">
+                <thead className="bg-slate-100 dark:bg-zinc-800 border-b border-border sticky top-0 z-20 shadow-xs">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã Chủ Nhà</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Tòa nhà</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Loại</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Diện tích</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Giá</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[90px]">Mã</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[110px]">Mã Chủ Nhà</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[160px]">Tòa nhà</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[120px]">Loại</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[100px]">Diện tích</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[120px]">Giá</th>
+                    <th className="px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[130px]">Trạng thái</th>
+                    <th className="px-6 py-3.5 text-right text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[110px]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-ink">

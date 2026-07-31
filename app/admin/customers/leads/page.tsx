@@ -335,19 +335,19 @@ export default function LeadsPage() {
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
-            <div className="overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-230px)] border border-border-subtle rounded-lg relative">
               {/* Desktop view */}
-              <table className="w-full text-sm hidden md:table min-w-[750px] border-collapse">
-                <thead className="bg-bg-subtle border-b border-border-subtle">
+              <table className="w-full text-sm hidden md:table min-w-[780px] border-collapse">
+                <thead className="bg-slate-100 dark:bg-zinc-800 border-b border-border-subtle sticky top-0 z-20 shadow-xs">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Thời gian tạo</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Quan tâm</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Sale phụ trách</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nguồn</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Ngân sách</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[140px]">Khách hàng</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[110px]">Trạng thái</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[130px]">Thời gian tạo</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[150px]">Quan tâm</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[140px]">Sale phụ trách</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[90px]">Nguồn</th>
+                    <th className="px-4 py-3.5 text-right text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[110px]">Ngân sách</th>
+                    <th className="px-4 py-3.5 text-right text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[100px]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle text-ink">
@@ -480,7 +480,28 @@ export default function LeadsPage() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-ink text-sm">{item.full_name}</span>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={item.status}
+                            onChange={async (e) => {
+                              const newSt = e.target.value as DBLead['status'];
+                              const toastId = toast.loading('Đang đổi trạng thái...');
+                              const res = await update(item.id, { status: newSt });
+                              if (res) {
+                                toast.success(`Đã chuyển: ${statusConfig[newSt]?.label || newSt}`, { id: toastId });
+                              } else {
+                                toast.error('Lỗi chuyển trạng thái', { id: toastId });
+                              }
+                            }}
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full border border-border/40 outline-none cursor-pointer ${sc.color}`}
+                          >
+                            {statusOrder.map((st) => (
+                              <option key={st} value={st}>
+                                {statusConfig[st]?.label || st}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
@@ -490,7 +511,7 @@ export default function LeadsPage() {
                         </div>
                         <div>
                           <span className="font-medium text-ink-muted">SĐT:</span>{' '}
-                          <span className="text-ink font-mono">{item.phone}</span>
+                          <span className="text-ink font-mono font-semibold">{item.phone}</span>
                         </div>
                         <div>
                           <span className="font-medium text-ink-muted">Ngân sách:</span>{' '}
@@ -541,8 +562,33 @@ export default function LeadsPage() {
                       </div>
                       
                       <div className="flex items-center justify-between pt-2 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
-                        <div className="text-xs text-ink-muted truncate max-w-[180px] font-mono">
-                          {item.email || '—'}
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`tel:${item.phone}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg active:scale-95 transition-transform"
+                            title="Gọi điện trực tiếp"
+                          >
+                            <Phone className="h-3 w-3" /> Gọi
+                          </a>
+                          <a
+                            href={`https://zalo.me/${item.phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg active:scale-95 transition-transform"
+                            title="Nhắn Zalo"
+                          >
+                            <MessageSquare className="h-3 w-3" /> Zalo
+                          </a>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(item.phone);
+                              toast.success(`Đã sao chép SĐT: ${item.phone}`);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg active:scale-95 transition-transform"
+                            title="Copy SĐT"
+                          >
+                            Copy
+                          </button>
                         </div>
                         <div className="flex gap-1">
                           <Button
@@ -550,6 +596,7 @@ export default function LeadsPage() {
                             size="icon"
                             className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
                             onClick={() => { setSelectedLeadId(item.id); setIsDetailOpen(true); }}
+                            title="Xem chi tiết"
                           >
                             <Search className="h-4 w-4" />
                           </Button>
@@ -558,6 +605,7 @@ export default function LeadsPage() {
                             size="icon"
                             className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
                             onClick={() => { setEditItem(item); setIsFormOpen(true); }}
+                            title="Chỉnh sửa"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -567,6 +615,7 @@ export default function LeadsPage() {
                               size="icon"
                               className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
                               onClick={() => remove(item.id)}
+                              title="Xóa"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

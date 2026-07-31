@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2, Handshake, FileSignature } from 'lucide-react';
+import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2, Handshake, FileSignature, Phone, MessageSquare } from 'lucide-react';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { useAppointments, useProfiles } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -254,21 +254,21 @@ export default function CustomersAppointmentsPage() {
 
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Tìm theo tên khách hàng hoặc SĐT..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 text-sm"
               />
             </div>
-            <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-44" />
+            <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-full text-sm" />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer w-full"
             >
               <option value="">Tất cả trạng thái</option>
               <option value="Pending">Chờ duyệt</option>
@@ -277,11 +277,11 @@ export default function CustomersAppointmentsPage() {
               <option value="Dealed">Đã chốt thành công</option>
               <option value="Cancel">Đã hủy</option>
             </select>
-            {!isSale && (
+            {!isSale ? (
               <select
                 value={filterAssignee}
                 onChange={(e) => setFilterAssignee(e.target.value)}
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer w-full"
               >
                 <option value="all">Tất cả nhân viên</option>
                 <option value="unassigned">Chưa phân công</option>
@@ -289,9 +289,9 @@ export default function CustomersAppointmentsPage() {
                   <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
                 ))}
               </select>
-            )}
+            ) : null}
             {selectedIds.length > 0 && (
-              <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg h-10 px-4 ml-auto">
+              <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg h-10 px-4 w-full sm:w-auto sm:col-span-1">
                 <Trash2 className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
               </Button>
             )}
@@ -303,27 +303,148 @@ export default function CustomersAppointmentsPage() {
               <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto border border-border-subtle rounded-lg">
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-bg-subtle border-b border-border-subtle">
+            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-230px)] sm:max-h-[calc(100vh-250px)] border border-border-subtle rounded-lg relative">
+              {/* Mobile Card View (Hiện trên mobile < md) */}
+              <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
+                {sortedAndFiltered.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="p-3.5 border border-slate-200 rounded-xl bg-white shadow-xs space-y-2.5 cursor-pointer active:bg-slate-50 transition-colors"
+                    onClick={() => openView(item)}
+                  >
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                      <span className="font-bold text-xs text-slate-900">
+                        {item.customer_name} • <span className="font-mono text-slate-600">{item.customer_phone}</span>
+                      </span>
+                      <select
+                        value={item.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={async (e) => {
+                          e.stopPropagation();
+                          const newSt = e.target.value as AppStatus;
+                          const toastId = toast.loading('Đang cập nhật...');
+                          const res = await update(item.id, { status: newSt });
+                          if (res) {
+                            toast.success(`Đã chuyển: ${statusLabels[newSt] || newSt}`, { id: toastId });
+                          } else {
+                            toast.error('Lỗi cập nhật', { id: toastId });
+                          }
+                        }}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border outline-none cursor-pointer ${statusColors[item.status] || 'bg-slate-100 text-slate-700'}`}
+                      >
+                        {STATUS_LIST.map((st) => (
+                          <option key={st} value={st}>
+                            {statusLabels[st] || st}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs text-slate-600">
+                      <div className="flex justify-between items-start">
+                        <span className="text-slate-400 shrink-0">Bất động sản:</span>
+                        <span className="font-bold text-accent text-right ml-2">{item.room_title || '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400">Thời gian hẹn:</span>
+                        <span className="font-mono font-bold text-slate-900">{formatDate(item.date)} ({item.time})</span>
+                      </div>
+                      {item.landlord_code && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Mã chủ nhà:</span>
+                          <span className="font-mono font-semibold text-slate-800">{item.landlord_code}</span>
+                        </div>
+                      )}
+                      {item.area && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400">Khu vực:</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getAreaColorClass(item.area)}`}>
+                            {item.area}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5">
+                        {item.customer_phone && (
+                          <>
+                            <a
+                              href={`tel:${item.customer_phone}`}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg active:scale-95 transition-transform"
+                              title="Gọi điện"
+                            >
+                              <Phone className="h-3 w-3" /> Gọi
+                            </a>
+                            <a
+                              href={`https://zalo.me/${item.customer_phone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-1 rounded-lg active:scale-95 transition-transform"
+                              title="Nhắn Zalo"
+                            >
+                              <MessageSquare className="h-3 w-3" /> Zalo
+                            </a>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleShare(item)}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-lg active:scale-95 transition-transform"
+                          title="Copy gửi Zalo/chủ nhà"
+                        >
+                          <Share2 className="h-3 w-3" /> Copy
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-emerald-600"
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            if (item.room_id) params.set('room_id', item.room_id);
+                            if (item.building_id) params.set('building_id', item.building_id);
+                            if (item.customer_name) params.set('customer_name', item.customer_name);
+                            if (item.customer_phone) params.set('customer_phone', item.customer_phone);
+                            if (item.customer_email) params.set('customer_email', item.customer_email);
+                            if (item.assigned_to) params.set('sales_agent_id', item.assigned_to);
+                            router.push(`${pathPrefix}/contracts/create?${params.toString()}`);
+                          }}
+                          title="Tạo cọc ngay"
+                        >
+                          <FileSignature className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600" onClick={() => openView(item)} title="Xem chi tiết">
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table (Chỉ hiện trên máy tính >= md) */}
+              <table className="w-full text-sm border-collapse min-w-[880px] hidden md:table">
+                <thead className="bg-slate-100 dark:bg-zinc-800 border-b border-border-subtle sticky top-0 z-20 shadow-xs">
                   <tr>
-                    <th className="px-4 py-3 text-left w-12">
+                    <th className="px-3 py-3.5 text-left w-10 min-w-[40px] sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800">
                       <input 
                         type="checkbox" 
-                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
                         onChange={handleSelectAll}
                         checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
                       />
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách hàng</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã chủ nhà</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Bất động sản</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Ngày</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Giờ</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khu vực</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Sale phụ trách</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-6 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[140px]">Khách hàng</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[100px]">Mã chủ nhà</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[160px]">Bất động sản</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[100px]">Ngày</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[70px]">Giờ</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[100px]">Khu vực</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[140px]">Sale phụ trách</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-left text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[120px]">Trạng thái</th>
+                    <th className="px-4 sm:px-6 py-3.5 text-right text-xs font-bold text-ink-muted uppercase tracking-wider sticky top-0 z-20 bg-slate-100 dark:bg-zinc-800 min-w-[140px]">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle text-ink">

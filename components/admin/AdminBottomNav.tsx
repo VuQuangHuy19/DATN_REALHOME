@@ -88,7 +88,10 @@ export function AdminBottomNav() {
   ];
 
   const visibleMenuItems = fullMenuItems.filter(
-    (item) => !item.permission || hasPermission(item.permission)
+    (item) => {
+      if (role === 'sales_agent' && item.href === '/admin/system/billing') return false;
+      return !item.permission || hasPermission(item.permission);
+    }
   );
 
   return (

@@ -25,7 +25,7 @@ import { supabase } from '@/lib/supabase/client';
 import { Logo } from '@/components/Logo';
 
 export function AdminHeader() {
-  const { profile, company, signOut, user } = useAuth();
+  const { profile, company, signOut, user, role } = useAuth();
   const { unreadCount } = useNotifications(user?.id, company?.id);
   const { language } = useAppPreferences();
   const isEn = language === 'en';
@@ -262,12 +262,14 @@ export function AdminHeader() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 sm:w-60 min-w-[220px]">
-            <DropdownMenuItem asChild>
-              <Link href="/admin/system/billing" className="flex items-center gap-2 font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
-                <CreditCard className="h-4 w-4 shrink-0" />
-                {isEn ? 'SaaS Billing & Plan' : 'Gói dịch vụ & Gia hạn'}
-              </Link>
-            </DropdownMenuItem>
+            {role !== 'sales_agent' && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/system/billing" className="flex items-center gap-2 font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap">
+                  <CreditCard className="h-4 w-4 shrink-0" />
+                  {isEn ? 'SaaS Billing & Plan' : 'Gói dịch vụ & Gia hạn'}
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem asChild>
               <Link href="/admin/profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
