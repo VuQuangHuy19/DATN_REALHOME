@@ -14,30 +14,49 @@ export const DEFAULT_KPI_CONFIGURATION = {
   sale_commission_mode: 'fixed' as 'fixed' | 'tier' | 'custom',
   sale_commission_fixed_rate: 0.60, // 60% của hoa hồng thu từ Chủ nhà
   sale_commission_tiers: [
-    { minRevenue: 0, maxRevenue: 12500000, rate: 0.30, label: 'Dưới 12.5 triệu' },
-    { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34, label: 'Từ 12.5tr - 25 triệu' },
-    { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40, label: 'Trên 25 triệu' },
+    { minRevenue: 0, maxRevenue: 10500000, rate: 0.30, label: 'Mốc 1 (0 - 10.5M)' },
+    { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34, label: 'Mốc 2 (12.5M - 25M)' },
+    { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40, label: 'Mốc 3 (Trển 25M)' },
   ],
 };
 
 export async function getKPIConfiguration(companyId: string): Promise<any> {
-  const { data } = await supabase
-    .from('kpi_configurations')
-    .select('*')
-    .eq('company_id', companyId)
-    .maybeSingle();
+  const [kpiRes, commRes] = await Promise.all([
+    supabase
+      .from('kpi_configurations')
+      .select('*')
+      .eq('company_id', companyId)
+      .maybeSingle(),
+    supabase
+      .from('contract_templates')
+      .select('content')
+      .eq('type', 'system_sales_commission')
+      .or(`company_id.eq.${companyId},company_id.is.null`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  let localCommConfig: any = {};
-  if (typeof window !== 'undefined') {
+  let commConfig: any = {};
+  if (commRes.data?.content) {
+    try {
+      commConfig = JSON.parse(commRes.data.content);
+    } catch (e) {
+      console.error('Error parsing comm config from DB:', e);
+    }
+  }
+
+  // LocalStorage fallback for client offline responsiveness
+  if (typeof window !== 'undefined' && (!commConfig || !commConfig.sale_commission_mode)) {
     try {
       const raw = localStorage.getItem(`sale_comm_config_${companyId}`);
-      if (raw) localCommConfig = JSON.parse(raw);
+      if (raw) commConfig = JSON.parse(raw);
     } catch (e) {
       console.error('Error loading local comm config:', e);
     }
   }
 
-  const baseConfig = data || {
+  const baseConfig = kpiRes.data || {
     id: '',
     company_id: companyId,
     ...DEFAULT_KPI_CONFIGURATION,
@@ -49,9 +68,9 @@ export async function getKPIConfiguration(companyId: string): Promise<any> {
 
   return {
     ...baseConfig,
-    sale_commission_mode: localCommConfig.sale_commission_mode || (baseConfig as any).sale_commission_mode || 'fixed',
-    sale_commission_fixed_rate: localCommConfig.sale_commission_fixed_rate ?? (baseConfig as any).sale_commission_fixed_rate ?? 0.60,
-    sale_commission_tiers: localCommConfig.sale_commission_tiers || (baseConfig as any).sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
+    sale_commission_mode: commConfig.sale_commission_mode || (baseConfig as any).sale_commission_mode || DEFAULT_KPI_CONFIGURATION.sale_commission_mode,
+    sale_commission_fixed_rate: commConfig.sale_commission_fixed_rate ?? (baseConfig as any).sale_commission_fixed_rate ?? DEFAULT_KPI_CONFIGURATION.sale_commission_fixed_rate,
+    sale_commission_tiers: commConfig.sale_commission_tiers || (baseConfig as any).sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
   };
 }
 
@@ -59,20 +78,55 @@ export async function saveKPIConfiguration(
   companyId: string,
   config: any
 ): Promise<any> {
-  // Save sale commission configurations locally so it works seamlessly without database migration error
+  const commData = {
+    sale_commission_mode: config.sale_commission_mode || 'fixed',
+    sale_commission_fixed_rate: config.sale_commission_fixed_rate ?? 0.60,
+    sale_commission_tiers: config.sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
+  };
+
+  // Save to DB via contract_templates system record for server & client access
+  if (companyId) {
+    try {
+      const { data: existingTemplate } = await supabase
+        .from('contract_templates')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('type', 'system_sales_commission')
+        .maybeSingle();
+
+      if (existingTemplate?.id) {
+        await supabase
+          .from('contract_templates')
+          .update({
+            content: JSON.stringify(commData),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingTemplate.id);
+      } else {
+        await supabase
+          .from('contract_templates')
+          .insert({
+            company_id: companyId,
+            name: 'System Sales Commission Configuration',
+            type: 'system_sales_commission',
+            content: JSON.stringify(commData),
+          });
+      }
+    } catch (e) {
+      console.error('Error saving sales comm to contract_templates:', e);
+    }
+  }
+
+  // Also sync to LocalStorage
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(`sale_comm_config_${companyId}`, JSON.stringify({
-        sale_commission_mode: config.sale_commission_mode,
-        sale_commission_fixed_rate: config.sale_commission_fixed_rate,
-        sale_commission_tiers: config.sale_commission_tiers,
-      }));
+      localStorage.setItem(`sale_comm_config_${companyId}`, JSON.stringify(commData));
     } catch (e) {
       console.error('Error saving local comm config:', e);
     }
   }
 
-  // Strip out fields that don't exist in Supabase kpi_configurations table schema to avoid PostgREST column errors
+  // Strip out non-existent columns for kpi_configurations DB table
   const dbPayload = {
     revenue_weight: config.revenue_weight,
     appointment_weight: config.appointment_weight,
@@ -116,15 +170,14 @@ export async function saveKPIConfiguration(
 
   return {
     ...resultData,
-    sale_commission_mode: config.sale_commission_mode || 'fixed',
-    sale_commission_fixed_rate: config.sale_commission_fixed_rate ?? 0.60,
-    sale_commission_tiers: config.sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
+    ...commData,
   };
 }
 
 export interface SaleCommissionInfo {
   mode: 'fixed' | 'tier' | 'custom';
   calculatedCommission: number;
+  collectedCommission: number; // Hoa hồng thực nhận (đã được Chủ nhà thanh toán)
   currentRate: number;
   currentTierLabel: string;
   nextTierRate?: number;
@@ -137,19 +190,21 @@ export interface SaleCommissionInfo {
 export function calculateSaleCommissionInfo(
   totalRevenue: number,
   totalGrossCommission: number,
-  config?: any
+  config?: any,
+  collectedGrossCommission: number = 0
 ): SaleCommissionInfo {
   const mode = config?.sale_commission_mode || 'fixed';
   const fixedRate = config?.sale_commission_fixed_rate ?? 0.60;
   const tiers = config?.sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers;
 
-  // Base amount: if totalGrossCommission > 0 use it, else fallback to totalRevenue
   const baseAmount = totalGrossCommission > 0 ? totalGrossCommission : totalRevenue;
+  const collectedBaseAmount = collectedGrossCommission > 0 ? collectedGrossCommission : 0;
 
   if (mode === 'fixed') {
     return {
       mode: 'fixed',
-      calculatedCommission: baseAmount * fixedRate,
+      calculatedCommission: Math.round(baseAmount * fixedRate),
+      collectedCommission: Math.round(collectedBaseAmount * fixedRate),
       currentRate: fixedRate,
       currentTierLabel: `% Cố định (${Math.round(fixedRate * 100)}%)`,
       progressPercent: 100,
@@ -157,7 +212,6 @@ export function calculateSaleCommissionInfo(
   }
 
   if (mode === 'tier' && Array.isArray(tiers) && tiers.length > 0) {
-    // Sort tiers by minRevenue ascending
     const sortedTiers = [...tiers].sort((a, b) => (Number(a.minRevenue) || 0) - (Number(b.minRevenue) || 0));
     
     let currentTierIdx = 0;
@@ -170,7 +224,7 @@ export function calculateSaleCommissionInfo(
 
     const currentTier = sortedTiers[currentTierIdx];
     const currentRate = Number(currentTier.rate) || 0.30;
-    const currentTierLabel = currentTier.label || `Mốc ${currentTierIdx + 1}`;
+    const currentTierLabel = currentTier.label || `Mốc ${currentTierIdx + 1} (${Math.round(currentRate * 100)}%)`;
     const currentMin = Number(currentTier.minRevenue) || 0;
     const currentMax = Number(currentTier.maxRevenue) || 999999999;
 
@@ -183,7 +237,7 @@ export function calculateSaleCommissionInfo(
 
     if (nextTier) {
       nextTierRate = Number(nextTier.rate) || 0.40;
-      nextTierLabel = nextTier.label || `Mốc ${currentTierIdx + 2}`;
+      nextTierLabel = nextTier.label || `Mốc ${currentTierIdx + 2} (${Math.round((nextTierRate || 0) * 100)}%)`;
       nextTierMinRevenue = Number(nextTier.minRevenue) || currentMax;
       amountNeeded = Math.max(0, nextTierMinRevenue - totalRevenue);
 
@@ -196,11 +250,12 @@ export function calculateSaleCommissionInfo(
 
     return {
       mode: 'tier',
-      calculatedCommission: baseAmount * currentRate,
+      calculatedCommission: Math.round(baseAmount * currentRate),
+      collectedCommission: Math.round(collectedBaseAmount * currentRate),
       currentRate,
-      currentTierLabel: `Bậc ${currentTierIdx + 1} (${Math.round(currentRate * 100)}%)`,
+      currentTierLabel: `Mốc ${currentTierIdx + 1} (${Math.round(currentRate * 100)}%)`,
       nextTierRate,
-      nextTierLabel: `Bậc ${currentTierIdx + 2} (${Math.round((nextTierRate || 0) * 100)}%)`,
+      nextTierLabel: `Mốc ${currentTierIdx + 2} (${Math.round((nextTierRate || 0) * 100)}%)`,
       nextTierMinRevenue,
       amountNeeded,
       progressPercent,
@@ -210,7 +265,8 @@ export function calculateSaleCommissionInfo(
   // Fallback / Custom mode
   return {
     mode: 'custom',
-    calculatedCommission: baseAmount * fixedRate,
+    calculatedCommission: Math.round(baseAmount * fixedRate),
+    collectedCommission: Math.round(collectedBaseAmount * fixedRate),
     currentRate: fixedRate,
     currentTierLabel: 'Tùy chỉnh',
     progressPercent: 100,

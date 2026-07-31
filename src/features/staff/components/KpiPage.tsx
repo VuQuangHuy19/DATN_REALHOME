@@ -363,11 +363,11 @@ export function KpiPage() {
           </Button>
           <Button 
             variant="outline" 
-            className="border-border-subtle text-ink hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all rounded-lg gap-2"
-            onClick={() => setIsConfigOpen(true)}
+            className="border-indigo-200 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 dark:hover:bg-white/5 transition-all rounded-lg gap-2 font-semibold"
+            onClick={() => window.location.href = '/admin/commission-policies'}
           >
-            <Settings className="h-4 w-4" />
-            Cấu hình Luật KPI
+            <Settings className="h-4 w-4 text-indigo-600" />
+            Cấu hình Cơ chế & Hoa hồng
           </Button>
           <Button onClick={() => { setEditItem(null); setIsFormOpen(true); }} className="rounded-lg bg-accent text-white hover:bg-accent/90">Thêm đánh giá KPI</Button>
         </div>

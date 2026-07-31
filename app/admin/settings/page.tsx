@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Laptop, Palette, Globe, Bell } from 'lucide-react';
+import { Moon, Sun, Laptop, Palette, Globe, Bell, Sliders } from 'lucide-react';
 import { useAppPreferences, AccentColor, AppLanguage } from '@/components/providers/AppPreferencesProvider';
 import { Switch } from '@/components/ui/switch';
 import { useEffect, useState } from 'react';
@@ -196,8 +196,29 @@ export default function AdminSettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Cấu hình Cơ chế Hoa hồng & Lương thưởng True Home */}
+          <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/20 to-slate-900">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg text-emerald-400">
+                <Sliders className="h-5 w-5 text-emerald-400" />
+                Cơ chế & Chính sách Hoa hồng
+              </CardTitle>
+              <CardDescription>
+                Tùy biến thuật toán nội suy hoa hồng chủ nhà, tỷ lệ chia Sale và công cụ tính toán preview thực tế
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
+                <a href="/admin/settings/commission-policies">
+                  Truy cập Cấu hình Hoa hồng & Lương thưởng
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+
         </div>
       </div>
     </div>
   );
 }
+

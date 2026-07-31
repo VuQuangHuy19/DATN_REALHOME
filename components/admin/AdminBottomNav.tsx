@@ -23,7 +23,8 @@ import {
   UserCog,
   Shield,
   CalendarDays,
-  DoorOpen
+  DoorOpen,
+  Sliders
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,7 @@ export function AdminBottomNav() {
 
   const fullMenuItems = [
     { label: isEn ? 'View Client Page' : 'Xem trang khách', href: '/customer/properties', icon: Home },
+    { label: isEn ? 'Commission & Policies' : 'Cơ chế & Hoa hồng', href: '/admin/commission-policies', icon: Sliders },
     { label: isEn ? 'Contracts' : 'Quản lý Hợp đồng', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
     { label: isEn ? 'Landlords' : 'Chủ sở hữu & Quản lý', href: '/admin/landlords', icon: UserCheck, permission: 'landlords.read' },
     { label: isEn ? 'Maintenance' : 'Bảo trì & Sửa chữa', href: '/admin/services/maintenance', icon: Wrench, permission: 'services.read' },

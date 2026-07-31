@@ -31,6 +31,7 @@ import {
   Receipt,
   Wrench,
   CreditCard,
+  Sliders,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,7 @@ const getNavItems = (isEn: boolean): NavItem[] => [
       { label: isEn ? 'Maintenance' : 'Bảo trì & Sửa chữa', href: '/admin/services/maintenance', icon: Wrench, permission: 'services.read' },
     ],
   },
+  { label: isEn ? 'Commission & Policies' : 'Cơ chế & Hoa hồng', href: '/admin/commission-policies', icon: Sliders },
   {
     label: isEn ? 'Human Resources' : 'Nhân sự',
     href: '/admin/hr/employees',
@@ -136,6 +138,7 @@ const getLandlordNavItems = (isEn: boolean): NavItem[] => [
 const getSalesNavItems = (isEn: boolean): NavItem[] => [
   { label: isEn ? 'View Client Page' : 'Xem trang khách', href: '/customer/properties', icon: Home },
   { label: isEn ? 'Dashboard' : 'Tổng quan', href: '/admin', icon: LayoutDashboard },
+  { label: isEn ? 'Commission & Policies' : 'Cơ chế & Hoa hồng', href: '/admin/commission-policies', icon: Sliders },
   { label: isEn ? 'My Customers' : 'Khách hàng của tôi', href: '/admin/customers/leads', icon: UserSearch, permission: 'leads.read' },
   { label: isEn ? 'Appointments' : 'Lịch hẹn', href: '/admin/customers/appointments', icon: CalendarDays, permission: 'appointments.read' },
   { label: isEn ? 'Available Rooms' : 'Tra cứu phòng trống', href: '/admin/realhome/rooms', icon: DoorOpen, permission: 'rooms.read' },

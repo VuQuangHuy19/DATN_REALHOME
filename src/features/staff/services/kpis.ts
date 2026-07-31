@@ -104,7 +104,7 @@ export async function computeAutoKPI(
   // 4. Fetch contracts
   const { data: deposits, error: depError } = await supabase
     .from('deposit_contracts')
-    .select('rent_price, commission_amount')
+    .select('id, room_id, rent_price, commission_amount, status')
     .eq('company_id', companyId)
     .eq('sales_agent_id', employeeId)
     .gte('created_at', startDate)
@@ -115,7 +115,7 @@ export async function computeAutoKPI(
 
   const { data: rentals, error: rentError } = await supabase
     .from('rental_contracts')
-    .select('rent_price, commission_amount')
+    .select('id, room_id, deposit_contract_id, rent_price, commission_amount, status')
     .eq('company_id', companyId)
     .eq('sales_agent_id', employeeId)
     .gte('created_at', startDate)
@@ -124,13 +124,22 @@ export async function computeAutoKPI(
 
   if (rentError) throw rentError;
 
-  const totalDepositsRent = (deposits ?? []).reduce((sum: number, c: any) => sum + (Number(c.rent_price) || 0), 0);
-  const totalDepositsComm = (deposits ?? []).reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
-  const totalDepositsCount = (deposits ?? []).length;
+  const validRentals = (rentals ?? []).filter((r: any) => r.status !== 'cancelled');
+  const rentalDepositIds = new Set(validRentals.map((r: any) => r.deposit_contract_id).filter(Boolean));
+  const rentalRoomIds = new Set(validRentals.map((r: any) => r.room_id).filter(Boolean));
 
-  const totalRentalsRent = (rentals ?? []).reduce((sum: number, c: any) => sum + (Number(c.rent_price) || 0), 0);
-  const totalRentalsComm = (rentals ?? []).reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
-  const totalRentalsCount = (rentals ?? []).length;
+  const activeStandaloneDeposits = (deposits ?? []).filter((d: any) => {
+    if (d.status === 'cancelled' || d.status === 'converted') return false;
+    if (rentalDepositIds.has(d.id)) return false;
+    if (d.room_id && rentalRoomIds.has(d.room_id)) return false;
+    return true;
+  });
+
+  const totalDepositsComm = activeStandaloneDeposits.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const totalDepositsCount = activeStandaloneDeposits.length;
+
+  const totalRentalsComm = validRentals.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const totalRentalsCount = validRentals.length;
 
   // 5. Cross check with converted leads count
   let convertedLeadsCount = 0;
@@ -164,8 +173,8 @@ export async function computeAutoKPI(
   }
 
   // 7. Calculate dynamic weighted performance score
-  const revenueVal = totalDepositsRent + totalRentalsRent;
-  const totalLandlordComm = totalDepositsComm + totalRentalsComm;
+  const revenueVal = totalDepositsComm + totalRentalsComm;
+  const totalLandlordComm = revenueVal;
 
   let calculatedSaleCommission = totalLandlordComm;
   const commMode = (config as any).sale_commission_mode || 'fixed';

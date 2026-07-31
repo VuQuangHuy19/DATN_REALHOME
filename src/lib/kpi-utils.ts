@@ -66,7 +66,7 @@ export async function syncAgentKPI(companyId: string, employeeId: string, period
     // 4. Fetch contracts
     const { data: deposits } = await supabaseAdmin
       .from('deposit_contracts')
-      .select('rent_price, commission_amount')
+      .select('id, room_id, rent_price, commission_amount, status')
       .eq('company_id', companyId)
       .eq('sales_agent_id', employeeId)
       .gte('created_at', startDate)
@@ -75,20 +75,29 @@ export async function syncAgentKPI(companyId: string, employeeId: string, period
 
     const { data: rentals } = await supabaseAdmin
       .from('rental_contracts')
-      .select('rent_price, commission_amount')
+      .select('id, room_id, deposit_contract_id, rent_price, commission_amount, status')
       .eq('company_id', companyId)
       .eq('sales_agent_id', employeeId)
       .gte('created_at', startDate)
       .lt('created_at', endDate)
       .neq('status', 'cancelled');
 
-    const totalDepositsRent = (deposits ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.rent_price) || 0), 0);
-    const totalDepositsComm = (deposits ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.commission_amount) || 0), 0);
-    const totalDepositsCount = (deposits ?? []).length;
+    const validRentals = (rentals ?? []).filter((r: any) => r.status !== 'cancelled');
+    const rentalDepositIds = new Set(validRentals.map((r: any) => r.deposit_contract_id).filter(Boolean));
+    const rentalRoomIds = new Set(validRentals.map((r: any) => r.room_id).filter(Boolean));
 
-    const totalRentalsRent = (rentals ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.rent_price) || 0), 0);
-    const totalRentalsComm = (rentals ?? []).reduce((sum: number, c: { rent_price: number | null; commission_amount?: number | null }) => sum + (Number(c.commission_amount) || 0), 0);
-    const totalRentalsCount = (rentals ?? []).length;
+    const activeStandaloneDeposits = (deposits ?? []).filter((d: any) => {
+      if (d.status === 'cancelled' || d.status === 'converted') return false;
+      if (rentalDepositIds.has(d.id)) return false;
+      if (d.room_id && rentalRoomIds.has(d.room_id)) return false;
+      return true;
+    });
+
+    const totalDepositsComm = activeStandaloneDeposits.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+    const totalDepositsCount = activeStandaloneDeposits.length;
+
+    const totalRentalsComm = validRentals.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+    const totalRentalsCount = validRentals.length;
 
     // 5. Cross check with converted leads count
     let convertedLeadsCount = 0;
@@ -114,7 +123,7 @@ export async function syncAgentKPI(companyId: string, employeeId: string, period
     appointmentsCompletedCount = (appts ?? []).length;
 
     // 7. Calculate dynamic weighted performance score
-    const revenueVal = totalDepositsRent + totalRentalsRent;
+    const revenueVal = totalDepositsComm + totalRentalsComm; // Doanh số Sale = Tổng hoa hồng thu từ Chủ nhà về
     const revenueRatio = targetRevenue > 0 ? (revenueVal / targetRevenue) : 0;
     const appointmentRatio = targetAppointments > 0 ? (appointmentsCompletedCount / targetAppointments) : 0;
     const leadRatio = targetLeads > 0 ? (convertedLeadsCount / targetLeads) : 0;

@@ -78,10 +78,11 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
   // Personalized KPIs
   const revenueGenerated = stats.employeeKpis?.revenue_generated || 0;
   const commissionEarned = stats.employeeKpis?.commission_earned || 0;
+  const collectedCommission = stats.employeeKpis?.collected_commission || 0;
   const successfulDeals = stats.employeeKpis?.successful_deals || 0;
   const targetRevenue = stats.employeeKpis?.target_revenue || 10000000;
   const targetPercentage = targetRevenue > 0 ? Math.min(100, Math.round((revenueGenerated / targetRevenue) * 100)) : 0;
-  const kpiTier = stats.kpiTier || 'Vàng 🥇';
+  const kpiTier = stats.kpiTier || 'Bậc Thang Doanh Số';
 
   const apptToClosedRate = stats.conversionRates?.apptToClosedRate || 0;
   const leadToClosedRate = stats.conversionRates?.leadToClosedRate || 0;
@@ -132,7 +133,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
       {/* Header Banner - High Energy */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-emerald-600 to-teal-700 p-6 sm:p-8 text-white shadow-lg space-y-4">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
+          <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider">
               <Trophy className="h-3.5 w-3.5 text-amber-300" /> Cấp độ KPI: {kpiTier}
             </div>
@@ -140,19 +141,37 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
               Bật tốc doanh số, {saleName || 'Chiến binh Sale'}! 🔥
             </h1>
             <p className="text-amber-100 text-sm font-medium">
-              {todayStr} · Đã chốt <span className="font-bold text-white text-base">{successfulDeals} phòng</span> trong tháng này!
+              {todayStr} · Đã chốt <span className="font-bold text-white text-base">{successfulDeals} phòng</span> trong tháng này (Doanh thu thu về cho Công ty: <span className="font-bold text-white font-mono">{formatVND(revenueGenerated)}</span>)!
             </p>
+            {stats.tierInfo?.nextTierLabel && stats.tierInfo?.amountNeeded !== undefined && (
+              <p className="text-amber-200 text-xs sm:text-sm font-bold bg-black/20 backdrop-blur-sm px-3 py-1.5 rounded-lg inline-block border border-white/10">
+                🎯 Chỉ còn <span className="text-white font-mono text-base underline decoration-amber-300">{formatVND(stats.tierInfo.amountNeeded)}</span> doanh số nữa là đạt <span className="text-white font-heading">{stats.tierInfo.nextTierLabel}</span>!
+              </p>
+            )}
           </div>
 
-          {/* Big Commission Counter */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-5 rounded-2xl flex flex-col items-center justify-center min-w-[220px]">
-            <span className="text-xs font-semibold text-amber-100 uppercase tracking-wider">Hoa hồng tạm tính tháng này</span>
-            <span className="text-3xl font-extrabold font-mono text-white mt-1 tabular-nums">
-              {formatVND(commissionEarned)}
-            </span>
-            <span className="text-[11px] text-amber-200 mt-1 font-medium">
-              Mục tiêu: {targetRevenue > 0 ? formatVND(targetRevenue) : 'Chưa đặt'} ({targetPercentage}%)
-            </span>
+          {/* Big Commission Counter: Tạm tính vs Thực nhận (Rút về được) */}
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 sm:p-5 rounded-2xl flex flex-col justify-center min-w-[280px] gap-2.5 shadow-inner">
+            <div className="flex items-center justify-between gap-4 border-b border-white/20 pb-2">
+              <span className="text-[11px] font-semibold text-amber-100 uppercase tracking-wider">Hoa hồng tạm tính:</span>
+              <span className="text-2xl font-extrabold font-mono text-white tabular-nums">
+                {formatVND(commissionEarned)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[11px] font-bold text-emerald-200 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-300 animate-spin-slow" />
+                Thực nhận (Có thể rút):
+              </span>
+              <span className="text-xl font-extrabold font-mono text-emerald-200 tabular-nums">
+                {formatVND(collectedCommission)}
+              </span>
+            </div>
+            
+            <div className="text-[10px] text-amber-200/90 text-right pt-0.5">
+              *Hoa hồng thực nhận được ghi nhận khi Chủ nhà đã thanh toán.
+            </div>
           </div>
         </div>
 
@@ -178,16 +197,6 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
                 style={{ width: `${stats.tierInfo.progressPercent}%` }}
               />
             </div>
-
-            {stats.tierInfo.nextTierLabel && stats.tierInfo.amountNeeded !== undefined && (
-              <div className="text-[11px] text-amber-100/90 font-medium flex items-center gap-1.5 pt-0.5">
-                <Target className="h-3.5 w-3.5 text-amber-300 shrink-0" />
-                <span>
-                  🎯 Bạn đã đạt <strong className="text-white font-mono">{formatVND(revenueGenerated)}</strong> doanh số! 
-                  Chỉ còn thiếu <strong className="text-amber-200 font-mono font-bold">{formatVND(stats.tierInfo.amountNeeded)}</strong> doanh số nữa để chạm <strong className="text-white font-heading">{stats.tierInfo.nextTierLabel}</strong>!
-                </span>
-              </div>
-            )}
           </div>
         )}
       </div>

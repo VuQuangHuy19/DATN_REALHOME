@@ -17,11 +17,9 @@ export const metadata: Metadata = {
     maximumScale: 1,
   },
   icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-    ],
-    shortcut: '/icon.svg',
-    apple: '/icon.svg',
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/icon.png',
   },
   appleWebApp: {
     capable: true,
