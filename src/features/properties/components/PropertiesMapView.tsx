@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, useMapEvents, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { BuildingGroup } from '@/app/customer/properties/page';
+import { BuildingGroup } from '@/components/customer/BuildingCard';
 import { MapPin, Navigation, Search, Crosshair, Loader2, MousePointerClick } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';

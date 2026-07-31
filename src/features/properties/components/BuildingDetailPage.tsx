@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import type { DBRoom } from '@/lib/supabase/types';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
+import { useBuildingServices } from '../hooks/useBuildingServices';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -77,6 +78,37 @@ export function BuildingDetailPage() {
       toast.error(`Lỗi cập nhật: ${e.message}`);
     } finally {
       setUpdatingFee(false);
+    }
+  };
+  const { services: customServices, add: addCustomService, remove: removeCustomService } = useBuildingServices(building?.id);
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [serviceName, setServiceName] = useState('');
+  const [servicePrice, setServicePrice] = useState('');
+  const [serviceUnit, setServiceUnit] = useState('lần');
+  const [serviceDesc, setServiceDesc] = useState('');
+  const [isSavingService, setIsSavingService] = useState(false);
+
+  const handleAddServiceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!building?.id || !serviceName) return;
+    setIsSavingService(true);
+    try {
+      const rawPrice = Number(servicePrice.replace(/\D/g, '')) || 0;
+      await addCustomService({
+        building_id: building.id,
+        service_name: serviceName,
+        price: rawPrice,
+        unit: serviceUnit,
+      });
+      toast.success(`Đã thêm dịch vụ bổ sung "${serviceName}" thành công!`);
+      setServiceDialogOpen(false);
+      setServiceName('');
+      setServicePrice('');
+      setServiceDesc('');
+    } catch (err: any) {
+      toast.error(`Lỗi thêm dịch vụ: ${err.message}`);
+    } finally {
+      setIsSavingService(false);
     }
   };
   const { items: contracts } = useRentalContracts(company?.id);
@@ -771,10 +803,20 @@ export function BuildingDetailPage() {
         </Card>
 
         <Card className="border-border rounded-lg shadow-none bg-white">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-bold font-heading flex items-center gap-1.5 text-ink">
               <DollarSign className="h-4.5 w-4.5 text-accent animate-pulse" />Biểu phí dịch vụ
             </CardTitle>
+
+            <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
+              <Button
+                size="sm"
+                onClick={() => setServiceDialogOpen(true)}
+                className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold px-2.5 h-7"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" /> Thêm dịch vụ
+              </Button>
+            </PermissionGate>
           </CardHeader>
           <CardContent className="px-3 pb-3">
             <div className="border border-border rounded-lg overflow-hidden bg-white">
@@ -806,6 +848,34 @@ export function BuildingDetailPage() {
                     <td className="p-2 font-medium">Phí xe điện</td>
                     <td className="p-2 text-accent font-bold font-mono">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</td>
                   </tr>
+
+                  {/* Dịch vụ bổ sung do Chủ nhà thêm mới (building_services) */}
+                  {customServices.map((svc) => (
+                    <tr key={svc.id} className="hover:bg-amber-50/50 transition-colors bg-amber-50/20">
+                      <td className="p-2 font-semibold text-amber-950 flex items-center justify-between">
+                        <span>{svc.service_name}</span>
+                        <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={async () => {
+                              if (confirm(`Xóa dịch vụ "${svc.service_name}"?`)) {
+                                await removeCustomService(svc.id);
+                                toast.success(`Đã xóa dịch vụ ${svc.service_name}`);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </PermissionGate>
+                      </td>
+                      <td className="p-2 text-amber-700 font-bold font-mono">
+                        {Number(svc.price || 0).toLocaleString('vi-VN')}đ/{svc.unit || 'lần'}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -821,6 +891,81 @@ export function BuildingDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ➕ Hộp thoại Thêm dịch vụ bổ sung tòa nhà */}
+        <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
+          <DialogContent className="max-w-md p-6 rounded-2xl">
+            <DialogHeader className="border-b border-border pb-3">
+              <DialogTitle className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-amber-600" />
+                Thêm dịch vụ bổ sung cho Tòa nhà
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleAddServiceSubmit} className="space-y-4 pt-2">
+              <div>
+                <Label className="text-xs font-bold text-ink-muted mb-1 block">Tên dịch vụ *</Label>
+                <Input
+                  placeholder="VD: Dọn dẹp phòng theo giờ, Giặt đồ..."
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  required
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn giá (VNĐ) *</Label>
+                  <Input
+                    placeholder="VD: 50000"
+                    value={servicePrice}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setServicePrice(val ? Number(val).toLocaleString('vi-VN') : '');
+                    }}
+                    required
+                    className="rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn tính *</Label>
+                  <select
+                    value={serviceUnit}
+                    onChange={(e) => setServiceUnit(e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm font-semibold"
+                  >
+                    <option value="lần">lần</option>
+                    <option value="tháng">tháng</option>
+                    <option value="phòng">phòng</option>
+                    <option value="người">người</option>
+                    <option value="xe">xe</option>
+                    <option value="can">can</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-ink-muted mb-1 block">Mô tả dịch vụ</Label>
+                <Input
+                  placeholder="VD: Dọn vệ sinh, lau nhà, thay ga giường..."
+                  value={serviceDesc}
+                  onChange={(e) => setServiceDesc(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                <Button type="button" variant="ghost" onClick={() => setServiceDialogOpen(false)} className="rounded-xl font-bold">
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={isSavingService} className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl shadow-md">
+                  {isSavingService ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang lưu...</> : 'Lưu dịch vụ'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Configuration for company management fee */}
         <PermissionGate roles={['company_admin', 'manager']}>
@@ -881,45 +1026,140 @@ export function BuildingDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {rooms.map((item) => (
-                  <div key={item.id} className="border border-border rounded-lg p-4 bg-white shadow-none hover:bg-bg-subtle/20 transition-all">
-                    <div className="flex items-start justify-between gap-2">
+                {rooms.map((item) => {
+                  const activeContract = contracts.find(
+                    (c) => c.room_id === item.id && c.status === 'active'
+                  );
+                  const activeDeposit = item.status === 'reserved'
+                    ? depositContracts.find((c) => c.room_id === item.id && c.status === 'active')
+                    : null;
+                  const ds = getRoomDisplayStatus(item, contracts);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="border border-border-subtle rounded-xl p-4 bg-white shadow-sm hover:shadow-md hover:border-amber-400/50 transition-all flex flex-col justify-between group relative overflow-hidden"
+                    >
+                      {/* Top bar Accent */}
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-900 via-amber-500 to-slate-900 opacity-80" />
+
                       <div>
-                        <div className="font-bold text-ink text-base font-mono">{item.code}</div>
-                        <div className="text-xs text-ink-muted font-medium mt-0.5">{item.room_type}</div>
-                      </div>
-                      {(() => {
-                        const ds = getRoomDisplayStatus(item, contracts);
-                        const activeDeposit = item.status === 'reserved'
-                          ? depositContracts.find((c) => c.room_id === item.id && c.status === 'active')
-                          : null;
-                        return (
+                        {/* Header phòng & Badge */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="font-bold text-slate-950 text-base font-mono flex items-center gap-1.5">
+                              Phòng {item.code}
+                            </div>
+                            <div className="text-xs text-ink-muted font-medium mt-0.5">{item.room_type}</div>
+                          </div>
                           <div className="flex flex-col items-end gap-1 shrink-0">
-                            <Badge className={`${statusColor(ds.status)} border font-bold text-xs rounded-full`} variant="outline">{ds.label}</Badge>
+                            <Badge className={`${statusColor(ds.status)} border font-bold text-xs rounded-full`} variant="outline">
+                              {ds.label}
+                            </Badge>
                             {activeDeposit && <DepositCountdown createdAt={activeDeposit.created_at} />}
                           </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="mt-3 text-xs text-ink-muted space-y-1 border-t border-dashed border-border pt-3">
-                      <div className="flex justify-between"><span className="font-medium">Giá:</span> <span className="font-bold text-ink font-mono">{item.price?.toLocaleString('vi-VN')}đ</span></div>
-                      <div className="flex justify-between"><span className="font-medium">Diện tích:</span> <span className="font-bold text-ink font-mono">{item.size} m²</span></div>
-                      <div className="flex justify-between"><span className="font-medium">Cấu trúc:</span> <span className="font-semibold text-ink">{item.bedrooms} PN · {item.bathrooms} WC</span></div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-1.5 pt-2 border-t border-border/50">
-                      <Button size="sm" variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg text-xs" onClick={() => openView(item)}><Eye className="h-3.5 w-3.5 mr-1 text-ink-muted" />Xem</Button>
-                      <PermissionGate roles={['company_admin', 'manager']}>
-                        <Button size="sm" variant="outline" className="border-border hover:bg-bg-subtle text-ink rounded-lg text-xs" onClick={() => openEdit(item)}><Pencil className="h-3.5 w-3.5 mr-1 text-ink-muted" />Sửa</Button>
-                        <Button size="sm" variant="outline" className="text-accent border-accent/20 hover:bg-accent-soft/30 rounded-lg text-xs" onClick={() => handleDuplicateRoomAction(item)}>
-                          Nhân bản
+                        </div>
+
+                        {/* Thông tin Khách thuê & Hợp đồng (Nếu có hợp đồng đang active) */}
+                        {activeContract ? (
+                          <div className="mt-3 p-2.5 rounded-lg bg-slate-900 text-white space-y-1.5 border border-slate-800 shadow-inner">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-amber-400 font-bold flex items-center gap-1">
+                                👤 {activeContract.party_b_name}
+                              </span>
+                              <a
+                                href={`tel:${activeContract.party_b_phone}`}
+                                className="text-amber-300 hover:underline font-mono text-[11px] font-semibold"
+                              >
+                                📞 {activeContract.party_b_phone}
+                              </a>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-slate-300 pt-1 border-t border-slate-800">
+                              <span>Hạn HĐ:</span>
+                              <span className="font-mono font-semibold text-amber-200">
+                                {formatDateDisplay(activeContract.start_date)} → {formatDateDisplay(activeContract.end_date)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-slate-400">
+                              <span>Số người ở:</span>
+                              <span className="font-semibold text-slate-200">
+                                {activeContract.tenant_count || 1} / {item.max_occupants || 2} người
+                              </span>
+                            </div>
+                          </div>
+                        ) : activeDeposit ? (
+                          <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-ink space-y-1">
+                            <div className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                              🤝 Đã cọc bởi: {activeDeposit.party_b_name}
+                            </div>
+                            <div className="text-[11px] text-ink-muted font-mono">
+                              SĐT: {activeDeposit.party_b_phone}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Chi tiết Giá & Cấu trúc */}
+                        <div className="mt-3 text-xs text-ink-muted space-y-1 border-t border-dashed border-border-subtle pt-2.5">
+                          <div className="flex justify-between">
+                            <span className="font-medium">Giá thuê:</span>
+                            <span className="font-bold text-amber-600 dark:text-amber-400 font-mono text-sm">
+                              {item.price?.toLocaleString('vi-VN')}đ/tháng
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="font-medium">Diện tích & Cấu trúc:</span>
+                            <span className="font-semibold text-ink">
+                              {item.size} m² ({item.bedrooms} PN · {item.bathrooms} WC)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="mt-4 flex flex-wrap gap-1.5 pt-2 border-t border-border-subtle">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-border-subtle hover:bg-bg-subtle text-ink rounded-lg text-xs"
+                          onClick={() => openView(item)}
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1 text-ink-muted" />
+                          Xem
                         </Button>
-                      </PermissionGate>
-                      <PermissionGate roles={['company_admin']}>
-                        <Button size="sm" variant="outline" className="text-danger border-danger/20 hover:bg-danger/10 rounded-lg text-xs" onClick={() => handleDelete(item.id)}><Trash2 className="h-3.5 w-3.5 mr-1 text-danger" />Xóa</Button>
-                      </PermissionGate>
+                        <PermissionGate roles={['company_admin', 'manager']}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-border-subtle hover:bg-bg-subtle text-ink rounded-lg text-xs"
+                            onClick={() => openEdit(item)}
+                          >
+                            <Pencil className="h-3.5 w-3.5 mr-1 text-ink-muted" />
+                            Sửa
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-amber-600 border-amber-500/30 hover:bg-amber-50 rounded-lg text-xs"
+                            onClick={() => handleDuplicateRoomAction(item)}
+                          >
+                            Nhân bản
+                          </Button>
+                        </PermissionGate>
+                        <PermissionGate roles={['company_admin']}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-danger border-danger/20 hover:bg-danger/10 rounded-lg text-xs"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1 text-danger" />
+                            Xóa
+                          </Button>
+                        </PermissionGate>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

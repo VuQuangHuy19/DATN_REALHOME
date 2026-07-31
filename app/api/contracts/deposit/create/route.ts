@@ -180,6 +180,19 @@ export async function POST(request: Request) {
       }
     }
 
+    // Auto-update matching appointment status to 'Dealed' (Đã chốt)
+    if (party_b_phone && room_id) {
+      try {
+        await supabaseAdmin
+          .from('appointments')
+          .update({ status: 'Dealed' })
+          .eq('room_id', room_id)
+          .eq('customer_phone', party_b_phone);
+      } catch (err) {
+        console.error('Lỗi cập nhật trạng thái lịch hẹn:', err);
+      }
+    }
+
     // 4. Cập nhật trạng thái phòng thành 'reserved' (Đã cọc) và giải phóng thông tin khóa giữ chỗ tạm thời
     const { error: roomUpdateErr } = await supabaseAdmin
       .from('rooms')

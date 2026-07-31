@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Pencil, Trash2, Plus, Search, FileText, Loader2, AlertCircle, 
   Printer, CreditCard, Calendar, User, ShieldCheck, HelpCircle,
-  Building, Landmark, RefreshCw, ClipboardCheck
+  Building, Landmark, RefreshCw, ClipboardCheck, FileSignature
 } from 'lucide-react';
 import { useContractTemplates, useDepositContracts, useRentalContracts } from '@/src/features/finance/hooks/useContracts';
 import { useProfiles } from '@/src/features/staff/hooks/useStaff';;
@@ -22,7 +22,7 @@ import type { DBContractTemplate } from '@/lib/supabase/types';
 import Link from 'next/link';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase/client';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { HandoverReportDialog } from './HandoverReportDialog';
 import { getContractTermMonths, calculateCommissionAmount } from '@/src/features/finance/services/commission';
@@ -33,11 +33,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const formatDateDisplay = (dateStr?: string | null): string => {
+const formatDateDisplay = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
-  const parts = dateStr.split('T')[0].split('-');
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  if (dateStr.includes('/')) return dateStr;
+  if (dateStr.includes('-')) {
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
   }
   try {
     const d = new Date(dateStr);
@@ -52,10 +55,11 @@ const formatDateDisplay = (dateStr?: string | null): string => {
 };
 
 export function ContractsPage() {
+  const router = useRouter();
   const { company, role } = useAuth();
   const pathname = usePathname();
   const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
-  const [activeTab, setActiveTab] = useState<'deposits' | 'rentals' | 'templates'>('deposits');
+  const [activeTab, setActiveTab] = useState<'deposits' | 'rentals' | 'archived' | 'templates'>('deposits');
   
   // Tab 1: Hợp đồng đặt cọc
   const { 
@@ -76,6 +80,9 @@ export function ContractsPage() {
     refetch: refetchRentals,
   } = useRentalContracts(company?.id);
   const [rentalSearch, setRentalSearch] = useState('');
+
+  // Tab 3: Hợp đồng đã thanh lý / hết hạn / hủy
+  const [archivedSearch, setArchivedSearch] = useState('');
 
   // Tab 3: Mẫu hợp đồng
   const { 
@@ -107,6 +114,7 @@ export function ContractsPage() {
   const [isViewRentalOpen, setIsViewRentalOpen] = useState(false);
   const [isHandoverOpen, setIsHandoverOpen] = useState(false);
   const [handoverContract, setHandoverContract] = useState<any | null>(null);
+  const [handoverSourceType, setHandoverSourceType] = useState<'deposit' | 'rental'>('deposit');
   const error = depositsError || rentalsError || templatesError;
 
   // Handlers
@@ -156,8 +164,11 @@ export function ContractsPage() {
     }
   };
 
-  const handleLandlordConfirm = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn đã nhận đủ tiền đặt cọc cho phòng này?')) return;
+  const handleLandlordConfirm = async (id: string, isOverride = false) => {
+    const msg = isOverride 
+      ? 'Bạn với vai trò Quản trị viên/Manager có chắc chắn muốn DUYỆT ĐÈ hợp đồng cọc này?' 
+      : 'Bạn có chắc chắn đã nhận đủ tiền đặt cọc cho phòng này?';
+    if (!confirm(msg)) return;
     try {
       const response = await fetch('/api/contracts/deposit/confirm', {
         method: 'POST',
@@ -168,7 +179,7 @@ export function ContractsPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Lỗi xác nhận cọc');
       }
-      toast.success('Xác nhận nhận cọc thành công!');
+      toast.success(isOverride ? 'Duyệt đè hợp đồng cọc thành công!' : 'Xác nhận nhận cọc thành công!');
       
       // Update local state if details dialog is open
       if (viewDeposit && viewDeposit.id === id) {
@@ -186,18 +197,38 @@ export function ContractsPage() {
     c.type.toLowerCase().includes(templateSearch.toLowerCase())
   );
 
+  // Tab 1: Chỉ lấy các hợp đồng cọc còn hiệu lực / đang xử lý
   const filteredDeposits = depositContracts.filter((d) =>
-    d.party_b_name.toLowerCase().includes(depositSearch.toLowerCase()) ||
+    ['draft', 'active', 'signed', 'converted'].includes(d.status) &&
+    (d.party_b_name.toLowerCase().includes(depositSearch.toLowerCase()) ||
     d.party_b_phone.includes(depositSearch) ||
     d.contract_code.toLowerCase().includes(depositSearch.toLowerCase()) ||
-    (d.rooms?.code && d.rooms.code.toLowerCase().includes(depositSearch.toLowerCase()))
+    (d.rooms?.code && d.rooms.code.toLowerCase().includes(depositSearch.toLowerCase())))
   );
 
+  // Tab 2: Chỉ lấy các hợp đồng thuê đang hoạt động / bản nháp
   const filteredRentals = rentalContracts.filter((r) =>
-    r.party_b_name.toLowerCase().includes(rentalSearch.toLowerCase()) ||
+    ['draft', 'active'].includes(r.status) &&
+    (r.party_b_name.toLowerCase().includes(rentalSearch.toLowerCase()) ||
     r.party_b_phone.includes(rentalSearch) ||
     r.contract_code.toLowerCase().includes(rentalSearch.toLowerCase()) ||
-    (r.rooms?.code && r.rooms.code.toLowerCase().includes(rentalSearch.toLowerCase()))
+    (r.rooms?.code && r.rooms.code.toLowerCase().includes(rentalSearch.toLowerCase())))
+  );
+
+  // Tab 3: Hợp đồng đã thanh lý / hết hạn / hủy / mất cọc / trả cọc
+  const archivedDeposits = depositContracts
+    .filter((d) => ['cancelled', 'forfeited', 'refunded'].includes(d.status))
+    .map((d) => ({ ...d, contract_category: 'cọc' as const }));
+
+  const archivedRentals = rentalContracts
+    .filter((r) => ['ended', 'terminated', 'cancelled'].includes(r.status))
+    .map((r) => ({ ...r, contract_category: 'thuê' as const }));
+
+  const filteredArchived = [...archivedRentals, ...archivedDeposits].filter((item) =>
+    item.party_b_name.toLowerCase().includes(archivedSearch.toLowerCase()) ||
+    item.party_b_phone.includes(archivedSearch) ||
+    item.contract_code.toLowerCase().includes(archivedSearch.toLowerCase()) ||
+    (item.rooms?.code && item.rooms.code.toLowerCase().includes(archivedSearch.toLowerCase()))
   );
 
   // Status mapping
@@ -320,6 +351,17 @@ export function ContractsPage() {
           Hợp đồng thuê chính thức
           {activeTab === 'rentals' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
         </button>
+        <button
+          onClick={() => setActiveTab('archived')}
+          className={`px-4 py-2.5 font-heading text-sm border-b-2 transition-all relative ${
+            activeTab === 'archived'
+              ? 'border-accent text-accent font-bold'
+              : 'border-transparent text-ink-muted hover:text-ink font-medium'
+          }`}
+        >
+          Hợp đồng đã thanh lý / Hết hạn
+          {activeTab === 'archived' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
+        </button>
         {role !== 'landlord' && (
           <button
             onClick={() => setActiveTab('templates')}
@@ -429,9 +471,21 @@ export function ContractsPage() {
                             {formatDateDisplay(item.deadline_sign_contract)}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                              {statusInfo.label}
-                            </Badge>
+                            {(() => {
+                              const isOverdueApproval = item.status === 'active' && item.created_at && (new Date().getTime() - new Date(item.created_at).getTime() > 20 * 60 * 1000);
+                              return (
+                                <div className="flex flex-col items-center gap-1">
+                                  <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
+                                    {statusInfo.label}
+                                  </Badge>
+                                  {isOverdueApproval && (
+                                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full animate-pulse">
+                                      🚨 Quá 20p chưa duyệt
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
@@ -449,9 +503,22 @@ export function ContractsPage() {
                                   variant="outline" 
                                   size="sm" 
                                   className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 font-bold text-xs py-1 h-8 rounded-lg"
-                                  onClick={() => handleLandlordConfirm(item.id)}
+                                  onClick={() => handleLandlordConfirm(item.id, false)}
                                 >
                                   Nhận cọc
+                                </Button>
+                              )}
+
+                              {/* Admin / Manager Override Confirm Button */}
+                              {(role === 'company_admin' || role === 'manager') && item.status === 'active' && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800 font-bold text-xs py-1 h-8 rounded-lg shadow-none"
+                                  onClick={() => handleLandlordConfirm(item.id, true)}
+                                  title="Duyệt đè hợp đồng cọc thay Chủ nhà nếu xác nhận tiền cọc đã về"
+                                >
+                                  Duyệt đè
                                 </Button>
                               )}
                               
@@ -492,13 +559,30 @@ export function ContractsPage() {
                                 </DropdownMenu>
                               )}
 
-                              {['signed', 'converted', 'refunded'].includes(item.status) && (
+                              {['confirmed', 'signed', 'deposited', 'active'].includes(item.status) && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-8 px-2.5 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 text-xs font-bold gap-1 rounded-lg shadow-none mr-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`);
+                                  }}
+                                  title="Chuyển cọc này thành Hợp đồng thuê chính thức"
+                                >
+                                  <FileSignature className="h-3.5 w-3.5" />
+                                  <span className="hidden sm:inline">Lập HĐ thuê</span>
+                                </Button>
+                              )}
+
+                              {['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(item.status) && (
                                 <Button 
                                   variant="ghost" 
                                   size="icon" 
-                                  className="h-8 w-8 text-ink hover:text-indigo-650 hover:bg-bg-subtle"
+                                  className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setHandoverSourceType('deposit');
                                     setHandoverContract(item);
                                     setIsHandoverOpen(true);
                                   }}
@@ -639,7 +723,10 @@ export function ContractsPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">
-                            {formatDateDisplay(item.start_date)} - {formatDateDisplay(item.end_date)}
+                            <div>{formatDateDisplay(item.start_date)} - {formatDateDisplay(item.end_date)}</div>
+                            <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-sans font-semibold mt-0.5" title="Tự động gia hạn theo điều khoản nếu không báo hủy trước 30 ngày">
+                              🔄 Tự động gia hạn (30d)
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-center">
                             <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
@@ -648,6 +735,20 @@ export function ContractsPage() {
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHandoverSourceType('rental');
+                                  setHandoverContract(item);
+                                  setIsHandoverOpen(true);
+                                }}
+                                title="Biên bản bàn giao phòng"
+                              >
+                                <ClipboardCheck className="h-4 w-4" />
+                              </Button>
                               {role !== 'landlord' && (
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Gia hạn hợp đồng">
                                   <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
@@ -695,6 +796,101 @@ export function ContractsPage() {
                 <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
                 <p className="text-sm font-semibold">Chưa có hợp đồng thuê chính thức nào</p>
                 <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Soạn hợp đồng thuê&quot; hoặc chuyển đổi từ Hợp đồng cọc để bắt đầu</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : activeTab === 'archived' ? (
+        // TABLE HỢP ĐỒNG ĐÃ THANH LÝ / HẾT HẠN / HỦY
+        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+          <CardHeader className="p-4 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input 
+                placeholder="Tìm hợp đồng đã thanh lý/hết hạn theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
+                value={archivedSearch} 
+                onChange={(e) => setArchivedSearch(e.target.value)} 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
+              />
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-bg-subtle border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã hợp đồng</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Loại HĐ</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Phòng / Tòa nhà</th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách thuê (Bên B)</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Giá tiền / Cọc</th>
+                    <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-ink">
+                  {filteredArchived.map((item: any) => {
+                    const archivedStatusLabels: Record<string, { label: string; color: string }> = {
+                      ended: { label: 'Đã hết hạn', color: 'bg-slate-100 text-slate-700 border-slate-300' },
+                      terminated: { label: 'Kết thúc sớm', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+                      cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800 border-red-300' },
+                      forfeited: { label: 'Mất cọc', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+                      refunded: { label: 'Đã trả cọc', color: 'bg-teal-100 text-teal-800 border-teal-300' },
+                    };
+                    const statusInfo = archivedStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
+                    return (
+                      <tr 
+                        key={item.id} 
+                        className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (item.contract_category === 'thuê') {
+                            setViewRental(item);
+                            setIsViewRentalOpen(true);
+                          } else {
+                            setViewDeposit(item);
+                            setIsViewDepositOpen(true);
+                          }
+                        }}
+                      >
+                        <td className="px-4 py-3 font-mono font-bold text-xs">{item.contract_code}</td>
+                        <td className="px-4 py-3 font-bold text-xs uppercase text-ink-muted">
+                          HĐ {item.contract_category}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-accent">Phòng {item.rooms?.code || '---'}</span>
+                          <p className="text-xs text-ink-muted truncate max-w-[180px] font-medium mt-0.5">
+                            {item.rooms?.buildings?.name || 'Vị trí khác'}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-semibold text-ink">{item.party_b_name}</span>
+                          <p className="text-xs text-ink-muted font-mono mt-0.5">{item.party_b_phone}</p>
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-bold text-accent text-sm">
+                          {Number(item.rent_price || item.deposit_amount).toLocaleString('vi-VN')}đ
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
+                            {statusInfo.label}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Xem / In hợp đồng">
+                            <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
+                              <Printer className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {filteredArchived.length === 0 && (
+              <div className="text-center py-12 text-ink-muted bg-white">
+                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                <p className="text-sm font-semibold">Không có hợp đồng thanh lý hoặc hết hạn nào</p>
               </div>
             )}
           </CardContent>
@@ -931,12 +1127,25 @@ export function ContractsPage() {
                 </div>
               )}
 
-              {/* Biên bản bàn giao phòng */}
-              {['signed', 'converted', 'refunded'].includes(viewDeposit.status) && (
-                <div className="flex justify-end pt-4 border-t border-border mt-4">
+              {/* Biên bản bàn giao phòng & Lập HĐ thuê */}
+              {['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(viewDeposit.status) && (
+                <div className="flex justify-end gap-2.5 pt-4 border-t border-border mt-4">
+                  {['confirmed', 'signed', 'deposited', 'active'].includes(viewDeposit.status) && (
+                    <Button 
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2 h-10 flex items-center gap-2 rounded-lg shadow-sm"
+                      onClick={() => {
+                        setIsViewOpen(false);
+                        router.push(`${pathPrefix}/contracts/create-rental?deposit_id=${viewDeposit.id}`);
+                      }}
+                    >
+                      <FileSignature className="h-5 w-5" />
+                      Lập Hợp Đồng Thuê Chính Thức
+                    </Button>
+                  )}
                   <Button 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 h-10 flex items-center gap-2 rounded-lg"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2 h-10 flex items-center gap-2 rounded-lg shadow-sm"
                     onClick={() => {
+                      setHandoverSourceType('deposit');
                       setHandoverContract(viewDeposit);
                       setIsHandoverOpen(true);
                     }}
@@ -1088,15 +1297,26 @@ export function ContractsPage() {
                 </div>
               )}
 
-              {role !== 'landlord' && (
-                <div className="flex justify-end pt-4 border-t border-border mt-4">
-                  <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold h-9 px-4">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-border mt-4">
+                <Button 
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold h-9 px-4 flex items-center gap-2"
+                  onClick={() => {
+                    setHandoverSourceType('rental');
+                    setHandoverContract(viewRental);
+                    setIsHandoverOpen(true);
+                  }}
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  Biên bản bàn giao phòng
+                </Button>
+                {role !== 'landlord' && (
+                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold h-9 px-4">
                     <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${viewRental.id}`}>
                       <RefreshCw className="h-4 w-4 mr-2" /> Gia hạn hợp đồng này
                     </Link>
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
@@ -1129,11 +1349,13 @@ export function ContractsPage() {
 
       {/* Dialog Biên bản bàn giao phòng */}
       <HandoverReportDialog
-        depositContract={handoverContract}
+        contract={handoverContract}
+        sourceType={handoverSourceType}
         isOpen={isHandoverOpen}
         onOpenChange={setIsHandoverOpen}
         onSuccess={() => {
           refetchDeposits();
+          refetchRentals();
         }}
       />
     </div>

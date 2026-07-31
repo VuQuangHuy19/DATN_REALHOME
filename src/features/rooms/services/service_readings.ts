@@ -21,19 +21,23 @@ export async function getServiceReadings(
   period?: string,
   landlordId?: string
 ): Promise<ServiceReadingWithRoom[]> {
-  let filterLandlordCode = landlordId;
-  if (landlordId && landlordId.includes('-')) {
-    const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
-    filterLandlordCode = landlord?.code || landlordId;
+  let landlordRoomIds: string[] | null = null;
+  if (landlordId) {
+    let filterLandlordCode = landlordId;
+    if (landlordId.includes('-')) {
+      const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
+      filterLandlordCode = landlord?.code || landlordId;
+    }
+    const { data: landlordRooms } = await supabase
+      .from('rooms')
+      .select('id')
+      .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
+    landlordRoomIds = (landlordRooms ?? []).map((r: any) => r.id);
   }
-
-  const selectQuery = filterLandlordCode
-    ? '*, rooms!inner(code, buildings!inner(name, landlord_id))'
-    : '*, rooms(code, buildings(name))';
 
   let q = supabase
     .from('service_readings')
-    .select(selectQuery)
+    .select('*, rooms(code, buildings(name))')
     .order('reading_date', { ascending: false });
 
   if (companyId) {
@@ -42,8 +46,9 @@ export async function getServiceReadings(
   if (period) {
     q = q.eq('period', period);
   }
-  if (filterLandlordCode) {
-    q = q.eq('rooms.buildings.landlord_id', filterLandlordCode);
+  if (landlordRoomIds !== null) {
+    if (landlordRoomIds.length === 0) return [];
+    q = q.in('room_id', landlordRoomIds);
   }
 
   const { data, error } = await q;

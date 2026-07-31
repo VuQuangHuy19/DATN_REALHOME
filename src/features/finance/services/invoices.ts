@@ -7,9 +7,13 @@ export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update'];
 export type InvoiceWithRoomAndContract = DBInvoice & {
   rooms: {
     code: string;
+    building_id?: string | null;
     buildings: {
+      id?: string;
       name: string;
+      code?: string | null;
       address: string | null;
+      landlord_id?: string | null;
     } | null;
   } | null;
   rental_contracts: {
@@ -27,19 +31,23 @@ export async function getInvoices(
   period?: string,
   landlordId?: string
 ): Promise<InvoiceWithRoomAndContract[]> {
-  let filterLandlordCode = landlordId;
-  if (landlordId && landlordId.includes('-')) {
-    const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
-    filterLandlordCode = landlord?.code || landlordId;
+  let landlordRoomIds: string[] | null = null;
+  if (landlordId) {
+    let filterLandlordCode = landlordId;
+    if (landlordId.includes('-')) {
+      const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
+      filterLandlordCode = landlord?.code || landlordId;
+    }
+    const { data: landlordRooms } = await supabase
+      .from('rooms')
+      .select('id')
+      .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
+    landlordRoomIds = (landlordRooms ?? []).map((r: any) => r.id);
   }
-
-  const selectQuery = filterLandlordCode
-    ? '*, rooms!inner(code, buildings!inner(name, address, landlord_id)), rental_contracts(contract_code, party_b_name, party_b_phone)'
-    : '*, rooms(code, buildings(name, address)), rental_contracts(contract_code, party_b_name, party_b_phone)';
 
   let q = supabase
     .from('invoices')
-    .select(selectQuery)
+    .select('*, rooms(code, building_id, buildings(id, name, address, code, landlord_id)), rental_contracts(contract_code, party_b_name, party_b_phone)')
     .order('created_at', { ascending: false });
 
   if (companyId) {
@@ -48,8 +56,9 @@ export async function getInvoices(
   if (period) {
     q = q.eq('period', period);
   }
-  if (filterLandlordCode) {
-    q = q.eq('rooms.buildings.landlord_id', filterLandlordCode);
+  if (landlordRoomIds !== null) {
+    if (landlordRoomIds.length === 0) return [];
+    q = q.in('room_id', landlordRoomIds);
   }
 
   const { data, error } = await q;
@@ -151,21 +160,30 @@ export async function batchGenerateInvoices(
   period: string,
   landlordId?: string
 ): Promise<{ successCount: number; skipCount: number }> {
-  let filterLandlordCode = landlordId;
-  if (landlordId && landlordId.includes('-')) {
-    const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
-    filterLandlordCode = landlord?.code || landlordId;
+  let landlordRoomIds: string[] | null = null;
+  if (landlordId) {
+    let filterLandlordCode = landlordId;
+    if (landlordId.includes('-')) {
+      const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
+      filterLandlordCode = landlord?.code || landlordId;
+    }
+    const { data: landlordRooms } = await supabase
+      .from('rooms')
+      .select('id')
+      .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
+    landlordRoomIds = (landlordRooms ?? []).map((r: any) => r.id);
   }
 
   // 1. Lấy tất cả hợp đồng thuê đang có hiệu lực (active)
   let contractQuery = supabase
     .from('rental_contracts')
-    .select('*, rooms!inner(buildings!inner(id, landlord_id, management_fee_rate))')
+    .select('*, rooms(buildings(id, landlord_id, management_fee_rate))')
     .eq('company_id', companyId)
     .eq('status', 'active');
 
-  if (filterLandlordCode) {
-    contractQuery = contractQuery.eq('rooms.buildings.landlord_id', filterLandlordCode);
+  if (landlordRoomIds !== null) {
+    if (landlordRoomIds.length === 0) return { successCount: 0, skipCount: 0 };
+    contractQuery = contractQuery.in('room_id', landlordRoomIds);
   }
 
   const { data: contracts, error: contractError } = await contractQuery;
@@ -243,17 +261,33 @@ export async function batchGenerateInvoices(
       serviceAmount = parseInt(serviceRate.replace(/[^\d]/g, '') || '200000', 10);
     }
 
-    // Phí dịch vụ khác từ other_services json
+    // Phí dịch vụ khác từ other_services json (Dynamic parsing)
     let otherAmount = 0;
+    const otherDetailsArr: string[] = [];
+
     if (contract.other_services && typeof contract.other_services === 'object') {
-      const os = contract.other_services as any;
-      if (os.internet) {
-        otherAmount += parseInt(os.internet.replace(/[^\d]/g, '') || '0', 10);
-      }
-      if (os.laundry) {
-        otherAmount += parseInt(os.laundry.replace(/[^\d]/g, '') || '0', 10);
+      const os = contract.other_services as Record<string, any>;
+      const serviceNameMap: Record<string, string> = {
+        internet: 'Internet/Wifi',
+        laundry: 'Máy giặt/sấy',
+        parking: 'Gửi xe máy',
+        cleaning: 'Phí vệ sinh',
+        elevator: 'Thang máy',
+        electric_vehicle: 'Sạc xe điện',
+      };
+
+      for (const [key, val] of Object.entries(os)) {
+        if (!val) continue;
+        const valNum = typeof val === 'number' ? val : parseInt(String(val).replace(/[^\d]/g, '') || '0', 10);
+        if (valNum > 0) {
+          otherAmount += valNum;
+          const label = serviceNameMap[key] || key;
+          otherDetailsArr.push(`${label} (${valNum.toLocaleString('vi-VN')}đ)`);
+        }
       }
     }
+
+    const otherDetails = otherDetailsArr.length > 0 ? otherDetailsArr.join(' + ') : 'Dịch vụ bổ sung';
 
     const rentAmount = Number(contract.rent_price);
     const totalAmount = rentAmount + electricityAmount + waterAmount + serviceAmount + otherAmount;
@@ -286,7 +320,7 @@ export async function batchGenerateInvoices(
       water_amount: waterAmount,
       service_amount: serviceAmount,
       other_amount: otherAmount,
-      other_details: 'Internet + Máy giặt/sấy',
+      other_details: otherDetails,
       total_amount: totalAmount,
       management_fee_rate: managementFeeRate,
       management_fee_amount: managementFeeAmount,

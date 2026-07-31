@@ -94,7 +94,7 @@ function OnboardingForm() {
     <div className="w-full">
       {/* Logo */}
       <div className="flex flex-col items-center mb-8">
-        <Link href="/customer/properties">
+        <Link href="/customer">
           <Logo />
         </Link>
       </div>

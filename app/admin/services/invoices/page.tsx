@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getInvoices, updateInvoice, batchGenerateInvoices, deleteInvoice } from '@/src/features/finance/services/invoices';
 import { Button } from '@/components/ui/button';
@@ -10,25 +10,61 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useSearchParams } from 'next/navigation';
 import { 
   Loader2, Search, PlusCircle, CheckCircle, XCircle, FileText, 
-  Printer, DollarSign, Calendar, RefreshCw, AlertCircle 
+  Printer, DollarSign, Calendar, RefreshCw, AlertCircle, Building2, ChevronLeft, ChevronRight, X, Mail, Send
 } from 'lucide-react';
 import type { InvoiceWithRoomAndContract } from '@/src/features/finance/services/invoices';
+import { supabase } from '@/lib/supabase/client';
+
+interface BuildingItem {
+  id: string;
+  name: string;
+  code?: string | null;
+  landlord_id?: string | null;
+}
+
+interface LandlordItem {
+  id: string;
+  code?: string | null;
+  name: string;
+  phone?: string | null;
+}
 
 export default function InvoicesPage() {
   const { company, role, profile } = useAuth();
+  const searchParams = useSearchParams();
+  
+  const initialPeriod = searchParams?.get('period');
+  const initialSearch = searchParams?.get('search');
   
   const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    if (initialPeriod && /^\d{4}-\d{2}$/.test(initialPeriod)) return initialPeriod;
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  const handlePeriodChange = (deltaMonths: number) => {
+    const [yearStr, monthStr] = selectedPeriod.split('-');
+    const date = new Date(Number(yearStr), Number(monthStr) - 1 + deltaMonths, 1);
+    const newPeriod = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedPeriod(newPeriod);
+  };
   
   const [invoices, setInvoices] = useState<InvoiceWithRoomAndContract[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(initialSearch || '');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Lọc Tòa nhà & Chủ nhà
+  const [buildings, setBuildings] = useState<BuildingItem[]>([]);
+  const [landlordList, setLandlordList] = useState<LandlordItem[]>([]);
+  const [buildingsLoading, setBuildingsLoading] = useState(false);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
+  const [buildingSearchTerm, setBuildingSearchTerm] = useState<string>('');
   
   // Dialog State
   const [viewInvoice, setViewInvoice] = useState<InvoiceWithRoomAndContract | null>(null);
@@ -38,12 +74,64 @@ export default function InvoicesPage() {
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
+  // Tải danh sách Tòa nhà & Chủ nhà
+  useEffect(() => {
+    if (!company?.id) return;
+    async function fetchBuildingsAndLandlords() {
+      setBuildingsLoading(true);
+      try {
+        let bQuery = supabase
+          .from('buildings')
+          .select('id, name, code, landlord_id')
+          .eq('company_id', company!.id);
+
+        if (role === 'landlord' && profile?.landlord_id) {
+          const lId = profile.landlord_id;
+          let filterCode = lId;
+          if (lId.includes('-')) {
+            const { data: landlord } = await supabase.from('landlords').select('code').eq('id', lId).maybeSingle();
+            filterCode = landlord?.code || lId;
+          }
+          bQuery = bQuery.or(`landlord_id.eq.${filterCode},landlord_id.eq.${lId}`);
+        }
+
+        const { data: bData } = await bQuery;
+        setBuildings(bData || []);
+
+        const { data: lData } = await supabase
+          .from('landlords')
+          .select('id, code, name, phone')
+          .eq('company_id', company!.id);
+        setLandlordList(lData || []);
+      } catch (err) {
+        console.error('Error fetching buildings/landlords:', err);
+      } finally {
+        setBuildingsLoading(false);
+      }
+    }
+    fetchBuildingsAndLandlords();
+  }, [company?.id, role, profile?.landlord_id]);
+
+  const [autoCreated, setAutoCreated] = useState(false);
+
   const loadInvoices = useCallback(async () => {
     if (!company?.id) return;
     setLoading(true);
     try {
       const landlordId = role === 'landlord' ? (profile?.landlord_id || undefined) : undefined;
-      const data = await getInvoices(company.id, selectedPeriod, landlordId);
+      let data = await getInvoices(company.id, selectedPeriod, landlordId);
+      
+      const autoCreateParam = searchParams?.get('autoCreate');
+      if (autoCreateParam === 'true' && !autoCreated && data.length === 0) {
+        setAutoCreated(true);
+        toast.loading(`⚡ Đang tự động lập Hóa đơn Kỳ ${selectedPeriod}...`, { id: 'auto-create-inv' });
+        const res = await batchGenerateInvoices(company.id, selectedPeriod, landlordId);
+        toast.dismiss('auto-create-inv');
+        if (res.successCount > 0) {
+          toast.success(`✨ Đã tự động lập ${res.successCount} Hóa đơn Kỳ ${selectedPeriod}!`);
+          data = await getInvoices(company.id, selectedPeriod, landlordId);
+        }
+      }
       setInvoices(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -51,21 +139,43 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [company?.id, selectedPeriod, role, profile?.landlord_id]);
+  }, [company?.id, selectedPeriod, role, profile?.landlord_id, searchParams, autoCreated]);
 
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
 
-  // Filters
+  // Lọc danh sách Tòa nhà theo từ khóa gõ
+  const filteredBuildings = useMemo(() => {
+    if (!buildingSearchTerm.trim()) return buildings;
+    const term = buildingSearchTerm.toLowerCase().trim();
+    return buildings.filter((b) => {
+      const bName = b.name?.toLowerCase() || '';
+      const bCode = b.code?.toLowerCase() || '';
+      const landlord = landlordList.find((l) => l.code === b.landlord_id || l.id === b.landlord_id);
+      const lName = landlord?.name?.toLowerCase() || '';
+      const lCode = landlord?.code?.toLowerCase() || '';
+      const lPhone = landlord?.phone?.toLowerCase() || '';
+      return bName.includes(term) || bCode.includes(term) || lName.includes(term) || lCode.includes(term) || lPhone.includes(term);
+    });
+  }, [buildings, landlordList, buildingSearchTerm]);
+
+  // Lọc Hóa đơn
   const filtered = invoices.filter((item) => {
+    const matchesBuilding = 
+      selectedBuildingId === 'all' || 
+      !selectedBuildingId || 
+      item.rooms?.building_id === selectedBuildingId || 
+      item.rooms?.buildings?.id === selectedBuildingId;
+
     const matchesSearch = 
       (item.rooms?.code && item.rooms.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.rental_contracts?.party_b_name && item.rental_contracts.party_b_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.rental_contracts?.party_b_phone && item.rental_contracts.party_b_phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
       item.invoice_code.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesBuilding && matchesSearch && matchesStatus;
   });
 
   const handleBatchGenerate = async () => {
@@ -85,6 +195,30 @@ export default function InvoicesPage() {
       toast.error('Lỗi khi lập hóa đơn hàng loạt: ' + err.message);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleSendEmail = async (invoiceId: string) => {
+    setSendingEmailId(invoiceId);
+    toast.loading('Đang gửi Email qua Mailjet...', { id: 'mailjet-toast' });
+    try {
+      const res = await fetch('/api/invoices/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId }),
+      });
+      const data = await res.json();
+      toast.dismiss('mailjet-toast');
+      if (data.success) {
+        toast.success(`📧 ${data.message || 'Đã gửi Email hóa đơn qua Mailjet thành công!'}`);
+      } else {
+        toast.error(`❌ Lỗi gửi Mailjet: ${data.error}`);
+      }
+    } catch (err: any) {
+      toast.dismiss('mailjet-toast');
+      toast.error('Lỗi khi kết nối Mailjet API: ' + err.message);
+    } finally {
+      setSendingEmailId(null);
     }
   };
 
@@ -189,25 +323,133 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Bộ lọc */}
-      <Card className="border-border shadow-none rounded-lg bg-white">
-        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider"><Calendar className="h-4 w-4 text-ink-muted" /> Chọn kỳ hóa đơn</Label>
-            <Input type="month" value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
+      {/* Bộ lọc Thông minh */}
+      <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          {/* Ô 1: Chọn Tòa nhà (Mã / Chủ nhà) (5 cols) */}
+          <div className="md:col-span-5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+                <Building2 className="h-4 w-4 text-accent" /> Chọn tòa nhà ({filteredBuildings.length}/{buildings.length})
+              </Label>
+              {selectedBuildingId !== 'all' && (
+                <button
+                  onClick={() => setSelectedBuildingId('all')}
+                  className="text-[11px] text-accent font-bold hover:underline flex items-center gap-0.5"
+                >
+                  <X className="h-3 w-3" /> Tất cả tòa
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted" />
+                <Input
+                  placeholder="Gõ Tên/Mã tòa nhà hoặc Mã/Tên chủ nhà (VD: TH01)..."
+                  value={buildingSearchTerm}
+                  onChange={(e) => setBuildingSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs rounded-lg border-border focus-visible:ring-accent font-semibold"
+                />
+              </div>
+
+              {buildingsLoading ? (
+                <div className="h-10 border border-border rounded-lg flex items-center px-3 text-ink-muted bg-bg-subtle/50 text-sm"><Loader2 className="h-4 w-4 animate-spin mr-2 text-accent" /> Đang tải tòa nhà...</div>
+              ) : (
+                <select
+                  value={selectedBuildingId}
+                  onChange={(e) => setSelectedBuildingId(e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="all">🏢 -- Tất cả Tòa nhà --</option>
+                  {filteredBuildings.map((b) => {
+                    const landlord = landlordList.find((l) => l.code === b.landlord_id || l.id === b.landlord_id);
+                    const landlordLabel = landlord ? ` — Chủ: ${landlord.name} (${landlord.code || ''})` : (b.landlord_id ? ` — Chủ: ${b.landlord_id}` : '');
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {b.code ? `[${b.code}]` : ''}{landlordLabel}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider"><Search className="h-4 w-4 text-ink-muted" /> Tìm kiếm</Label>
-            <Input placeholder="Tìm phòng, tên khách, mã hóa đơn..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
+
+          {/* Ô 2: Tìm nhanh Hóa đơn / Phòng / Khách / SĐT (3 cols) */}
+          <div className="md:col-span-3 space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+              <Search className="h-4 w-4 text-accent" /> Tìm Mã HĐ / Phòng / Khách / SĐT
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input
+                placeholder="Mã HĐ (HDD-...), Phòng (302), SĐT..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 h-10 text-sm rounded-lg border-border font-semibold focus-visible:ring-accent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5 text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái thanh toán</Label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent">
-              <option value="all">Tất cả</option>
-              <option value="unpaid">Chưa thanh toán</option>
-              <option value="paid">Đã thanh toán</option>
-              <option value="overdue">Quá hạn</option>
-              <option value="cancelled">Đã hủy</option>
+
+          {/* Ô 3: Kỳ Hóa đơn (Tháng/Năm) (2 cols) */}
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+              <Calendar className="h-4 w-4 text-accent" /> Kỳ Hóa Đơn
+            </Label>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => handlePeriodChange(-1)}
+                title="Tháng trước"
+                className="h-10 w-8 shrink-0 rounded-lg border-border hover:bg-accent/10 hover:text-accent"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Input
+                type="month"
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="rounded-lg border-border h-10 font-black text-xs text-center focus-visible:ring-accent bg-amber-50/30 px-1 cursor-pointer"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => handlePeriodChange(1)}
+                title="Tháng sau"
+                className="h-10 w-8 shrink-0 rounded-lg border-border hover:bg-accent/10 hover:text-accent"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Ô 4: Trạng thái Thanh toán (2 cols) */}
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+              Trạng thái
+            </Label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="unpaid">🟡 Chưa thanh toán</option>
+              <option value="paid">🟢 Đã thanh toán</option>
+              <option value="overdue">🔴 Quá hạn</option>
+              <option value="cancelled">⚪ Đã hủy</option>
             </select>
           </div>
         </CardContent>
@@ -279,14 +521,31 @@ export default function InvoicesPage() {
                           </Badge>
                         </td>
                         <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}
-                            className="text-accent hover:text-accent-500 hover:bg-bg-subtle rounded-lg font-semibold text-xs"
-                          >
-                            Chi tiết
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleSendEmail(item.id)}
+                              disabled={sendingEmailId === item.id}
+                              title="Gửi Email Hóa Đơn qua Mailjet"
+                              className="text-amber-600 border-amber-300 hover:bg-amber-50 rounded-lg font-semibold text-xs h-8 px-2"
+                            >
+                              {sendingEmailId === item.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5 mr-1" />
+                              )}
+                              Gửi Mailjet
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}
+                              className="text-accent hover:text-accent-500 hover:bg-bg-subtle rounded-lg font-semibold text-xs h-8"
+                            >
+                              Chi tiết
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -295,8 +554,16 @@ export default function InvoicesPage() {
                     <tr>
                       <td colSpan={8} className="px-6 py-12 text-center text-ink-muted bg-white">
                         <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                        <p className="text-sm font-semibold">Không tìm thấy hóa đơn nào trong kỳ này.</p>
-                        <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Lập hóa đơn hàng loạt&quot; để tạo tự động.</p>
+                        <p className="text-sm font-semibold">Chưa có hóa đơn nào trong kỳ {selectedPeriod}.</p>
+                        <p className="text-xs text-ink-muted mt-1 mb-4">Bấm nút bên dưới để tự động tính toán tiền phòng & chỉ số điện nước đã chốt.</p>
+                        <Button 
+                          onClick={handleBatchGenerate} 
+                          disabled={generating || loading} 
+                          className="bg-accent hover:bg-accent-500 text-white rounded-lg font-bold shadow-md px-4 py-2"
+                        >
+                          {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                          ⚡ Tạo ngay Hóa đơn Kỳ {selectedPeriod}
+                        </Button>
                       </td>
                     </tr>
                   )}
@@ -444,8 +711,20 @@ export default function InvoicesPage() {
                 </div>
               </div>
 
-              {/* Nút thao tác thay đổi trạng thái hóa đơn */}
+              {/* Nút thao tác thay đổi trạng thái & bắn mail */}
               <div className="pt-2 flex flex-col gap-2">
+                <Button
+                  onClick={() => handleSendEmail(viewInvoice.id)}
+                  disabled={sendingEmailId === viewInvoice.id}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-sm"
+                >
+                  {sendingEmailId === viewInvoice.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Mail className="h-4 w-4 mr-2" />
+                  )}
+                  Gửi Email Hóa Đơn qua Mailjet (kèm VietQR)
+                </Button>
                 {viewInvoice.status !== 'paid' && viewInvoice.status !== 'cancelled' && (
                   <div className="border border-border p-3 rounded-lg space-y-3 bg-white">
                     <div className="space-y-1.5">

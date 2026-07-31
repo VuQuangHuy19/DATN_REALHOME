@@ -39,6 +39,17 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
   const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name, phone');
   if (companiesError) throw companiesError;
 
+  // 7. Fetch active deposit & rental contracts to auto-sync 'Dealed' status
+  const { data: activeDeposits } = await supabase
+    .from('deposit_contracts')
+    .select('id, contract_code, room_id, party_b_phone')
+    .in('status', ['active', 'converted', 'signed']);
+
+  const { data: activeRentals } = await supabase
+    .from('rental_contracts')
+    .select('id, contract_code, room_id, party_b_phone')
+    .eq('status', 'active');
+
   // Map client-side
   const roomsMap = new Map<string, string | null>((rooms ?? []).map((r: { id: string; building_id: string | null }) => [r.id, r.building_id]));
   
@@ -89,8 +100,29 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
     const companyName = companyInfo?.name || null;
     const companyPhone = companyInfo?.phone || null;
 
+    // Ràng buộc chính xác theo bộ 4 yếu tố: [Mã/ID phòng + Mã/ID tòa + Hợp đồng hợp lệ + SĐT khách]
+    const matchedContract = (activeDeposits || []).find((d: any) => {
+      if (!d.id || !d.room_id || !d.party_b_phone) return false;
+      const contractBuildingId = roomsMap.get(d.room_id);
+      const isRoomMatch = d.room_id === row.room_id;
+      const isPhoneMatch = d.party_b_phone === row.customer_phone;
+      const isBuildingMatch = !buildingKey || !contractBuildingId || buildingKey === contractBuildingId;
+      return isRoomMatch && isPhoneMatch && isBuildingMatch;
+    }) || (activeRentals || []).find((r: any) => {
+      if (!r.id || !r.room_id || !r.party_b_phone) return false;
+      const contractBuildingId = roomsMap.get(r.room_id);
+      const isRoomMatch = r.room_id === row.room_id;
+      const isPhoneMatch = r.party_b_phone === row.customer_phone;
+      const isBuildingMatch = !buildingKey || !contractBuildingId || buildingKey === contractBuildingId;
+      return isRoomMatch && isPhoneMatch && isBuildingMatch;
+    });
+
+    const isDealed = !!matchedContract;
+    const finalStatus = isDealed ? 'Dealed' : row.status;
+
     return {
       ...row,
+      status: finalStatus,
       landlord_code: row.landlord_id || landlord?.code || null,
       landlord_name: landlord?.name || null,
       building_address: building?.address || null,

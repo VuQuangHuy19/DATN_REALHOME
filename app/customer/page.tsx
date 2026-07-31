@@ -7,11 +7,13 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 import { usePublicListings } from '@/lib/hooks/usePublicListings';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
+import { BuildingCard, type BuildingGroup, formatArea } from '@/components/customer/BuildingCard';
 import type { CustomerListing } from '@/lib/customer/types';
 import {
   ArrowRight, MapPin, Bed, Bath, Square, Phone, Building2, Loader2, Search,
@@ -19,22 +21,6 @@ import {
   ChevronRight, Calendar, Heart, Star, Users, Award, Eye
 } from 'lucide-react';
 import { getAreaColorClass } from '@/lib/utils/colors';
-
-// ─── Kiểu dữ liệu nhóm theo tòa nhà ─────────────────────────────────────────
-interface BuildingGroup {
-  buildingId: string;
-  buildingName: string;
-  area: string;
-  address: string;
-  companyId: string;
-  availableRoomCodes: string[];
-  minPrice: number;
-  maxPrice: number;
-  allImages: string[];
-  rooms: CustomerListing[];
-  representativeRoom: CustomerListing;
-  allowPet?: boolean;
-}
 
 // ─── Danh sách Ảnh minh họa Nổi bật cho các Quận Hà Nội ────────────────────
 const DISTRICT_IMAGES: Record<string, string> = {
@@ -51,18 +37,6 @@ const DISTRICT_IMAGES: Record<string, string> = {
 // Ảnh mặc định chất lượng cao cho các quận khác
 const DEFAULT_DISTRICT_IMAGE = 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800';
 
-// Helper rút gọn khu vực
-function formatArea(area: string): string {
-  if (!area) return '';
-  const parts = area.split(',').map((p) => p.trim());
-  if (parts.length >= 2) {
-    let ward = parts[0].replace(/^(phường|phường|xã|xã|thị trấn|thị trấn)\s+/i, '').trim();
-    let district = parts[1].replace(/^(quận|quận|huyện|huyện|thị xã|thị xã|thành phố|thành phố)\s+/i, '').trim();
-    if (ward && district) return `${ward} - ${district}`;
-  }
-  return area;
-}
-
 export default function CustomerHomePage() {
   const router = useRouter();
   const { company, companies, loading: companyLoading } = useCustomerCompany();
@@ -75,6 +49,10 @@ export default function CustomerHomePage() {
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState('');
   const [selectedPriceFilter, setSelectedPriceFilter] = useState('');
   const [viewingGroup, setViewingGroup] = useState<BuildingGroup | null>(null);
+  const [isContactOpen, setIsContactOpen] = useState(false);
+
+  const hotline = company?.phone || '(028) 1234-5678';
+  const hotlineHref = company?.phone ? `tel:${company.phone.replace(/\D/g, '')}` : 'tel:02812345678';
 
   const loading = companyLoading || listingsLoading;
 
@@ -445,105 +423,14 @@ export default function CustomerHomePage() {
             <p className="text-center text-ink-muted py-12">Chưa có dữ liệu bất động sản khả dụng.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
-              {featuredBuildingGroups.map((group) => {
-                const priceLabel =
-                  group.minPrice === group.maxPrice
-                    ? `${group.minPrice.toLocaleString('vi-VN')}đ`
-                    : `${group.minPrice.toLocaleString('vi-VN')} – ${group.maxPrice.toLocaleString('vi-VN')}đ`;
-
-                return (
-                  <Card
-                    key={group.buildingId}
-                    className="overflow-hidden border border-border-subtle rounded-2xl bg-card shadow-sm hover:border-accent hover:shadow-xl transition-all duration-300 flex flex-col group"
-                  >
-                    {/* Ảnh đại diện tòa nhà */}
-                    <div className="relative h-56 overflow-hidden flex-shrink-0">
-                      <Image
-                        src={group.allImages[0] || '/placeholder.jpg'}
-                        alt={group.buildingName}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
-
-                      {/* Area Badge */}
-                      <div className="absolute top-3 left-3">
-                        <Badge variant="outline" className={`bg-white/90 dark:bg-card/90 backdrop-blur-md font-semibold text-xs ${getAreaColorClass(group.area)}`}>
-                          {formatArea(group.area)}
-                        </Badge>
-                      </div>
-
-                      {/* Pet-friendly Badge */}
-                      {group.allowPet && (
-                        <div className="absolute top-3 right-3">
-                          <Badge className="bg-emerald-600 text-white font-medium text-[11px] gap-1 shadow-md">
-                            <Cat className="h-3 w-3" /> Cho nuôi pet
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Nội dung thông tin tòa nhà */}
-                    <CardHeader className="pb-2 pt-4 px-5">
-                      <h3 className="text-base font-bold text-ink leading-snug group-hover:text-accent font-heading transition-colors line-clamp-1">
-                        {group.buildingName}
-                      </h3>
-                      <p className="text-xs text-ink-muted flex items-center gap-1 line-clamp-1 mt-1">
-                        <MapPin className="h-3.5 w-3.5 text-accent shrink-0" />
-                        {group.address}
-                      </p>
-                    </CardHeader>
-
-                    <CardContent className="px-5 pb-5 mt-auto flex flex-col gap-3">
-                      {/* Mã phòng trống thực tế */}
-                      <div className="text-xs py-2 px-3 rounded-lg bg-bg-subtle border border-border-subtle">
-                        {group.availableRoomCodes.length > 0 ? (
-                          <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-                            🟢 Phòng trống:{' '}
-                            <span className="text-ink font-semibold">
-                              {group.availableRoomCodes.slice(0, 5).join(', ')}
-                              {group.availableRoomCodes.length > 5 && ` +${group.availableRoomCodes.length - 5} phòng`}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-ink-muted italic">Hiện hết phòng trống</span>
-                        )}
-                      </div>
-
-                      {/* Giá */}
-                      <div className="flex items-baseline justify-between pt-1">
-                        <p className="text-lg font-extrabold text-ink font-mono">
-                          {priceLabel}
-                          <span className="text-xs font-normal text-ink-muted"> / tháng</span>
-                        </p>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-9 text-xs rounded-xl"
-                          onClick={() => setViewingGroup(group)}
-                        >
-                          <Calendar className="h-3.5 w-3.5 mr-1" />
-                          Hẹn xem
-                        </Button>
-                        <Button
-                          size="sm"
-                          asChild
-                          className="h-9 text-xs rounded-xl bg-accent hover:bg-accent-500 text-white font-semibold"
-                        >
-                          <Link href={`/customer/properties/${group.buildingId}`}>
-                            <Eye className="h-3.5 w-3.5 mr-1" />
-                            Chi tiết
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {featuredBuildingGroups.map((group) => (
+                <BuildingCard
+                  key={group.buildingId}
+                  group={group}
+                  onBook={setViewingGroup}
+                  onContact={() => setIsContactOpen(true)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -719,6 +606,29 @@ export default function CustomerHomePage() {
           }}
         />
       )}
+
+      {/* Dialog liên hệ */}
+      <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 justify-center font-heading">
+              <Phone className="h-5 w-5" />
+              Liên Hệ Môi Giới
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-2 pb-2 text-center">
+            <div className="flex items-center justify-center gap-3 py-2">
+              <div className="h-12 w-12 rounded-full bg-accent-soft flex items-center justify-center">
+                <Phone className="h-6 w-6 text-accent" />
+              </div>
+              <span className="text-2xl font-semibold text-ink font-mono">{hotline}</span>
+            </div>
+            <Button className="w-full bg-accent hover:bg-accent-500 text-white font-semibold" size="lg" asChild>
+              <a href={hotlineHref}><Phone className="h-4 w-4 mr-2" />Gọi ngay</a>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

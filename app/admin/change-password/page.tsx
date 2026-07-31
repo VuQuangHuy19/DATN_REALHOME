@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 export default function ChangePasswordPage() {
   const router = useRouter();
   const { role } = useAuth();
+  const [oldPassword, setOldPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +21,11 @@ export default function ChangePasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!oldPassword) {
+      toast.error('Vui lòng nhập mật khẩu hiện tại');
+      return;
+    }
 
     if (password.length < 6) {
       toast.error('Mật khẩu mới phải có tối thiểu 6 ký tự');
@@ -38,7 +44,7 @@ export default function ChangePasswordPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ oldPassword, password }),
       });
 
       const data = await response.json();
@@ -85,6 +91,18 @@ export default function ChangePasswordPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="old-password">Mật khẩu hiện tại</Label>
+              <Input
+                id="old-password"
+                type="password"
+                placeholder="Nhập mật khẩu hiện tại của bạn"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                required
+              />
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="new-password">Mật khẩu mới</Label>
               <div className="relative">

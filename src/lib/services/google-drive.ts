@@ -180,18 +180,144 @@ export async function syncGoogleDriveImagesForProperty(roomId: string, driveUrl:
 
   // Update property in DB
   if (uploadedUrls.length > 0) {
+    // Check existing URLs in room_images for this roomId to prevent duplication
+    const { data: existingRoomImgs } = await supabase
+      .from('room_images')
+      .select('url')
+      .eq('room_id', roomId);
+
+    const existingUrls = new Set((existingRoomImgs || []).map(r => r.url));
+    const newUrls = uploadedUrls.filter(url => !existingUrls.has(url));
+
+    if (newUrls.length === 0) {
+      console.log(`[DriveSync] Toàn bộ ${uploadedUrls.length} ảnh đã tồn tại trong DB cho phòng ${roomId}, bỏ qua insert.`);
+      return uploadedUrls;
+    }
+
+    const isVideoUrl = (u: string) => {
+      const clean = u.toLowerCase().split('?')[0];
+      return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.webm');
+    };
+
+    const firstImageIndex = newUrls.findIndex((u) => !isVideoUrl(u));
+    const hasExistingThumbnail = (existingRoomImgs || []).length > 0;
+
     // Insert into room_images table
-    const imagePayloads = uploadedUrls.map((url, index) => ({
-      room_id: roomId,
-      company_id: companyId || null,
-      url: url,
-      is_thumbnail: index === 0, // First image is thumbnail
-      priority: index
-    }));
+    const imagePayloads = newUrls.map((url, index) => {
+      const isVideo = isVideoUrl(url);
+      return {
+        room_id: roomId,
+        company_id: companyId || null,
+        url: url,
+        is_thumbnail: !hasExistingThumbnail && (firstImageIndex !== -1 ? index === firstImageIndex : index === 0),
+        priority: (existingRoomImgs || []).length + index,
+        media_type: isVideo ? 'video' : 'image',
+      };
+    });
     
     await supabase.from('room_images').insert(imagePayloads);
-    console.log(`[DriveSync] Đã lưu ${uploadedUrls.length} ảnh vào room_images cho phòng ${roomId}`);
+    console.log(`[DriveSync] Đã lưu ${newUrls.length} ảnh/video mới vào room_images cho phòng ${roomId}`);
   }
 
   return uploadedUrls;
 }
+
+export async function syncGoogleDriveImagesForBuilding(buildingId: string, driveUrl: string, companyId?: string) {
+  if (!driveUrl.includes('drive.google.com')) return [];
+
+  console.log(`[BuildingDriveSync] Bắt đầu xử lý link tòa nhà: ${driveUrl} cho building ${buildingId}`);
+  
+  let fileIds: string[] = [];
+
+  const folderMatch = driveUrl.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch) {
+    const folderId = folderMatch[1];
+    try {
+      const res = await axios.get(driveUrl);
+      const html = res.data;
+      const matches = [...html.matchAll(/"([a-zA-Z0-9_-]{33})"/g)];
+      const allIds = Array.from(new Set(matches.map(m => m[1])));
+      fileIds = allIds.filter(id => id !== folderId);
+    } catch (err: any) {
+      console.error('[BuildingDriveSync] Lỗi đọc folder:', err.message);
+    }
+  } else {
+    const fileMatch = driveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || driveUrl.match(/id=([a-zA-Z0-9_-]+)/);
+    if (fileMatch) {
+      fileIds = [fileMatch[1]];
+    }
+  }
+
+  if (fileIds.length === 0) return [];
+
+  // Synchronize first image for building
+  const fileId = fileIds[0];
+  try {
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    const res = await axios.get(downloadUrl, { 
+      responseType: 'arraybuffer',
+      maxRedirects: 5,
+      timeout: 30000 
+    });
+    
+    let buffer = Buffer.from(res.data, 'binary');
+    if (buffer.length < 5000 && buffer.toString('utf8').includes('<!DOCTYPE html>')) return [];
+
+    let ext = 'jpg';
+    let mime = 'image/jpeg';
+    const cType = String(res.headers['content-type'] || '');
+    if (cType.includes('png')) { ext = 'png'; mime = 'image/png'; }
+    else if (cType.includes('webp')) { ext = 'webp'; mime = 'image/webp'; }
+
+    if (mime.startsWith('image/')) {
+      try {
+        const sharp = require('sharp');
+        buffer = await sharp(buffer)
+          .resize({ width: 1920, height: 1920, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 80, progressive: true })
+          .toBuffer();
+        ext = 'jpg';
+        mime = 'image/jpeg';
+      } catch (err: any) {
+        console.error(`[BuildingDriveSync] Lỗi nén ảnh Sharp: ${err.message}`);
+      }
+    }
+
+    const md5 = crypto.createHash('md5').update(buffer as any).digest('hex');
+    const filename = `drive-imports/${md5}.${ext}`;
+
+    const { data: existingData, error: checkError } = await supabase.storage
+      .from('room_images')
+      .createSignedUrl(filename, 60);
+
+    let publicUrl = '';
+    if (!checkError && existingData) {
+      const { data: pubData } = supabase.storage.from('room_images').getPublicUrl(filename);
+      publicUrl = pubData.publicUrl;
+    } else {
+      await supabase.storage
+        .from('room_images')
+        .upload(filename, buffer, { contentType: mime, upsert: false });
+      const { data: pubData } = supabase.storage.from('room_images').getPublicUrl(filename);
+      publicUrl = pubData.publicUrl;
+    }
+
+    if (publicUrl) {
+      await supabase
+        .from('buildings')
+        .update({
+          image_url: publicUrl,
+          thumbnail_url: publicUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', buildingId);
+      console.log(`[BuildingDriveSync] Đã cập nhật ảnh đại diện tòa nhà ${buildingId}: ${publicUrl}`);
+      return [publicUrl];
+    }
+  } catch (err: any) {
+    console.error(`[BuildingDriveSync] Lỗi xử lý file ${fileId}:`, err.message);
+  }
+
+  return [];
+}
+

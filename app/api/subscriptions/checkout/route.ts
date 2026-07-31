@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createPayOSPaymentLink } from '@/src/lib/payos';
 
 export const runtime = 'nodejs';
 
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     }
 
     const invoiceCode = `INV-SAAS-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const payosOrderCode = Date.now(); // Sử dụng timestamp làm mã order code của PayOS
+    const payosOrderCode = Number(`${Date.now()}`.slice(-9)); // PayOS orderCode là kiểu int32 hợp lệ
     const now = new Date();
     const billingStart = new Date();
     const billingEnd = new Date();
@@ -93,24 +94,28 @@ export async function POST(request: Request) {
 
     if (invoiceErr) throw invoiceErr;
 
-    // 2. Kiểm tra nếu có API key của PayOS thực tế (đã cấu hình trong env) thì gọi PayOS API tạo link thanh toán thật
+    // 2. Gọi PayOS API tạo link thanh toán thật nếu đã có API Key/Client ID/Checksum Key
     let paymentUrl = '';
-    const payosApiKey = process.env.PAYOS_API_KEY;
-    
-    if (payosApiKey) {
-      try {
-        // Thực tế sẽ import PayOS và gọi:
-        // const payos = new PayOS(process.env.PAYOS_CLIENT_ID, process.env.PAYOS_API_KEY, process.env.PAYOS_CHECKSUM_KEY);
-        // const paymentLink = await payos.createPaymentLink({...});
-        // paymentUrl = paymentLink.checkoutUrl;
-      } catch (err) {
-        console.error('Lỗi khi kết nối cổng thanh toán PayOS thực tế, chuyển sang giả lập:', err);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+    try {
+      const payosResponse = await createPayOSPaymentLink({
+        orderCode: payosOrderCode,
+        amount,
+        description: `Thanh toan ${plan.toUpperCase()}`,
+        returnUrl: `${siteUrl}/admin/system/billing?payment=success&order_code=${payosOrderCode}`,
+        cancelUrl: `${siteUrl}/admin/system/billing?payment=cancelled`,
+      });
+
+      if (payosResponse && payosResponse.checkoutUrl) {
+        paymentUrl = payosResponse.checkoutUrl;
       }
+    } catch (err) {
+      console.error('Lỗi khi kết nối cổng thanh toán PayOS thực tế, chuyển sang giả lập:', err);
     }
 
-    // Nếu không có API Key, dùng link thanh toán giả lập (Mock Checkout Page)
+    // Nếu không cấu hình PayOS Key hoặc gọi thất bại, sử dụng Mock Checkout Page
     if (!paymentUrl) {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
       paymentUrl = `${siteUrl}/admin/system/billing/pay-mock?invoice_id=${invoice.id}&order_code=${payosOrderCode}&amount=${amount}&plan=${plan}&seats=${seats}&months=${months}`;
     }
 
@@ -120,7 +125,7 @@ export async function POST(request: Request) {
       .update({ payment_url: paymentUrl })
       .eq('id', invoice.id);
 
-    return NextResponse.json({ success: true, paymentUrl, invoiceCode });
+    return NextResponse.json({ success: true, paymentUrl, invoiceCode, invoiceId: invoice.id });
   } catch (err: any) {
     console.error('Lỗi xử lý checkout:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });

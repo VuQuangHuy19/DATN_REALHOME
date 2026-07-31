@@ -32,18 +32,14 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { oldPassword, password } = body;
 
-    if (!oldPassword) {
-      return NextResponse.json({ error: 'Vui lòng nhập mật khẩu cũ' }, { status: 400 });
-    }
-
     if (!password || password.length < 6) {
       return NextResponse.json({ error: 'Mật khẩu mới phải có tối thiểu 6 ký tự' }, { status: 400 });
     }
 
-    // Lấy profile hiện tại để xác thực mật khẩu cũ
+    // Lấy profile hiện tại để kiểm tra mật khẩu
     const { data: profile, error: fetchError } = await supabaseAdmin
       .from('profiles')
-      .select('password_hash')
+      .select('password_hash, email, full_name')
       .eq('id', payload.id)
       .single();
 
@@ -51,10 +47,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không tìm thấy thông tin tài khoản' }, { status: 404 });
     }
 
-    // Kiểm tra mật khẩu cũ
-    const { valid } = await verifyPassword(oldPassword, profile.password_hash);
-    if (!valid) {
-      return NextResponse.json({ error: 'Mật khẩu cũ không chính xác' }, { status: 400 });
+    // Kiểm tra mật khẩu cũ (Nếu tài khoản đã từng tạo mật khẩu)
+    if (profile.password_hash) {
+      if (!oldPassword) {
+        return NextResponse.json({ error: 'Vui lòng nhập mật khẩu cũ' }, { status: 400 });
+      }
+      const { valid } = await verifyPassword(oldPassword, profile.password_hash);
+      if (!valid) {
+        return NextResponse.json({ error: 'Mật khẩu cũ không chính xác' }, { status: 400 });
+      }
     }
 
     // 4. Băm mật khẩu mới bằng helper hashPassword
@@ -72,6 +73,15 @@ export async function POST(request: Request) {
     if (updateError) {
       console.error('Lỗi khi cập nhật mật khẩu trong database:', updateError);
       return NextResponse.json({ error: 'Không thể cập nhật mật khẩu mới' }, { status: 500 });
+    }
+
+    // 6. Gửi email thông báo đổi mật khẩu qua Mailjet
+    if (profile.email) {
+      const { sendPasswordChangeNotificationEmail } = await import('@/lib/mail');
+      sendPasswordChangeNotificationEmail({
+        toEmail: profile.email,
+        name: profile.full_name || 'Quý khách',
+      }).catch((err) => console.error('Lỗi gửi email thông báo đổi mật khẩu Mailjet:', err));
     }
 
     return NextResponse.json({

@@ -50,14 +50,14 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         </button>
       </div>
 
-      {/* Danh sách trang */}
-      <div className="hidden md:-mt-px md:flex gap-1 font-sans">
+      {/* Danh sách trang - Hiển thị trên cả Mobile và Desktop */}
+      <div className="-mt-px flex items-center justify-center gap-1 sm:gap-1.5 font-sans overflow-x-auto max-w-[220px] sm:max-w-none px-1 scrollbar-none">
         {pages.map((page, idx) => {
           if (page === '...') {
             return (
               <span
                 key={`ellipsis-${idx}`}
-                className="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-ink-muted"
+                className="inline-flex items-center border-t-2 border-transparent px-2 sm:px-3 pt-4 text-xs sm:text-sm font-medium text-ink-muted"
               >
                 ...
               </span>
@@ -72,9 +72,9 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
               key={pageNum}
               type="button"
               onClick={() => onPageChange(pageNum)}
-              className={`inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium transition-colors ${
+              className={`inline-flex items-center border-t-2 px-2.5 sm:px-4 pt-4 text-xs sm:text-sm font-extrabold transition-colors ${
                 isCurrent
-                  ? 'border-accent text-accent font-semibold'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-black'
                   : 'border-transparent text-ink-muted hover:border-border-subtle hover:text-ink'
               }`}
               aria-current={isCurrent ? 'page' : undefined}

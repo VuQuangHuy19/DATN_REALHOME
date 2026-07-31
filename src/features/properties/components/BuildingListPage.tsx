@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Building2, Loader2, AlertCircle, Upload, RefreshCw, FileSpreadsheet, Link as LinkIcon } from 'lucide-react';
 import { PermissionGate } from '@/components/ui/PermissionGate';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
@@ -24,6 +24,7 @@ import { useManagers } from '@/src/features/managers/hooks/useManagers';;
 import { supabase } from '@/lib/supabase/client';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { ExcelImportModal } from './ExcelImportModal';
+import { GoogleSheetImportModal } from '@/src/features/import/components/GoogleSheetImportModal';
 import { QuickCreateManagerModal } from './QuickCreateManagerModal';
 import { toast } from 'sonner';
 
@@ -50,7 +51,8 @@ export function BuildingListPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
   const [isManagerModalOpen, setIsManagerModalOpen] = useState(false);
   const [selectedManagers, setSelectedManagers] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -327,7 +329,7 @@ export function BuildingListPage() {
           <p className="text-ink-muted text-sm">Quản lý tòa nhà và thông tin chi tiết</p>
         </div>
         <PermissionGate roles={['company_admin']}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <Button
               onClick={async () => {
                 setSyncing(true);
@@ -344,24 +346,55 @@ export function BuildingListPage() {
                 }
               }}
               variant="outline"
-              className="border-border hover:bg-bg-subtle text-ink rounded-lg"
+              size="sm"
+              className="border-border hover:bg-bg-subtle text-ink rounded-lg h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium"
               title="Đồng bộ lại số phòng/tầng từ dữ liệu thực tế"
             >
-              {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Đồng bộ số phòng
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin sm:mr-1.5" /> : <RefreshCw className="h-4 w-4 sm:mr-1.5" />}
+              <span className="hidden sm:inline">Đồng bộ số phòng</span>
             </Button>
-            <div className="flex items-center gap-2">
-              <Button onClick={() => setIsImportModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"><FileSpreadsheet className="mr-2 h-4 w-4" /> Nhập Excel</Button>
-              <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="mr-2 h-4 w-4" /> Thêm tòa nhà</Button>
-            </div>
+            <Button
+              onClick={() => setIsExcelModalOpen(true)}
+              variant="outline"
+              size="sm"
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 rounded-lg h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium"
+              title="Nhập Excel"
+            >
+              <FileSpreadsheet className="h-4 w-4 sm:mr-1.5 text-emerald-600" />
+              <span className="hidden sm:inline">Nhập Excel</span>
+            </Button>
+            <Button
+              onClick={() => setIsSheetModalOpen(true)}
+              variant="outline"
+              size="sm"
+              className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 rounded-lg h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium"
+              title="Nhập Link Sheet"
+            >
+              <LinkIcon className="h-4 w-4 sm:mr-1.5 text-emerald-700" />
+              <span className="hidden sm:inline">Nhập Link Sheet</span>
+            </Button>
+            <Button
+              onClick={openAdd}
+              size="sm"
+              className="bg-accent hover:bg-accent-500 text-white rounded-lg h-9 px-3 text-xs sm:text-sm font-bold shadow-sm"
+              title="Thêm tòa nhà"
+            >
+              <Plus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Thêm tòa nhà</span>
+              <span className="sm:hidden">Thêm</span>
+            </Button>
+          </div>
+        </PermissionGate>
         <ExcelImportModal 
-          isOpen={isImportModalOpen} 
-          onClose={() => setIsImportModalOpen(false)} 
+          isOpen={isExcelModalOpen} 
+          onClose={() => setIsExcelModalOpen(false)} 
           landlords={landlordList}
-          onSuccess={() => {
-            // refresh data if needed
-            window.location.reload();
-          }}
+          onSuccess={() => window.location.reload()}
+        />
+        <GoogleSheetImportModal
+          open={isSheetModalOpen}
+          onOpenChange={setIsSheetModalOpen}
+          onSuccess={() => window.location.reload()}
         />
         <QuickCreateManagerModal
           isOpen={isManagerModalOpen}
@@ -725,8 +758,6 @@ export function BuildingListPage() {
               </DialogContent>
             </Dialog>
           </div>
-        </PermissionGate>
-      </div>
 
       {error && <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm"><AlertCircle className="h-4 w-4 flex-shrink-0" />{error}</div>}
 

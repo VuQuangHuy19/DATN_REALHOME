@@ -37,11 +37,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Tìm kiếm profile theo email trong database
+    // 2. Tìm kiếm profile theo email, số điện thoại hoặc tên đăng nhập
+    const inputIdentifier = email.trim().toLowerCase();
+    const generatedEmail = `${inputIdentifier}@realhome.com`;
+
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('*')
-      .eq('email', email)
+      .or(`email.eq.${inputIdentifier},phone.eq.${inputIdentifier},email.eq.${generatedEmail}`)
       .maybeSingle();
 
     if (error) {
@@ -107,18 +110,9 @@ export async function POST(request: Request) {
       company_id: profile.company_id,
     };
 
-    // Lấy thời gian JWT động từ cấu hình công ty (mặc định 10 phút nếu là super_admin hoặc chưa cấu hình)
-    let jwtDuration = 10;
-    if (profile.company_id) {
-      const { data: company } = await supabaseAdmin
-        .from('companies')
-        .select('jwt_duration')
-        .eq('id', profile.company_id)
-        .maybeSingle();
-      if (company?.jwt_duration) {
-        jwtDuration = company.jwt_duration;
-      }
-    }
+    // Thời gian phiên đăng nhập (JWT & Cookie duration):
+    // Cấu hình thời hạn 60 phút cho tất cả các role, hỗ trợ Sliding Session gia hạn theo hoạt động.
+    const jwtDuration = 60; // 60 phút
 
     // Ký JWT bằng JWT_SECRET qua helper signJWT với thời gian động
     const token = await signJWT(tokenPayload, `${jwtDuration}m`);

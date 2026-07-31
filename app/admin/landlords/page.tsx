@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus, Search, Phone, User, Building2, MapPin, Layers, Loader2, AlertCircle, Mail } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Phone, User, Building2, MapPin, Layers, Loader2, AlertCircle, Mail, CreditCard } from 'lucide-react';
 import { useLandlords } from '@/src/features/properties/hooks/useLandlords';
 import { useBuildings } from '@/src/features/properties/hooks/useBuildings';;
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -34,6 +34,7 @@ export default function LandlordsPage() {
 
   const filtered = landlordList.filter((l) =>
     l.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (l.code ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (l.phone ?? '').includes(searchQuery) ||
     (l.email ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -54,6 +55,9 @@ export default function LandlordsPage() {
       address: formData.get('address') as string || null,
       properties_count: editItem?.properties_count || 0,
       notes: formData.get('notes') as string || null,
+      bank_name: formData.get('bank_name') as string || null,
+      bank_account_number: formData.get('bank_account_number') as string || null,
+      bank_account_owner: formData.get('bank_account_owner') as string || null,
       image_url: imageUrl,
     };
     if (editItem) {
@@ -203,6 +207,25 @@ export default function LandlordsPage() {
                 <Label htmlFor="notes" className="text-ink font-semibold text-xs uppercase tracking-wider">Ghi chú</Label>
                 <Input id="notes" name="notes" defaultValue={editItem?.notes ?? ''} className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
               </div>
+              <div className="border-t border-border pt-3 mt-3 space-y-2">
+                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" /> Tài khoản Ngân hàng (Nhận doanh thu)
+                </p>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <Label htmlFor="bank_name" className="text-ink font-semibold text-[10px] uppercase">Ngân hàng</Label>
+                    <Input id="bank_name" name="bank_name" defaultValue={editItem?.bank_name ?? ''} placeholder="MB Bank, VCB..." className="rounded-lg border-border mt-1 text-xs" />
+                  </div>
+                  <div>
+                    <Label htmlFor="bank_account_number" className="text-ink font-semibold text-[10px] uppercase">Số tài khoản</Label>
+                    <Input id="bank_account_number" name="bank_account_number" defaultValue={editItem?.bank_account_number ?? ''} placeholder="0123456789" className="rounded-lg border-border mt-1 text-xs font-mono" />
+                  </div>
+                  <div>
+                    <Label htmlFor="bank_account_owner" className="text-ink font-semibold text-[10px] uppercase">Chủ tài khoản</Label>
+                    <Input id="bank_account_owner" name="bank_account_owner" defaultValue={editItem?.bank_account_owner ?? ''} placeholder="NGUYEN VAN A" className="rounded-lg border-border mt-1 text-xs uppercase" />
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Hình ảnh chủ nhà</Label>
                 <ImageUpload value={imageUrl} onChange={setImageUrl} bucket="landlords" />
@@ -226,7 +249,7 @@ export default function LandlordsPage() {
           <div className="flex flex-col sm:flex-row gap-3 flex-wrap items-center">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-              <Input placeholder="Tìm theo tên, SĐT hoặc email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
+              <Input placeholder="Tìm theo tên, mã chủ nhà (code), SĐT hoặc email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 rounded-lg border-border focus-visible:ring-accent" />
             </div>
             {selectedIds.length > 0 && (
               <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">
@@ -465,6 +488,15 @@ export default function LandlordsPage() {
                   <div className="col-span-2 flex items-start gap-2 text-ink-muted">
                     <MapPin className="h-4 w-4 text-ink-muted flex-shrink-0 mt-0.5" />
                     <span>{selectedLandlord.address}</span>
+                  </div>
+                )}
+                {(selectedLandlord.bank_name || selectedLandlord.bank_account_number) && (
+                  <div className="col-span-2 flex items-center gap-2 bg-indigo-50/70 dark:bg-indigo-950/40 p-2.5 rounded-lg border border-indigo-200/60 dark:border-indigo-900/60 text-xs">
+                    <CreditCard className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <div className="flex-1">
+                      <span className="font-bold text-indigo-950 dark:text-indigo-200">{selectedLandlord.bank_name || 'Ngân hàng'}</span>: <span className="font-mono font-bold text-ink">{selectedLandlord.bank_account_number || '—'}</span>
+                      {selectedLandlord.bank_account_owner && <span className="text-ink-muted ml-2">({selectedLandlord.bank_account_owner})</span>}
+                    </div>
                   </div>
                 )}
                 {selectedLandlord.notes && (

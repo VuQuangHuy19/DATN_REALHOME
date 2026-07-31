@@ -182,19 +182,24 @@ export async function POST(request: Request) {
   }
 }
 
-/** PATCH /api/landlords/:id — Cập nhật chủ nhà */
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+/** PATCH /api/landlords — Cập nhật chủ nhà */
+export async function PATCH(request: Request, context?: { params?: { id?: string } }) {
   try {
     const payload = await authenticate(request);
     if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { created_by, updated_by, ...updateData } = body;
+    const { created_by, updated_by, id: bodyId, ...updateData } = body;
+    const targetId = context?.params?.id || bodyId;
+
+    if (!targetId) {
+      return NextResponse.json({ error: 'Thiếu ID chủ nhà' }, { status: 400 });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('landlords')
       .update({ ...updateData, updated_at: new Date().toISOString() })
-      .eq('id', params.id)
+      .eq('id', targetId)
       .select()
       .single();
 

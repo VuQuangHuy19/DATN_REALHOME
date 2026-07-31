@@ -12,6 +12,29 @@ function normalizeAreaText(text: string | null | undefined): string | null {
   return String(text).replace(/(\d+(?:[.,]\d+)?)\s*(?:m2|m\^2|m²|M2)/gi, '$1 m²');
 }
 
+// Helper to normalize strings for building address/name matching
+function normalizeString(str: string): string {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// Helper to normalize room code for room deduplication matching
+function normalizeRoomCode(roomCodeStr: string): string {
+  if (!roomCodeStr) return '';
+  return String(roomCodeStr)
+    .trim()
+    .toLowerCase()
+    .replace(/^p\.?/i, '')
+    .replace(/^phòng\s*/i, '')
+    .replace(/\.0+$/, '')
+    .trim();
+}
+
+
 // Helper to extract Google Drive Folder file IDs from public shared links
 async function getGoogleDriveFolderFileIds(folderUrl: string): Promise<string[]> {
   try {
@@ -431,6 +454,13 @@ export async function handleImportSheet(request: Request) {
     }
 
     // 2. IMPORT BUILDINGS (Tòa nhà)
+    const { data: existingBuildingsList } = await supabaseAdmin
+      .from('buildings')
+      .select('id, code, name, address')
+      .eq('company_id', companyId);
+    const dbBuildings = existingBuildingsList || [];
+
+
     for (const building of buildings) {
       try {
         const {
@@ -446,13 +476,18 @@ export async function handleImportSheet(request: Request) {
           continue;
         }
 
-        // Kiểm tra xem đã có tòa nhà này chưa
-        const { data: existing } = await supabaseAdmin
-          .from('buildings')
-          .select('id')
-          .eq('company_id', companyId)
-          .eq('code', code)
-          .maybeSingle();
+        // Check trùng lặp Tòa nhà thông minh (theo code, tên hoặc địa chỉ đã chuẩn hóa)
+        const normName = normalizeString(name);
+        const normAddr = normalizeString(address || name);
+
+        const existing = dbBuildings.find((b: any) => {
+          if (b.code === code) return true;
+          const bNormName = normalizeString(b.name || '');
+          if (bNormName && normName && bNormName === normName) return true;
+          const bNormAddr = normalizeString(b.address || '');
+          if (bNormAddr && normAddr && bNormAddr === normAddr) return true;
+          return false;
+        });
 
         let processedImageUrl = image_url || null;
         let processedThumbnailUrl = null;
@@ -500,9 +535,11 @@ export async function handleImportSheet(request: Request) {
           }
         }
 
+        const targetCode = existing?.code || code;
+
         const payload: any = {
           company_id: companyId,
-          code,
+          code: targetCode,
           name,
           landlord_id: landlord_id || null,
           area,
@@ -574,14 +611,17 @@ export async function handleImportSheet(request: Request) {
           continue;
         }
 
-        // Kiểm tra xem đã có phòng này thuộc tòa nhà này chưa
-        const { data: existing } = await supabaseAdmin
+        const cleanCode = String(code).trim().replace(/\.0+$/, '');
+        const normCode = normalizeRoomCode(cleanCode);
+
+        // Lấy danh sách phòng hiện có của tòa nhà này để check trùng trong memory
+        const { data: dbRoomsList } = await supabaseAdmin
           .from('rooms')
-          .select('id')
+          .select('id, code')
           .eq('company_id', companyId)
-          .eq('building_id', building_code) // building_id hiện tại lưu code của building
-          .eq('code', code)
-          .maybeSingle();
+          .eq('building_id', building_code);
+        
+        const existing = dbRoomsList?.find((r: any) => normalizeRoomCode(r.code) === normCode);
 
         // Lấy thông tin landlord_id của tòa nhà để điền vào phòng cho đồng bộ
         const { data: bld } = await supabaseAdmin

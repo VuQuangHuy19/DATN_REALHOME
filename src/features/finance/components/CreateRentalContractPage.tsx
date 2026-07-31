@@ -54,6 +54,9 @@ export function CreateRentalContractPage() {
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
 
+  const [depositData, setDepositData] = useState<any | null>(null);
+  const [originalDepositRoomId, setOriginalDepositRoomId] = useState<string>('');
+
   useEffect(() => {
     if (!company?.id) return;
     setLeadsLoading(true);
@@ -98,8 +101,8 @@ export function CreateRentalContractPage() {
 
   // Thỏa thuận thuê & dịch vụ
   const [electricityPrice, setElectricityPrice] = useState<number>(4000);
-  const [waterPrice, setWaterPrice] = useState<string>('150000/người/tháng');
-  const [servicePrice, setServicePrice] = useState<string>('200000/người/tháng');
+  const [waterPrice, setWaterPrice] = useState<string>('150.000đ/người/tháng');
+  const [servicePrice, setServicePrice] = useState<string>('200.000đ/người/tháng');
   const [internetPrice, setInternetPrice] = useState<number>(100000);
   const [laundryPrice, setLaundryPrice] = useState<number>(100000);
   const [tenantCount, setTenantCount] = useState<number>(1);
@@ -122,6 +125,21 @@ export function CreateRentalContractPage() {
     setEndDate(start.toISOString().slice(0, 10));
   }, [startDate, leaseDuration]);
 
+  // Helper định dạng số có phân cách hàng nghìn kèm đơn vị (VD: 35000/khối -> 35.000đ/khối)
+  const formatRateWithUnit = (val: string): string => {
+    if (!val) return '';
+    const parts = val.split('/');
+    if (parts.length > 0) {
+      const rawNum = parts[0].replace(/\D/g, '');
+      if (rawNum) {
+        const formattedNum = Number(rawNum).toLocaleString('vi-VN');
+        const suffix = parts.slice(1).join('/');
+        return suffix ? `${formattedNum}đ/${suffix}` : `${formattedNum}đ`;
+      }
+    }
+    return val;
+  };
+
   // Tự động điền dữ liệu khi chọn phòng
   useEffect(() => {
     if (!selectedRoomId) return;
@@ -142,15 +160,15 @@ export function CreateRentalContractPage() {
           setElectricityPrice(room.buildings.electricity_price);
         }
         if (room.buildings.water_price !== undefined && room.buildings.water_price !== null) {
-          const unit = room.buildings.water_price > 50000 ? '/người/tháng' : '/khối';
-          setWaterPrice(`${room.buildings.water_price}${unit}`);
+          const unit = room.buildings.water_price > 50000 ? 'người/tháng' : 'khối';
+          setWaterPrice(`${Number(room.buildings.water_price).toLocaleString('vi-VN')}đ/${unit}`);
         }
         if (room.buildings.internet_price !== undefined && room.buildings.internet_price !== null) {
           setInternetPrice(room.buildings.internet_price);
         }
         if (room.buildings.common_service_price !== undefined && room.buildings.common_service_price !== null) {
-          const unit = (room.buildings as any).common_service_unit === 'phòng' ? '/phòng/tháng' : '/người/tháng';
-          setServicePrice(`${room.buildings.common_service_price}${unit}`);
+          const unit = (room.buildings as any).common_service_unit === 'phòng' ? 'phòng/tháng' : 'người/tháng';
+          setServicePrice(`${Number(room.buildings.common_service_price).toLocaleString('vi-VN')}đ/${unit}`);
         }
         const wm = room.buildings.washing_machine_type;
         const dt = room.buildings.dryer_type;
@@ -176,8 +194,12 @@ export function CreateRentalContractPage() {
           .single()) as any;
         if (error) throw error;
         if (data) {
+          setDepositData(data);
           setDepositSalesAgentId(data.sales_agent_id || data.created_by || null);
-          setSelectedRoomId(data.room_id || '');
+          if (data.room_id) {
+            setOriginalDepositRoomId(data.room_id);
+            setSelectedRoomId(data.room_id);
+          }
           setRentPrice(Number(data.rent_price));
           setDepositAmount(Number(data.deposit_amount));
           setSignLocation(data.sign_location || '');
@@ -198,8 +220,8 @@ export function CreateRentalContractPage() {
           setPartyADob(data.party_a_dob || '2004-04-16');
 
           setElectricityPrice(Number(data.electricity_price) || 4000);
-          setWaterPrice(data.water_price || '150000/người/tháng');
-          setServicePrice(data.service_price || '200000/người/tháng');
+          setWaterPrice(formatRateWithUnit(data.water_price || '150000/người/tháng'));
+          setServicePrice(formatRateWithUnit(data.service_price || '200000/người/tháng'));
           setTenantCount(Number(data.tenant_count) || 1);
           setLeaseDuration(Number(data.lease_duration_months) || 9);
           setTerminationNotice(Number(data.termination_notice_days) || 30);
@@ -257,8 +279,8 @@ export function CreateRentalContractPage() {
           setPartyADob(data.party_a_dob || '2004-04-16');
 
           setElectricityPrice(Number(data.electricity_price) || 4000);
-          setWaterPrice(data.water_price || '150000/người/tháng');
-          setServicePrice(data.service_price || '200000/người/tháng');
+          setWaterPrice(formatRateWithUnit(data.water_price || '150000/người/tháng'));
+          setServicePrice(formatRateWithUnit(data.service_price || '200000/người/tháng'));
           setTenantCount(Number(data.tenant_count) || 1);
           
           // Tự động gán ngày bắt đầu hợp đồng mới là ngày tiếp sau ngày kết thúc hợp đồng cũ
@@ -380,12 +402,18 @@ export function CreateRentalContractPage() {
       // 1. Tạo hợp đồng thuê chính thức
       const newContract = await createRentalContract(payload);
 
-      // 2. Nếu chuyển đổi từ hợp đồng cọc, cập nhật trạng thái cọc thành 'converted'
+      // 2. Nếu chuyển đổi từ hợp đồng cọc
       if (depositId) {
         await updateDepositContract(depositId, { status: 'converted' });
+
+        // Nếu người dùng chọn ĐỔI SANG PHÒNG MỚI (Khác phòng đã cọc ban đầu)
+        if (originalDepositRoomId && originalDepositRoomId !== selectedRoomId) {
+          // Giải phóng phòng cọc cũ về trạng thái 'available'
+          await updateRoom(originalDepositRoomId, { status: 'available' });
+        }
       }
 
-      // 3. Cập nhật trạng thái phòng sang 'rented'
+      // 3. Cập nhật trạng thái phòng thuê mới chọn sang 'rented'
       await updateRoom(selectedRoomId, { status: 'rented' });
 
       // 4. Nếu liên kết với Lead, cập nhật Lead thành 'won'
@@ -400,6 +428,19 @@ export function CreateRentalContractPage() {
           .eq('id', selectedLeadId);
         if (leadUpdateErr) {
           console.error('Lỗi cập nhật Lead sau khi tạo hợp đồng thuê:', leadUpdateErr);
+        }
+      }
+
+      // 5. Tự động đồng bộ SĐT vào tài khoản profile của Khách thuê nếu tài khoản khách đang thiếu SĐT
+      if (partyBPhone) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ phone: partyBPhone, updated_at: new Date().toISOString() })
+            .ilike('full_name', partyBName)
+            .is('phone', null);
+        } catch (syncErr) {
+          console.error('Lỗi đồng bộ SĐT khách thuê vào profiles:', syncErr);
         }
       }
 
@@ -426,6 +467,33 @@ export function CreateRentalContractPage() {
         </div>
       </div>
 
+      {/* Banner thông tin Hợp đồng cọc được liên kết */}
+      {depositData && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 text-amber-900 space-y-1 shadow-sm">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="font-bold text-sm flex items-center gap-2 text-amber-950">
+              📌 ĐANG CHUYỂN TỪ HỢP ĐỒNG ĐẶT CỌC: <span className="font-mono text-accent">{depositData.contract_code}</span>
+            </span>
+            <span className="bg-amber-200/80 text-amber-900 font-bold text-xs px-2.5 py-1 rounded-full uppercase tracking-wider">
+              Khách cọc: {depositData.party_b_name} ({depositData.party_b_phone})
+            </span>
+          </div>
+          <p className="text-xs font-semibold text-amber-800">
+            • Phòng đã cọc ban đầu:{' '}
+            <strong className="text-accent font-bold">
+              Phòng {depositData.rooms?.code || '---'} {depositData.rooms?.buildings?.name ? `- ${depositData.rooms.buildings.name}` : ''}
+            </strong>{' '}
+            | Tiền cọc đã giữ:{' '}
+            <strong className="text-amber-950 font-mono font-bold">{Number(depositData.deposit_amount).toLocaleString('vi-VN')}đ</strong>
+          </p>
+          {originalDepositRoomId && selectedRoomId && originalDepositRoomId !== selectedRoomId && (
+            <p className="text-xs font-bold text-indigo-700 pt-1 border-t border-amber-200 mt-1">
+              💡 Bạn đang chọn ĐỔI SANG PHÒNG MỚI ({rooms.find((r) => r.id === selectedRoomId)?.code}). Sau khi ký, Phòng cọc cũ ({depositData.rooms?.code}) sẽ tự động giải phóng về trạng thái Còn Trống.
+            </p>
+          )}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Khối 1: Chọn phòng */}
         <Card className="border-border shadow-none rounded-lg bg-white border-t-2 border-t-accent">
@@ -444,16 +512,17 @@ export function CreateRentalContractPage() {
                   <Loader2 className="h-4 w-4 animate-spin text-accent" /> Đang tải danh sách phòng...
                 </div>
               ) : (
-                <Select value={selectedRoomId} onValueChange={setSelectedRoomId} disabled={!!depositId}>
-                  <SelectTrigger id="room_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
+                <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                  <SelectTrigger id="room_select" className="rounded-lg border-border focus-visible:ring-accent text-slate-900 font-bold text-sm">
                     <SelectValue placeholder="Chọn phòng..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
+                  <SelectContent className="bg-white border-border text-slate-900 text-xs font-bold">
                     {rooms
-                      .filter((r) => r.status === 'available' || r.id === selectedRoomId)
+                      .filter((r) => r.status === 'available' || r.id === selectedRoomId || r.id === originalDepositRoomId)
                       .map((r) => (
                         <SelectItem key={r.id} value={r.id}>
                           Phòng {r.code} - {r.buildings?.name || 'Khu vực khác'} ({Number(r.price).toLocaleString('vi-VN')}đ/tháng)
+                          {r.id === originalDepositRoomId ? ' [Phòng đã cọc]' : ''}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -481,11 +550,11 @@ export function CreateRentalContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lease_duration" className="text-ink font-semibold text-xs uppercase tracking-wider">Thời hạn thuê (tháng) *</Label>
-              <Input type="number" id="lease_duration" value={leaseDuration} onChange={(e) => setLeaseDuration(Number(e.target.value))} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input type="number" id="lease_duration" value={leaseDuration} onChange={(e) => setLeaseDuration(Number(e.target.value))} required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="end_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày kết thúc thuê *</Label>
-              <Input type="text" id="end_date" value={toDisplay(endDate)} readOnly className="bg-bg-subtle/50 cursor-not-allowed border-border rounded-lg font-mono text-ink-muted text-sm h-10 px-3" />
+              <Input type="text" id="end_date" value={toDisplay(endDate)} readOnly className="bg-bg-subtle/50 cursor-not-allowed border-border rounded-lg font-mono text-slate-900 font-bold text-sm h-10 px-3" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="handover_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày bàn giao phòng *</Label>
@@ -498,11 +567,11 @@ export function CreateRentalContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="billing_cycle" className="text-ink font-semibold text-xs uppercase tracking-wider">Chu kỳ đóng tiền (tháng/lần) *</Label>
-              <Input type="number" id="billing_cycle" value={billingCycle} onChange={(e) => setBillingCycle(Number(e.target.value))} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input type="number" id="billing_cycle" value={billingCycle} onChange={(e) => setBillingCycle(Number(e.target.value))} required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="payment_day" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày đóng tiền hàng tháng *</Label>
-              <Input type="number" id="payment_day" value={paymentDay} onChange={(e) => setPaymentDay(Number(e.target.value))} min={1} max={31} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input type="number" id="payment_day" value={paymentDay} onChange={(e) => setPaymentDay(Number(e.target.value))} min={1} max={31} required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="sign_location" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi ký hợp đồng</Label>
@@ -511,7 +580,7 @@ export function CreateRentalContractPage() {
                 value={signLocation} 
                 onChange={(e) => setSignLocation(e.target.value)} 
                 placeholder="Địa chỉ ký kết hợp đồng" 
-                className="rounded-lg border-border focus-visible:ring-accent text-sm"
+                className="rounded-lg border-border focus-visible:ring-accent text-sm font-semibold text-slate-900"
               />
             </div>
             <div className="space-y-1.5">
@@ -522,10 +591,10 @@ export function CreateRentalContractPage() {
                 </div>
               ) : (
                 <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
-                  <SelectTrigger id="lead_select" className="rounded-lg border-border focus-visible:ring-accent text-ink text-sm">
+                  <SelectTrigger id="lead_select" className="rounded-lg border-border focus-visible:ring-accent text-slate-900 font-semibold text-sm">
                     <SelectValue placeholder="Chọn lead liên kết..." />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border-border text-ink text-xs font-semibold">
+                  <SelectContent className="bg-white border-border text-slate-900 text-xs font-semibold">
                     <SelectItem value="none">-- Không liên kết --</SelectItem>
                     {leads
                       .filter((l: any) => ['new', 'consulting', 'appointment', 'viewed', 'deposited', 'contacted', 'qualified', 'negotiating'].includes(l.status))
@@ -552,7 +621,7 @@ export function CreateRentalContractPage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
             <div className="space-y-1.5">
               <Label htmlFor="party_a_name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ và tên *</Label>
-              <Input id="party_a_name" value={partyAName} onChange={(e) => setPartyAName(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_a_name" value={partyAName} onChange={(e) => setPartyAName(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_a_dob" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày sinh</Label>
@@ -564,11 +633,11 @@ export function CreateRentalContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_a_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại *</Label>
-              <Input id="party_a_phone" value={partyAPhone} onChange={(e) => setPartyAPhone(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input id="party_a_phone" value={partyAPhone} onChange={(e) => setPartyAPhone(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_a_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CCCD / CMND</Label>
-              <Input id="party_a_id_card" value={partyAIdCard} onChange={(e) => setPartyAIdCard(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input id="party_a_id_card" value={partyAIdCard} onChange={(e) => setPartyAIdCard(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_a_id_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày cấp</Label>
@@ -580,11 +649,11 @@ export function CreateRentalContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_a_id_place" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi cấp</Label>
-              <Input id="party_a_id_place" value={partyAIdPlace} onChange={(e) => setPartyAIdPlace(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_a_id_place" value={partyAIdPlace} onChange={(e) => setPartyAIdPlace(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-semibold text-slate-900" />
             </div>
             <div className="space-y-1.5 md:col-span-3">
               <Label htmlFor="party_a_address" className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ thường trú</Label>
-              <Input id="party_a_address" value={partyAAddress} onChange={(e) => setPartyAAddress(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_a_address" value={partyAAddress} onChange={(e) => setPartyAAddress(e.target.value)} className="rounded-lg border-border focus-visible:ring-accent font-semibold text-slate-900" />
             </div>
           </CardContent>
         </Card>
@@ -600,7 +669,7 @@ export function CreateRentalContractPage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
             <div className="space-y-1.5">
               <Label htmlFor="party_b_name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ và tên khách thuê *</Label>
-              <Input id="party_b_name" value={partyBName} onChange={(e) => setPartyBName(e.target.value)} placeholder="Họ tên khách thuê" required className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_b_name" value={partyBName} onChange={(e) => setPartyBName(e.target.value)} placeholder="Họ tên khách thuê" required className="rounded-lg border-border focus-visible:ring-accent font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_dob" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày sinh</Label>
@@ -612,11 +681,11 @@ export function CreateRentalContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại *</Label>
-              <Input id="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} placeholder="Số điện thoại" required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input id="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} placeholder="Số điện thoại" required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CCCD / CMND</Label>
-              <Input id="party_b_id_card" value={partyBIdCard} onChange={(e) => setPartyBIdCard(e.target.value)} placeholder="CCCD khách thuê" className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input id="party_b_id_card" value={partyBIdCard} onChange={(e) => setPartyBIdCard(e.target.value)} placeholder="CCCD khách thuê" className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày cấp</Label>
@@ -628,11 +697,11 @@ export function CreateRentalContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_place" className="text-ink font-semibold text-xs uppercase tracking-wider">Nơi cấp</Label>
-              <Input id="party_b_id_place" value={partyBIdPlace} onChange={(e) => setPartyBIdPlace(e.target.value)} placeholder="Nơi cấp" className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_b_id_place" value={partyBIdPlace} onChange={(e) => setPartyBIdPlace(e.target.value)} placeholder="Nơi cấp" className="rounded-lg border-border focus-visible:ring-accent font-semibold text-slate-900" />
             </div>
             <div className="space-y-1.5 md:col-span-3">
               <Label htmlFor="party_b_address" className="text-ink font-semibold text-xs uppercase tracking-wider">Địa chỉ thường trú</Label>
-              <Input id="party_b_address" value={partyBAddress} onChange={(e) => setPartyBAddress(e.target.value)} placeholder="Địa chỉ hộ khẩu" className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_b_address" value={partyBAddress} onChange={(e) => setPartyBAddress(e.target.value)} placeholder="Địa chỉ hộ khẩu" className="rounded-lg border-border focus-visible:ring-accent font-semibold text-slate-900" />
             </div>
           </CardContent>
         </Card>
@@ -654,7 +723,7 @@ export function CreateRentalContractPage() {
                 value={formatNumber(rentPrice)} 
                 onChange={(e) => setRentPrice(parseNumber(e.target.value))} 
                 required 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-accent"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-accent text-base"
               />
             </div>
             <div className="space-y-1.5">
@@ -665,7 +734,7 @@ export function CreateRentalContractPage() {
                 value={formatNumber(depositAmount)} 
                 onChange={(e) => setDepositAmount(parseNumber(e.target.value))} 
                 required 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-accent"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-accent text-base"
               />
             </div>
             <div className="space-y-1.5">
@@ -675,7 +744,7 @@ export function CreateRentalContractPage() {
                 id="electricity_price" 
                 value={formatNumber(electricityPrice)} 
                 onChange={(e) => setElectricityPrice(parseNumber(e.target.value))} 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5">
@@ -684,8 +753,9 @@ export function CreateRentalContractPage() {
                 id="water_price" 
                 value={waterPrice} 
                 onChange={(e) => setWaterPrice(e.target.value)} 
-                placeholder="Ví dụ: 150000/người/tháng" 
-                className="rounded-lg border-border focus-visible:ring-accent"
+                onBlur={() => setWaterPrice(formatRateWithUnit(waterPrice))}
+                placeholder="Ví dụ: 150.000/người/tháng hoặc 35.000/khối" 
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5">
@@ -694,7 +764,9 @@ export function CreateRentalContractPage() {
                 id="service_price" 
                 value={servicePrice} 
                 onChange={(e) => setServicePrice(e.target.value)} 
-                className="rounded-lg border-border focus-visible:ring-accent"
+                onBlur={() => setServicePrice(formatRateWithUnit(servicePrice))}
+                placeholder="Ví dụ: 200.000/người/tháng"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5">
@@ -704,7 +776,7 @@ export function CreateRentalContractPage() {
                 id="internet_price" 
                 value={formatNumber(internetPrice)} 
                 onChange={(e) => setInternetPrice(parseNumber(e.target.value))} 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5">
@@ -714,7 +786,7 @@ export function CreateRentalContractPage() {
                 id="laundry_price" 
                 value={formatNumber(laundryPrice)} 
                 onChange={(e) => setLaundryPrice(parseNumber(e.target.value))} 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5">
@@ -724,7 +796,7 @@ export function CreateRentalContractPage() {
                 id="tenant_count" 
                 value={tenantCount} 
                 onChange={(e) => setTenantCount(Number(e.target.value))} 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5">
@@ -734,16 +806,16 @@ export function CreateRentalContractPage() {
                 id="termination_notice" 
                 value={terminationNotice} 
                 onChange={(e) => setTerminationNotice(Number(e.target.value))} 
-                className="rounded-lg border-border focus-visible:ring-accent font-mono"
+                className="rounded-lg border-border focus-visible:ring-accent font-mono font-normal text-slate-700"
               />
             </div>
             <div className="space-y-1.5 md:col-span-3">
               <Label htmlFor="payment_method" className="text-ink font-semibold text-xs uppercase tracking-wider">Phương thức thanh toán</Label>
-              <Input id="payment_method" name="payment_method" defaultValue="Chuyển khoản hàng tháng" className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="payment_method" name="payment_method" defaultValue="Chuyển khoản hàng tháng" className="rounded-lg border-border focus-visible:ring-accent font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5 md:col-span-3">
               <Label htmlFor="note" className="text-ink font-semibold text-xs uppercase tracking-wider">Ghi chú & Điều khoản bổ sung</Label>
-              <Textarea id="note" name="note" placeholder="Các điều khoản thỏa thuận thêm..." rows={3} className="rounded-lg border-border focus-visible:ring-accent" />
+              <Textarea id="note" name="note" placeholder="Các điều khoản thỏa thuận thêm..." rows={3} className="rounded-lg border-border focus-visible:ring-accent font-semibold text-slate-900" />
             </div>
           </CardContent>
         </Card>

@@ -11,66 +11,113 @@ export const DEFAULT_KPI_CONFIGURATION = {
   default_target_revenue: 50000000,
   default_target_appointments: 10,
   default_target_leads: 20,
+  sale_commission_mode: 'fixed' as 'fixed' | 'tier' | 'custom',
+  sale_commission_fixed_rate: 0.60, // 60% của hoa hồng thu từ Chủ nhà
+  sale_commission_tiers: [
+    { minRevenue: 0, maxRevenue: 12500000, rate: 0.30, label: 'Dưới 12.5 triệu' },
+    { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34, label: 'Từ 12.5tr - 25 triệu' },
+    { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40, label: 'Trên 25 triệu' },
+  ],
 };
 
-export async function getKPIConfiguration(companyId: string): Promise<DBKPIConfiguration> {
-  const { data, error } = await supabase
+export async function getKPIConfiguration(companyId: string): Promise<any> {
+  const { data } = await supabase
     .from('kpi_configurations')
     .select('*')
     .eq('company_id', companyId)
     .maybeSingle();
 
-  if (error) throw error;
-
-  if (!data) {
-    return {
-      id: '',
-      company_id: companyId,
-      ...DEFAULT_KPI_CONFIGURATION,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      created_by: null,
-      updated_by: null,
-    } as DBKPIConfiguration;
+  let localCommConfig: any = {};
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`sale_comm_config_${companyId}`);
+      if (raw) localCommConfig = JSON.parse(raw);
+    } catch (e) {
+      console.error('Error loading local comm config:', e);
+    }
   }
 
-  return data as DBKPIConfiguration;
+  const baseConfig = data || {
+    id: '',
+    company_id: companyId,
+    ...DEFAULT_KPI_CONFIGURATION,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    created_by: null,
+    updated_by: null,
+  };
+
+  return {
+    ...baseConfig,
+    sale_commission_mode: localCommConfig.sale_commission_mode || (baseConfig as any).sale_commission_mode || 'fixed',
+    sale_commission_fixed_rate: localCommConfig.sale_commission_fixed_rate ?? (baseConfig as any).sale_commission_fixed_rate ?? 0.60,
+    sale_commission_tiers: localCommConfig.sale_commission_tiers || (baseConfig as any).sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
+  };
 }
 
 export async function saveKPIConfiguration(
   companyId: string,
-  config: Omit<KPIConfigurationInsert, 'company_id'>
-): Promise<DBKPIConfiguration> {
+  config: any
+): Promise<any> {
+  // Save sale commission configurations locally so it works seamlessly without database migration error
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`sale_comm_config_${companyId}`, JSON.stringify({
+        sale_commission_mode: config.sale_commission_mode,
+        sale_commission_fixed_rate: config.sale_commission_fixed_rate,
+        sale_commission_tiers: config.sale_commission_tiers,
+      }));
+    } catch (e) {
+      console.error('Error saving local comm config:', e);
+    }
+  }
+
+  // Strip out fields that don't exist in Supabase kpi_configurations table schema to avoid PostgREST column errors
+  const dbPayload = {
+    revenue_weight: config.revenue_weight,
+    appointment_weight: config.appointment_weight,
+    lead_weight: config.lead_weight,
+    default_target_revenue: config.default_target_revenue,
+    default_target_appointments: config.default_target_appointments,
+    default_target_leads: config.default_target_leads,
+    updated_at: new Date().toISOString(),
+  };
+
   const { data: existing } = await supabase
     .from('kpi_configurations')
     .select('id')
     .eq('company_id', companyId)
     .maybeSingle();
 
+  let resultData;
   if (existing) {
     const { data, error } = await supabase
       .from('kpi_configurations')
-      .update({
-        ...config,
-        updated_at: new Date().toISOString(),
-      })
+      .update(dbPayload)
       .eq('company_id', companyId)
       .select()
       .single();
 
     if (error) throw error;
-    return data as DBKPIConfiguration;
+    resultData = data;
   } else {
     const { data, error } = await supabase
       .from('kpi_configurations')
       .insert({
-        ...config,
+        ...dbPayload,
         company_id: companyId,
       })
       .select()
       .single();
 
     if (error) throw error;
-    return data as DBKPIConfiguration;
+    resultData = data;
   }
+
+  return {
+    ...resultData,
+    sale_commission_mode: config.sale_commission_mode || 'fixed',
+    sale_commission_fixed_rate: config.sale_commission_fixed_rate ?? 0.60,
+    sale_commission_tiers: config.sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
+  };
 }

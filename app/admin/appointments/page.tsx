@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2 } from 'lucide-react';
+import { Eye, Search, CalendarDays, Loader2, AlertCircle, Pencil, Share2, Trash2, CheckCircle2, Handshake, FileSignature } from 'lucide-react';
 import { useAppointments, useProfiles } from '@/src/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBAppointment } from '@/lib/supabase/types';
@@ -92,6 +93,9 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function AppointmentsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
   const { company } = useAuth();
   const { items: aptList, loading, error, update } = useAppointments(company?.id);
   const { items: profiles } = useProfiles(company?.id);
@@ -424,6 +428,24 @@ export default function AppointmentsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg"
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              if (item.room_id) params.set('room_id', item.room_id);
+                              if (item.building_id) params.set('building_id', item.building_id);
+                              if (item.customer_name) params.set('customer_name', item.customer_name);
+                              if (item.customer_phone) params.set('customer_phone', item.customer_phone);
+                              if (item.customer_email) params.set('customer_email', item.customer_email);
+                              if (item.assigned_to) params.set('sales_agent_id', item.assigned_to);
+                              router.push(`${pathPrefix}/contracts/create?${params.toString()}`);
+                            }}
+                            title="Đặt cọc ngay"
+                          >
+                            <FileSignature className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
                             onClick={() => openView(item)}
                             title="Xem chi tiết"
@@ -500,7 +522,7 @@ export default function AppointmentsPage() {
                   {displayNotes}
                 </p>
               </div>
- 
+
               <div className="space-y-1.5 pt-2 border-t">
                 <Label className="text-xs font-semibold text-slate-500">Phân công Sale phụ trách</Label>
                 <select
@@ -541,6 +563,26 @@ export default function AppointmentsPage() {
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              <div className="pt-3 border-t flex justify-end">
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 rounded-lg shadow-sm"
+                  onClick={() => {
+                    setIsViewOpen(false);
+                    const params = new URLSearchParams();
+                    if (viewItem.room_id) params.set('room_id', viewItem.room_id);
+                    if (viewItem.building_id) params.set('building_id', viewItem.building_id);
+                    if (viewItem.customer_name) params.set('customer_name', viewItem.customer_name);
+                    if (viewItem.customer_phone) params.set('customer_phone', viewItem.customer_phone);
+                    if (viewItem.customer_email) params.set('customer_email', viewItem.customer_email);
+                    if (viewItem.assigned_to) params.set('sales_agent_id', viewItem.assigned_to);
+                    router.push(`${pathPrefix}/contracts/create?${params.toString()}`);
+                  }}
+                >
+                  <Handshake className="h-4 w-4" />
+                  <span>Lập Hợp Đồng Đặt Cọc Ngay</span>
+                </Button>
               </div>
             </div>
           )}

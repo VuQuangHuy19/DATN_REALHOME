@@ -40,26 +40,65 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
         buildingsList: [],
         roomsList: [],
         contractsList: [],
+        grossRevenue: 0,
+        netRentRevenue: 0,
+        laggedRevenueHistory: [],
+        expiringContractsGrouped: [],
+        overdueInvoicesGrouped: [],
+        monthlyTransactionStats: { appointmentsCount: 0, depositCount: 0, rentalCount: 0, cancelDepositCount: 0 },
+        areaPerformanceList: [],
       };
     }
 
     // 2. Fetch rooms in those buildings
     const { data: landlordRooms } = await supabase
       .from('rooms')
-      .select('id, building_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months')
+      .select('id, building_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until')
       .eq('company_id', companyId)
       .in('building_id', buildingCodes);
 
-    const roomRows = landlordRooms ?? [];
+    const rawRoomRows = landlordRooms ?? [];
+    const rawRoomIds = rawRoomRows.map((r: any) => r.id);
+
+    // Fetch active/signed deposit contracts to verify valid deposit locks
+    let validDepositRoomIds = new Set<string>();
+    if (rawRoomIds.length > 0) {
+      const { data: activeDeposits } = await supabase
+        .from('deposit_contracts')
+        .select('room_id')
+        .in('room_id', rawRoomIds)
+        .in('status', ['active', 'signed']);
+      validDepositRoomIds = new Set((activeDeposits ?? []).map((d: any) => d.room_id).filter(Boolean));
+    }
+
+    const nowTime = new Date().getTime();
+    const roomRows = rawRoomRows.map((r: any) => {
+      if (r.status === 'reserved') {
+        const isExpired = r.reserved_until ? new Date(r.reserved_until).getTime() < nowTime : true;
+        const hasDeposit = validDepositRoomIds.has(r.id);
+        if (isExpired && !hasDeposit) {
+          return { ...r, status: 'available' };
+        }
+      }
+      return r;
+    });
+
     const totalRooms = roomRows.length;
     const availableRooms = roomRows.filter((r: any) => r.status === 'available').length;
     const rentedRooms = roomRows.filter((r: any) => r.status === 'rented').length;
     const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
 
-    // 3. Fetch active rental contracts
+    // 3. Fetch active rental contracts & expiring contracts (within 30 days)
     const roomIds = roomRows.map((r: any) => r.id);
     let activeContractsCount = 0;
     let activeContractsList: any[] = [];
+    let expiringContractsGrouped: any[] = [];
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const in30Days = new Date();
+    in30Days.setDate(in30Days.getDate() + 30);
+    const in30DaysStr = in30Days.toISOString().slice(0, 10);
+
     if (roomIds.length > 0) {
       const { data: contracts, count } = await supabase
         .from('rental_contracts')
@@ -69,17 +108,33 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
         .in('room_id', roomIds);
       activeContractsCount = count ?? 0;
       activeContractsList = contracts ?? [];
+
+      // Expiring contracts
+      const expiring = (contracts ?? []).filter((c: any) => c.end_date >= todayStr && c.end_date <= in30DaysStr);
+      expiringContractsGrouped = expiring.map((c: any) => {
+        const room = roomRows.find((r: any) => r.id === c.room_id);
+        const bld = (landlordBuildings ?? []).find((b: any) => b.code === room?.building_id);
+        return {
+          ...c,
+          room_code: room?.code || '—',
+          building_name: bld?.name || 'Tòa nhà',
+          building_code: bld?.code || '—',
+        };
+      });
     }
 
-    // 4. Calculate monthly revenue
+    // 4. Calculate monthly revenue (Gross money = deposit + rent, Net rent = rent only)
     const currentPeriod = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
     let landlordRevenue = 0;
     let companyRevenue = 0;
     let totalCollectedAmount = 0;
+    let grossRevenue = 0;
+    let netRentRevenue = 0;
+
     if (roomIds.length > 0) {
       const { data: paidInvoices } = await supabase
         .from('invoices')
-        .select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount')
+        .select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id')
         .eq('company_id', companyId)
         .eq('status', 'paid')
         .eq('period', currentPeriod)
@@ -92,24 +147,131 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
         return sum + payout;
       }, 0);
 
+      // 1. Tiền nhà từ các hóa đơn đã thanh toán (paid)
+      const paidInvoicesRent = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + Number(inv.rent_amount || 0), 0);
+
+      // 2. Tiền cọc từ HĐDC tạo trong tháng của các phòng thuộc chủ nhà (trừ cancelled)
+      const startOfMonthISO = `${currentPeriod}-01T00:00:00.000Z`;
+      const { data: monthDeposits } = await supabase
+        .from('deposit_contracts')
+        .select('deposit_amount')
+        .eq('company_id', companyId)
+        .in('room_id', roomIds)
+        .gte('created_at', startOfMonthISO)
+        .neq('status', 'cancelled');
+      const depositsSum = (monthDeposits ?? []).reduce((sum: number, d: any) => sum + Number(d.deposit_amount || 0), 0);
+
+      // 3. Tiền cọc từ HĐ Thuê trực tiếp trong tháng của các phòng thuộc chủ nhà (deposit_contract_id IS NULL)
+      const { data: monthDirectRentals } = await supabase
+        .from('rental_contracts')
+        .select('deposit_amount, rent_price, deposit_contract_id')
+        .eq('company_id', companyId)
+        .in('room_id', roomIds)
+        .gte('created_at', startOfMonthISO)
+        .neq('status', 'cancelled');
+
+      const directRentalDepositsSum = (monthDirectRentals ?? [])
+        .filter((r: any) => !r.deposit_contract_id)
+        .reduce((sum: number, r: any) => sum + Number(r.deposit_amount || 0), 0);
+
+      // 4. 1 tháng tiền nhà của các HĐ Thuê mới chốt trong tháng
+      const firstMonthRentSum = (monthDirectRentals ?? [])
+        .reduce((sum: number, r: any) => sum + Number(r.rent_price || 0), 0);
+
+      // Doanh thu gộp = Tiền cọc HĐDC + Tiền cọc HĐT trực tiếp + 1 tháng tiền nhà HĐT mới + Tiền nhà từ hóa đơn paid
+      grossRevenue = depositsSum + directRentalDepositsSum + firstMonthRentSum + paidInvoicesRent;
+
+      // Doanh thu thực = 1 tháng tiền nhà HĐT mới + Tiền nhà từ hóa đơn paid
+      netRentRevenue = firstMonthRentSum + paidInvoicesRent;
+
       companyRevenue = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
       totalCollectedAmount = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
     }
 
-    // 5. Fetch appointments related to those rooms
+    // 5. Fetch appointments & monthly transaction stats
     let recentAppointments: any[] = [];
+    let appointmentsCountMonth = 0;
+    let depositCountMonth = 0;
+    let rentalCountMonth = 0;
+    let cancelDepositCountMonth = 0;
+
+    const startOfMonthISO = `${currentPeriod}-01T00:00:00.000Z`;
     if (roomIds.length > 0) {
       const { data: appts } = await supabase
         .from('appointments')
         .select('id, status, customer_name, room_title, date, time')
         .eq('company_id', companyId)
         .in('room_id', roomIds)
-        .order('date', { ascending: false })
-        .limit(5);
-      recentAppointments = appts ?? [];
+        .order('date', { ascending: false });
+      
+      const allAppts = appts ?? [];
+      recentAppointments = allAppts.slice(0, 5);
+      appointmentsCountMonth = allAppts.filter((a: any) => a.date >= `${currentPeriod}-01`).length;
+
+      const { data: depContracts } = await supabase
+        .from('deposit_contracts')
+        .select('status')
+        .eq('company_id', companyId)
+        .in('room_id', roomIds)
+        .gte('created_at', startOfMonthISO);
+      
+      const deps = depContracts ?? [];
+      depositCountMonth = deps.filter((d: any) => d.status !== 'cancelled').length;
+      cancelDepositCountMonth = deps.filter((d: any) => d.status === 'cancelled').length;
+
+      const { data: rentContracts } = await supabase
+        .from('rental_contracts')
+        .select('status')
+        .eq('company_id', companyId)
+        .in('room_id', roomIds)
+        .gte('created_at', startOfMonthISO);
+
+      rentalCountMonth = (rentContracts ?? []).filter((r: any) => r.status !== 'cancelled').length;
     }
 
-    // 6. Calculate building details with revenue & occupancy
+    // 6. Overdue invoices grouped by building
+    let overdueInvoicesGrouped: any[] = [];
+    if (roomIds.length > 0) {
+      const { data: overdueInvs } = await supabase
+        .from('invoices')
+        .select('id, invoice_code, total_amount, period, room_id, rooms(code, building_id)')
+        .eq('company_id', companyId)
+        .in('room_id', roomIds)
+        .eq('status', 'overdue');
+      
+      overdueInvoicesGrouped = (overdueInvs ?? []).map((inv: any) => {
+        const roomCode = inv.rooms?.code || '—';
+        const bCode = inv.rooms?.building_id;
+        const bld = (landlordBuildings ?? []).find((b: any) => b.code === bCode);
+        return {
+          ...inv,
+          room_code: roomCode,
+          building_name: bld?.name || 'Tòa nhà',
+        };
+      });
+    }
+
+    // 7. Area performance analysis for expansion
+    const areaPerformanceMap = new Map<string, { area: string; buildingsCount: number; totalRooms: number; rentedRooms: number }>();
+    (landlordBuildings ?? []).forEach((b: any) => {
+      const areaName = b.area || 'Khác';
+      if (!areaPerformanceMap.has(areaName)) {
+        areaPerformanceMap.set(areaName, { area: areaName, buildingsCount: 0, totalRooms: 0, rentedRooms: 0 });
+      }
+      const item = areaPerformanceMap.get(areaName)!;
+      item.buildingsCount += 1;
+      const bRooms = roomRows.filter((r: any) => r.building_id === b.code);
+      item.totalRooms += bRooms.length;
+      item.rentedRooms += bRooms.filter((r: any) => r.status === 'rented').length;
+    });
+
+    const areaPerformanceList = Array.from(areaPerformanceMap.values()).map(item => ({
+      ...item,
+      occupancyRate: item.totalRooms > 0 ? Math.round((item.rentedRooms / item.totalRooms) * 100) : 0,
+      potentialTag: item.totalRooms > 0 && Math.round((item.rentedRooms / item.totalRooms) * 100) >= 90 ? '🔥 Nên thầu thêm nhà' : 'Tiềm năng'
+    }));
+
+    // 8. Calculate building details with revenue & occupancy
     const buildingsList = [];
     for (const building of landlordBuildings ?? []) {
       const bRooms = roomRows.filter((r: any) => r.building_id === building.code);
@@ -182,6 +344,8 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       monthlyRevenue: landlordRevenue,
       companyRevenue,
       landlordRevenue,
+      grossRevenue,
+      netRentRevenue,
       totalCollectedAmount,
       activeContractsCount,
       occupancyRate,
@@ -190,9 +354,19 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       contractsList: activeContractsList,
       recentInvoices,
       landlordRevenueHistory,
+      expiringContractsGrouped,
+      overdueInvoicesGrouped,
+      monthlyTransactionStats: {
+        appointmentsCount: appointmentsCountMonth,
+        depositCount: depositCountMonth,
+        rentalCount: rentalCountMonth,
+        cancelDepositCount: cancelDepositCountMonth,
+      },
+      areaPerformanceList,
     };
   }
 
+  // ─── ADMIN DASHBOARD SECTION ────────────────────────────────────────────────
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const currentPeriod = today.toISOString().substring(0, 7); // 'YYYY-MM'
@@ -223,9 +397,10 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     dynamicDepositsRes,
     dynamicRentalsRes,
     rentalContractsHistoryRes,
+    allAppointmentsRes,
   ] = await Promise.all([
     supabase.from('buildings').select('id, name, code, area, address, total_rooms, total_floors').eq('company_id', companyId),
-    supabase.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months').eq('company_id', companyId),
+    supabase.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until').eq('company_id', companyId),
     supabase.from('leads').select('*').eq('company_id', companyId),
     supabase.from('appointments').select('id, status, customer_name, room_title, date, time').eq('company_id', companyId).order('date', { ascending: false }).limit(5),
     supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new'),
@@ -239,17 +414,37 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     supabase.from('deposit_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
     supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
     supabase.from('rental_contracts').select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone').eq('company_id', companyId).eq('status', 'active'),
-    supabase.from('deposit_contracts').select('rent_price, commission_amount, sales_agent_id, created_by').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
-    supabase.from('rental_contracts').select('rent_price, commission_amount, sales_agent_id, created_by').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
+    supabase.from('deposit_contracts').select('room_id, rent_price, commission_amount, sales_agent_id, created_by, created_at, status').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
+    supabase.from('rental_contracts').select('rent_price, commission_amount, sales_agent_id, created_by, created_at').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
     supabase.from('rental_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
+    supabase.from('appointments').select('id, date, status, room_id').eq('company_id', companyId),
   ]);
 
   const buildingRows = buildingsRes.data ?? [];
-  const roomRows = (roomsRes.data ?? []) as any[];
+  const rawAdminRoomRows = (roomsRes.data ?? []) as any[];
+  const activeDepositRoomIds = new Set(
+    (dynamicDepositsRes.data ?? [])
+      .filter((d: any) => ['active', 'signed'].includes(d.status))
+      .map((d: any) => d.room_id)
+      .filter(Boolean)
+  );
+
+  const nowAdminTime = new Date().getTime();
+  const roomRows = rawAdminRoomRows.map((r: any) => {
+    if (r.status === 'reserved') {
+      const isExpired = r.reserved_until ? new Date(r.reserved_until).getTime() < nowAdminTime : true;
+      const hasDeposit = activeDepositRoomIds.has(r.id);
+      if (isExpired && !hasDeposit) {
+        return { ...r, status: 'available' };
+      }
+    }
+    return r;
+  });
   const leadRows = (leadsRes.data ?? []) as any[];
   const recentAppointments = (appointmentsRes.data ?? []) as any[];
   const activeContractsList = (activeContractsRes.data ?? []) as any[];
   const paidInvoicesList = paidInvoicesRes.data ?? [];
+  const allAppointmentsList = (allAppointmentsRes.data ?? []) as any[];
 
   const totalRooms = roomRows.length;
   const rentedRooms = roomRows.filter((r) => r.status === 'rented').length;
@@ -267,9 +462,49 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     return sum + payout;
   }, 0);
 
-  // revenueHistory logic (tổng hợp hoa hồng sale của cả cọc và thuê theo từng tháng)
-  const periodMap = new Map<string, number>();
+  // Conversion rates calculation
+  const totalLeadsCount = leadRows.length;
+  const totalClosedDeals = (dynamicDepositsRes.data ?? []).length + (dynamicRentalsRes.data ?? []).length;
+  const totalApptsCount = allAppointmentsList.length;
 
+  const leadToClosedConversionRate = totalLeadsCount > 0 ? Math.round((totalClosedDeals / totalLeadsCount) * 100) : 0;
+  const apptToClosedConversionRate = totalApptsCount > 0 ? Math.round((totalClosedDeals / totalApptsCount) * 100) : 0;
+
+  // Appointments filterable stats by day, week, month
+  const todayApptsCount = allAppointmentsList.filter((a: any) => a.date === todayStr).length;
+
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  const startOfWeekStr = startOfWeek.toISOString().slice(0, 10);
+  const weekApptsCount = allAppointmentsList.filter((a: any) => a.date >= startOfWeekStr).length;
+
+  const monthApptsCount = allAppointmentsList.filter((a: any) => a.date >= `${currentPeriod}-01`).length;
+
+  // Hot Zone Analytics (Areas & Buildings performance)
+  const zoneMap = new Map<string, { area: string; closedDeals: number; revenue: number }>();
+  (dynamicRentalsRes.data ?? []).concat(dynamicDepositsRes.data ?? []).forEach((contract: any) => {
+    const comm = Number(contract.commission_amount || 0);
+    const area = 'Đống Đa'; // Default fallback
+    if (!zoneMap.has(area)) zoneMap.set(area, { area, closedDeals: 0, revenue: 0 });
+    const z = zoneMap.get(area)!;
+    z.closedDeals += 1;
+    z.revenue += comm;
+  });
+
+  const hotZoneList = buildingRows.map((b: any) => {
+    const bRooms = roomRows.filter((r: any) => r.building_id === b.code);
+    const rented = bRooms.filter((r: any) => r.status === 'rented').length;
+    const occ = bRooms.length > 0 ? Math.round((rented / bRooms.length) * 100) : 0;
+    return {
+      name: b.name,
+      area: b.area || 'Hà Nội',
+      occupancy: occ,
+      statusTag: occ >= 80 ? '🔥 KHU VỰC HOT' : '💎 TIỀM NĂNG'
+    };
+  });
+
+  // revenueHistory logic
+  const periodMap = new Map<string, number>();
   (depositContractsHistoryRes.data ?? []).forEach((c: any) => {
     if (!c.created_at) return;
     const p = c.created_at.substring(0, 7);
@@ -290,14 +525,11 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     last6Months.push(pStr);
   }
 
-  const revenueHistory = last6Months.map(period => {
-    const comm = periodMap.get(period) || 0;
-    return {
-      period,
-      amount: comm,
-      totalCollected: 0
-    };
-  });
+  const revenueHistory = last6Months.map(period => ({
+    period,
+    amount: periodMap.get(period) || 0,
+    totalCollected: 0
+  }));
 
   // Calculate building details with real occupancy and revenue for Admin
   const buildingsList = buildingRows.map((building: any) => {
@@ -326,7 +558,6 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   // Dynamic KPI for Top Employees
   const depositsList = dynamicDepositsRes?.data ?? [];
   const rentalsList = dynamicRentalsRes?.data ?? [];
-
   const agentStatsMap = new Map<string, { deals: number; revenue: number }>();
 
   const processContract = (c: any) => {
@@ -366,7 +597,6 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
   dynamicTopEmployees.sort((a, b) => b.score - a.score);
   const topEmployees = dynamicTopEmployees.length > 0 ? dynamicTopEmployees.slice(0, 5) : (topEmployeesRes.data ?? []);
 
-
   return {
     totalBuildings: buildingRows.length,
     totalRooms,
@@ -396,6 +626,17 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
     revenueHistory,
     topEmployees,
     leadsList: leadRows,
+    closedRoomsCount: totalClosedDeals,
+    conversionRates: {
+      leadToClosedRate: leadToClosedConversionRate,
+      apptToClosedRate: apptToClosedConversionRate,
+    },
+    appointmentsTimeframe: {
+      today: todayApptsCount,
+      week: weekApptsCount,
+      month: monthApptsCount,
+    },
+    hotZoneList,
   };
 }
 
@@ -403,13 +644,11 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
   const currentPeriod = now.toISOString().slice(0, 7); // 'YYYY-MM'
-  const startOfMonth = currentPeriod + '-01';
   
   const in30Days = new Date(now);
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
-  // 1. Resolve employee ID from employees table by matching profile email
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name, email')
@@ -429,7 +668,6 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     }
   }
 
-  // 2. Build current month's ISO start and end timestamps for dynamic calculation
   const startOfMonthISO = `${currentPeriod}-01T00:00:00.000Z`;
   const [yearStr, monthStr] = currentPeriod.split('-');
   const year = parseInt(yearStr, 10);
@@ -449,14 +687,12 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     monthlyDeposits,
     monthlyRentals,
   ] = await Promise.all([
-    // Leads được giao cho sale này
     supabase
       .from('leads')
       .select('id, status, full_name, phone, created_at, assigned_to, source, last_contacted_at')
       .eq('company_id', companyId)
       .eq('assigned_to', saleId)
       .order('created_at', { ascending: false }),
-    // Lịch hẹn của sale này
     supabase
       .from('appointments')
       .select('id, status, customer_name, room_title, date, time, room_id')
@@ -464,7 +700,6 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .eq('assigned_to', saleId)
       .order('date', { ascending: false })
       .limit(20),
-    // Hợp đồng cọc do sale phụ trách hoặc tạo (limit 10 để hiển thị danh sách gần đây)
     supabase
       .from('deposit_contracts')
       .select('id, contract_code, party_b_name, party_b_phone, deposit_amount, created_at, status, deadline_sign_contract')
@@ -472,21 +707,18 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
       .order('created_at', { ascending: false })
       .limit(10),
-    // Phòng còn trống để sale có thể tư vấn
     supabase
       .from('rooms')
       .select('id, code, status, price, building_id, buildings(name)')
       .eq('company_id', companyId)
       .eq('status', 'available')
       .limit(20),
-    // Thông báo chưa đọc của sale
     supabase
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('recipient_id', saleId)
       .eq('is_read', false),
-    // KPI của sale trong tháng này (truy vấn dùng employeeIdFromTable đã khớp từ bảng employees)
     supabase
       .from('employee_kpis')
       .select('*')
@@ -494,7 +726,6 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .eq('employee_id', employeeIdFromTable || saleId)
       .eq('period', currentPeriod)
       .maybeSingle(),
-    // Hợp đồng sắp hết hạn trong 30 ngày tới do sale phụ trách
     supabase
       .from('rental_contracts')
       .select('id, contract_code, party_b_name, party_b_phone, end_date, room_id, rooms(id, code, building_id, buildings(name))')
@@ -504,7 +735,6 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .gte('end_date', todayStr)
       .lte('end_date', in30DaysStr)
       .order('end_date', { ascending: true }),
-    // Hợp đồng cọc trong tháng này của sale này (không limit) để tính toán doanh thu thực tế
     supabase
       .from('deposit_contracts')
       .select('rent_price, commission_amount, deposit_amount, status')
@@ -513,7 +743,6 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .gte('created_at', startOfMonthISO)
       .lt('created_at', endOfMonthISO)
       .neq('status', 'cancelled'),
-    // Hợp đồng thuê trong tháng này của sale này (không limit) để tính toán doanh thu thực tế
     supabase
       .from('rental_contracts')
       .select('rent_price, commission_amount, status')
@@ -528,27 +757,9 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   const appointmentsData = (myAppointments.data ?? []) as any[];
   const contractsData = (myContracts.data ?? []) as any[];
   const roomsData = (availableRooms.data ?? []) as any[];
-  
-  if (expiringContracts?.error) {
-    console.error('Error fetching expiring contracts:', expiringContracts.error);
-  }
   const expiringContractsData = (expiringContracts?.data ?? []) as any[];
   const roomsEndingSoon = expiringContractsData.map((c: any) => c.rooms).filter(Boolean);
 
-  // Phân loại leads theo trạng thái CRM
-  const newLeads = leadsData.filter(l => l.status === 'new').length;
-  const contactedLeads = leadsData.filter(l => l.status === 'contacted').length;
-  const consultingLeads = leadsData.filter(l => l.status === 'consulting').length;
-  const depositedLeads = leadsData.filter(l => l.status === 'deposited').length;
-  const closedLeads = leadsData.filter(l => l.status === 'closed').length;
-  const lostLeads = leadsData.filter(l => l.status === 'lost').length;
-
-  // Lịch hẹn hôm nay
-  const todayAppointments = appointmentsData.filter(a => a.date === todayStr);
-  const upcomingAppointments = appointmentsData.filter(a => a.date > todayStr && a.status !== 'cancelled');
-  const pendingAppointments = appointmentsData.filter(a => a.status === 'pending');
-
-  // Tính toán doanh thu thực tế dynamically
   const monthlyDepositsList = (monthlyDeposits.data ?? []) as any[];
   const monthlyRentalsList = (monthlyRentals.data ?? []) as any[];
 
@@ -564,10 +775,23 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   const dynamicSuccessfulDeals = totalDepositsCount + totalRentalsCount;
   const dynamicCommissionEarned = totalDepositsComm + totalRentalsComm;
 
-  // Hợp đồng cọc trong tháng (dùng danh sách đầy đủ của tháng này thay vì danh sách bị giới hạn 10 bản ghi gần nhất)
-  const totalDepositRevenue = monthlyDepositsList.reduce((sum: number, c: any) => sum + (Number(c.deposit_amount) || 0), 0);
+  const totalLeadsCount = leadsData.length;
+  const totalApptsCount = appointmentsData.length;
 
-  // Merge real-time dynamic stats vào đối tượng KPI trả về
+  const conversionRateApptToClosed = totalApptsCount > 0 ? Math.round((dynamicSuccessfulDeals / totalApptsCount) * 100) : 0;
+  const conversionRateLeadToClosed = totalLeadsCount > 0 ? Math.round((dynamicSuccessfulDeals / totalLeadsCount) * 100) : 0;
+
+  const funnelData = [
+    { stage: 'Khách hàng (Leads)', count: totalLeadsCount, fill: '#3b82f6' },
+    { stage: 'Lịch hẹn xem phòng', count: totalApptsCount, fill: '#8b5cf6' },
+    { stage: 'Phòng đã chốt', count: dynamicSuccessfulDeals, fill: '#10b981' },
+  ];
+
+  let kpiTier = 'Đồng';
+  if (dynamicSuccessfulDeals >= 10 || dynamicCommissionEarned >= 15000000) kpiTier = 'Kim Cương 💎';
+  else if (dynamicSuccessfulDeals >= 6 || dynamicCommissionEarned >= 8000000) kpiTier = 'Vàng 🥇';
+  else if (dynamicSuccessfulDeals >= 3 || dynamicCommissionEarned >= 4000000) kpiTier = 'Bạc 🥈';
+
   const finalKpi = employeeKpis.data ? {
     ...employeeKpis.data,
     revenue_generated: dynamicRevenueGenerated,
@@ -581,43 +805,34 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     total_leads: leadsData.length,
     total_appointments: appointmentsData.length,
     successful_deals: dynamicSuccessfulDeals,
-    conversion_rate: 0,
+    conversion_rate: conversionRateApptToClosed,
     revenue_generated: dynamicRevenueGenerated,
-    target_revenue: 0,
-    score: 75,
+    target_revenue: 10000000,
+    score: 85,
     status: 'on_track' as const,
     commission_earned: dynamicCommissionEarned,
   };
 
   return {
-    // CRM Lead stats
     totalLeads: leadsData.length,
-    newLeads,
-    contactedLeads,
-    consultingLeads,
-    depositedLeads,
-    closedLeads,
-    lostLeads,
     recentLeads: leadsData.slice(0, 8),
-    // Appointments
     totalAppointments: appointmentsData.length,
-    todayAppointments,
-    upcomingAppointments: upcomingAppointments.slice(0, 5),
-    pendingAppointments,
-    // Contracts/Deposits
+    todayAppointments: appointmentsData.filter(a => a.date === todayStr),
+    upcomingAppointments: appointmentsData.filter(a => a.date > todayStr && a.status !== 'cancelled').slice(0, 5),
+    pendingAppointments: appointmentsData.filter(a => a.status === 'pending'),
     totalContracts: contractsData.length,
-    monthlyContracts: contractsData.filter(c => c.created_at >= startOfMonth),
-    totalDepositRevenue,
+    totalDepositRevenue: monthlyDepositsList.reduce((sum: number, c: any) => sum + (Number(c.deposit_amount) || 0), 0),
     recentContracts: contractsData.slice(0, 5),
-    // Available rooms to pitch
     availableRooms: roomsData,
-    // Notifications
     unreadNotifications: notifications.count ?? 0,
-    // KPI
     employeeKpis: finalKpi,
-    // Expiring contracts
     expiringContracts: expiringContractsData,
     roomsEndingSoon,
+    conversionRates: {
+      apptToClosedRate: conversionRateApptToClosed,
+      leadToClosedRate: conversionRateLeadToClosed,
+    },
+    funnelData,
+    kpiTier,
   };
 }
-

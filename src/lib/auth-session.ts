@@ -5,16 +5,22 @@ import { supabaseAdmin } from './supabase/admin';
  * Cơ chế này chạy ở server-side dùng supabaseAdmin nên bỏ qua được các ràng buộc RLS client-side.
  */
 export async function fetchUserSessionData(userId: string) {
-  // 1. Lấy thông tin profile
+  // 1. Lấy thông tin profile — KHÔNG lấy password_hash ra client (bảo mật)
   const { data: profile } = await supabaseAdmin
     .from('profiles')
-    .select('id, email, full_name, role, company_id, is_active, phone, avatar_url, landlord_id, created_at, updated_at')
+    .select('id, email, full_name, role, company_id, is_active, phone, avatar_url, landlord_id, password_hash, created_at, updated_at')
     .eq('id', userId)
     .maybeSingle();
 
   if (!profile) {
     return { profile: null, company: null, permissions: [] };
   }
+
+  // Tính toán has_password server-side, KHÔNG đẩy raw hash ra ngoài
+  const hasPassword = !!profile.password_hash;
+  // eslint-disable-next-line
+  const { password_hash: _removed, ...safeProfile } = profile;
+  const profileForClient = { ...safeProfile, has_password: hasPassword };
 
   // 2. Lấy thông tin company
   let company = null;
@@ -98,7 +104,7 @@ export async function fetchUserSessionData(userId: string) {
   }
 
   return {
-    profile,
+    profile: profileForClient,
     company,
     permissions,
   };

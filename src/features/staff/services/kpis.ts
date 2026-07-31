@@ -165,6 +165,24 @@ export async function computeAutoKPI(
 
   // 7. Calculate dynamic weighted performance score
   const revenueVal = totalDepositsRent + totalRentalsRent;
+  const totalLandlordComm = totalDepositsComm + totalRentalsComm;
+
+  let calculatedSaleCommission = totalLandlordComm;
+  const commMode = (config as any).sale_commission_mode || 'fixed';
+  
+  if (commMode === 'fixed') {
+    const fixedRate = (config as any).sale_commission_fixed_rate ?? 0.60;
+    calculatedSaleCommission = totalLandlordComm * fixedRate;
+  } else if (commMode === 'tier') {
+    const tiers = (config as any).sale_commission_tiers || [
+      { minRevenue: 0, maxRevenue: 12500000, rate: 0.30 },
+      { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34 },
+      { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40 },
+    ];
+    const matchedTier = tiers.find((t: any) => revenueVal >= t.minRevenue && revenueVal <= t.maxRevenue) || tiers[tiers.length - 1];
+    calculatedSaleCommission = totalLandlordComm * (matchedTier?.rate ?? 0.35);
+  }
+
   const revenueRatio = targetRevenue > 0 ? (revenueVal / targetRevenue) : 0;
   const appointmentRatio = targetAppointments > 0 ? (appointmentsCompletedCount / targetAppointments) : 0;
   const leadRatio = targetLeads > 0 ? (convertedLeadsCount / targetLeads) : 0;
@@ -179,7 +197,7 @@ export async function computeAutoKPI(
   return {
     revenue_generated: revenueVal,
     successful_deals: totalDepositsCount + totalRentalsCount,
-    commission_earned: totalDepositsComm + totalRentalsComm,
+    commission_earned: Math.round(calculatedSaleCommission),
     converted_leads_count: convertedLeadsCount,
     score: score,
     target_revenue: targetRevenue,

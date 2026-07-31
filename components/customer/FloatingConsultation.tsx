@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +11,6 @@ import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvide
 import { createConsultation } from '@/src/features/staff/services/consultations';
 import { createLead, createLeadActivity } from '@/src/features/staff/services/leads';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useEffect, useRef } from 'react';
 
 export function FloatingConsultation() {
   const { company } = useCustomerCompany();
@@ -20,6 +20,7 @@ export function FloatingConsultation() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{fullName?: string; phone?: string}>({});
+  const [consentChecked, setConsentChecked] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -123,7 +124,7 @@ export function FloatingConsultation() {
         <div className="bg-accent p-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
-            <h3 className="font-bold text-sm font-heading">Tư vấn & Liên hệ</h3>
+            <h3 className="font-bold text-white text-sm font-heading">Tư vấn & Liên hệ</h3>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -150,7 +151,7 @@ export function FloatingConsultation() {
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
               <p className="font-bold text-ink mb-1">Gửi thành công!</p>
               <p className="text-sm text-ink-muted mb-6">Chúng tôi sẽ liên hệ lại với bạn sớm nhất.</p>
-              <Button variant="outline" size="sm" onClick={() => setSubmitted(false)}>
+              <Button variant="outline" size="sm" onClick={() => { setSubmitted(false); setConsentChecked(false); }}>
                 Gửi yêu cầu khác
               </Button>
             </div>
@@ -189,7 +190,29 @@ export function FloatingConsultation() {
                 />
               </div>
 
-              <Button type="submit" className="w-full h-11 bg-accent hover:bg-accent/90 text-white shadow-none mt-2" disabled={loading}>
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <input
+                  id="float-consent"
+                  type="checkbox"
+                  checked={consentChecked}
+                  onChange={(e) => setConsentChecked(e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 rounded border-slate-400 accent-amber-600 cursor-pointer flex-shrink-0"
+                />
+                <label htmlFor="float-consent" className="text-[11px] text-slate-600 cursor-pointer leading-relaxed">
+                  Tôi đồng ý cho <strong className="text-slate-900">RealHome</strong> thu thập và sử dụng thông tin này để liên hệ tư vấn.{' '}
+                  <Link
+                    href="/customer/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-600 hover:text-amber-700 underline"
+                  >
+                    Chính sách bảo mật
+                  </Link>
+                  {' '}<span className="text-red-500">*</span>
+                </label>
+              </div>
+
+              <Button type="submit" className="w-full h-11 bg-accent hover:bg-accent/90 text-white shadow-none mt-2" disabled={loading || !consentChecked}>
                 {loading ? 'Đang gửi...' : <><Send className="h-4 w-4 mr-2" /> Gửi yêu cầu</>}
               </Button>
             </form>

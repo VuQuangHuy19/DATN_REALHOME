@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
  */
 export async function POST(request: Request) {
   try {
-    const auth = await requireApiAuth(request, ['landlord']);
+    const auth = await requireApiAuth(request, ['landlord', 'company_admin', 'manager']);
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
@@ -21,21 +21,6 @@ export async function POST(request: Request) {
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu mã hợp đồng đặt cọc' }, { status: 400 });
-    }
-
-    if (!auth.profile.landlord_id) {
-      return NextResponse.json({ error: 'Tài khoản không được liên kết với chủ nhà' }, { status: 403 });
-    }
-
-    // 1. Lấy thông tin landlord code
-    const { data: landlord, error: landlordErr } = await supabaseAdmin
-      .from('landlords')
-      .select('id, code, name')
-      .eq('id', auth.profile.landlord_id)
-      .maybeSingle();
-
-    if (landlordErr || !landlord) {
-      return NextResponse.json({ error: 'Không tìm thấy thông tin chủ nhà' }, { status: 403 });
     }
 
     // 2. Lấy thông tin hợp đồng đặt cọc
@@ -49,10 +34,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Không tìm thấy hợp đồng đặt cọc' }, { status: 404 });
     }
 
-    // Kiểm tra tính sở hữu tòa nhà của chủ nhà
+    const isAdminOrManager = ['company_admin', 'manager'].includes(auth.profile.role);
+    let landlordName = 'Chủ nhà';
     const landlordCodeOnBuilding = contract.rooms?.buildings?.landlord_id;
-    if (landlordCodeOnBuilding !== landlord.code) {
-      return NextResponse.json({ error: 'Bạn không có quyền xác nhận hợp đồng này' }, { status: 403 });
+
+    if (landlordCodeOnBuilding) {
+      const { data: bldLandlord } = await supabaseAdmin
+        .from('landlords')
+        .select('name')
+        .or(`id.eq.${landlordCodeOnBuilding},code.eq.${landlordCodeOnBuilding}`)
+        .maybeSingle();
+      if (bldLandlord?.name) landlordName = bldLandlord.name;
+    }
+
+    if (isAdminOrManager) {
+      if (contract.company_id !== auth.profile.company_id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    } else {
+      // Landlord check
+      if (!auth.profile.landlord_id) {
+        return NextResponse.json({ error: 'Tài khoản không được liên kết với chủ nhà' }, { status: 403 });
+      }
+      const { data: landlord } = await supabaseAdmin
+        .from('landlords')
+        .select('id, code, name')
+        .eq('id', auth.profile.landlord_id)
+        .maybeSingle();
+
+      if (!landlord || (landlordCodeOnBuilding !== landlord.code && landlordCodeOnBuilding !== landlord.id)) {
+        return NextResponse.json({ error: 'Bạn không có quyền xác nhận hợp đồng này' }, { status: 403 });
+      }
+      landlordName = landlord.name;
     }
 
     if (contract.status !== 'active') {
@@ -97,13 +110,14 @@ export async function POST(request: Request) {
 
     const notifications: any[] = [];
     const emailsToSend: { to: string; subject: string; html: string }[] = [];
+    const confirmActorText = isAdminOrManager ? `Admin (${auth.profile.full_name || 'Quản trị viên'}) đã duyệt đè cọc` : `Chủ nhà ${landlordName} đã xác nhận cọc`;
 
     if (adminProfiles && adminProfiles.length > 0) {
       adminProfiles.forEach((admin: any) => {
         notifications.push({
           company_id: contract.company_id,
           title: 'Đã xác nhận cọc',
-          body: `Chủ nhà ${landlord.name} đã xác nhận nhận cọc phòng ${roomCode} (${buildingName}).`,
+          body: `${confirmActorText} phòng ${roomCode} (${buildingName}).`,
           type: 'contract',
           recipient_id: admin.id,
           is_read: false,
@@ -113,16 +127,17 @@ export async function POST(request: Request) {
         if (admin.email) {
           emailsToSend.push({
             to: admin.email,
-            subject: `[RealHome] Chủ nhà xác nhận cọc - Phòng ${roomCode}`,
+            subject: `[RealHome] Xác nhận cọc thành công - Phòng ${roomCode}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
                 <h2 style="color: #10b981; margin-bottom: 20px;">Đã nhận tiền đặt cọc</h2>
                 <p>Xin chào Ban Quản Trị,</p>
-                <p>Chủ nhà <strong>${landlord.name}</strong> đã xác nhận đã nhận cọc từ khách hàng cho hợp đồng đặt cọc sau:</p>
+                <p><strong>${confirmActorText}</strong> cho khách hàng đối với hợp đồng đặt cọc sau:</p>
                 <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
                 <ul>
                   <li><strong>Mã hợp đồng:</strong> ${contract.contract_code}</li>
                   <li><strong>Phòng:</strong> ${roomCode} (${buildingName})</li>
+                  <li><strong>Chủ nhà:</strong> ${landlordName}</li>
                   <li><strong>Khách hàng:</strong> ${contract.party_b_name} (${contract.party_b_phone})</li>
                   <li><strong>Số tiền đặt cọc:</strong> ${Number(contract.deposit_amount).toLocaleString('vi-VN')} đ</li>
                 </ul>

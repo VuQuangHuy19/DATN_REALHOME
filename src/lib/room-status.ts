@@ -35,7 +35,8 @@ export interface RoomDisplayStatus {
 // Compute display status for a room based on database status and active contracts
 export const getRoomDisplayStatus = (
   room: DBRoom,
-  contracts: DBRentalContract[] = []
+  contracts: DBRentalContract[] = [],
+  depositContracts: any[] = []
 ): RoomDisplayStatus => {
   // 1. Check for manual override in description
   const manualDate = parseSoonAvailableDate(room.description);
@@ -99,6 +100,19 @@ export const getRoomDisplayStatus = (
     };
   }
   if (room.status === 'reserved') {
+    const isExpiredLock = room.reserved_until ? new Date(room.reserved_until) < new Date() : false;
+    const hasActiveDeposit = (depositContracts || []).some(
+      (dc: any) => dc.room_id === room.id && ['active', 'signed'].includes(dc.status)
+    );
+    if (isExpiredLock && !hasActiveDeposit) {
+      return {
+        status: 'available',
+        label: 'Còn trống',
+        colorClass: 'bg-green-100 text-green-700 border-green-200',
+        expectedEmptyDate: null,
+        isSoonAvailable: false
+      };
+    }
     return {
       status: 'reserved',
       label: 'Đặt trước / Đang giữ',

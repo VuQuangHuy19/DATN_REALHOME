@@ -110,10 +110,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Điều hướng dựa trên vai trò
         const role = data.profile?.role;
+
         if (role === 'super_admin') {
           router.push('/super-admin');
         } else if (role === 'landlord') {
           router.push('/landlord');
+        } else if (role === 'customer' || role === 'tenant') {
+          // Khách thuê → chuyển sang Cổng Khách Thuê
+          router.push('/customer/tenant-portal');
         } else if (role === 'sales_agent') {
           router.push('/customer/properties');
         } else {

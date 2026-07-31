@@ -20,6 +20,7 @@ import {
   MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2,
   ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText
 } from 'lucide-react';
+import { maskHouseNumberInBuildingName } from '@/lib/utils';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -157,10 +158,10 @@ export default function BuildingDetailPage() {
         <div className="lg:col-span-2 space-y-8">
           {/* Header & Title */}
           <div>
-            <h1 className="text-3xl font-bold font-heading text-ink">{building.name}</h1>
+            <h1 className="text-3xl font-bold font-heading text-ink">{maskHouseNumberInBuildingName(building.name)}</h1>
             <div className="flex items-center gap-2 mt-2 text-ink-muted">
               <MapPin className="h-5 w-5 text-accent" />
-              {building.address}
+              {maskHouseNumberInBuildingName(building.address)}
             </div>
           </div>
 
@@ -519,7 +520,7 @@ export default function BuildingDetailPage() {
               <div className="space-y-3 pt-2">
                 {canComposeDeposit && (
                   <Button
-                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 text-slate-950 font-bold rounded-xl shadow-md shadow-amber-500/20"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-sm"
                     size="lg"
                     onClick={() => router.push(`${contractsBasePath}/contracts/create?building_id=${buildingId}`)}
                   >

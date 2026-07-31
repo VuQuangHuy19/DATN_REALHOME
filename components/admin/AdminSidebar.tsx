@@ -29,8 +29,10 @@ import {
   List,
   UserCheck,
   Receipt,
+  Wrench,
+  CreditCard,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface NavItem {
@@ -81,6 +83,7 @@ const getNavItems = (isEn: boolean): NavItem[] => [
     children: [
       { label: isEn ? 'Service Readings' : 'Chỉ số dịch vụ', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
       { label: isEn ? 'Monthly Invoices' : 'Hóa đơn tháng', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
+      { label: isEn ? 'Maintenance' : 'Bảo trì & Sửa chữa', href: '/admin/services/maintenance', icon: Wrench, permission: 'services.read' },
     ],
   },
   {
@@ -98,6 +101,7 @@ const getNavItems = (isEn: boolean): NavItem[] => [
     icon: Settings,
     children: [
       { label: isEn ? 'Accounts' : 'Tài khoản', href: '/admin/system/accounts', icon: UserCog, permission: 'accounts.read' },
+      { label: isEn ? 'SaaS Billing' : 'Gói dịch vụ & Gia hạn', href: '/admin/system/billing', icon: CreditCard },
       { label: isEn ? 'Roles & Permissions' : 'Vai trò & Phân quyền', href: '/admin/system/roles', icon: Shield, permission: 'roles.read' },
       { label: isEn ? 'Notifications' : 'Thông báo', href: '/admin/system/notifications', icon: Bell },
       { label: isEn ? 'Activity Logs' : 'Nhật ký hoạt động', href: '/admin/system/activity-logs', icon: ClipboardList, permission: 'accounts.read' },
@@ -144,6 +148,16 @@ export function AdminSidebar() {
   const { language } = useAppPreferences();
   const isEn = language === 'en';
 
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const updateMobile = () => setIsMobile(media.matches);
+    updateMobile();
+    media.addEventListener('change', updateMobile);
+    return () => media.removeEventListener('change', updateMobile);
+  }, []);
+
   const [expandedItems, setExpandedItems] = useState<string[]>([
     isEn ? 'Properties' : 'Bất động sản', 
     isEn ? 'Customers' : 'Khách hàng', 
@@ -183,7 +197,9 @@ export function AdminSidebar() {
   const SidebarContent = () => (
     <>
       <div className="flex items-center justify-center px-6 h-16 border-b border-border-subtle flex-shrink-0">
-        <Logo className="text-[24px]" />
+        <Link href="/customer/properties" title="Về trang bất động sản RealHome" className="hover:opacity-90 transition-opacity">
+          <Logo className="text-[24px]" />
+        </Link>
       </div>
 
       <nav className="p-3 space-y-0.5 overflow-y-auto flex-1">
@@ -263,32 +279,11 @@ export function AdminSidebar() {
     </>
   );
 
+  if (isMobile) return null;
+
   return (
-    <>
-      {/* Mobile toggle */}
-      <div className="md:hidden fixed top-4 left-4 z-50">
-        <Button variant="outline" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      </div>
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 bg-bg-subtle text-ink border-r border-border-subtle transition-transform duration-300 ease-in-out md:translate-x-0 flex flex-col',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        <SidebarContent />
-      </aside>
-
-      {/* Overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-    </>
+    <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 bg-bg-subtle text-ink border-r border-border-subtle flex-col">
+      <SidebarContent />
+    </aside>
   );
 }

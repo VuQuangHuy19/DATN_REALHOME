@@ -2,13 +2,27 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { SessionManager } from '@/components/providers/SessionManager';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { AppPreferencesProvider } from '@/components/providers/AppPreferencesProvider';
+
 export const metadata: Metadata = {
   title: 'RealHome',
   description: 'Hệ thống quản lý bất động sản toàn diện',
   manifest: '/manifest.json',
   themeColor: '#2563eb',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -37,6 +51,7 @@ export default async function RootLayout({
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             <AppPreferencesProvider>
               <AuthProvider>
+                <SessionManager />
                 {children}
               </AuthProvider>
             </AppPreferencesProvider>

@@ -69,7 +69,10 @@ export interface Database {
           company_id: string | null;
           full_name: string | null;
           email: string | null;
-          password_hash: string | null;
+          /** @deprecated Sử dụng has_password thay thế — password_hash chỉ tồn tại ở DB và server-side, không bao giờ được gửi về client */
+          password_hash?: string | null;
+          /** Boolean an toàn cho client biết user đã có mật khẩu chưa — được tính toán server-side từ password_hash */
+          has_password?: boolean;
           phone: string | null;
           role: 'super_admin' | 'company_admin' | 'manager' | 'sales_agent' | 'landlord';
           avatar_url: string | null;
@@ -350,6 +353,9 @@ export interface Database {
           image_url: string | null;
           owner_type: 'individual' | 'company' | null;
           company_name: string | null;
+          bank_name?: string | null;
+          bank_account_number?: string | null;
+          bank_account_owner?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['landlords']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
@@ -753,6 +759,81 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['kpis']['Insert']>;
         Relationships: [];
       };
+      maintenance_requests: {
+        Row: {
+          id: string;
+          company_id: string | null;
+          room_id: string | null;
+          created_by: string | null;
+          title: string;
+          description: string | null;
+          priority: string;
+          status: string;
+          images: string[] | null;
+          repair_details?: string | null;
+          cost_amount?: number | null;
+          cost_bearer?: 'landlord' | 'tenant' | 'shared' | null;
+          tenant_amount?: number | null;
+          payment_status?: 'waived' | 'unpaid' | 'paid' | 'added_to_monthly_invoice' | null;
+          payment_method?: string | null;
+          payos_order_code?: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['maintenance_requests']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
+        Update: Partial<Database['public']['Tables']['maintenance_requests']['Insert']>;
+        Relationships: [];
+      };
+      maintenance_comments: {
+        Row: {
+          id: string;
+          request_id: string;
+          sender_id: string;
+          sender_name: string;
+          sender_role: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['maintenance_comments']['Row'], 'id' | 'created_at'> & { id?: string };
+        Update: Partial<Database['public']['Tables']['maintenance_comments']['Insert']>;
+        Relationships: [];
+      };
+      handover_reports: {
+        Row: {
+          id: string;
+          company_id: string | null;
+          room_id: string | null;
+          rental_contract_id: string | null;
+          type: string;
+          date: string;
+          status: string;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by?: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['handover_reports']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
+        Update: Partial<Database['public']['Tables']['handover_reports']['Insert']>;
+        Relationships: [];
+      };
+      company_expenses: {
+        Row: {
+          id: string;
+          company_id: string;
+          name: string;
+          amount: number;
+          category: string;
+          is_recurring: boolean;
+          period: string;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+          created_by?: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['company_expenses']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
+        Update: Partial<Database['public']['Tables']['company_expenses']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -787,6 +868,7 @@ export type DBRentalContract = Database['public']['Tables']['rental_contracts'][
 export type DBServiceReading = Database['public']['Tables']['service_readings']['Row'];
 export type DBInvoice = Database['public']['Tables']['invoices']['Row'];
 export type DBRoomImage = Database['public']['Tables']['room_images']['Row'];
+export type DBCompanyExpense = Database['public']['Tables']['company_expenses']['Row'];
 
 export type DBKPI = Database['public']['Tables']['kpis']['Row'];
 export type DBBuildingService = Database['public']['Tables']['building_services']['Row'];

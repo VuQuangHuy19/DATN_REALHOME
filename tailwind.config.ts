@@ -16,8 +16,8 @@ const config: Config = {
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
       },
       fontFamily: {
-        sans: ['var(--font-manrope)', 'sans-serif'],
-        heading: ['var(--font-space-grotesk)', 'sans-serif'],
+        sans: ["'Be Vietnam Pro'", 'sans-serif'],
+        heading: ["'Be Vietnam Pro'", 'sans-serif'],
         mono: ['var(--font-jetbrains-mono)', 'monospace'],
       },
       borderRadius: {

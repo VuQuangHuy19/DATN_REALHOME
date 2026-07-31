@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar, MapPin, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 
 const schema = z.object({
@@ -46,6 +47,7 @@ export function ViewingRequestDialog({
   property,
 }: ViewingRequestDialogProps) {
   const { profile } = useAuth();
+  const [consentChecked, setConsentChecked] = useState(false);
   
   const {
     register,
@@ -101,6 +103,16 @@ export function ViewingRequestDialog({
         throw new Error(errorData.error || 'Gửi yêu cầu thất bại');
       }
 
+      // Tự động lưu SĐT vào profile người dùng nếu tài khoản chưa có SĐT
+      if (profile?.id && data.customerPhone && (!profile.phone || profile.phone === '')) {
+        const { supabase } = await import('@/lib/supabase/client');
+        supabase
+          .from('profiles')
+          .update({ phone: data.customerPhone, updated_at: new Date().toISOString() })
+          .eq('id', profile.id)
+          .then();
+      }
+
       toast.success('Đặt lịch xem thành công', {
         description: 'Chúng tôi sẽ liên hệ với bạn sớm nhất.',
         duration: 4000,
@@ -116,7 +128,10 @@ export function ViewingRequestDialog({
   };
 
   const handleOpenChange = (next: boolean) => {
-    if (!next) reset();
+    if (!next) {
+      reset();
+      setConsentChecked(false);
+    }
     onOpenChange(next);
   };
 
@@ -211,7 +226,33 @@ export function ViewingRequestDialog({
             </div>
           </div>
 
-          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+          {/* Consent Checkbox */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <input
+              id="vr-consent"
+              type="checkbox"
+              checked={consentChecked}
+              onChange={(e) => setConsentChecked(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-400 accent-amber-600 cursor-pointer flex-shrink-0"
+            />
+            <label htmlFor="vr-consent" className="text-xs text-slate-600 cursor-pointer leading-relaxed">
+              Tôi đồng ý cho phép{' '}
+              <strong className="text-slate-900">RealHome</strong>{' '}
+              thu thập và sử dụng thông tin trên để liên hệ tư vấn và xếp lịch hẹn xem phòng.
+              {' '}Xem{' '}
+              <Link
+                href="/customer/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-600 hover:text-amber-700 underline font-medium"
+              >
+                Chính sách bảo mật
+              </Link>.
+              {' '}<span className="text-red-500">*</span>
+            </label>
+          </div>
+
+          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || !consentChecked}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

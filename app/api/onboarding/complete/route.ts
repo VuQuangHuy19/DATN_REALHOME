@@ -84,7 +84,8 @@ export async function POST(request: Request) {
           .from('profiles')
           .select('*', { count: 'exact', head: true })
           .eq('company_id', company_id)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .in('role', ['company_admin', 'manager', 'sales_agent']);
 
         if (countError) throw countError;
 

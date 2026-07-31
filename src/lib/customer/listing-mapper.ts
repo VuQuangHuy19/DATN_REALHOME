@@ -84,12 +84,14 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
 
   if (room.room_images && room.room_images.length > 0) {
     const sorted = [...room.room_images].sort((a, b) => a.priority - b.priority);
-    imageUrls = sorted.map((img) => img.url);
-    thumbnailUrls = sorted.map((img) => img.thumbnail_url || img.url);
+    const imagesOnly = sorted.filter((img) => img.media_type !== 'video' && !isVideoStr(img.url));
+
+    imageUrls = (imagesOnly.length > 0 ? imagesOnly : sorted).map((img) => img.url);
+    thumbnailUrls = (imagesOnly.length > 0 ? imagesOnly : sorted).map((img) => img.thumbnail_url || img.url);
     
     let coverImg = sorted.find((img) => img.is_thumbnail && img.media_type !== 'video' && !isVideoStr(img.url));
     if (!coverImg) {
-      coverImg = sorted.find((img) => img.media_type !== 'video' && !isVideoStr(img.url));
+      coverImg = imagesOnly[0];
     }
 
     if (coverImg) {

@@ -8,6 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog';
+import {
   CreditCard,
   Shield,
   Users,
@@ -19,7 +26,10 @@ import {
   Sparkles,
   ArrowRight,
   TrendingUp,
-  Package
+  Package,
+  ExternalLink,
+  QrCode,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -81,22 +91,25 @@ export default function BillingPage() {
   const [selectedSeats, setSelectedSeats] = useState<number>(5);
   const [selectedMonths, setSelectedMonths] = useState<number>(3);
 
+  // Modal Payment States
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [activePaymentUrl, setActivePaymentUrl] = useState('');
+  const [activeInvoiceCode, setActiveInvoiceCode] = useState('');
+  const [activeInvoiceId, setActiveInvoiceId] = useState('');
+  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 phút = 300 giây
+
   const fetchBillingData = async () => {
     try {
       setLoading(true);
-      // 1. Get session user and company
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      // 1. Get session user and company from auth session endpoint
+      const res = await fetch('/api/auth/session');
+      const sessionData = await res.json();
+      const companyId = sessionData.user?.company_id || sessionData.profile?.company_id;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', session.user.id)
-        .single();
-
-      if (!profile?.company_id) return;
-
-      const companyId = profile.company_id;
+      if (!companyId) {
+        toast.error('Không tìm thấy thông tin doanh nghiệp');
+        return;
+      }
 
       // 2. Fetch company info
       const { data: comp } = await supabase
@@ -128,12 +141,13 @@ export default function BillingPage() {
         .order('created_at', { ascending: false });
       setInvoices(invs || []);
 
-      // 5. Fetch count of active users
+      // 5. Fetch count of active users (only count employee roles: company_admin, manager, sales_agent)
       const { count } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('company_id', companyId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .in('role', ['company_admin', 'manager', 'sales_agent']);
       setActiveUserCount(count || 0);
 
     } catch (err: any) {
@@ -146,6 +160,54 @@ export default function BillingPage() {
   useEffect(() => {
     fetchBillingData();
   }, []);
+
+  // Tự động kiểm tra trạng thái thanh toán khi Modal đang mở (polling 3s/lần)
+  useEffect(() => {
+    if (!paymentModalOpen || !activeInvoiceId) return;
+
+    const interval = setInterval(async () => {
+      const { data: inv } = await supabase
+        .from('saas_invoices')
+        .select('status')
+        .eq('id', activeInvoiceId)
+        .maybeSingle();
+
+      if (inv && inv.status === 'paid') {
+        toast.success('Thanh toán thành công! Gói dịch vụ đã được kích hoạt.');
+        setPaymentModalOpen(false);
+        fetchBillingData();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [paymentModalOpen, activeInvoiceId]);
+
+  // Đếm ngược 5 phút (300s) thời gian thanh toán
+  useEffect(() => {
+    if (!paymentModalOpen) {
+      setTimeLeft(300);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          toast.error('Đã hết thời hạn thanh toán 5 phút. Vui lòng tạo lại hóa đơn!');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [paymentModalOpen]);
+
+  const formatTimeLeft = (sec: number) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   const handleCheckout = async () => {
     if (selectedSeats < activeUserCount) {
@@ -180,8 +242,11 @@ export default function BillingPage() {
         toast.success('Đã kích hoạt gói dịch vụ Starter thành công!');
         fetchBillingData();
       } else if (data.paymentUrl) {
-        toast.success('Hóa đơn đã được tạo. Đang chuyển hướng tới trang thanh toán...');
-        window.location.href = data.paymentUrl;
+        setActivePaymentUrl(data.paymentUrl);
+        setActiveInvoiceCode(data.invoiceCode || '');
+        setActiveInvoiceId(data.invoiceId || '');
+        setPaymentModalOpen(true);
+        fetchBillingData();
       }
     } catch (err: any) {
       toast.error(err.message || 'Lỗi kết nối máy chủ');
@@ -362,9 +427,14 @@ export default function BillingPage() {
                               size="sm"
                               variant="outline"
                               className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50 rounded-lg h-7 px-2.5"
-                              onClick={() => window.location.href = inv.payment_url!}
+                              onClick={() => {
+                                setActivePaymentUrl(inv.payment_url!);
+                                setActiveInvoiceCode(inv.invoice_code);
+                                setActiveInvoiceId(inv.id);
+                                setPaymentModalOpen(true);
+                              }}
                             >
-                              Thanh toán lại <ArrowRight className="h-3 w-3 ml-1" />
+                              Thanh toán ngay <ArrowRight className="h-3 w-3 ml-1" />
                             </Button>
                           )}
                         </TableCell>
@@ -502,6 +572,54 @@ export default function BillingPage() {
           </Card>
         </div>
       </div>
+
+      {/* Modal Popup Mã QR VietQR PayOS Trực Tiếp Trên Trang */}
+      <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+        <DialogContent className="max-w-4xl w-[92vw] p-0 overflow-hidden rounded-3xl border-0 shadow-2xl bg-white [&>button]:text-white [&>button]:top-5 [&>button]:right-5">
+          <DialogHeader className="p-4 px-6 border-b border-slate-800 bg-slate-900 text-white flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-600 rounded-xl">
+                <QrCode className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-white">Thanh Toán VietQR Qua Cổng PayOS</DialogTitle>
+                <DialogDescription className="text-xs text-slate-300 mt-0.5">
+                  Mã hóa đơn: <span className="font-mono font-bold text-amber-400">{activeInvoiceCode}</span>
+                </DialogDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 pr-10">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                timeLeft <= 60
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-pulse'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              }`}>
+                <Clock className="h-3.5 w-3.5" />
+                {timeLeft > 0 ? `Thời gian còn lại: ${formatTimeLeft(timeLeft)}` : 'Đã hết hạn'}
+              </span>
+
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang chờ chuyển khoản
+              </span>
+            </div>
+          </DialogHeader>
+
+          <div className="p-2 sm:p-4 bg-slate-100 flex flex-col items-center justify-center min-h-[740px]">
+            {activePaymentUrl ? (
+              <iframe
+                src={activePaymentUrl}
+                className="w-full h-[740px] max-h-[82vh] rounded-2xl border border-slate-200 shadow-sm bg-white"
+                title="PayOS VietQR Checkout"
+              />
+            ) : (
+              <div className="py-24 flex flex-col items-center justify-center text-slate-400">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-2" />
+                <p className="text-xs">Đang tải mã QR thanh toán PayOS...</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

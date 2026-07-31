@@ -4,12 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Building2, Home, CalendarDays, Users, DollarSign,
-  UserSearch, MessageSquare, Bell, AlertCircle, Loader2,
+  MessageSquare, Bell, AlertCircle, Loader2,
   Activity, PlusCircle, Pencil, Trash2, ShieldAlert,
   Sparkles, CalendarRange, Clock, CheckCircle2, ChevronRight,
-  TrendingUp, Award, PlayCircle
+  TrendingUp, Award, Flame, Percent, MapPin, Compass, Calculator
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -37,6 +39,7 @@ export default function AdminDashboardPage() {
 
   const [activeTab, setActiveTab] = useState<'kpi' | 'growth' | 'area' | 'revenue'>('kpi');
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
+  const [apptFilter, setApptFilter] = useState<'today' | 'week' | 'month'>('month');
 
   // 1. Phân tích Tăng trưởng Khách hàng (Leads)
   const leadGrowthData = useMemo(() => {
@@ -215,120 +218,206 @@ export default function AdminDashboardPage() {
     return <LandlordDashboardView stats={stats as any} />;
   }
 
+  const apptDisplayCount = apptFilter === 'today'
+    ? stats?.appointmentsTimeframe?.today ?? 0
+    : apptFilter === 'week'
+    ? stats?.appointmentsTimeframe?.week ?? 0
+    : stats?.appointmentsTimeframe?.month ?? 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-extrabold font-heading text-ink tracking-tight">
-            Quản trị hệ thống
+            Quản trị &amp; Kinh doanh Công ty
           </h1>
           <p className="text-ink-muted mt-1 text-sm">
-            Báo cáo hiệu suất kinh doanh, dòng tiền và quản lý vận hành công ty
+            Báo cáo thực dụng về doanh thu hoa hồng, hiệu suất chốt phòng và phân bổ nhân sự
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-soft border border-accent/20 rounded-full text-accent text-xs font-semibold">
-          <Sparkles className="h-3.5 w-3.5" />
-          Quản trị công ty
+        <div className="flex items-center gap-2">
+          <Button asChild className="rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 font-semibold text-xs shadow-sm">
+            <Link href="/admin/finance/profit">
+              <Calculator className="h-4 w-4" /> Tab Kế toán & Lợi nhuận
+            </Link>
+          </Button>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-soft border border-accent/20 rounded-full text-accent text-xs font-semibold">
+            <Sparkles className="h-3.5 w-3.5" />
+            Company Admin
+          </div>
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
+      {/* Hero Metrics: Số phòng chốt, Doanh thu hoa hồng, Cuộc hẹn */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Tòa nhà */}
-          <Link href="/admin/realhome/buildings">
-            <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border shadow-none rounded-lg cursor-pointer">
-              <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
-                <div>
-                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tổng tòa nhà</p>
-                  <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.totalBuildings}</p>
-                </div>
-                <div className="flex justify-end mt-2">
-                  <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
-                    <Building2 className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Phòng */}
-          <Link href="/admin/realhome/rooms">
-            <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border shadow-none rounded-lg cursor-pointer">
-              <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
-                <div>
-                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tổng số phòng</p>
-                  <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.totalRooms}</p>
-                </div>
-                <div className="flex justify-end mt-2">
-                  <div className="p-1.5 rounded-md bg-bg-subtle text-ink-muted">
-                    <Home className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          {/* Tỉ lệ lấp đầy */}
-          <Card className="border-border shadow-none rounded-lg">
-            <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Số phòng chốt được */}
+          <Card className="border-border shadow-none rounded-lg bg-white">
+            <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
               <div>
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tỷ lệ lấp đầy</p>
-                <p className="text-3xl font-bold font-heading text-ink mt-1 tracking-tight">{stats.occupancyRate}%</p>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Số phòng chốt được (Tháng này)</p>
+                <p className="text-3xl font-extrabold font-heading text-emerald-600 mt-1 tracking-tight">
+                  {stats.closedRoomsCount ?? 0} <span className="text-sm font-semibold text-ink-muted">phòng</span>
+                </p>
               </div>
               <div className="flex justify-end mt-2">
-                <div className="p-1.5 rounded-md bg-accent-soft text-accent">
-                  <TrendingUp className="h-4 w-4" />
+                <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
+                  <Award className="h-4 w-4" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Doanh thu tháng này */}
-          <Card className="border-border shadow-none rounded-lg">
-            <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
+          {/* Doanh thu hoa hồng */}
+          <Card className="border-border shadow-none rounded-lg bg-white">
+            <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
               <div>
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu công ty (Hoa hồng)</p>
-                <p className="text-xl font-bold font-mono text-emerald-600 mt-2 truncate tabular-nums">
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Doanh thu Hoa hồng Công ty</p>
+                <p className="text-xl font-bold font-mono text-accent mt-2 truncate tabular-nums">
                   {formatCurrency(stats.companyRevenue !== undefined ? stats.companyRevenue : stats.monthlyRevenue)}
                 </p>
-                {stats.totalCollectedAmount !== undefined && (
-                  <p className="text-[10px] text-ink-muted mt-1 font-medium">
-                    Tổng thu hộ: {formatCurrency(stats.totalCollectedAmount)}
-                  </p>
-                )}
               </div>
               <div className="flex justify-end mt-2">
-                <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
+                <div className="p-1.5 rounded-md bg-accent-soft text-accent">
                   <DollarSign className="h-4 w-4" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Hợp đồng hết hạn */}
-          <Link href="/admin/contracts">
-            <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border shadow-none rounded-lg cursor-pointer">
-              <CardContent className="p-4 flex flex-col justify-between h-full min-h-[105px]">
-                <div>
-                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">HĐ sắp hết hạn (30d)</p>
-                  <p className="text-3xl font-bold font-heading text-rose-600 mt-1 tracking-tight">
-                    {stats.expiringContractsCount}
-                  </p>
-                </div>
-                <div className="flex justify-end mt-2">
-                  <div className="p-1.5 rounded-md bg-rose-50 text-rose-600">
-                    <CalendarRange className="h-4 w-4" />
+          {/* Cuộc hẹn xem phòng với bộ lọc [Hôm nay/Tuần/Tháng] */}
+          <Card className="border-border shadow-none rounded-lg bg-white">
+            <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Số cuộc hẹn xem phòng</p>
+                  <div className="flex bg-bg-subtle p-0.5 rounded border border-border">
+                    <button
+                      onClick={() => setApptFilter('today')}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${apptFilter === 'today' ? 'bg-white text-ink shadow-xs' : 'text-ink-muted'}`}
+                    >
+                      Ngày
+                    </button>
+                    <button
+                      onClick={() => setApptFilter('week')}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${apptFilter === 'week' ? 'bg-white text-ink shadow-xs' : 'text-ink-muted'}`}
+                    >
+                      Tuần
+                    </button>
+                    <button
+                      onClick={() => setApptFilter('month')}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${apptFilter === 'month' ? 'bg-white text-ink shadow-xs' : 'text-ink-muted'}`}
+                    >
+                      Tháng
+                    </button>
                   </div>
                 </div>
+                <p className="text-3xl font-extrabold font-heading text-indigo-600 mt-1 tracking-tight">{apptDisplayCount}</p>
+              </div>
+              <div className="flex justify-end mt-2">
+                <div className="p-1.5 rounded-md bg-indigo-50 text-indigo-600">
+                  <CalendarDays className="h-4 w-4" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tỷ lệ chuyển đổi toàn công ty */}
+          <Card className="border-border shadow-none rounded-lg bg-white">
+            <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
+              <div>
+                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tỷ lệ Chuyển đổi (Chốt/Lịch hẹn)</p>
+                <p className="text-3xl font-extrabold font-heading text-blue-600 mt-1 tracking-tight">
+                  {stats.conversionRates?.apptToClosedRate ?? 0}%
+                </p>
+                <p className="text-[10px] text-ink-muted mt-1">
+                  Khách chốt / Total leads: {stats.conversionRates?.leadToClosedRate ?? 0}%
+                </p>
+              </div>
+              <div className="flex justify-end mt-2">
+                <div className="p-1.5 rounded-md bg-blue-50 text-blue-600">
+                  <Percent className="h-4 w-4" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* secondary KPI Grid */}
+      {stats && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/admin/realhome/buildings">
+            <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border shadow-none rounded-lg cursor-pointer">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold text-ink-muted uppercase">Tổng tòa nhà quản lý</p>
+                  <p className="text-2xl font-bold font-heading text-ink mt-0.5">{stats.totalBuildings}</p>
+                </div>
+                <Building2 className="h-5 w-5 text-ink-muted" />
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/realhome/rooms">
+            <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border shadow-none rounded-lg cursor-pointer">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold text-ink-muted uppercase">Tổng phòng &amp; Lấp đầy</p>
+                  <p className="text-2xl font-bold font-heading text-ink mt-0.5">{stats.totalRooms} phòng ({stats.occupancyRate}%)</p>
+                </div>
+                <Home className="h-5 w-5 text-ink-muted" />
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/contracts">
+            <Card className="hover:shadow-none hover:bg-bg-subtle/50 transition-colors border-border shadow-none rounded-lg cursor-pointer">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold text-ink-muted uppercase">Hợp đồng hết hạn (30d)</p>
+                  <p className="text-2xl font-bold font-heading text-rose-600 mt-0.5">{stats.expiringContractsCount}</p>
+                </div>
+                <CalendarRange className="h-5 w-5 text-rose-500" />
               </CardContent>
             </Card>
           </Link>
         </div>
       )}
 
-      {/* Todo/Attention Action panel */}
+      {/* Sức hút Khu vực Hot & Nơi Tiềm Năng Thầu Thêm Nhà */}
+      {stats && stats.hotZoneList && (
+        <Card className="border-border shadow-none rounded-lg bg-white">
+          <CardHeader className="pb-3 border-b border-border">
+            <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
+              <Compass className="h-4.5 w-4.5 text-amber-500" />
+              Phân tích Sức hút Khu vực &amp; Tòa nhà Hot (Điều phối nhân sự Sale)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {stats.hotZoneList.slice(0, 8).map((zone: any, idx: number) => (
+                <div key={idx} className="p-4 border border-border rounded-xl bg-bg-base/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-ink flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-accent" /> {zone.area}
+                    </span>
+                    <Badge variant="outline" className={`text-[9px] font-bold ${zone.statusTag.includes('HOT') ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                      {zone.statusTag}
+                    </Badge>
+                  </div>
+                  <p className="text-sm font-bold text-ink truncate">{zone.name}</p>
+                  <div className="flex items-center justify-between text-xs text-ink-muted pt-1 border-t border-border/60">
+                    <span>Lấp đầy:</span>
+                    <span className="font-mono font-bold text-accent">{zone.occupancy}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Urgent Action panel */}
       {stats && (
         <Card className="border-border shadow-none rounded-lg bg-white">
           <CardHeader className="pb-3 border-b border-border">
@@ -339,7 +428,6 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent className="p-5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Lịch hẹn chờ duyệt hôm nay */}
               <Link href="/admin/customers/appointments" className="flex items-center justify-between p-4 bg-amber-50/50 hover:bg-amber-50 rounded-xl border border-amber-100 transition-colors cursor-pointer group">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700">
@@ -357,7 +445,6 @@ export default function AdminDashboardPage() {
                 </span>
               </Link>
 
-              {/* Tư vấn chưa phân công */}
               <Link href="/admin/customers/consultations" className="flex items-center justify-between p-4 bg-sky-50/50 hover:bg-sky-50 rounded-xl border border-sky-100 transition-colors cursor-pointer group">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-lg bg-sky-100 text-sky-700">
@@ -375,7 +462,6 @@ export default function AdminDashboardPage() {
                 </span>
               </Link>
 
-              {/* Hóa đơn quá hạn */}
               <Link href="/admin/services/invoices" className="flex items-center justify-between p-4 bg-rose-50/50 hover:bg-rose-50 rounded-xl border border-rose-100 transition-colors cursor-pointer group">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700">
@@ -424,7 +510,6 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
 
-              {/* Bộ lọc thời gian dành cho Tăng trưởng khách hàng */}
               {activeTab === 'growth' && (
                 <div className="flex items-center gap-1.5 bg-bg-subtle p-0.5 rounded-lg border border-border">
                   {[
@@ -578,7 +663,7 @@ export default function AdminDashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Nhân viên xuất sắc */}
+          {/* Vinh danh Sale xuất sắc */}
           <Card className="lg:col-span-4 border-border shadow-none rounded-lg bg-white">
             <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
               <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
@@ -618,97 +703,6 @@ export default function AdminDashboardPage() {
               ) : (
                 <div className="py-8 text-center text-ink-muted text-xs">
                   Chưa có xếp hạng KPI nhân viên tháng này.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Activity Feed and Appointments at bottom */}
-      {stats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Appointments */}
-          <Card className="border-border shadow-none rounded-lg bg-white">
-            <CardHeader className="pb-3 border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold font-heading text-ink">
-                  Lịch xem phòng gần đây
-                </CardTitle>
-                <Link href="/admin/customers/appointments" className="text-xs text-accent hover:underline flex items-center font-medium">
-                  Xem tất cả <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 py-4">
-              {stats.recentAppointments.length === 0 ? (
-                <div className="text-center py-6 text-ink-muted text-sm">Chưa có lịch hẹn nào</div>
-              ) : (
-                <div className="space-y-3 divide-y divide-border">
-                  {stats.recentAppointments.map((apt: any) => (
-                    <div key={apt.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                      <div>
-                        <p className="font-semibold text-ink text-sm">{apt.customer_name}</p>
-                        <p className="text-xs text-ink-muted truncate max-w-[200px] mt-0.5">{apt.room_title}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-mono font-medium text-ink tabular-nums">{apt.date} {apt.time}</p>
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mt-1 uppercase border border-current ${
-                          apt.status === 'confirmed'
-                            ? 'bg-green-50 text-green-700'
-                            : apt.status === 'pending'
-                            ? 'bg-amber-50 text-amber-700'
-                            : apt.status === 'completed'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-rose-50 text-rose-700'
-                        }`}>
-                          {apt.status === 'confirmed' ? 'Xác nhận' : apt.status === 'pending' ? 'Chờ duyệt' : apt.status === 'completed' ? 'Hoàn thành' : 'Đã hủy'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Activity Feed */}
-          <Card className="border-border shadow-none rounded-lg bg-white">
-            <CardHeader className="pb-3 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4.5 w-4.5 text-accent" />
-                  <CardTitle className="text-base font-bold font-heading text-ink">
-                    Nhật ký vận hành
-                  </CardTitle>
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="Realtime" />
-                </div>
-                <Link href="/admin/system/activity-logs" className="text-xs text-accent hover:underline flex items-center font-medium">
-                  Xem tất cả <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="px-5 py-4">
-              {activityLogs.length === 0 ? (
-                <div className="text-center py-6 text-ink-muted text-sm">Chưa có hoạt động nào</div>
-              ) : (
-                <div className="space-y-0 divide-y divide-border">
-                  {activityLogs.slice(0, 6).map((log) => {
-                    const ActionIcon = log.action === 'CREATE' ? PlusCircle : log.action === 'DELETE' ? Trash2 : Pencil;
-                    const actionColor = log.action === 'CREATE' ? 'text-emerald-500' : log.action === 'DELETE' ? 'text-rose-500' : 'text-accent';
-                    const time = new Date(log.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                    return (
-                      <div key={log.id} className="flex items-start gap-3 py-2.5">
-                        <div className={`mt-0.5 flex-shrink-0 ${actionColor}`}>
-                          <ActionIcon className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium text-ink truncate">{log.detail ?? log.entity_label}</p>
-                          <p className="text-[10px] text-ink-muted mt-0.5">{log.user_name} · {time}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </CardContent>

@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { AIChatWidget } from '@/components/ui/AIChatWidget';
+import { AdminBottomNav } from '@/components/admin/AdminBottomNav';
 
 const pathPermissions: Record<string, string> = {
   '/admin/realhome/buildings': 'buildings.read',
@@ -79,7 +80,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
             </a>
           </div>
         )}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-4 md:p-6 pb-24 md:pb-6 overflow-auto">
           {hasAccess ? (
             children
           ) : (
@@ -96,6 +97,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
             </div>
           )}
         </main>
+        <AdminBottomNav />
         <AIChatWidget role="manager" />
       </div>
 

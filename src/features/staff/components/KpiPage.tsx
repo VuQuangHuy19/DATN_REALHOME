@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { TrendingUp, TrendingDown, Minus, Search, Loader2, AlertCircle, Settings, Sparkles, Check } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Search, Loader2, AlertCircle, Settings, Sparkles, Check, Percent, Edit3, Layers, Plus, Trash2 } from 'lucide-react';
 import { getKPIs, createKPI, updateKPI, computeAutoKPI } from '@/src/features/staff/services/kpis';
 import { getProfiles } from '@/src/features/staff/services/profiles';
 import { useEmployees } from '@/src/features/staff/hooks/useStaff';;
@@ -19,6 +19,18 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   exceeded: { label: 'Vượt chỉ tiêu', color: 'bg-green-100 text-green-700', icon: TrendingUp },
   on_track: { label: 'Đúng tiến độ',  color: 'bg-blue-100 text-blue-700',  icon: Minus },
   behind:   { label: 'Chậm tiến độ',  color: 'bg-red-100 text-red-700',    icon: TrendingDown },
+};
+
+const formatNumberWithDots = (num: number | string): string => {
+  if (!num && num !== 0) return '';
+  const clean = String(num).replace(/\D/g, '');
+  if (!clean) return '';
+  return Number(clean).toLocaleString('vi-VN');
+};
+
+const parseNumberWithDots = (str: string): number => {
+  const clean = str.replace(/\./g, '').replace(/,/g, '');
+  return clean ? Number(clean) : 0;
 };
 
 function formatVND(n: number) {
@@ -51,12 +63,28 @@ export function KpiPage() {
 
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [kpiConfig, setKpiConfig] = useState<DBKPIConfiguration | null>(null);
+  const [selectedCommMode, setSelectedCommMode] = useState<'fixed' | 'tier' | 'custom'>('fixed');
+  const [commissionTiers, setCommissionTiers] = useState<any[]>([
+    { minRevenue: 0, maxRevenue: 12500000, rate: 0.30, label: 'Dưới 12.5 triệu' },
+    { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34, label: 'Từ 12.5tr - 25 triệu' },
+    { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40, label: 'Trên 25 triệu' },
+  ]);
+  const [targetRevenueFormatted, setTargetRevenueFormatted] = useState<string>('50.000.000');
   const [savingConfig, setSavingConfig] = useState(false);
 
   useEffect(() => {
     if (company?.id) {
       getKPIConfiguration(company.id)
-        .then(setKpiConfig)
+        .then((cfg) => {
+          setKpiConfig(cfg);
+          setTargetRevenueFormatted(formatNumberWithDots(cfg.default_target_revenue ?? 50000000));
+          if ((cfg as any).sale_commission_mode) {
+            setSelectedCommMode((cfg as any).sale_commission_mode);
+          }
+          if ((cfg as any).sale_commission_tiers) {
+            setCommissionTiers((cfg as any).sale_commission_tiers);
+          }
+        })
         .catch((err) => {
           console.error('Lỗi khi lấy cấu hình KPI, sử dụng cấu hình mặc định:', err);
           setKpiConfig({
@@ -186,13 +214,19 @@ export function KpiPage() {
       return;
     }
 
-    const payload = {
+    const saleCommMode = selectedCommMode;
+    const fixedRatePercent = Number(fd.get('sale_commission_fixed_rate') || 60);
+
+    const payload: any = {
       revenue_weight: revWeightPercent / 100,
       appointment_weight: appWeightPercent / 100,
       lead_weight: leadWeightPercent / 100,
-      default_target_revenue: Number(fd.get('default_target_revenue') || 0),
+      default_target_revenue: parseNumberWithDots(targetRevenueFormatted || '0'),
       default_target_appointments: Number(fd.get('default_target_appointments') || 0),
       default_target_leads: Number(fd.get('default_target_leads') || 0),
+      sale_commission_mode: saleCommMode,
+      sale_commission_fixed_rate: fixedRatePercent / 100,
+      sale_commission_tiers: commissionTiers,
     };
 
     try {
@@ -661,74 +695,283 @@ export function KpiPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Cấu hình Luật KPI */}
+      {/* Dialog Cấu hình Luật KPI & Cơ chế Hoa hồng Sale */}
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
-        <DialogContent className="max-w-md rounded-lg border border-border bg-white shadow-lg p-6">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-lg font-bold text-ink flex items-center gap-2">
-              <Settings className="h-5 w-5 text-indigo-600" />
-              Cấu hình Luật & Trọng số KPI
+        <DialogContent className="max-w-2xl rounded-2xl border border-border bg-white shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="font-heading text-xl font-extrabold text-ink flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                <Settings className="h-5 w-5" />
+              </div>
+              Cấu hình Luật KPI & Cơ chế Hoa hồng Sale
             </DialogTitle>
           </DialogHeader>
           {kpiConfig ? (
-            <form onSubmit={handleSaveConfig} className="space-y-4 pt-4 text-sm text-ink">
-              <div className="bg-bg-subtle p-3 rounded-xl border border-border-subtle text-xs text-ink-muted">
-                Lưu ý: Tổng trọng số các chỉ số (Doanh thu + Lịch hẹn + Leads) phải đạt đúng 100%.
+            <form onSubmit={handleSaveConfig} className="space-y-6 pt-4 text-sm text-ink">
+              {/* Cụm 1: Cơ chế Hoa hồng cho Sale - Interactive Option Cards */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-indigo-600" /> Cơ chế Hoa hồng Chi trả cho Sale
+                  </h4>
+                  <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+                    Áp dụng toàn công ty
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Option 1: % Cố định */}
+                  <div
+                    onClick={() => setSelectedCommMode('fixed')}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                      selectedCommMode === 'fixed'
+                        ? 'border-indigo-600 bg-indigo-50/60 shadow-sm ring-1 ring-indigo-600'
+                        : 'border-border bg-white hover:border-indigo-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`p-1.5 rounded-lg ${selectedCommMode === 'fixed' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          <Percent className="h-4 w-4" />
+                        </div>
+                        {selectedCommMode === 'fixed' && <Check className="h-4 w-4 text-indigo-600 font-bold" />}
+                      </div>
+                      <p className="font-bold text-xs text-ink">1. % Cố Định</p>
+                      <p className="text-[11px] text-ink-muted mt-1 leading-snug">
+                        Tỷ lệ % hưởng cố định trên tổng hoa hồng thu từ Chủ nhà.
+                      </p>
+                    </div>
+                    {selectedCommMode === 'fixed' && (
+                      <div className="mt-3 pt-2 border-t border-indigo-200/60 flex items-center gap-1.5">
+                        <Input
+                          id="sale_commission_fixed_rate"
+                          name="sale_commission_fixed_rate"
+                          type="number"
+                          min={0}
+                          max={100}
+                          defaultValue={Math.round(((kpiConfig as any).sale_commission_fixed_rate ?? 0.60) * 100)}
+                          className="rounded-lg border-indigo-300 font-mono w-16 h-8 text-center bg-white text-xs font-bold"
+                        />
+                        <span className="text-[11px] font-bold text-indigo-900">% hoa hồng</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Option 2: Bậc thang Tier */}
+                  <div
+                    onClick={() => setSelectedCommMode('tier')}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                      selectedCommMode === 'tier'
+                        ? 'border-indigo-600 bg-indigo-50/60 shadow-sm ring-1 ring-indigo-600'
+                        : 'border-border bg-white hover:border-indigo-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`p-1.5 rounded-lg ${selectedCommMode === 'tier' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          <TrendingUp className="h-4 w-4" />
+                        </div>
+                        {selectedCommMode === 'tier' && <Check className="h-4 w-4 text-indigo-600 font-bold" />}
+                      </div>
+                      <p className="font-bold text-xs text-ink">2. Bậc Thang Doanh Số</p>
+                      <p className="text-[11px] text-ink-muted mt-1 leading-snug">
+                        Tăng % thưởng lũy tiến theo mốc doanh số tháng (Dream House).
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-200/60 text-[10px] space-y-0.5 font-mono text-ink-muted">
+                      {commissionTiers.slice(0, 3).map((t, idx) => (
+                        <div key={idx} className="flex justify-between">
+                          <span>mốc {idx + 1}:</span> <span className="font-bold text-amber-700">{Math.round(t.rate * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Option 3: Custom */}
+                  <div
+                    onClick={() => setSelectedCommMode('custom')}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                      selectedCommMode === 'custom'
+                        ? 'border-indigo-600 bg-indigo-50/60 shadow-sm ring-1 ring-indigo-600'
+                        : 'border-border bg-white hover:border-indigo-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`p-1.5 rounded-lg ${selectedCommMode === 'custom' ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                          <Edit3 className="h-4 w-4" />
+                        </div>
+                        {selectedCommMode === 'custom' && <Check className="h-4 w-4 text-indigo-600 font-bold" />}
+                      </div>
+                      <p className="font-bold text-xs text-ink">3. Tùy Chỉnh / Nhập Tay</p>
+                      <p className="text-[11px] text-ink-muted mt-1 leading-snug">
+                        Nhập số % hoa hồng tùy chọn khi Admin lập từng HĐ Cọc / Thuê.
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-200/60 text-[10px] font-medium text-emerald-700">
+                      Cơ chế linh hoạt per-deal
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-Editor: Dynamic Tier Table Manager when selectedCommMode === 'tier' */}
+                {selectedCommMode === 'tier' && (
+                  <div className="mt-3 p-3.5 bg-amber-50/50 rounded-xl border border-amber-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h5 className="font-bold text-xs text-amber-950 flex items-center gap-1.5">
+                        <TrendingUp className="h-4 w-4 text-amber-600" /> Quản lý Các mốc Bậc Thang Doanh Số cho Công Ty
+                      </h5>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const lastMax = commissionTiers[commissionTiers.length - 1]?.maxRevenue || 25000000;
+                          setCommissionTiers([
+                            ...commissionTiers,
+                            { minRevenue: lastMax, maxRevenue: lastMax + 15000000, rate: 0.45 }
+                          ]);
+                        }}
+                        className="h-7 text-[11px] font-bold bg-white text-amber-800 border-amber-300 hover:bg-amber-100 gap-1 rounded-lg"
+                      >
+                        <Plus className="h-3 w-3" /> Thêm mốc mới
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {commissionTiers.map((tier, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200 text-xs">
+                          <span className="font-bold text-amber-800 shrink-0 w-12 text-center">Mốc {idx + 1}</span>
+                          <div className="flex-1 grid grid-cols-3 gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-500">Từ:</span>
+                              <Input
+                                type="text"
+                                value={formatNumberWithDots(tier.minRevenue)}
+                                onChange={(e) => {
+                                  const val = parseNumberWithDots(e.target.value);
+                                  const updated = [...commissionTiers];
+                                  updated[idx].minRevenue = val;
+                                  setCommissionTiers(updated);
+                                }}
+                                className="h-7 text-xs font-mono font-bold border-amber-200 text-slate-900"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-500">Đến:</span>
+                              <Input
+                                type="text"
+                                value={formatNumberWithDots(tier.maxRevenue)}
+                                onChange={(e) => {
+                                  const val = parseNumberWithDots(e.target.value);
+                                  const updated = [...commissionTiers];
+                                  updated[idx].maxRevenue = val;
+                                  setCommissionTiers(updated);
+                                }}
+                                className="h-7 text-xs font-mono font-bold border-amber-200 text-slate-900"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-slate-500">% Hưởng:</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={Math.round(tier.rate * 100)}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value || 0) / 100;
+                                  const updated = [...commissionTiers];
+                                  updated[idx].rate = val;
+                                  setCommissionTiers(updated);
+                                }}
+                                className="h-7 text-xs font-mono font-extrabold text-amber-700 border-amber-200 text-center"
+                              />
+                              <span className="text-[11px] font-bold text-amber-800">%</span>
+                            </div>
+                          </div>
+                          {commissionTiers.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-rose-500 hover:bg-rose-50 rounded-md"
+                              onClick={() => {
+                                setCommissionTiers(commissionTiers.filter((_, i) => i !== idx));
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <label htmlFor="revenue_weight" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Doanh thu (%)</label>
-                  <Input 
-                    id="revenue_weight" 
-                    name="revenue_weight" 
-                    type="number"
-                    min={0}
-                    max={100}
-                    defaultValue={Math.round(kpiConfig.revenue_weight * 100)} 
-                    required 
-                    className="rounded-lg border-border focus-visible:ring-accent" 
-                  />
+
+              {/* Cụm 2: Trọng số tính điểm KPI */}
+              <div className="space-y-3 pt-3 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs uppercase tracking-wider text-ink-muted">⚖️ Trọng số Đánh giá KPI</h4>
+                  <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Tổng = 100%</span>
                 </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="appointment_weight" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Lịch hẹn (%)</label>
-                  <Input 
-                    id="appointment_weight" 
-                    name="appointment_weight" 
-                    type="number" 
-                    min={0}
-                    max={100}
-                    defaultValue={Math.round(kpiConfig.appointment_weight * 100)} 
-                    required 
-                    className="rounded-lg border-border focus-visible:ring-accent" 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="lead_weight" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Leads (%)</label>
-                  <Input 
-                    id="lead_weight" 
-                    name="lead_weight" 
-                    type="number" 
-                    min={0}
-                    max={100}
-                    defaultValue={Math.round(kpiConfig.lead_weight * 100)} 
-                    required 
-                    className="rounded-lg border-border focus-visible:ring-accent" 
-                  />
+                <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                  <div className="space-y-1.5">
+                    <label htmlFor="revenue_weight" className="text-ink-muted block text-[11px] font-semibold uppercase">Doanh thu (%)</label>
+                    <Input 
+                      id="revenue_weight" 
+                      name="revenue_weight" 
+                      type="number"
+                      min={0}
+                      max={100}
+                      defaultValue={Math.round(kpiConfig.revenue_weight * 100)} 
+                      required 
+                      className="rounded-lg border-border font-bold text-center bg-white" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="appointment_weight" className="text-ink-muted block text-[11px] font-semibold uppercase">Lịch hẹn (%)</label>
+                    <Input 
+                      id="appointment_weight" 
+                      name="appointment_weight" 
+                      type="number" 
+                      min={0}
+                      max={100}
+                      defaultValue={Math.round(kpiConfig.appointment_weight * 100)} 
+                      required 
+                      className="rounded-lg border-border font-bold text-center bg-white" 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="lead_weight" className="text-ink-muted block text-[11px] font-semibold uppercase">Leads (%)</label>
+                    <Input 
+                      id="lead_weight" 
+                      name="lead_weight" 
+                      type="number" 
+                      min={0}
+                      max={100}
+                      defaultValue={Math.round(kpiConfig.lead_weight * 100)} 
+                      required 
+                      className="rounded-lg border-border font-bold text-center bg-white" 
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-3 pt-2 border-t border-border">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-ink-muted">Mục tiêu mặc định hàng tháng</h4>
-                <div className="space-y-3">
+              {/* Cụm 3: Mục tiêu mặc định hàng tháng */}
+              <div className="space-y-3 pt-3 border-t border-border">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-ink-muted">🎯 Mục tiêu Mặc định Hàng tháng</h4>
+                <div className="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
                   <div className="space-y-1.5">
-                    <label htmlFor="default_target_revenue" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Doanh thu mục tiêu (đ)</label>
+                    <label htmlFor="default_target_revenue" className="text-ink-muted block text-xs font-semibold uppercase tracking-wider">Doanh thu mục tiêu (VNĐ)</label>
                     <Input 
                       id="default_target_revenue" 
                       name="default_target_revenue" 
-                      type="number" 
-                      defaultValue={kpiConfig.default_target_revenue} 
+                      type="text" 
+                      value={targetRevenueFormatted} 
+                      onChange={(e) => setTargetRevenueFormatted(formatNumberWithDots(e.target.value))}
                       required 
-                      className="rounded-lg border-border focus-visible:ring-accent font-mono" 
+                      className="rounded-lg border-border font-mono bg-white font-bold text-accent" 
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -740,7 +983,7 @@ export function KpiPage() {
                         type="number" 
                         defaultValue={kpiConfig.default_target_appointments} 
                         required 
-                        className="rounded-lg border-border focus-visible:ring-accent font-mono" 
+                        className="rounded-lg border-border font-mono bg-white text-center font-bold" 
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -751,17 +994,22 @@ export function KpiPage() {
                         type="number" 
                         defaultValue={kpiConfig.default_target_leads} 
                         required 
-                        className="rounded-lg border-border focus-visible:ring-accent font-mono" 
+                        className="rounded-lg border-border font-mono bg-white text-center font-bold" 
                       />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-white rounded-lg font-semibold mt-2" disabled={savingConfig}>
-                {savingConfig ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Lưu cấu hình
-              </Button>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsConfigOpen(false)} className="rounded-xl border-border">
+                  Hủy
+                </Button>
+                <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold px-6 shadow-sm gap-2" disabled={savingConfig}>
+                  {savingConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Lưu cấu hình
+                </Button>
+              </div>
             </form>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-ink-muted">

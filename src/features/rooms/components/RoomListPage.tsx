@@ -9,7 +9,9 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus, Search, Eye, DoorOpen, Loader2, AlertCircle, Image as LucideImage } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Eye, DoorOpen, Loader2, AlertCircle, Image as LucideImage, FileSpreadsheet, Link as LinkIcon } from 'lucide-react';
+import { ExcelImportModal } from '@/src/features/properties/components/ExcelImportModal';
+import { GoogleSheetImportModal } from '@/src/features/import/components/GoogleSheetImportModal';
 import { useRooms } from '@/src/features/rooms/hooks/useRooms';
 import { useBuildings } from '@/src/features/properties/hooks/useBuildings';
 import { useRoomImages } from '@/src/features/properties/hooks/useRoomImages';
@@ -58,6 +60,8 @@ export function RoomListPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [displayPrice, setDisplayPrice] = useState('');
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
   
   const { images: viewImages } = useRoomImages(viewItem?.id);
   const isCustomer = pathname.startsWith('/customer') || !role || (role as string) === 'customer';
@@ -277,10 +281,23 @@ export function RoomListPage() {
           <p className="text-ink-muted text-sm">Quản lý căn hộ và phòng riêng lẻ</p>
         </div>
         {role !== 'sales_agent' && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <Button onClick={() => setIsExcelModalOpen(true)} variant="outline" size="sm" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 rounded-lg h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium" title="Nhập Excel">
+              <FileSpreadsheet className="h-4 w-4 sm:mr-1.5 text-emerald-600" />
+              <span className="hidden sm:inline">Nhập Excel</span>
+            </Button>
+            <Button onClick={() => setIsSheetModalOpen(true)} variant="outline" size="sm" className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 rounded-lg h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium" title="Nhập Link Sheet">
+              <LinkIcon className="h-4 w-4 sm:mr-1.5 text-emerald-700" />
+              <span className="hidden sm:inline">Nhập Link Sheet</span>
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openAdd} size="sm" className="bg-accent hover:bg-accent-500 text-white rounded-lg h-9 px-3 text-xs sm:text-sm font-bold shadow-sm" title="Thêm phòng">
+                  <Plus className="h-4 w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Thêm phòng</span>
+                  <span className="sm:hidden">Thêm</span>
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white shadow-lg">
               <DialogHeader className="flex-shrink-0 px-6 pt-6">
                 <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
@@ -512,7 +529,19 @@ export function RoomListPage() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         )}
+        <ExcelImportModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          landlords={landlords}
+          onSuccess={() => window.location.reload()}
+        />
+        <GoogleSheetImportModal
+          open={isSheetModalOpen}
+          onOpenChange={setIsSheetModalOpen}
+          onSuccess={() => window.location.reload()}
+        />
       </div>
 
       {error && (

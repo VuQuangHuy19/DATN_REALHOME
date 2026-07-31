@@ -76,29 +76,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Lỗi máy chủ khi tạo mã xác nhận' }, { status: 500 });
     }
 
-    // Gửi OTP
+    // Gửi OTP qua Mailjet Email
     if (type === 'email') {
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-w: 600px; margin: 0 auto;">
-          <h2>Khôi phục mật khẩu</h2>
-          <p>Xin chào ${userProfile.full_name || 'bạn'},</p>
-          <p>Bạn đã yêu cầu đặt lại mật khẩu. Mã xác nhận của bạn là:</p>
-          <h1 style="font-size: 32px; letter-spacing: 5px; color: #1a56db; background: #f3f4f6; padding: 10px 20px; display: inline-block; border-radius: 5px;">${otp}</h1>
-          <p>Mã này có hiệu lực trong vòng 5 phút.</p>
-          <p>Nếu bạn không yêu cầu, vui lòng bỏ qua email này.</p>
-        </div>
-      `;
-      const mailResult = await sendEmail({
-        to: value,
-        subject: 'Mã xác nhận khôi phục mật khẩu',
-        html,
+      const { sendPasswordResetOTPEmail } = await import('@/lib/mail');
+      const mailResult = await sendPasswordResetOTPEmail({
+        toEmail: value,
+        name: userProfile?.full_name || 'Quý khách',
+        otp,
       });
 
       if (!mailResult.success) {
-        console.error('Lỗi gửi email:', mailResult.error);
-        // Fallback for development if email fails
-        console.log(`[MOCK EMAIL] OTP for ${value} is ${otp}`);
-        // But still return success to user so they can test if dev mode
+        console.error('Lỗi gửi email Mailjet OTP:', mailResult.error);
+        console.log(`[MOCK EMAIL FALLBACK] OTP cho ${value} là ${otp}`);
       }
     } else if (type === 'phone') {
       // Gửi SMS thật qua SpeedSMS

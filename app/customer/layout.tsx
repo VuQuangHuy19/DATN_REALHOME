@@ -16,7 +16,7 @@ import { AIChatWidget } from '@/components/ui/AIChatWidget';
 
 function MobileBottomNav() {
   const pathname = usePathname();
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   
   const navLinks = useMemo(() => {
     const base = [
@@ -25,11 +25,18 @@ function MobileBottomNav() {
       { href: '/customer/favorites', label: 'Yêu thích', icon: Heart },
       { href: '/customer/appointments/track', label: 'Lịch hẹn', icon: Calendar },
     ];
-    if (role === 'sales_agent') {
-      base.push({ href: '/admin', label: 'CRM', icon: LayoutDashboard });
+    // Nút Menu CHỈ xuất hiện khi khách ĐÃ ĐĂNG NHẬP (luôn chuyển hướng đúng trang quản trị theo role)
+    if (user) {
+      const r = role as string | null | undefined;
+      const menuHref =
+        r === 'super_admin' ? '/super-admin' :
+        r === 'landlord' ? '/landlord' :
+        (r === 'customer' || r === 'tenant') ? '/customer/tenant-portal' :
+        '/admin';
+      base.push({ href: menuHref, label: 'Menu', icon: LayoutDashboard });
     }
     return base;
-  }, [role]);
+  }, [user, role]);
 
   const isActive = (href: string) => {
     if (href === '/customer') return pathname === '/customer';
@@ -37,7 +44,7 @@ function MobileBottomNav() {
   };
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-border-subtle h-16 flex items-center justify-around z-40 pb-safe shadow-none">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-t border-border-subtle h-16 flex items-center justify-between z-40 pb-safe shadow-lg px-1">
       {navLinks.map((link) => {
         const Icon = link.icon;
         const active = isActive(link.href);
@@ -45,13 +52,16 @@ function MobileBottomNav() {
           <Link
             key={link.href}
             href={link.href}
+            prefetch={true}
             className={cn(
-              "flex flex-col items-center justify-center flex-1 h-full text-[10px] transition-colors",
-              active ? "text-accent font-semibold" : "text-ink-muted hover:text-ink"
+              "flex flex-col items-center justify-center flex-1 h-full text-[10px] transition-all duration-200",
+              active
+                ? "text-blue-600 dark:text-blue-400 font-extrabold scale-105"
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium"
             )}
           >
-            <Icon className={cn("h-5 w-5 mb-0.5", active ? "stroke-[2.5]" : "stroke-[2]")} />
-            <span>{link.label}</span>
+            <Icon className={cn("h-5 w-5 mb-0.5 transition-transform", active ? "stroke-[2.5] text-blue-600 dark:text-blue-400" : "stroke-[2]")} />
+            <span className="truncate max-w-[55px] text-center">{link.label}</span>
           </Link>
         );
       })}
@@ -60,6 +70,19 @@ function MobileBottomNav() {
 }
 
 function CustomerShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isTenantPortal = pathname?.startsWith('/customer/tenant-portal');
+
+  if (isTenantPortal) {
+    return (
+      <CustomerCompanyProvider>
+        <CompareProvider>
+          {children}
+        </CompareProvider>
+      </CustomerCompanyProvider>
+    );
+  }
+
   return (
     <CustomerCompanyProvider>
       <CompareProvider>

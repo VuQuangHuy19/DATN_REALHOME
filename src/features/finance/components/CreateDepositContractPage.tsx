@@ -44,6 +44,9 @@ export function CreateDepositContractPage() {
 
   const filteredRooms = useMemo(() => {
     return rooms.filter((r) => {
+      // 1. Nếu căn phòng được chỉ định trực tiếp từ URL query room_id, LUÔN LUÔN giữ phòng đó trong danh sách
+      if (queryRoomId && r.id === queryRoomId) return true;
+
       const now = new Date();
       const isReservedByMe = 
         r.status === 'reserved' && 
@@ -51,8 +54,14 @@ export function CreateDepositContractPage() {
         r.reserved_until && 
         new Date(r.reserved_until) > now;
 
-      if (r.status !== 'available' && !isReservedByMe && r.id !== queryRoomId) return false;
-      if (queryBuildingId && r.buildings?.id !== queryBuildingId) return false;
+      if (r.status !== 'available' && !isReservedByMe) return false;
+
+      // 2. Lọc theo tòa nhà (Khớp cả ID UUID lẫn Mã tòa nhà code)
+      if (queryBuildingId) {
+        const matchesBuildingId = r.building_id === queryBuildingId || r.buildings?.id === queryBuildingId;
+        const matchesBuildingCode = (r.buildings as any)?.code === queryBuildingId;
+        if (!matchesBuildingId && !matchesBuildingCode) return false;
+      }
       return true;
     });
   }, [rooms, queryBuildingId, profile?.id, queryRoomId]);
@@ -80,6 +89,11 @@ export function CreateDepositContractPage() {
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState<string>('');
+  const [depositSalesAgentId, setDepositSalesAgentId] = useState<string | null>(null);
+
+  // Party B State
+  const [partyBName, setPartyBName] = useState<string>('');
+  const [partyBPhone, setPartyBPhone] = useState<string>('');
 
   // Reservation States
   const [reservationExpiry, setReservationExpiry] = useState<string | null>(null);
@@ -312,15 +326,22 @@ export function CreateDepositContractPage() {
     }
   }, [selectedRoomId, rooms]);
   
-  // Tự động chọn phòng từ query parameter
+  // Tự động chọn phòng và câu dữ liệu khách hàng/sale từ query parameter (Lịch hẹn / Lead)
   useEffect(() => {
-    if (queryRoomId && rooms.length > 0) {
-      const exists = rooms.some((r) => r.id === queryRoomId);
-      if (exists) {
-        setSelectedRoomId(queryRoomId);
-      }
+    if (queryRoomId) {
+      setSelectedRoomId(queryRoomId);
     }
-  }, [queryRoomId, rooms]);
+
+    const cName = searchParams?.get('customer_name');
+    const cPhone = searchParams?.get('customer_phone');
+    const agentId = searchParams?.get('sales_agent_id');
+    const leadId = searchParams?.get('lead_id');
+
+    if (cName) setPartyBName(cName);
+    if (cPhone) setPartyBPhone(cPhone);
+    if (leadId) setSelectedLeadId(leadId);
+    if (agentId) setDepositSalesAgentId(agentId);
+  }, [queryRoomId, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -346,7 +367,7 @@ export function CreateDepositContractPage() {
       ? calculateCommissionAmount(rentPrice, roomRose, leaseDuration) 
       : 0;
 
-    let finalSalesAgentId = profile?.id || null;
+    let finalSalesAgentId = depositSalesAgentId || profile?.id || null;
     if (selectedLeadId && selectedLeadId !== 'none') {
       const selectedLeadObj = leads.find((l: any) => l.id === selectedLeadId);
       if (selectedLeadObj?.assigned_to) {
@@ -639,7 +660,7 @@ export function CreateDepositContractPage() {
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5">
             <div className="space-y-1.5">
               <Label htmlFor="party_b_name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ và tên khách thuê *</Label>
-              <Input id="party_b_name" name="party_b_name" placeholder="Ví dụ: Nguyễn Văn A" required className="rounded-lg border-border focus-visible:ring-accent" />
+              <Input id="party_b_name" name="party_b_name" value={partyBName} onChange={(e) => setPartyBName(e.target.value)} placeholder="Ví dụ: Nguyễn Văn A" required className="rounded-lg border-border focus-visible:ring-accent font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_dob" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày/Năm sinh</Label>
@@ -652,7 +673,7 @@ export function CreateDepositContractPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại khách thuê *</Label>
-              <Input id="party_b_phone" name="party_b_phone" placeholder="Ví dụ: 0987654321" required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+              <Input id="party_b_phone" name="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} placeholder="Ví dụ: 0987654321" required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CMND / CCCD</Label>

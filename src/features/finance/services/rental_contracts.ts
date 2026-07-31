@@ -21,26 +21,31 @@ export type RentalContractWithRoom = DBRentalContract & {
  * Lấy danh sách hợp đồng thuê theo company_id.
  */
 export async function getRentalContracts(companyId?: string, landlordId?: string): Promise<RentalContractWithRoom[]> {
-  let filterLandlordCode = landlordId;
-  if (landlordId && landlordId.includes('-')) {
-    const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
-    filterLandlordCode = landlord?.code || landlordId;
+  let landlordRoomIds: string[] | null = null;
+  if (landlordId) {
+    let filterLandlordCode = landlordId;
+    if (landlordId.includes('-')) {
+      const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
+      filterLandlordCode = landlord?.code || landlordId;
+    }
+    const { data: landlordRooms } = await supabase
+      .from('rooms')
+      .select('id')
+      .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
+    landlordRoomIds = (landlordRooms ?? []).map((r: any) => r.id);
   }
-
-  const selectQuery = filterLandlordCode
-    ? '*, rooms!inner(code, price, rose, buildings!inner(name, address, area, landlord_id))'
-    : '*, rooms(code, price, rose, buildings(name, address, area))';
 
   let q = supabase
     .from('rental_contracts')
-    .select(selectQuery)
+    .select('*, rooms(code, price, rose, buildings(name, address, area))')
     .order('created_at', { ascending: false });
 
   if (companyId) {
     q = q.eq('company_id', companyId);
   }
-  if (filterLandlordCode) {
-    q = q.eq('rooms.buildings.landlord_id', filterLandlordCode);
+  if (landlordRoomIds !== null) {
+    if (landlordRoomIds.length === 0) return [];
+    q = q.in('room_id', landlordRoomIds);
   }
 
   const { data, error } = await q;
