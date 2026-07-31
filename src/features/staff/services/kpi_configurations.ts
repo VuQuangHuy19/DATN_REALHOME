@@ -121,3 +121,98 @@ export async function saveKPIConfiguration(
     sale_commission_tiers: config.sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
   };
 }
+
+export interface SaleCommissionInfo {
+  mode: 'fixed' | 'tier' | 'custom';
+  calculatedCommission: number;
+  currentRate: number;
+  currentTierLabel: string;
+  nextTierRate?: number;
+  nextTierLabel?: string;
+  nextTierMinRevenue?: number;
+  amountNeeded?: number;
+  progressPercent: number;
+}
+
+export function calculateSaleCommissionInfo(
+  totalRevenue: number,
+  totalGrossCommission: number,
+  config?: any
+): SaleCommissionInfo {
+  const mode = config?.sale_commission_mode || 'fixed';
+  const fixedRate = config?.sale_commission_fixed_rate ?? 0.60;
+  const tiers = config?.sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers;
+
+  // Base amount: if totalGrossCommission > 0 use it, else fallback to totalRevenue
+  const baseAmount = totalGrossCommission > 0 ? totalGrossCommission : totalRevenue;
+
+  if (mode === 'fixed') {
+    return {
+      mode: 'fixed',
+      calculatedCommission: baseAmount * fixedRate,
+      currentRate: fixedRate,
+      currentTierLabel: `% Cố định (${Math.round(fixedRate * 100)}%)`,
+      progressPercent: 100,
+    };
+  }
+
+  if (mode === 'tier' && Array.isArray(tiers) && tiers.length > 0) {
+    // Sort tiers by minRevenue ascending
+    const sortedTiers = [...tiers].sort((a, b) => (Number(a.minRevenue) || 0) - (Number(b.minRevenue) || 0));
+    
+    let currentTierIdx = 0;
+    for (let i = 0; i < sortedTiers.length; i++) {
+      const min = Number(sortedTiers[i].minRevenue) || 0;
+      if (totalRevenue >= min) {
+        currentTierIdx = i;
+      }
+    }
+
+    const currentTier = sortedTiers[currentTierIdx];
+    const currentRate = Number(currentTier.rate) || 0.30;
+    const currentTierLabel = currentTier.label || `Mốc ${currentTierIdx + 1}`;
+    const currentMin = Number(currentTier.minRevenue) || 0;
+    const currentMax = Number(currentTier.maxRevenue) || 999999999;
+
+    const nextTier = sortedTiers[currentTierIdx + 1];
+    let nextTierRate: number | undefined;
+    let nextTierLabel: string | undefined;
+    let nextTierMinRevenue: number | undefined;
+    let amountNeeded: number | undefined;
+    let progressPercent = 100;
+
+    if (nextTier) {
+      nextTierRate = Number(nextTier.rate) || 0.40;
+      nextTierLabel = nextTier.label || `Mốc ${currentTierIdx + 2}`;
+      nextTierMinRevenue = Number(nextTier.minRevenue) || currentMax;
+      amountNeeded = Math.max(0, nextTierMinRevenue - totalRevenue);
+
+      const span = nextTierMinRevenue - currentMin;
+      if (span > 0) {
+        const achieved = totalRevenue - currentMin;
+        progressPercent = Math.min(100, Math.max(8, Math.round((achieved / span) * 100)));
+      }
+    }
+
+    return {
+      mode: 'tier',
+      calculatedCommission: baseAmount * currentRate,
+      currentRate,
+      currentTierLabel: `Bậc ${currentTierIdx + 1} (${Math.round(currentRate * 100)}%)`,
+      nextTierRate,
+      nextTierLabel: `Bậc ${currentTierIdx + 2} (${Math.round((nextTierRate || 0) * 100)}%)`,
+      nextTierMinRevenue,
+      amountNeeded,
+      progressPercent,
+    };
+  }
+
+  // Fallback / Custom mode
+  return {
+    mode: 'custom',
+    calculatedCommission: baseAmount * fixedRate,
+    currentRate: fixedRate,
+    currentTierLabel: 'Tùy chỉnh',
+    progressPercent: 100,
+  };
+}

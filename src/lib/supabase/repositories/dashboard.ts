@@ -1,4 +1,5 @@
 import { supabase } from '../client';
+import { getKPIConfiguration, calculateSaleCommissionInfo } from '@/src/features/staff/services/kpi_configurations';
 
 export async function getDashboardStats(companyId: string, landlordId?: string) {
   if (landlordId) {
@@ -773,7 +774,12 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
 
   const dynamicRevenueGenerated = totalDepositsRent + totalRentalsRent;
   const dynamicSuccessfulDeals = totalDepositsCount + totalRentalsCount;
-  const dynamicCommissionEarned = totalDepositsComm + totalRentalsComm;
+  const totalGrossCommEarned = totalDepositsComm + totalRentalsComm;
+
+  // Read company KPI / commission config dynamically
+  const kpiConfig = await getKPIConfiguration(companyId);
+  const commInfo = calculateSaleCommissionInfo(dynamicRevenueGenerated, totalGrossCommEarned, kpiConfig);
+  const dynamicCommissionEarned = commInfo.calculatedCommission;
 
   const totalLeadsCount = leadsData.length;
   const totalApptsCount = appointmentsData.length;
@@ -787,10 +793,7 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     { stage: 'Phòng đã chốt', count: dynamicSuccessfulDeals, fill: '#10b981' },
   ];
 
-  let kpiTier = 'Đồng';
-  if (dynamicSuccessfulDeals >= 10 || dynamicCommissionEarned >= 15000000) kpiTier = 'Kim Cương 💎';
-  else if (dynamicSuccessfulDeals >= 6 || dynamicCommissionEarned >= 8000000) kpiTier = 'Vàng 🥇';
-  else if (dynamicSuccessfulDeals >= 3 || dynamicCommissionEarned >= 4000000) kpiTier = 'Bạc 🥈';
+  let kpiTier = commInfo.currentTierLabel || 'Đồng';
 
   const finalKpi = employeeKpis.data ? {
     ...employeeKpis.data,
@@ -834,5 +837,6 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     },
     funnelData,
     kpiTier,
+    tierInfo: commInfo,
   };
 }

@@ -48,6 +48,7 @@ type SalesStats = {
   };
   funnelData?: any[];
   kpiTier?: string;
+  tierInfo?: any;
 };
 
 const leadStatusConfig: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
@@ -129,7 +130,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
   return (
     <div className="space-y-6">
       {/* Header Banner - High Energy */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-emerald-600 to-teal-700 p-6 sm:p-8 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-emerald-600 to-teal-700 p-6 sm:p-8 text-white shadow-lg space-y-4">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider">
@@ -154,6 +155,41 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
             </span>
           </div>
         </div>
+
+        {/* Block Tiến trình Bậc Thang Doanh Số (Tiered Commission Progress Bar) */}
+        {stats.tierInfo && stats.tierInfo.mode === 'tier' && (
+          <div className="pt-3 border-t border-white/20 space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-amber-100 flex-wrap gap-1">
+              <span className="flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                Mốc hiện tại: <strong className="text-white font-heading">{stats.tierInfo.currentTierLabel}</strong>
+              </span>
+              {stats.tierInfo.nextTierLabel ? (
+                <span>Mốc tiếp theo: <strong className="text-amber-200 font-heading">{stats.tierInfo.nextTierLabel}</strong></span>
+              ) : (
+                <span className="text-emerald-200 font-extrabold">🏆 Đã đạt Bậc Cao Nhất!</span>
+              )}
+            </div>
+
+            {/* Bar */}
+            <div className="w-full h-2.5 bg-black/25 rounded-full overflow-hidden p-0.5 backdrop-blur-sm shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-300 rounded-full transition-all duration-700 shadow-sm"
+                style={{ width: `${stats.tierInfo.progressPercent}%` }}
+              />
+            </div>
+
+            {stats.tierInfo.nextTierLabel && stats.tierInfo.amountNeeded !== undefined && (
+              <div className="text-[11px] text-amber-100/90 font-medium flex items-center gap-1.5 pt-0.5">
+                <Target className="h-3.5 w-3.5 text-amber-300 shrink-0" />
+                <span>
+                  🎯 Bạn đã đạt <strong className="text-white font-mono">{formatVND(revenueGenerated)}</strong> doanh số! 
+                  Chỉ còn thiếu <strong className="text-amber-200 font-mono font-bold">{formatVND(stats.tierInfo.amountNeeded)}</strong> doanh số nữa để chạm <strong className="text-white font-heading">{stats.tierInfo.nextTierLabel}</strong>!
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Hero Action Header */}
