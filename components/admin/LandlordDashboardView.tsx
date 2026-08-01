@@ -14,7 +14,7 @@ import {
 import {
   Building2, Home, DollarSign, CalendarDays, Percent, FileText,
   CheckCircle, ShieldAlert, Clock, User, Phone, MapPin,
-  ExternalLink, ArrowRight, Activity, Calendar, TrendingUp, Sparkles, AlertCircle, HelpCircle, Info
+  ExternalLink, ArrowRight, Activity, Calendar, TrendingUp, Sparkles, AlertCircle, HelpCircle, Info, X
 } from 'lucide-react';
 import Link from 'next/link';
 import {
