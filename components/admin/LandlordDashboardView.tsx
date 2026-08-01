@@ -87,7 +87,7 @@ function formatCurrency(val: number) {
 function QuickTooltip({ content, align = 'left' }: { content: React.ReactNode; align?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false);
 
-  const alignClass = align === 'right' ? 'right-0' : 'left-0';
+  const alignClass = align === 'right' ? 'sm:right-0 sm:left-auto' : 'sm:left-0 sm:right-auto';
 
   return (
     <div
@@ -108,9 +108,39 @@ function QuickTooltip({ content, align = 'left' }: { content: React.ReactNode; a
       </button>
 
       {open && (
-        <div className={`absolute top-full mt-2 z-50 w-72 sm:w-80 p-4 text-xs bg-white border border-emerald-200 shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95 pointer-events-auto ${alignClass}`}>
-          {content}
-        </div>
+        <>
+          {/* Mobile Backdrop Overlay */}
+          <div
+            className="sm:hidden fixed inset-0 bg-black/40 z-[99] backdrop-blur-[1px] animate-in fade-in-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+            }}
+          />
+
+          {/* Popup Container: Mobile Centered Modal vs Desktop Floating Hover */}
+          <div
+            className={`
+              fixed left-4 right-4 top-1/2 -translate-y-1/2 z-[100] max-w-sm mx-auto p-4 text-xs bg-white border border-emerald-200 shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95 pointer-events-auto
+              sm:absolute sm:top-full sm:mt-2 sm:translate-y-0 sm:max-w-none sm:w-80 sm:z-50 ${alignClass}
+            `}
+          >
+            <div className="flex sm:hidden items-center justify-between border-b border-border/50 pb-2 mb-2">
+              <span className="text-[11px] font-bold text-ink-muted uppercase">Chi tiết thông tin</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                }}
+                className="text-ink-muted hover:text-ink p-1 rounded-full bg-bg-subtle"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {content}
+          </div>
+        </>
       )}
     </div>
   );
