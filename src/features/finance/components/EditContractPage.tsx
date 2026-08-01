@@ -58,6 +58,7 @@ export function EditContractPage() {
   // Bên B
   const [partyBName, setPartyBName] = useState<string>('');
   const [partyBPhone, setPartyBPhone] = useState<string>('');
+  const [partyBEmail, setPartyBEmail] = useState<string>('');
   const [partyBIdCard, setPartyBIdCard] = useState<string>('');
   const [partyBIdPlace, setPartyBIdPlace] = useState<string>('');
 
@@ -127,6 +128,7 @@ export function EditContractPage() {
 
         setPartyBName(data.party_b_name);
         setPartyBPhone(data.party_b_phone || '');
+        setPartyBEmail(data.party_b_email || '');
         setPartyBDob(data.party_b_dob || '');
         setPartyBIdCard(data.party_b_id_card || '');
         setPartyBIdDate(data.party_b_id_date || '');
@@ -199,6 +201,7 @@ export function EditContractPage() {
       // Bên B
       party_b_name: partyBName,
       party_b_phone: partyBPhone,
+      party_b_email: partyBEmail || null,
       party_b_dob: partyBDob || null,
       party_b_id_card: partyBIdCard || null,
       party_b_id_date: partyBIdDate || null,
@@ -445,6 +448,10 @@ export function EditContractPage() {
             <div className="space-y-1.5">
               <Label htmlFor="party_b_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại khách thuê *</Label>
               <Input id="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} required className="rounded-lg border-border focus-visible:ring-accent font-mono" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email khách thuê</Label>
+              <Input id="party_b_email" type="email" value={partyBEmail} onChange={(e) => setPartyBEmail(e.target.value)} placeholder="Ví dụ: khachhang@gmail.com" className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CMND / CCCD</Label>

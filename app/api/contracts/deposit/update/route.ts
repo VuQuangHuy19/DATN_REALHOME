@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const allowedFields = [
       'agreement_date', 'sign_location',
       'party_a_name', 'party_a_dob', 'party_a_address', 'party_a_id_card', 'party_a_id_date', 'party_a_id_place', 'party_a_phone',
-      'party_b_name', 'party_b_phone', 'party_b_dob', 'party_b_id_card', 'party_b_id_date', 'party_b_id_place', 'party_b_address',
+      'party_b_name', 'party_b_phone', 'party_b_email', 'party_b_dob', 'party_b_id_card', 'party_b_id_date', 'party_b_id_place', 'party_b_address',
       'rent_price', 'electricity_price', 'water_price', 'service_price', 'other_services', 'tenant_count', 'payment_method',
       'lease_duration_months', 'termination_notice_days', 'room_repair_support_date',
       'deposit_amount', 'deadline_sign_contract', 'deposit_payment_type',

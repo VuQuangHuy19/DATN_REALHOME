@@ -571,6 +571,7 @@ export interface Database {
           party_a_phone: string | null;
           party_b_name: string;
           party_b_phone: string;
+          party_b_email?: string | null;
           party_b_dob: string | null;
           party_b_id_card: string | null;
           party_b_id_date: string | null;

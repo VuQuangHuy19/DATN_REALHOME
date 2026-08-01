@@ -94,6 +94,7 @@ export function CreateDepositContractPage() {
   // Party B State
   const [partyBName, setPartyBName] = useState<string>('');
   const [partyBPhone, setPartyBPhone] = useState<string>('');
+  const [partyBEmail, setPartyBEmail] = useState<string>('');
 
   // Reservation States
   const [reservationExpiry, setReservationExpiry] = useState<string | null>(null);
@@ -334,11 +335,13 @@ export function CreateDepositContractPage() {
 
     const cName = searchParams?.get('customer_name');
     const cPhone = searchParams?.get('customer_phone');
+    const cEmail = searchParams?.get('customer_email');
     const agentId = searchParams?.get('sales_agent_id');
     const leadId = searchParams?.get('lead_id');
 
     if (cName) setPartyBName(cName);
     if (cPhone) setPartyBPhone(cPhone);
+    if (cEmail) setPartyBEmail(cEmail);
     if (leadId) setSelectedLeadId(leadId);
     if (agentId) setDepositSalesAgentId(agentId);
   }, [queryRoomId, searchParams]);
@@ -399,6 +402,7 @@ export function CreateDepositContractPage() {
       // Bên B (Bên thuê)
       party_b_name: formData.get('party_b_name') as string,
       party_b_phone: formData.get('party_b_phone') as string,
+      party_b_email: partyBEmail || (formData.get('party_b_email') as string) || null,
       party_b_dob: formData.get('party_b_dob') as string || null,
       party_b_id_card: formData.get('party_b_id_card') as string || null,
       party_b_id_date: formData.get('party_b_id_date') as string || null,
@@ -674,6 +678,10 @@ export function CreateDepositContractPage() {
             <div className="space-y-1.5">
               <Label htmlFor="party_b_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại khách thuê *</Label>
               <Input id="party_b_phone" name="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} placeholder="Ví dụ: 0987654321" required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email khách thuê</Label>
+              <Input id="party_b_email" name="party_b_email" type="email" value={partyBEmail} onChange={(e) => setPartyBEmail(e.target.value)} placeholder="Ví dụ: khachhang@gmail.com" className="rounded-lg border-border focus-visible:ring-accent" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CMND / CCCD</Label>
