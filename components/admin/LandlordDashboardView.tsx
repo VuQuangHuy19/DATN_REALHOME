@@ -197,6 +197,22 @@ export function LandlordDashboardView({
     });
   }, [stats.landlordRevenueHistory]);
 
+  // Group vacant rooms by area (quận/huyện)
+  const vacantRoomsByArea = useMemo(() => {
+    const map: Record<string, number> = {};
+    (stats.roomsList || []).forEach((room: any) => {
+      const status = getEffectiveRoomStatus(room);
+      if (status === 'available') {
+        const bld = (stats.buildingsList || []).find((b: any) => b.code === room.building_id || b.id === room.building_id);
+        const area = bld?.area || 'Khác';
+        map[area] = (map[area] || 0) + 1;
+      }
+    });
+    return Object.entries(map)
+      .map(([area, count]) => ({ area, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [stats.roomsList, stats.buildingsList]);
+
   const grossMoney = stats.grossRevenue || 0;
   const netMoney = stats.netRentRevenue || 0;
   const monthStats = stats.monthlyTransactionStats || { appointmentsCount: 0, depositCount: 0, rentalCount: 0, cancelDepositCount: 0 };
@@ -295,6 +311,7 @@ export function LandlordDashboardView({
                 <div className="flex items-center gap-1.5">
                   <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Doanh thu Gộp (Cọc + Tiền nhà)</p>
                   <QuickTooltip
+                    align="left"
                     content={
                       <div className="space-y-2">
                         <h4 className="font-extrabold text-emerald-700 text-sm flex items-center gap-1.5 border-b border-emerald-100 pb-2">
@@ -341,6 +358,7 @@ export function LandlordDashboardView({
                 <div className="flex items-center gap-1.5">
                   <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Doanh thu Thực (Tiền thuần)</p>
                   <QuickTooltip
+                    align="left"
                     content={
                       <div className="space-y-2">
                         <h4 className="font-extrabold text-accent text-sm flex items-center gap-1.5 border-b border-accent/10 pb-2">
@@ -418,7 +436,34 @@ export function LandlordDashboardView({
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Phòng đang trống cần lấp</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Phòng đang trống cần lấp</p>
+                  <QuickTooltip
+                    align="right"
+                    content={
+                      <div className="space-y-2">
+                        <h4 className="font-extrabold text-amber-700 text-sm flex items-center gap-1.5 border-b border-amber-100 pb-2">
+                          <ShieldAlert className="h-4 w-4 text-amber-600" /> Thống Kê Phòng Trống Theo Khu Vực
+                        </h4>
+                        <div className="space-y-1.5 text-xs">
+                          {vacantRoomsByArea.length > 0 ? (
+                            vacantRoomsByArea.map((item) => (
+                              <div key={item.area} className="flex justify-between items-center py-0.5 border-b border-amber-50 last:border-0">
+                                <span className="font-medium text-ink">📍 {item.area}:</span>
+                                <span className="font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md font-mono">{item.count} phòng</span>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-ink-muted italic text-[11px]">Không có phòng trống</p>
+                          )}
+                        </div>
+                        <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-200 text-[11px] text-amber-800 font-medium leading-relaxed mt-1">
+                          🔥 Đẩy mạnh quảng cáo cho các khu vực có tỷ lệ phòng trống cao nhất.
+                        </div>
+                      </div>
+                    }
+                  />
+                </div>
                 <p className="text-2xl sm:text-3xl font-extrabold font-heading text-amber-600 mt-1 tracking-tight">{stats.availableRooms} phòng</p>
                 <p className="text-xs text-amber-700 font-medium mt-1 truncate">Cần thúc đẩy sale cho thuê</p>
               </div>
