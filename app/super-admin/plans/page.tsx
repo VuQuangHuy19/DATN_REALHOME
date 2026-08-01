@@ -514,7 +514,7 @@ export default function PlansPage() {
                   onChange={(e) => setFormPopular(e.target.checked)}
                   className="rounded border-gray-300 text-accent focus:ring-accent h-4 w-4"
                 />
-                <span>Đánh dấu "Phổ biến nhất"</span>
+                <span>Đánh dấu &quot;Phổ biến nhất&quot;</span>
               </label>
             </div>
 

@@ -116,6 +116,15 @@ function QuickTooltip({ content, align = 'left' }: { content: React.ReactNode; a
   );
 }
 
+function getEffectiveRoomStatus(room: any, contractsList: any[] = []) {
+  if (room.status === 'reserved') {
+    const isExpired = room.reserved_until ? new Date(room.reserved_until).getTime() < Date.now() : true;
+    const hasContract = (contractsList || []).some((c: any) => c.room_id === room.id);
+    if (isExpired && !hasContract) return 'available';
+  }
+  return room.status;
+}
+
 export function LandlordDashboardView({
   stats,
   timeframe = 'last_month',
@@ -130,15 +139,6 @@ export function LandlordDashboardView({
     // Tự động gọi API giải phóng các phòng hết hạn khóa tạm 15 phút nếu có
     fetch('/api/rooms/auto-release-expired', { method: 'POST' }).catch(() => {});
   }, []);
-
-  const getEffectiveRoomStatus = (room: any) => {
-    if (room.status === 'reserved') {
-      const isExpired = room.reserved_until ? new Date(room.reserved_until).getTime() < Date.now() : true;
-      const hasContract = (stats.contractsList || []).some((c: any) => c.room_id === room.id);
-      if (isExpired && !hasContract) return 'available';
-    }
-    return room.status;
-  };
 
   const getDaysRemaining = (endDateStr: string) => {
     const diff = new Date(endDateStr).getTime() - new Date().getTime();
@@ -201,7 +201,7 @@ export function LandlordDashboardView({
   const vacantRoomsByArea = useMemo(() => {
     const map: Record<string, number> = {};
     (stats.roomsList || []).forEach((room: any) => {
-      const status = getEffectiveRoomStatus(room);
+      const status = getEffectiveRoomStatus(room, stats.contractsList);
       if (status === 'available') {
         const bld = (stats.buildingsList || []).find((b: any) => b.code === room.building_id || b.id === room.building_id);
         const area = bld?.area || 'Khác';
@@ -211,7 +211,7 @@ export function LandlordDashboardView({
     return Object.entries(map)
       .map(([area, count]) => ({ area, count }))
       .sort((a, b) => b.count - a.count);
-  }, [stats.roomsList, stats.buildingsList]);
+  }, [stats.roomsList, stats.buildingsList, stats.contractsList]);
 
   const grossMoney = stats.grossRevenue || 0;
   const netMoney = stats.netRentRevenue || 0;
