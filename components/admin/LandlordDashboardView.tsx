@@ -282,8 +282,9 @@ export function LandlordDashboardView({
           <div className="flex items-center gap-2 shrink-0">
             <Calendar className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
             <span className="text-xs sm:text-sm font-bold text-ink">Xem theo thời gian:</span>
-            <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md">
-              {activeTimeframeLabel}
+            <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md flex items-center gap-1">
+              <span>{activeTimeframeLabel}</span>
+              {isFetching && <Clock className="h-3 w-3 animate-spin text-white" />}
             </Badge>
           </div>
 
@@ -298,12 +299,13 @@ export function LandlordDashboardView({
             ].map((item) => (
               <button
                 key={item.id}
+                disabled={isFetching}
                 onClick={() => onTimeframeChange?.(item.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 shrink-0 cursor-pointer active:scale-95 ${
                   timeframe === item.id
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
                     : 'bg-white/80 text-ink-muted hover:text-ink hover:bg-white border border-border/80'
-                }`}
+                } ${isFetching ? 'opacity-70 cursor-wait' : ''}`}
               >
                 {item.label}
               </button>
@@ -312,9 +314,10 @@ export function LandlordDashboardView({
             {/* Custom Month Selector Dropdown */}
             <div className="relative shrink-0 ml-1">
               <select
+                disabled={isFetching}
                 value={timeframe.includes('-') ? timeframe : ''}
                 onChange={(e) => e.target.value && onTimeframeChange?.(e.target.value)}
-                className="h-8 rounded-xl border border-emerald-300 bg-white px-2.5 text-xs text-emerald-800 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-xs cursor-pointer"
+                className="h-8 rounded-xl border border-emerald-300 bg-white px-2.5 text-xs text-emerald-800 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-xs cursor-pointer disabled:opacity-70"
               >
                 <option value="" disabled>🗓️ Chọn tháng...</option>
                 <option value="2026-08">Tháng 08/2026</option>
@@ -330,6 +333,17 @@ export function LandlordDashboardView({
           </div>
         </div>
       </Card>
+
+      {/* Floating Loading Toast Banner when fetching */}
+      {isFetching && (
+        <div className="fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 z-[110] bg-slate-900/90 text-white backdrop-blur-md px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2.5 text-xs font-semibold border border-white/10 animate-in fade-in-0 slide-in-from-bottom-4">
+          <Clock className="h-4 w-4 animate-spin text-emerald-400 shrink-0" />
+          <span>Đang tính toán dữ liệu báo cáo <strong>{activeTimeframeLabel}</strong>...</span>
+        </div>
+      )}
+
+      {/* Main Dashboard Grid with Smooth Opacity Fade on Fetching */}
+      <div className={`space-y-4 sm:space-y-6 transition-all duration-300 ${isFetching ? 'opacity-40 grayscale-[20%] pointer-events-none' : 'opacity-100'}`}>
 
       {/* Hero Revenue Kép Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -889,6 +903,7 @@ export function LandlordDashboardView({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
