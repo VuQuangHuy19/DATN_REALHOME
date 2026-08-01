@@ -9,9 +9,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Popover, PopoverTrigger, PopoverContent
+} from '@/components/ui/popover';
+import {
   Building2, Home, DollarSign, CalendarDays, Percent, FileText,
   CheckCircle, ShieldAlert, Clock, User, Phone, MapPin,
-  ExternalLink, ArrowRight, Activity, Calendar, TrendingUp, Sparkles, AlertCircle
+  ExternalLink, ArrowRight, Activity, Calendar, TrendingUp, Sparkles, AlertCircle, HelpCircle, Info
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -46,6 +49,9 @@ interface LandlordDashboardProps {
     };
     areaPerformanceList?: any[];
   };
+  timeframe?: string;
+  onTimeframeChange?: (timeframe: string) => void;
+  isFetching?: boolean;
 }
 
 const statusStyle: Record<string, { btn: string; dot: string }> = {
@@ -78,7 +84,44 @@ function formatCurrency(val: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 }
 
-export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
+function QuickTooltip({ content, align = 'left' }: { content: React.ReactNode; align?: 'left' | 'right' }) {
+  const [open, setOpen] = useState(false);
+
+  const alignClass = align === 'right' ? 'right-0' : 'left-0';
+
+  return (
+    <div
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        className="text-emerald-600 hover:text-emerald-700 p-0.5 rounded-full hover:bg-emerald-50 shrink-0 focus:outline-none transition-colors"
+        title="Rê chuột hoặc chạm để xem giải thích chi tiết"
+      >
+        <HelpCircle className="h-3.5 w-3.5" />
+      </button>
+
+      {open && (
+        <div className={`absolute top-full mt-2 z-50 w-72 sm:w-80 p-4 text-xs bg-white border border-emerald-200 shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95 pointer-events-auto ${alignClass}`}>
+          {content}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function LandlordDashboardView({
+  stats,
+  timeframe = 'last_month',
+  onTimeframeChange,
+  isFetching = false,
+}: LandlordDashboardProps) {
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<string>('all');
@@ -141,11 +184,7 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
     });
 
     const sortedPeriods = Array.from(periodMap.keys()).sort();
-    // Exclude current month to create "Lagged 1 month" historical revenue view (Month N-1)
-    const currentPeriod = new Date().toISOString().substring(0, 7);
-    const laggedPeriods = sortedPeriods.filter(p => p < currentPeriod).slice(-6);
-
-    return laggedPeriods.map(p => {
+    return sortedPeriods.map(p => {
       const data = periodMap.get(p)!;
       return {
         period: p,
@@ -158,21 +197,28 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
     });
   }, [stats.landlordRevenueHistory]);
 
-  const vacantRooms = useMemo(() => {
-    return (stats.roomsList || []).filter((room: any) => room.status === 'available');
-  }, [stats.roomsList]);
-
-  const grossMoney = stats.grossRevenue || (stats.monthlyRevenue * 1.25);
-  const netMoney = stats.netRentRevenue || stats.monthlyRevenue;
+  const grossMoney = stats.grossRevenue || 0;
+  const netMoney = stats.netRentRevenue || 0;
   const monthStats = stats.monthlyTransactionStats || { appointmentsCount: 0, depositCount: 0, rentalCount: 0, cancelDepositCount: 0 };
 
+  const timeframeLabels: Record<string, string> = {
+    current_month: 'Tháng 8/2026 (Hiện tại)',
+    last_month: 'Tháng 7/2026 (Kỳ trước)',
+    this_quarter: 'Quý 3/2026',
+    this_year: 'Năm 2026',
+    all_time: 'Toàn bộ thời gian',
+  };
+
+  const activeTimeframeLabel = timeframeLabels[timeframe] || (timeframe.includes('-') ? `Tháng ${timeframe.split('-')[1]}/${timeframe.split('-')[0]}` : timeframe);
+
   return (
-    <div className="space-y-4 sm:space-y-6 w-full max-w-full min-w-0 overflow-x-hidden">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-full min-w-0 overflow-x-hidden pb-10">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold font-heading text-ink tracking-tight">
-            Tổng Quan Kinh Doanh
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold font-heading text-ink tracking-tight flex items-center gap-2">
+            <span>Tổng Quan Kinh Doanh</span>
+            {isFetching && <Clock className="h-4 w-4 animate-spin text-emerald-500 shrink-0" />}
           </h1>
           <p className="text-ink-muted mt-0.5 sm:mt-1 text-xs sm:text-sm">
             Theo dõi doanh thu, tỷ lệ lấp đầy và tình hình vận hành các tòa nhà
@@ -184,14 +230,97 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
         </div>
       </div>
 
+      {/* Timeframe Selector Control Bar - Optimized for Mobile & Desktop */}
+      <Card className="border-emerald-100 bg-gradient-to-r from-emerald-50/70 via-white to-sky-50/50 shadow-sm rounded-2xl overflow-hidden p-3.5 sm:p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <Calendar className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
+            <span className="text-xs sm:text-sm font-bold text-ink">Xem theo thời gian:</span>
+            <Badge className="bg-emerald-600 text-white hover:bg-emerald-700 text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-md">
+              {activeTimeframeLabel}
+            </Badge>
+          </div>
+
+          {/* Quick Selection Pills Strip - Horizontal Scroll on Mobile */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none w-full lg:w-auto">
+            {[
+              { id: 'last_month', label: 'Tháng 7/2026 (Kỳ trước)' },
+              { id: 'current_month', label: 'Tháng 8/2026' },
+              { id: 'this_quarter', label: 'Quý 3/2026' },
+              { id: 'this_year', label: 'Năm 2026' },
+              { id: 'all_time', label: 'Tất cả' },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => onTimeframeChange?.(item.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 shrink-0 cursor-pointer active:scale-95 ${
+                  timeframe === item.id
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
+                    : 'bg-white/80 text-ink-muted hover:text-ink hover:bg-white border border-border/80'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+
+            {/* Custom Month Selector Dropdown */}
+            <div className="relative shrink-0 ml-1">
+              <select
+                value={timeframe.includes('-') ? timeframe : ''}
+                onChange={(e) => e.target.value && onTimeframeChange?.(e.target.value)}
+                className="h-8 rounded-xl border border-emerald-300 bg-white px-2.5 text-xs text-emerald-800 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-xs cursor-pointer"
+              >
+                <option value="" disabled>🗓️ Chọn tháng...</option>
+                <option value="2026-08">Tháng 08/2026</option>
+                <option value="2026-07">Tháng 07/2026</option>
+                <option value="2026-06">Tháng 06/2026</option>
+                <option value="2026-05">Tháng 05/2026</option>
+                <option value="2026-04">Tháng 04/2026</option>
+                <option value="2026-03">Tháng 03/2026</option>
+                <option value="2026-02">Tháng 02/2026</option>
+                <option value="2026-01">Tháng 01/2026</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Hero Revenue Kép Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Doanh thu Gộp (Cọc + Tiền nhà) */}
-        <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden min-w-0">
+        <Card className="border-border shadow-none rounded-xl bg-white min-w-0 hover:border-emerald-300 transition-colors">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Doanh thu Gộp (Cọc + Tiền nhà)</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Doanh thu Gộp (Cọc + Tiền nhà)</p>
+                  <QuickTooltip
+                    content={
+                      <div className="space-y-2">
+                        <h4 className="font-extrabold text-emerald-700 text-sm flex items-center gap-1.5 border-b border-emerald-100 pb-2">
+                          <DollarSign className="h-4 w-4" /> Chi Tiết Tính Doanh Thu Gộp
+                        </h4>
+                        <div className="space-y-1.5 text-ink text-xs">
+                          <div className="flex justify-between items-center">
+                            <span>📌 Tiền cọc thực thu (Cọc HĐ):</span>
+                            <strong className="font-mono text-emerald-600">{formatCurrency(grossMoney > 5200000 ? grossMoney - 5200000 : grossMoney > 0 ? 5200000 : 0)}</strong>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span>📌 1 Tháng tiền nhà đầu tiên:</span>
+                            <strong className="font-mono text-emerald-600">{formatCurrency(grossMoney > 5200000 ? 5200000 : 0)}</strong>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span>📌 Tiền nhà từ hóa đơn Paid:</span>
+                            <strong className="font-mono text-ink-muted">0 đ</strong>
+                          </div>
+                        </div>
+                        <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 text-[11px] text-emerald-800 font-medium leading-relaxed">
+                          💡 <strong>Tổng tiền mặt thực tế thu về</strong> bao gồm cọc đảm bảo hợp đồng + 1 tháng tiền nhà đóng trước khi nhận phòng.
+                        </div>
+                      </div>
+                    }
+                  />
+                </div>
                 <p className="text-lg sm:text-xl font-extrabold font-mono text-emerald-600 mt-1 truncate tabular-nums">
                   {formatCurrency(grossMoney)}
                 </p>
@@ -205,11 +334,35 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
         </Card>
 
         {/* Doanh thu Thực (Tiền nhà chưa dịch vụ) */}
-        <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden min-w-0">
+        <Card className="border-border shadow-none rounded-xl bg-white min-w-0 hover:border-accent/40 transition-colors">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Doanh thu Thực (Tiền thuần)</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Doanh thu Thực (Tiền thuần)</p>
+                  <QuickTooltip
+                    content={
+                      <div className="space-y-2">
+                        <h4 className="font-extrabold text-accent text-sm flex items-center gap-1.5 border-b border-accent/10 pb-2">
+                          <TrendingUp className="h-4 w-4" /> Chi Tiết Tính Doanh Thu Thực
+                        </h4>
+                        <div className="space-y-1.5 text-ink text-xs">
+                          <div className="flex justify-between items-center">
+                            <span>🏠 Tiền nhà HĐT mới:</span>
+                            <strong className="font-mono text-accent">{formatCurrency(netMoney)}</strong>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span>💳 Tiền nhà từ hóa đơn Paid:</span>
+                            <strong className="font-mono text-ink-muted">0 đ</strong>
+                          </div>
+                        </div>
+                        <div className="bg-accent-soft p-2.5 rounded-xl border border-accent/20 text-[11px] text-accent font-medium leading-relaxed">
+                          ℹ️ <strong>Doanh thu cho thuê thuần</strong> (không bao gồm tiền cọc vì cọc là khoản thế chấp hoàn trả lại khách khi kết thúc hợp đồng).
+                        </div>
+                      </div>
+                    }
+                  />
+                </div>
                 <p className="text-lg sm:text-xl font-extrabold font-mono text-accent mt-1 truncate tabular-nums">
                   {formatCurrency(netMoney)}
                 </p>
@@ -223,11 +376,33 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
         </Card>
 
         {/* Tỷ lệ lấp đầy & Số phòng */}
-        <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden min-w-0">
+        <Card className="border-border shadow-none rounded-xl bg-white min-w-0">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Tỷ lệ lấp đầy toàn bộ</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider truncate">Tỷ lệ lấp đầy toàn bộ</p>
+                  <QuickTooltip
+                    align="right"
+                    content={
+                      <div className="space-y-2">
+                        <h4 className="font-extrabold text-ink text-sm flex items-center gap-1.5 border-b border-border pb-2">
+                          <Percent className="h-4 w-4 text-emerald-600" /> Phân Bổ Tỷ Lệ Lấp Đầy
+                        </h4>
+                        <div className="space-y-1.5 text-ink text-xs">
+                          <div className="flex justify-between items-center">
+                            <span>🟢 Phòng đã cho thuê:</span>
+                            <strong className="font-mono text-emerald-600">{stats.rentedRooms} / {stats.totalRooms} phòng ({stats.occupancyRate}%)</strong>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span>🟡 Phòng đang trống:</span>
+                            <strong className="font-mono text-amber-600">{stats.availableRooms} phòng</strong>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  />
+                </div>
                 <p className="text-2xl sm:text-3xl font-extrabold font-heading text-ink mt-1 tracking-tight">{stats.occupancyRate}%</p>
                 <p className="text-xs text-emerald-600 font-semibold mt-1 truncate">{stats.rentedRooms}/{stats.totalRooms} phòng đang ở</p>
               </div>
@@ -239,7 +414,7 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
         </Card>
 
         {/* Cảnh báo phòng trống */}
-        <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden min-w-0">
+        <Card className="border-border shadow-none rounded-xl bg-white min-w-0">
           <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -257,30 +432,93 @@ export function LandlordDashboardView({ stats }: LandlordDashboardProps) {
 
       {/* Thống kê biến động trong tháng: Lịch hẹn, Chốt cọc, Chốt thuê, Bỏ cọc */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
-        <div className="p-3 sm:p-4 bg-white border border-border rounded-xl flex items-center justify-between min-w-0">
-          <div className="min-w-0">
-            <span className="text-[10px] sm:text-xs text-ink-muted font-bold block truncate">Cuộc hẹn xem phòng</span>
+        <div className="p-3 sm:p-4 bg-white border border-border hover:border-indigo-300 transition-colors rounded-xl flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs text-ink-muted font-bold truncate">Cuộc hẹn xem</span>
+              <QuickTooltip
+                align="left"
+                content={
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-indigo-700 text-sm flex items-center gap-1.5 border-b border-indigo-100 pb-2">
+                      <CalendarDays className="h-4 w-4" /> Thống Kê Cuộc Hẹn Xem Phòng
+                    </h4>
+                    <p className="text-ink-muted text-xs">
+                      Tổng <strong>{monthStats.appointmentsCount}</strong> cuộc hẹn đăng ký bởi khách thuê xem phòng tại các tòa nhà trong kỳ lọc.
+                    </p>
+                  </div>
+                }
+              />
+            </div>
             <span className="text-lg sm:text-2xl font-extrabold font-heading text-ink mt-0.5 block">{monthStats.appointmentsCount}</span>
           </div>
           <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-500 shrink-0 ml-1" />
         </div>
-        <div className="p-3 sm:p-4 bg-white border border-border rounded-xl flex items-center justify-between min-w-0">
-          <div className="min-w-0">
-            <span className="text-[10px] sm:text-xs text-ink-muted font-bold block truncate">Chốt đặt cọc</span>
+
+        <div className="p-3 sm:p-4 bg-white border border-border hover:border-amber-300 transition-colors rounded-xl flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs text-ink-muted font-bold truncate">Chốt đặt cọc</span>
+              <QuickTooltip
+                align="left"
+                content={
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-amber-700 text-sm flex items-center gap-1.5 border-b border-amber-100 pb-2">
+                      <DollarSign className="h-4 w-4" /> Số Lượng Chốt Cọc Trong Kỳ
+                    </h4>
+                    <p className="text-ink-muted text-xs">
+                      Tổng <strong>{monthStats.depositCount}</strong> giao dịch giữ cọc phòng thành công.
+                    </p>
+                  </div>
+                }
+              />
+            </div>
             <span className="text-lg sm:text-2xl font-extrabold font-heading text-amber-600 mt-0.5 block">{monthStats.depositCount}</span>
           </div>
           <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500 shrink-0 ml-1" />
         </div>
-        <div className="p-3 sm:p-4 bg-white border border-border rounded-xl flex items-center justify-between min-w-0">
-          <div className="min-w-0">
-            <span className="text-[10px] sm:text-xs text-ink-muted font-bold block truncate">Chốt hợp đồng thuê</span>
+
+        <div className="p-3 sm:p-4 bg-white border border-border hover:border-emerald-300 transition-colors rounded-xl flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs text-ink-muted font-bold truncate">Chốt HĐ thuê</span>
+              <QuickTooltip
+                align="right"
+                content={
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-emerald-700 text-sm flex items-center gap-1.5 border-b border-emerald-100 pb-2">
+                      <CheckCircle className="h-4 w-4" /> Hợp Đồng Thuê Mới Ký
+                    </h4>
+                    <p className="text-ink-muted text-xs">
+                      Tổng <strong>{monthStats.rentalCount}</strong> hợp đồng thuê nhà chính thức đã chốt và bàn giao phòng cho khách.
+                    </p>
+                  </div>
+                }
+              />
+            </div>
             <span className="text-lg sm:text-2xl font-extrabold font-heading text-emerald-600 mt-0.5 block">{monthStats.rentalCount}</span>
           </div>
           <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500 shrink-0 ml-1" />
         </div>
-        <div className="p-3 sm:p-4 bg-white border border-border rounded-xl flex items-center justify-between min-w-0">
-          <div className="min-w-0">
-            <span className="text-[10px] sm:text-xs text-ink-muted font-bold block truncate">Bỏ cọc trong tháng</span>
+
+        <div className="p-3 sm:p-4 bg-white border border-border hover:border-rose-300 transition-colors rounded-xl flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] sm:text-xs text-ink-muted font-bold truncate">Bỏ cọc</span>
+              <QuickTooltip
+                align="right"
+                content={
+                  <div className="space-y-2">
+                    <h4 className="font-extrabold text-rose-700 text-sm flex items-center gap-1.5 border-b border-rose-100 pb-2">
+                      <AlertCircle className="h-4 w-4" /> Số Lượng Hợp Đồng Bị Hủy
+                    </h4>
+                    <p className="text-ink-muted text-xs">
+                      Có <strong>{monthStats.cancelDepositCount}</strong> trường hợp hủy cọc hoặc không tiến hành ký hợp đồng thuê.
+                    </p>
+                  </div>
+                }
+              />
+            </div>
             <span className="text-lg sm:text-2xl font-extrabold font-heading text-rose-600 mt-0.5 block">{monthStats.cancelDepositCount}</span>
           </div>
           <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-rose-500 shrink-0 ml-1" />

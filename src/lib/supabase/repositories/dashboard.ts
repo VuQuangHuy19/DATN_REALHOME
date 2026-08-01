@@ -1,7 +1,7 @@
 import { supabase } from '../client';
 import { getKPIConfiguration, calculateSaleCommissionInfo } from '@/src/features/staff/services/kpi_configurations';
 
-export async function getDashboardStats(companyId: string, landlordId?: string) {
+export async function getDashboardStats(companyId: string, landlordId?: string, timeframe: string = 'current_month') {
   if (landlordId) {
     let filterLandlordCode = landlordId;
     if (landlordId && landlordId.includes('-')) {
@@ -9,12 +9,70 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       filterLandlordCode = landlord?.code || landlordId;
     }
 
+    // Determine date ranges and period strings according to timeframe filter
+    const now = new Date();
+    let startDateISO = '';
+    let endDateISO = '';
+    let periods: string[] = [];
+    
+    if (timeframe === 'current_month') {
+      const currentPeriod = now.toISOString().substring(0, 7); // 'YYYY-MM'
+      startDateISO = `${currentPeriod}-01T00:00:00.000Z`;
+      const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      endDateISO = `${currentPeriod}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+      periods = [currentPeriod];
+    } else if (timeframe === 'last_month') {
+      const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthPeriod = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+      startDateISO = `${lastMonthPeriod}-01T00:00:00.000Z`;
+      const endMonth = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0);
+      endDateISO = `${lastMonthPeriod}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+      periods = [lastMonthPeriod];
+    } else if (timeframe === 'this_quarter') {
+      const currentMonth = now.getMonth(); // 0-indexed
+      const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+      const quarterStart = new Date(now.getFullYear(), quarterStartMonth, 1);
+      const quarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
+      startDateISO = quarterStart.toISOString();
+      endDateISO = `${quarterEnd.getFullYear()}-${String(quarterEnd.getMonth() + 1).padStart(2, '0')}-${String(quarterEnd.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+      
+      for (let m = 0; m < 3; m++) {
+        const pDate = new Date(now.getFullYear(), quarterStartMonth + m, 1);
+        periods.push(`${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`);
+      }
+    } else if (timeframe === 'this_year') {
+      const year = now.getFullYear();
+      startDateISO = `${year}-01-01T00:00:00.000Z`;
+      endDateISO = `${year}-12-31T23:59:59.999Z`;
+      for (let m = 1; m <= 12; m++) {
+        periods.push(`${year}-${String(m).padStart(2, '0')}`);
+      }
+    } else if (timeframe === 'all_time') {
+      startDateISO = '1970-01-01T00:00:00.000Z';
+      endDateISO = '2099-12-31T23:59:59.999Z';
+      periods = [];
+    } else if (/^\d{4}-\d{2}$/.test(timeframe)) {
+      // Custom YYYY-MM selected
+      const [yStr, mStr] = timeframe.split('-');
+      const customYear = parseInt(yStr, 10);
+      const customMonth = parseInt(mStr, 10);
+      startDateISO = `${timeframe}-01T00:00:00.000Z`;
+      const endMonth = new Date(customYear, customMonth, 0);
+      endDateISO = `${timeframe}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+      periods = [timeframe];
+    } else {
+      const currentPeriod = now.toISOString().substring(0, 7);
+      startDateISO = `${currentPeriod}-01T00:00:00.000Z`;
+      endDateISO = `${currentPeriod}-31T23:59:59.999Z`;
+      periods = [currentPeriod];
+    }
+
     // 1. Fetch landlord's buildings
     const { data: landlordBuildings } = await supabase
       .from('buildings')
       .select('id, name, code, area, address, total_rooms, total_floors')
       .eq('company_id', companyId)
-      .eq('landlord_id', filterLandlordCode);
+      .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
 
     const buildingCodes = (landlordBuildings ?? []).map((b: any) => b.code).filter(Boolean);
 
@@ -124,111 +182,118 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       });
     }
 
-    // 4. Calculate monthly revenue (Gross money = deposit + rent, Net rent = rent only)
-    const currentPeriod = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
+    // 4. Calculate revenue based on selected timeframe
     let landlordRevenue = 0;
     let companyRevenue = 0;
     let totalCollectedAmount = 0;
     let grossRevenue = 0;
     let netRentRevenue = 0;
 
-    if (roomIds.length > 0) {
-      const { data: paidInvoices } = await supabase
-        .from('invoices')
-        .select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id')
-        .eq('company_id', companyId)
-        .eq('status', 'paid')
-        .eq('period', currentPeriod)
-        .in('room_id', roomIds);
-      
-      landlordRevenue = (paidInvoices ?? []).reduce((sum: number, inv: any) => {
-        const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
-          ? Number(inv.landlord_payout_amount)
-          : Number(inv.rent_amount || 0);
-        return sum + payout;
-      }, 0);
-
-      // 1. Tiền nhà từ các hóa đơn đã thanh toán (paid)
-      const paidInvoicesRent = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + Number(inv.rent_amount || 0), 0);
-
-      // 2. Tiền cọc từ HĐDC tạo trong tháng của các phòng thuộc chủ nhà (trừ cancelled)
-      const startOfMonthISO = `${currentPeriod}-01T00:00:00.000Z`;
-      const { data: monthDeposits } = await supabase
-        .from('deposit_contracts')
-        .select('deposit_amount')
-        .eq('company_id', companyId)
-        .in('room_id', roomIds)
-        .gte('created_at', startOfMonthISO)
-        .neq('status', 'cancelled');
-      const depositsSum = (monthDeposits ?? []).reduce((sum: number, d: any) => sum + Number(d.deposit_amount || 0), 0);
-
-      // 3. Tiền cọc từ HĐ Thuê trực tiếp trong tháng của các phòng thuộc chủ nhà (deposit_contract_id IS NULL)
-      const { data: monthDirectRentals } = await supabase
-        .from('rental_contracts')
-        .select('deposit_amount, rent_price, deposit_contract_id')
-        .eq('company_id', companyId)
-        .in('room_id', roomIds)
-        .gte('created_at', startOfMonthISO)
-        .neq('status', 'cancelled');
-
-      const directRentalDepositsSum = (monthDirectRentals ?? [])
-        .filter((r: any) => !r.deposit_contract_id)
-        .reduce((sum: number, r: any) => sum + Number(r.deposit_amount || 0), 0);
-
-      // 4. 1 tháng tiền nhà của các HĐ Thuê mới chốt trong tháng
-      const firstMonthRentSum = (monthDirectRentals ?? [])
-        .reduce((sum: number, r: any) => sum + Number(r.rent_price || 0), 0);
-
-      // Doanh thu gộp = Tiền cọc HĐDC + Tiền cọc HĐT trực tiếp + 1 tháng tiền nhà HĐT mới + Tiền nhà từ hóa đơn paid
-      grossRevenue = depositsSum + directRentalDepositsSum + firstMonthRentSum + paidInvoicesRent;
-
-      // Doanh thu thực = 1 tháng tiền nhà HĐT mới + Tiền nhà từ hóa đơn paid
-      netRentRevenue = firstMonthRentSum + paidInvoicesRent;
-
-      companyRevenue = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
-      totalCollectedAmount = (paidInvoices ?? []).reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
+    // Fetch deposit contracts in timeframe
+    let depQuery = supabase
+      .from('deposit_contracts')
+      .select('id, deposit_amount, created_at, status, room_id')
+      .eq('company_id', companyId)
+      .in('room_id', roomIds);
+    
+    if (timeframe !== 'all_time') {
+      depQuery = depQuery.gte('created_at', startDateISO).lte('created_at', endDateISO);
     }
+    const { data: timeframeDeposits } = await depQuery;
+    const monthlyDepositsList = (timeframeDeposits ?? []) as any[];
 
-    // 5. Fetch appointments & monthly transaction stats
+    // Fetch rental contracts in timeframe
+    let rentQuery = supabase
+      .from('rental_contracts')
+      .select('id, deposit_amount, rent_price, deposit_contract_id, created_at, status, room_id')
+      .eq('company_id', companyId)
+      .in('room_id', roomIds);
+
+    if (timeframe !== 'all_time') {
+      rentQuery = rentQuery.gte('created_at', startDateISO).lte('created_at', endDateISO);
+    }
+    const { data: timeframeRentals } = await rentQuery;
+    const validRentals = ((timeframeRentals ?? []) as any[]).filter((r: any) => r.status !== 'cancelled');
+
+    // Deduplicate deposit contracts that have been converted or belong to a room with an active rental contract
+    const rentalDepositIds = new Set(validRentals.map((r: any) => r.deposit_contract_id).filter(Boolean));
+    const rentalRoomIds = new Set(validRentals.map((r: any) => r.room_id).filter(Boolean));
+
+    const activeStandaloneDeposits = monthlyDepositsList.filter((d: any) => {
+      if (d.status === 'cancelled' || d.status === 'converted' || d.status === 'converted_to_rental') return false;
+      if (rentalDepositIds.has(d.id)) return false;
+      if (d.room_id && rentalRoomIds.has(d.room_id)) return false;
+      return true;
+    });
+
+    const standaloneDepositsSum = activeStandaloneDeposits.reduce((sum: number, d: any) => sum + Number(d.deposit_amount || 0), 0);
+    const rentalDepositsSum = validRentals.reduce((sum: number, r: any) => sum + Number(r.deposit_amount || 0), 0);
+    const totalDepositsSum = standaloneDepositsSum + rentalDepositsSum;
+
+    const firstMonthRentSum = validRentals.reduce((sum: number, r: any) => sum + Number(r.rent_price || 0), 0);
+
+    // Fetch invoices in timeframe
+    let invQuery = supabase
+      .from('invoices')
+      .select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id, period, status')
+      .eq('company_id', companyId)
+      .in('room_id', roomIds);
+
+    if (timeframe !== 'all_time' && periods.length > 0) {
+      invQuery = invQuery.in('period', periods);
+    }
+    const { data: timeframeInvoices } = await invQuery;
+    const paidInvoices = (timeframeInvoices ?? []).filter((inv: any) => inv.status === 'paid');
+
+    landlordRevenue = paidInvoices.reduce((sum: number, inv: any) => {
+      const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
+        ? Number(inv.landlord_payout_amount)
+        : Number(inv.rent_amount || 0);
+      return sum + payout;
+    }, 0);
+
+    const paidInvoicesRent = paidInvoices.reduce((sum: number, inv: any) => sum + Number(inv.rent_amount || 0), 0);
+    companyRevenue = paidInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.management_fee_amount) || 0), 0);
+    totalCollectedAmount = paidInvoices.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
+
+    // Doanh thu gộp = Tổng tiền cọc thực tế (không trùng) + 1 tháng tiền nhà HĐT mới + Tiền nhà từ hóa đơn paid
+    grossRevenue = totalDepositsSum + firstMonthRentSum + paidInvoicesRent;
+
+    // Doanh thu thực = 1 tháng tiền nhà HĐT mới + Tiền nhà từ hóa đơn paid
+    netRentRevenue = firstMonthRentSum + paidInvoicesRent;
+
+    // 5. Fetch appointments & transaction stats in timeframe
     let recentAppointments: any[] = [];
     let appointmentsCountMonth = 0;
-    let depositCountMonth = 0;
-    let rentalCountMonth = 0;
-    let cancelDepositCountMonth = 0;
 
-    const startOfMonthISO = `${currentPeriod}-01T00:00:00.000Z`;
-    if (roomIds.length > 0) {
-      const { data: appts } = await supabase
-        .from('appointments')
-        .select('id, status, customer_name, room_title, date, time')
-        .eq('company_id', companyId)
-        .in('room_id', roomIds)
-        .order('date', { ascending: false });
-      
-      const allAppts = appts ?? [];
-      recentAppointments = allAppts.slice(0, 5);
-      appointmentsCountMonth = allAppts.filter((a: any) => a.date >= `${currentPeriod}-01`).length;
+    const orClauses: string[] = [];
+    if (roomIds.length > 0) orClauses.push(`room_id.in.(${roomIds.join(',')})`);
+    if (buildingCodes.length > 0) orClauses.push(`building_id.in.(${buildingCodes.join(',')})`);
+    orClauses.push(`landlord_id.eq.${filterLandlordCode}`);
+    if (landlordId && landlordId !== filterLandlordCode) orClauses.push(`landlord_id.eq.${landlordId}`);
 
-      const { data: depContracts } = await supabase
-        .from('deposit_contracts')
-        .select('status')
-        .eq('company_id', companyId)
-        .in('room_id', roomIds)
-        .gte('created_at', startOfMonthISO);
-      
-      const deps = depContracts ?? [];
-      depositCountMonth = deps.filter((d: any) => d.status !== 'cancelled').length;
-      cancelDepositCountMonth = deps.filter((d: any) => d.status === 'cancelled').length;
+    const { data: appts } = await supabase
+      .from('appointments')
+      .select('id, status, customer_name, room_title, date, time, building_id, room_id, landlord_id')
+      .eq('company_id', companyId)
+      .or(orClauses.join(','))
+      .order('date', { ascending: false });
+    
+    const allAppts = appts ?? [];
+    recentAppointments = allAppts.slice(0, 5);
 
-      const { data: rentContracts } = await supabase
-        .from('rental_contracts')
-        .select('status')
-        .eq('company_id', companyId)
-        .in('room_id', roomIds)
-        .gte('created_at', startOfMonthISO);
+    const startDateStr = startDateISO.substring(0, 10);
+    const endDateStr = endDateISO.substring(0, 10);
 
-      rentalCountMonth = (rentContracts ?? []).filter((r: any) => r.status !== 'cancelled').length;
+    if (timeframe === 'all_time') {
+      appointmentsCountMonth = allAppts.length;
+    } else {
+      appointmentsCountMonth = allAppts.filter((a: any) => a.date >= startDateStr && a.date <= endDateStr).length;
     }
+
+    const depositCountMonth = activeStandaloneDeposits.length + validRentals.length;
+    const cancelDepositCountMonth = (timeframeDeposits ?? []).filter((d: any) => d.status === 'cancelled').length;
+    const rentalCountMonth = validRentals.length;
 
     // 6. Overdue invoices grouped by building
     let overdueInvoicesGrouped: any[] = [];
@@ -282,13 +347,16 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
       
       let bRevenue = 0;
       if (bRoomIds.length > 0) {
-        const { data: bInvoices } = await supabase
+        let bInvQuery = supabase
           .from('invoices')
           .select('total_amount, rent_amount, landlord_payout_amount')
           .eq('company_id', companyId)
-          .eq('status', 'paid')
-          .eq('period', currentPeriod)
           .in('room_id', bRoomIds);
+
+        if (timeframe !== 'all_time' && periods.length > 0) {
+          bInvQuery = bInvQuery.in('period', periods);
+        }
+        const { data: bInvoices } = await bInvQuery;
         
         bRevenue = (bInvoices ?? []).reduce((sum: number, inv: any) => {
           const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
@@ -323,7 +391,6 @@ export async function getDashboardStats(companyId: string, landlordId?: string) 
         .from('invoices')
         .select('period, rent_amount, electricity_amount, water_amount, service_amount, total_amount, status')
         .eq('company_id', companyId)
-        .eq('status', 'paid')
         .in('room_id', roomIds)
         .order('period', { ascending: true });
       landlordRevenueHistory = invoiceHistory ?? [];
