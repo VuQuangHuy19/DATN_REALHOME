@@ -40,7 +40,7 @@ export async function POST(request: Request) {
         .select('*', { count: 'exact', head: true })
         .eq('company_id', company_id)
         .eq('is_active', true)
-        .in('role', ['company_admin', 'manager', 'sales_agent']);
+        .in('role', ['company_admin', 'manager', 'sales_agent', 'employee']);
 
       if (countError) throw countError;
 

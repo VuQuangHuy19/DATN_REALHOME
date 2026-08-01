@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email, phone, role')
+      .select('id, full_name, email, phone, role, is_active')
       .eq('company_id', companyId)
       .order('full_name', { ascending: true });
 

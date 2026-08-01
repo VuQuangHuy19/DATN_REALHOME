@@ -84,50 +84,106 @@ export async function POST(request: Request) {
 
     if (updateInvoiceErr) throw updateInvoiceErr;
 
-    // 4. Hủy active của các gói cũ của công ty này
-    await supabaseAdmin
-      .from('subscriptions')
-      .update({ status: 'expired', updated_at: now.toISOString() })
-      .eq('company_id', invoice.company_id)
-      .eq('status', 'active');
+    const isAddon = (invoice.plan && invoice.plan.endsWith('_addon')) || (invoice.invoice_code && invoice.invoice_code.startsWith('INV-ADDON-'));
 
-    // 5. Tạo bản ghi gói đăng ký mới trong bảng subscriptions
-    const pricePerMonth = PLAN_PRICES[invoice.plan] || 0;
-    const { data: subscription, error: subErr } = await supabaseAdmin
-      .from('subscriptions')
-      .insert({
-        company_id: invoice.company_id,
-        plan: invoice.plan,
-        status: 'active',
-        seats: invoice.seats,
-        price_per_month: pricePerMonth,
-        starts_at: invoice.billing_period_start,
-        ends_at: invoice.billing_period_end,
-      })
-      .select()
-      .single();
+    if (isAddon) {
+      // Mua thêm seats cho gói hiện tại: cộng dồn seats vào gói đang active
+      const { data: activeSub } = await supabaseAdmin
+        .from('subscriptions')
+        .select('*')
+        .eq('company_id', invoice.company_id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (subErr) throw subErr;
+      if (activeSub) {
+        const newSeats = (activeSub.seats || 0) + (invoice.seats || 0);
+        await supabaseAdmin
+          .from('subscriptions')
+          .update({ seats: newSeats, updated_at: now.toISOString() })
+          .eq('id', activeSub.id);
 
-    // Cập nhật subscription_id ngược lại hóa đơn
-    await supabaseAdmin
-      .from('saas_invoices')
-      .update({ subscription_id: subscription.id })
-      .eq('id', invoice.id);
+        await supabaseAdmin
+          .from('saas_invoices')
+          .update({ subscription_id: activeSub.id })
+          .eq('id', invoice.id);
+      } else {
+        // Nếu công ty chưa có sub active, tạo mới
+        const basePlan = invoice.plan.replace('_addon', '');
+        const { data: subscription } = await supabaseAdmin
+          .from('subscriptions')
+          .insert({
+            company_id: invoice.company_id,
+            plan: basePlan,
+            status: 'active',
+            seats: invoice.seats,
+            price_per_month: invoice.amount,
+            starts_at: invoice.billing_period_start,
+            ends_at: invoice.billing_period_end,
+          })
+          .select()
+          .single();
 
-    // 6. Cập nhật trạng thái và gói dịch vụ của công ty thành active
-    const { error: companyErr } = await supabaseAdmin
-      .from('companies')
-      .update({
-        status: 'active',
-        plan: invoice.plan,
-        updated_at: now.toISOString(),
-      })
-      .eq('id', invoice.company_id);
+        if (subscription) {
+          await supabaseAdmin
+            .from('saas_invoices')
+            .update({ subscription_id: subscription.id })
+            .eq('id', invoice.id);
+        }
+      }
 
-    if (companyErr) throw companyErr;
+      await supabaseAdmin
+        .from('companies')
+        .update({ status: 'active', updated_at: now.toISOString() })
+        .eq('id', invoice.company_id);
 
-    console.log(`[Thành công] Công ty ${invoice.company_id} đã được kích hoạt/gia hạn gói ${invoice.plan} (${invoice.seats} seats).`);
+      console.log(`[Thành công] Công ty ${invoice.company_id} đã được cộng thêm ${invoice.seats} seats lẻ.`);
+    } else {
+      // Hủy active của các gói cũ của công ty này
+      await supabaseAdmin
+        .from('subscriptions')
+        .update({ status: 'expired', updated_at: now.toISOString() })
+        .eq('company_id', invoice.company_id)
+        .eq('status', 'active');
+
+      // Tạo bản ghi gói đăng ký mới trong bảng subscriptions
+      const { data: subscription, error: subErr } = await supabaseAdmin
+        .from('subscriptions')
+        .insert({
+          company_id: invoice.company_id,
+          plan: invoice.plan,
+          status: 'active',
+          seats: invoice.seats,
+          price_per_month: invoice.amount,
+          starts_at: invoice.billing_period_start,
+          ends_at: invoice.billing_period_end,
+        })
+        .select()
+        .single();
+
+      if (subErr) throw subErr;
+
+      // Cập nhật subscription_id ngược lại hóa đơn
+      await supabaseAdmin
+        .from('saas_invoices')
+        .update({ subscription_id: subscription.id })
+        .eq('id', invoice.id);
+
+      // Cập nhật trạng thái và gói dịch vụ của công ty thành active
+      const { error: companyErr } = await supabaseAdmin
+        .from('companies')
+        .update({
+          status: 'active',
+          plan: invoice.plan,
+          updated_at: now.toISOString(),
+        })
+        .eq('id', invoice.company_id);
+
+      if (companyErr) throw companyErr;
+
+      console.log(`[Thành công] Công ty ${invoice.company_id} đã được kích hoạt/gia hạn gói ${invoice.plan} (${invoice.seats} seats).`);
+    }
 
     return NextResponse.json({ success: true, message: 'Xử lý kích hoạt gói dịch vụ thành công' });
   } catch (err: any) {

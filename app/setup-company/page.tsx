@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Building2, Phone, MapPin, User, ArrowRight, CheckCircle2,
+  Building2, Phone, MapPin, User, Users, ArrowRight, ArrowLeft, CheckCircle2,
   Sparkles, Shield, Zap, Clock, Loader2, ChevronRight,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
@@ -12,59 +12,101 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth/AuthContext';
 
-const PLANS = [
-  {
-    key: 'starter',
-    name: 'Starter',
-    price: 0,
-    priceLabel: 'Miễn phí',
-    desc: 'Dùng thử 14 ngày không giới hạn. Phù hợp để trải nghiệm.',
-    icon: Zap,
-    color: 'from-sky-400 to-blue-500',
-    features: ['1 tòa nhà', 'Tối đa 5 tài khoản nhân viên', 'Quản lý phòng & hợp đồng', 'Hóa đơn tự động'],
-    highlight: false,
-  },
-  {
-    key: 'professional',
-    name: 'Professional',
-    price: 150000,
-    priceLabel: '150.000đ/user/tháng',
-    desc: 'Giải pháp tối ưu cho doanh nghiệp BĐS chuyên nghiệp.',
-    icon: Shield,
-    color: 'from-indigo-500 to-violet-600',
-    features: ['Không giới hạn tòa nhà', 'Không giới hạn nhân viên', 'CRM Lead & Lịch hẹn', 'AI Assistant (Gemini)', 'Tách doanh thu Chủ nhà', 'Xuất PDF & báo cáo'],
-    highlight: true,
-  },
-  {
-    key: 'enterprise',
-    name: 'Enterprise',
-    price: 300000,
-    priceLabel: '300.000đ/user/tháng',
-    desc: 'Đầy đủ tính năng cao cấp cho tập đoàn & chuỗi CHDV lớn.',
-    icon: Sparkles,
-    color: 'from-amber-500 to-orange-600',
-    features: ['Tất cả tính năng Professional', 'Multi-domain riêng', 'SLA 99.9% & hỗ trợ ưu tiên', 'Tùy chỉnh theme & logo'],
-    highlight: false,
-  },
-];
+const PLAN_METADATA: Record<string, { icon: any; color: string }> = {
+  starter: { icon: Zap, color: 'from-sky-400 to-blue-500' },
+  professional: { icon: Shield, color: 'from-indigo-500 to-violet-600' },
+  enterprise: { icon: Sparkles, color: 'from-amber-500 to-orange-600' },
+};
 
 export default function SetupCompanyPage() {
   const router = useRouter();
+  const { profile, user } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('professional');
+  const [selectedSeats, setSelectedSeats] = useState<number | ''>(20);
+
+  const [plansList, setPlansList] = useState<any[]>([
+    {
+      id: 'starter',
+      name: 'Starter',
+      price: 500000,
+      seats: 5,
+      extra_seat_price: 50000,
+      description: 'Phù hợp cho công ty nhỏ mới gia nhập thị trường.',
+      popular: false,
+      features: ['1 tòa nhà', 'Tối đa 5 tài khoản nhân viên (Seats)', 'Quản lý phòng & hợp đồng', 'Hóa đơn tự động'],
+    },
+    {
+      id: 'professional',
+      name: 'Professional',
+      price: 2000000,
+      seats: 20,
+      extra_seat_price: 100000,
+      description: 'Giải pháp tối ưu cho doanh nghiệp BĐS chuyên nghiệp.',
+      popular: true,
+      features: ['Không giới hạn tòa nhà', 'Bao gồm 20 tài khoản nhân viên (Seats)', 'CRM Lead & Lịch hẹn', 'AI Assistant (Gemini)', 'Tách doanh thu Chủ nhà', 'Xuất PDF & báo cáo'],
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise',
+      price: 5000000,
+      seats: 999,
+      extra_seat_price: 0,
+      description: 'Đầy đủ tính năng cao cấp cho tập đoàn & chuỗi CHDV lớn.',
+      popular: false,
+      features: ['Tất cả tính năng Professional', 'Không giới hạn tài khoản nhân viên', 'Multi-company & multi-domain', 'SLA 99.9% & hỗ trợ ưu tiên', 'Tùy chỉnh theme & logo'],
+    },
+  ]);
+
+  // Đồng bộ danh sách gói cước từ DB/API /api/plans
+  useEffect(() => {
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(data => {
+        if (data.plans && data.plans.length > 0) {
+          setPlansList(data.plans);
+        }
+      })
+      .catch(err => console.error('Lỗi tải danh sách gói SaaS:', err));
+  }, []);
 
   const [form, setForm] = useState({
-    owner_name: '',
+    owner_name: profile?.full_name || user?.user_metadata?.full_name || '',
     company_name: '',
-    company_phone: '',
+    company_phone: profile?.phone || user?.phone || '',
     company_address: '',
   });
+
+  // Tự động điền dữ liệu người dùng khi thông tin session profile sẵn sàng từ DB
+  useEffect(() => {
+    if (profile || user) {
+      const ownerName = profile?.full_name || user?.user_metadata?.full_name || '';
+      const phoneNum = profile?.phone || user?.phone || user?.user_metadata?.phone || '';
+
+      setForm(prev => ({
+        ...prev,
+        owner_name: prev.owner_name || ownerName,
+        company_phone: prev.company_phone || phoneNum,
+      }));
+    }
+  }, [profile, user]);
 
   const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
+
+  // Tính cước phí động dựa vào Gói được chọn + Số Seats mua thêm
+  const selectedPlanObj = plansList.find(p => p.id === selectedPlan) || plansList[1] || plansList[0];
+  const basePrice = Number(selectedPlanObj?.price) || 0;
+  const baseSeats = Number(selectedPlanObj?.seats) || 5;
+  const extraSeatPrice = Number(selectedPlanObj?.extra_seat_price) || 0;
+  const numericSeats = selectedSeats === '' ? baseSeats : Number(selectedSeats);
+  const extraSeatsCount = Math.max(0, numericSeats - baseSeats);
+  const extraPriceTotal = extraSeatsCount * extraSeatPrice;
+  const monthlyPriceTotal = basePrice + extraPriceTotal;
 
   const handleSubmit = async () => {
     if (!form.owner_name.trim() || !form.company_name.trim() || !form.company_phone.trim()) {
@@ -92,11 +134,11 @@ export default function SetupCompanyPage() {
 
       toast.success(`🎉 ${data.message}`);
 
-      // Nếu chọn gói trả phí → chuyển sang thanh toán, nếu starter → vào admin luôn
-      if (selectedPlan === 'starter') {
+      // Chuyển sang trang thanh toán kèm gói và số seats đã đăng ký
+      if (selectedPlan === 'starter' && monthlyPriceTotal === 0) {
         router.push('/admin');
       } else {
-        router.push(`/admin/system/billing?plan=${selectedPlan}&from=setup`);
+        router.push(`/admin/system/billing?plan=${selectedPlan}&seats=${numericSeats}&from=setup`);
       }
     } catch (err: any) {
       toast.error(err.message);
@@ -106,7 +148,16 @@ export default function SetupCompanyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
+      {/* Top Left Floating Back Button */}
+      <Link
+        href="/customer/properties"
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-30 inline-flex items-center justify-center bg-slate-900/90 hover:bg-black text-white border border-white/30 hover:border-white/60 rounded-full px-4 py-2 sm:px-6 sm:py-2.5 text-xs sm:text-sm font-extrabold shadow-xl backdrop-blur-md transition-all hover:scale-105 group"
+      >
+        <ArrowLeft className="h-4 w-4 sm:h-4.5 sm:w-4.5 mr-1.5 sm:mr-2 text-amber-400 group-hover:-translate-x-1 transition-transform" />
+        <span className="text-white">Quay lại</span>
+      </Link>
+
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl" />
@@ -200,7 +251,15 @@ export default function SetupCompanyPage() {
               </div>
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <div className="mt-8 flex justify-between items-center">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/customer/properties')}
+                className="border-white/20 text-slate-300 hover:bg-white/10 hover:text-white rounded-xl h-12 px-6 font-semibold"
+              >
+                ← Quay lại
+              </Button>
+
               <Button
                 onClick={() => {
                   if (!form.owner_name.trim() || !form.company_name.trim() || !form.company_phone.trim()) {
@@ -227,35 +286,46 @@ export default function SetupCompanyPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {PLANS.map(plan => {
-                const Icon = plan.icon;
-                const isSelected = selectedPlan === plan.key;
+              {plansList.map((plan: any) => {
+                const meta = PLAN_METADATA[plan.id] || { icon: Shield, color: 'from-indigo-500 to-violet-600' };
+                const Icon = meta.icon;
+                const isSelected = selectedPlan === plan.id;
+                const formattedPrice = plan.price === 0 ? 'Miễn phí' : `${plan.price.toLocaleString('vi-VN')}đ/tháng`;
+                const seatsText = plan.seats >= 999 ? 'Không giới hạn seats' : `Bao gồm ${plan.seats} seats`;
+                const extraSeatsText = plan.extra_seat_price > 0 ? ` (Mua thêm: ${plan.extra_seat_price.toLocaleString('vi-VN')}đ/seat/tháng)` : '';
+
                 return (
                   <div
-                    key={plan.key}
-                    onClick={() => setSelectedPlan(plan.key)}
+                    key={plan.id}
+                    onClick={() => {
+                      setSelectedPlan(plan.id);
+                      if (selectedSeats < (plan.seats || 1)) {
+                        setSelectedSeats(plan.seats || 1);
+                      }
+                    }}
                     className={`relative cursor-pointer rounded-2xl border-2 p-6 transition-all duration-200 ${
                       isSelected
                         ? 'border-indigo-500 bg-indigo-500/10 shadow-xl shadow-indigo-900/30 scale-[1.02]'
                         : 'border-white/10 bg-white/5 hover:border-white/25 hover:bg-white/10'
                     }`}
                   >
-                    {plan.highlight && (
+                    {plan.popular && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-md whitespace-nowrap">
                         ⭐ Phổ biến nhất
                       </div>
                     )}
 
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center mb-4 shadow-md`}>
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center mb-4 shadow-md`}>
                       <Icon className="h-5 w-5 text-white" />
                     </div>
 
                     <h3 className="text-lg font-black text-white mb-1">{plan.name}</h3>
-                    <p className="text-indigo-300 font-bold text-sm mb-3">{plan.priceLabel}</p>
-                    <p className="text-slate-400 text-xs leading-relaxed mb-5">{plan.desc}</p>
+                    <p className="text-indigo-300 font-bold text-sm mb-1">{formattedPrice}</p>
+                    <p className="text-emerald-400 font-semibold text-xs leading-relaxed mb-3">{seatsText}{extraSeatsText}</p>
+                    <p className="text-slate-400 text-xs leading-relaxed mb-5">{plan.description}</p>
 
                     <ul className="space-y-2">
-                      {plan.features.map(f => (
+                      {(plan.features || []).map((f: string) => (
                         <li key={f} className="flex items-start gap-2 text-xs text-slate-300">
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
                           {f}
@@ -274,11 +344,59 @@ export default function SetupCompanyPage() {
               })}
             </div>
 
+            {/* Custom Seats Input Box */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Users className="h-4 w-4 text-indigo-400 flex-shrink-0" />
+                    Số lượng tài khoản nhân viên (Seats) đăng ký
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    Gói <strong>{selectedPlanObj.name}</strong> bao gồm sẵn <strong>{baseSeats >= 999 ? 'Không giới hạn' : `${baseSeats} seats`}</strong>. Bạn có thể nhập thêm số seats mua kèm ngay từ đầu.
+                  </p>
+                </div>
+
+                {baseSeats < 999 && (
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Input
+                      type="number"
+                      value={selectedSeats}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setSelectedSeats('');
+                        } else {
+                          setSelectedSeats(parseInt(val, 10) || 0);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (selectedSeats === '' || Number(selectedSeats) < baseSeats) {
+                          setSelectedSeats(baseSeats);
+                        }
+                      }}
+                      className="w-28 bg-white/10 border-white/20 text-white font-bold rounded-xl h-11 text-center font-mono focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs text-slate-300 font-semibold whitespace-nowrap">tài khoản</span>
+                  </div>
+                )}
+              </div>
+
+              {extraSeatsCount > 0 && (
+                <div className="pt-2.5 border-t border-white/10 flex justify-between items-center text-xs">
+                  <span className="text-indigo-300 font-semibold">
+                    Mua thêm {extraSeatsCount} seats lẻ ({extraSeatsCount} × {extraSeatPrice.toLocaleString('vi-VN')}đ/tháng):
+                  </span>
+                  <span className="text-amber-400 font-bold font-mono whitespace-nowrap">+{extraPriceTotal.toLocaleString('vi-VN')}đ / tháng</span>
+                </div>
+              )}
+            </div>
+
             {selectedPlan !== 'starter' && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3">
                 <Clock className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
                 <p className="text-amber-200 text-sm">
-                  Bạn sẽ được khởi tạo công ty với <strong>14 ngày dùng thử miễn phí</strong> và chuyển sang trang thanh toán để kích hoạt gói <strong>{PLANS.find(p => p.key === selectedPlan)?.name}</strong> ngay sau khi hoàn tất.
+                  Bạn sẽ được khởi tạo công ty với <strong>14 ngày dùng thử miễn phí</strong> và chuyển sang trang thanh toán để kích hoạt gói <strong>{selectedPlanObj.name} ({numericSeats} seats - {monthlyPriceTotal.toLocaleString('vi-VN')}đ/tháng)</strong> ngay sau khi hoàn tất.
                 </p>
               </div>
             )}

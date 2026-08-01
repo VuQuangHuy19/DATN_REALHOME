@@ -297,11 +297,17 @@ export default function LoginPage() {
             </div>
 
             {/* Register Link */}
-            <div className="text-center pt-3">
+            <div className="text-center pt-3 space-y-2">
               <p className="text-sm text-slate-200 font-medium">
                 Chưa có tài khoản?{' '}
                 <Link href="/register" className="text-amber-400 hover:text-amber-300 font-extrabold underline text-sm sm:text-base ml-1">
-                  Đăng ký ngay
+                  Đăng ký cá nhân
+                </Link>
+              </p>
+              <p className="text-xs text-slate-300">
+                Bạn là Chủ doanh nghiệp?{' '}
+                <Link href="/setup-company" className="text-indigo-300 hover:text-indigo-200 font-bold underline ml-1">
+                  Đăng ký & Thiết lập Doanh nghiệp BĐS mới →
                 </Link>
               </p>
             </div>

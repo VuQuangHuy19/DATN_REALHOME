@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,6 +81,7 @@ const PLAN_INFO: Record<string, { name: string; price: number; desc: string; col
 };
 
 export default function BillingPage() {
+  const searchParams = useSearchParams();
   const { role } = useAuth();
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -89,8 +91,15 @@ export default function BillingPage() {
   const [activeUserCount, setActiveUserCount] = useState(0);
 
   // Form states
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'professional' | 'enterprise'>('professional');
-  const [selectedSeats, setSelectedSeats] = useState<number>(5);
+  const [checkoutTab, setCheckoutTab] = useState<'renew' | 'add_seats'>('renew');
+  const [plansList, setPlansList] = useState<any[]>([
+    { id: 'starter', name: 'Starter', price: 500000, seats: 5, extra_seat_price: 50000, description: 'Dành cho các đội nhóm nhỏ mới bắt đầu' },
+    { id: 'professional', name: 'Professional', price: 2000000, seats: 20, extra_seat_price: 100000, description: 'Giải pháp tối ưu cho doanh nghiệp' },
+    { id: 'enterprise', name: 'Enterprise', price: 5000000, seats: 999, extra_seat_price: 0, description: 'Đầy đủ tính năng cao cấp cho tập đoàn lớn' },
+  ]);
+  const [selectedPlan, setSelectedPlan] = useState<string>('professional');
+  const [selectedSeats, setSelectedSeats] = useState<number | ''>(20);
+  const [addonSeatsToAdd, setAddonSeatsToAdd] = useState<number | ''>(5);
   const [selectedMonths, setSelectedMonths] = useState<number>(3);
 
   // Modal Payment States
@@ -103,6 +112,20 @@ export default function BillingPage() {
   const fetchBillingData = async () => {
     try {
       setLoading(true);
+
+      // Fetch dynamic plans configuration
+      try {
+        const plansRes = await fetch('/api/plans');
+        if (plansRes.ok) {
+          const plansData = await plansRes.json();
+          if (plansData.plans && Array.isArray(plansData.plans) && plansData.plans.length > 0) {
+            setPlansList(plansData.plans);
+          }
+        }
+      } catch (e) {
+        console.error('Lỗi khi tải bảng giá từ /api/plans:', e);
+      }
+
       // 1. Get session user and company from auth session endpoint
       const res = await fetch('/api/auth/session');
       const sessionData = await res.json();
@@ -131,7 +154,7 @@ export default function BillingPage() {
 
       if (subs && subs.length > 0) {
         setActiveSub(subs[0]);
-        setSelectedPlan(subs[0].plan as any);
+        setSelectedPlan(subs[0].plan);
         setSelectedSeats(subs[0].seats);
       }
 
@@ -143,15 +166,41 @@ export default function BillingPage() {
         .order('created_at', { ascending: false });
       setInvoices(invs || []);
 
-      // 5. Fetch count of active users (only count employee roles: company_admin, manager, sales_agent)
-      const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-        .eq('is_active', true)
-        .in('role', ['company_admin', 'manager', 'sales_agent']);
-      setActiveUserCount(count || 0);
+      // 5. Fetch count of active company staff (only count employee/staff roles: company_admin, manager, sales_agent, employee; excluding landlords)
+      let activeCount = 0;
+      try {
+        const token = localStorage.getItem('bds_auth_token');
+        const profRes = await fetch(`/api/profiles?company_id=${companyId}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (profRes.ok) {
+          const profList = await profRes.json();
+          if (Array.isArray(profList)) {
+            const activeStaff = profList.filter((p: any) =>
+              p.is_active !== false &&
+              ['company_admin', 'manager', 'sales_agent', 'employee'].includes(p.role)
+            );
+            activeCount = activeStaff.length;
+          }
+        }
+      } catch (e) {
+        console.error('Lỗi khi lấy số tài khoản nhân sự từ API:', e);
+      }
 
+      // Fallback to client query if API didn't return count
+      if (activeCount === 0) {
+        const { count } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .eq('is_active', true)
+          .in('role', ['company_admin', 'manager', 'sales_agent', 'employee']);
+        if (count && count > 0) {
+          activeCount = count;
+        }
+      }
+
+      setActiveUserCount(activeCount);
     } catch (err: any) {
       toast.error('Không thể tải thông tin thanh toán: ' + err.message);
     } finally {
@@ -212,27 +261,46 @@ export default function BillingPage() {
   };
 
   const handleCheckout = async () => {
-    if (selectedSeats < activeUserCount) {
-      toast.error(`Bạn có ${activeUserCount} tài khoản đang hoạt động. Số lượng seats đăng ký mới không được nhỏ hơn ${activeUserCount}.`);
-      return;
-    }
-
     setCheckoutLoading(true);
     try {
-      // Get jwt token for api authentication
       const token = localStorage.getItem('bds_auth_token');
-      
+      let payload: any = {};
+
+      if (checkoutTab === 'add_seats') {
+        const addonSeatsNum = addonSeatsToAdd === '' ? 0 : Number(addonSeatsToAdd);
+        if (addonSeatsNum < 1) {
+          toast.error('Vui lòng nhập số lượng seats mua thêm tối thiểu từ 1.');
+          setCheckoutLoading(false);
+          return;
+        }
+        payload = {
+          checkout_type: 'add_seats',
+          plan: activeSub?.plan || company?.plan || 'professional',
+          seats: addonSeatsNum,
+          months: selectedMonths
+        };
+      } else {
+        const numericSeats = selectedSeats === '' ? 0 : Number(selectedSeats);
+        if (numericSeats < activeUserCount) {
+          toast.error(`Bạn có ${activeUserCount} tài khoản đang hoạt động. Số lượng seats đăng ký mới không được nhỏ hơn ${activeUserCount}.`);
+          setCheckoutLoading(false);
+          return;
+        }
+        payload = {
+          checkout_type: 'renew',
+          plan: selectedPlan,
+          seats: numericSeats,
+          months: selectedMonths
+        };
+      }
+
       const response = await fetch('/api/subscriptions/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          plan: selectedPlan,
-          seats: selectedSeats,
-          months: selectedMonths
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -241,7 +309,7 @@ export default function BillingPage() {
       }
 
       if (data.instantActive) {
-        toast.success('Đã kích hoạt gói dịch vụ Starter thành công!');
+        toast.success('Đã kích hoạt dịch vụ thành công!');
         fetchBillingData();
       } else if (data.paymentUrl) {
         setActivePaymentUrl(data.paymentUrl);
@@ -283,9 +351,37 @@ export default function BillingPage() {
     }
   };
 
-  // Calculations
-  const unitPrice = PLAN_INFO[selectedPlan]?.price || 0;
-  const totalPrice = unitPrice * selectedSeats * selectedMonths;
+  // Dynamic calculations according to Plan + Add-on Seats model (Tab 1)
+  const currentPlanObj = plansList.find((p) => p.id === selectedPlan) || plansList[0] || {
+    name: 'Professional',
+    price: 2000000,
+    seats: 20,
+    extra_seat_price: 100000,
+  };
+
+  const basePrice = currentPlanObj.price || 0;
+  const baseSeats = currentPlanObj.seats || 5;
+  const extraSeatPrice = currentPlanObj.extra_seat_price || 0;
+  const numericSeats = selectedSeats === '' ? 0 : Number(selectedSeats);
+  const extraSeats = Math.max(0, numericSeats - baseSeats);
+  const extraPriceTotal = extraSeats * extraSeatPrice;
+  const monthlyPrice = basePrice + extraPriceTotal;
+  const totalPrice = monthlyPrice * selectedMonths;
+
+  // Dynamic calculations for Tab 2 (Mua thêm Seats lẻ)
+  const activePlanId = activeSub?.plan || company?.plan || 'professional';
+  const activePlanObj = plansList.find((p) => p.id === activePlanId) || plansList[0] || {
+    name: 'Professional',
+    price: 2000000,
+    seats: 20,
+    extra_seat_price: 100000,
+  };
+  const addonUnitPrice = activePlanObj.extra_seat_price || 100000;
+  const numericAddonSeats = addonSeatsToAdd === '' ? 0 : Number(addonSeatsToAdd);
+  const addonMonthlyPrice = numericAddonSeats * addonUnitPrice;
+  const addonTotalPrice = addonMonthlyPrice * selectedMonths;
+  const currentTotalSeats = activeSub?.seats || activePlanObj.seats || 20;
+  const newTotalSeatsAfterAddon = currentTotalSeats + numericAddonSeats;
 
   if (role === 'sales_agent') {
     return (
@@ -358,7 +454,7 @@ export default function BillingPage() {
                     <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">Gói hiện tại</span>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-lg font-bold capitalize text-ink">
-                        {PLAN_INFO[activeSub?.plan || company?.plan || 'starter']?.name}
+                        {currentPlanObj?.name || activeSub?.plan || company?.plan || 'Starter'}
                       </span>
                     </div>
                   </div>
@@ -432,7 +528,7 @@ export default function BillingPage() {
                     {invoices.map((inv) => (
                       <TableRow key={inv.id}>
                         <TableCell className="font-mono text-xs text-ink font-semibold">{inv.invoice_code}</TableCell>
-                        <TableCell className="capitalize font-medium text-ink">{PLAN_INFO[inv.plan]?.name}</TableCell>
+                        <TableCell className="capitalize font-medium text-ink">{inv.plan}</TableCell>
                         <TableCell className="text-ink">{inv.seats} seats</TableCell>
                         <TableCell className="font-semibold text-ink">{inv.amount.toLocaleString('vi-VN')}đ</TableCell>
                         <TableCell>{getInvoiceStatusBadge(inv.status)}</TableCell>
@@ -468,124 +564,302 @@ export default function BillingPage() {
         {/* Right Column: Checkout Form */}
         <div className="space-y-8">
           <Card className="border-2 border-indigo-600/30 shadow-md rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-indigo-600/5 border-b border-indigo-100 p-6">
-              <div className="flex items-center gap-2 text-indigo-600">
-                <Sparkles className="h-5 w-5 fill-indigo-600/20" />
-                <CardTitle className="text-base font-bold">Gia hạn / Nâng cấp gói</CardTitle>
-              </div>
-              <CardDescription className="text-xs text-indigo-900/60 mt-1">Chọn gói dịch vụ phù hợp để tối ưu quản lý vận hành.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Plan Selector */}
-              <div className="space-y-2">
-                <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">1. Chọn gói dịch vụ</span>
-                <div className="grid grid-cols-1 gap-2.5">
-                  {Object.entries(PLAN_INFO).map(([key, info]) => (
-                    <div
-                      key={key}
-                      onClick={() => setSelectedPlan(key as any)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                        selectedPlan === key
-                          ? 'border-indigo-600 bg-indigo-50/40 shadow-sm'
-                          : 'border-border hover:border-indigo-200 hover:bg-bg-subtle/50'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-ink text-sm">{info.name}</span>
-                        <span className="text-xs font-bold text-indigo-600">
-                          {info.price === 0 ? 'Miễn phí' : `${info.price.toLocaleString('vi-VN')}đ/user/tháng`}
-                        </span>
-                      </div>
-                      <p className="text-xs text-ink-muted mt-1 leading-relaxed">{info.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Seat Count Input */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">2. Số tài khoản (Seats)</span>
-                  <span className="text-xs text-indigo-600 font-bold">Hiện hoạt động: {activeUserCount}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    min={Math.max(1, activeUserCount)}
-                    value={selectedSeats}
-                    onChange={(e) => setSelectedSeats(Math.max(1, Number(e.target.value)))}
-                    className="rounded-xl border-border focus:ring-indigo-500 font-semibold"
-                  />
-                  <span className="text-sm font-semibold text-ink-muted">tài khoản</span>
-                </div>
-                {selectedSeats < activeUserCount && (
-                  <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
-                    <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
-                    Không được nhỏ hơn {activeUserCount} tài khoản hiện đang active.
-                  </p>
-                )}
-              </div>
-
-              {/* Months Selector */}
-              <div className="space-y-2">
-                <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">3. Thời gian gia hạn</span>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 3, 6, 12].map((m) => (
-                    <Button
-                      key={m}
-                      variant={selectedMonths === m ? 'default' : 'outline'}
-                      onClick={() => setSelectedMonths(m)}
-                      className={`rounded-xl text-xs font-semibold ${
-                        selectedMonths === m
-                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                          : 'border-border text-ink-muted hover:bg-bg-subtle'
-                      }`}
-                    >
-                      {m} T
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price Calculation Card */}
-              <div className="border border-border rounded-2xl p-5 bg-bg-subtle space-y-4">
-                <h4 className="text-xs text-ink font-bold uppercase tracking-wider flex items-center gap-1.5">
-                  <Package className="h-4 w-4 text-indigo-600" /> Chi tiết đơn hàng
-                </h4>
-                <div className="text-xs space-y-2 text-ink-muted font-medium">
-                  <div className="flex justify-between">
-                    <span>Đơn giá gói:</span>
-                    <span className="text-ink font-semibold">{unitPrice.toLocaleString('vi-VN')}đ / user / tháng</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Số tài khoản đăng ký:</span>
-                    <span className="text-ink font-semibold">{selectedSeats} seats</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Thời hạn:</span>
-                    <span className="text-ink font-semibold">{selectedMonths} tháng</span>
-                  </div>
-                </div>
-                <div className="border-t border-border pt-3 flex justify-between items-baseline">
-                  <span className="text-sm font-bold text-ink">Tổng cộng:</span>
-                  <span className="text-2xl font-bold font-heading text-indigo-600">{totalPrice.toLocaleString('vi-VN')}đ</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={handleCheckout}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
-                disabled={checkoutLoading || selectedSeats < activeUserCount}
+            {/* Tab Switcher Header */}
+            <div className="flex border-b border-indigo-100 bg-indigo-50/50 p-1.5 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCheckoutTab('renew')}
+                className={`flex-1 py-2 px-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  checkoutTab === 'renew'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-ink-muted hover:text-ink hover:bg-white/60'
+                }`}
               >
-                {checkoutLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    Tiến hành thanh toán
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </Button>
+                <Sparkles className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="whitespace-nowrap">1. Gia hạn gói</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCheckoutTab('add_seats')}
+                className={`flex-1 py-2 px-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                  checkoutTab === 'add_seats'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-ink-muted hover:text-ink hover:bg-white/60'
+                }`}
+              >
+                <Users className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="whitespace-nowrap">2. Mua thêm Seats</span>
+              </button>
+            </div>
+
+            <CardContent className="p-6 space-y-6">
+              {checkoutTab === 'add_seats' ? (
+                /* TAB 2: MUA THÊM SEATS LẺ CHO GÓI ĐANG DÙNG */
+                <div className="space-y-6">
+                  <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-ink-muted font-medium">Gói đang dùng:</span>
+                      <span className="font-bold text-indigo-700 uppercase bg-indigo-100 px-2 py-0.5 rounded-md">
+                        {activePlanObj.name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-ink-muted font-medium">Hạn mức hiện tại:</span>
+                      <span className="font-bold text-ink font-mono">{currentTotalSeats} seats</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pt-2 border-t border-indigo-200/60">
+                      <span className="text-ink-muted font-medium">Đơn giá 1 seat lẻ:</span>
+                      <span className="font-bold text-indigo-600 font-mono whitespace-nowrap">{addonUnitPrice.toLocaleString('vi-VN')}đ/seat/tháng</span>
+                    </div>
+                  </div>
+
+                  {/* Input số seats mua thêm */}
+                  <div className="space-y-2">
+                    <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">Số lượng Seats mua thêm</span>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        value={addonSeatsToAdd}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setAddonSeatsToAdd('');
+                          } else {
+                            setAddonSeatsToAdd(parseInt(val, 10) || 0);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (addonSeatsToAdd === '' || Number(addonSeatsToAdd) < 1) {
+                            setAddonSeatsToAdd(1);
+                          }
+                        }}
+                        className="rounded-xl border-border focus:ring-indigo-500 font-semibold"
+                        placeholder="Số seats mua thêm (ví dụ: 10)"
+                      />
+                      <span className="text-sm font-semibold text-ink-muted whitespace-nowrap">seats lẻ</span>
+                    </div>
+                  </div>
+
+                  {/* Months Selector */}
+                  <div className="space-y-2">
+                    <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">Thời gian mua thêm</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 3, 6, 12].map((m) => (
+                        <Button
+                          key={m}
+                          variant={selectedMonths === m ? 'default' : 'outline'}
+                          onClick={() => setSelectedMonths(m)}
+                          className={`rounded-xl text-xs font-semibold ${
+                            selectedMonths === m
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              : 'border-border text-ink-muted hover:bg-bg-subtle'
+                          }`}
+                        >
+                          {m} T
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price Calculation Card Tab 2 */}
+                  <div className="border border-border rounded-2xl p-4 bg-bg-subtle space-y-3">
+                    <h4 className="text-xs text-ink font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Package className="h-4 w-4 text-indigo-600 flex-shrink-0" /> Chi tiết đơn hàng mua seats
+                    </h4>
+                    <div className="text-xs space-y-2 text-ink-muted font-medium">
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">Gói áp dụng:</span>
+                        <span className="text-ink font-semibold">{activePlanObj.name}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">Đơn giá seat mua thêm:</span>
+                        <span className="text-ink font-semibold font-mono whitespace-nowrap">{addonUnitPrice.toLocaleString('vi-VN')}đ/seat/tháng</span>
+                      </div>
+                      <div className="flex justify-between items-center text-indigo-600 font-semibold">
+                        <span>Số seats chọn mua thêm:</span>
+                        <span className="font-mono whitespace-nowrap">+{numericAddonSeats} seats</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">Hạn mức sau kích hoạt:</span>
+                        <span className="text-emerald-600 font-bold font-mono whitespace-nowrap">{currentTotalSeats} ➔ {newTotalSeatsAfterAddon} seats</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                        <span className="text-ink-muted">Phí mua thêm 1 tháng:</span>
+                        <span className="text-ink font-bold font-mono whitespace-nowrap">{addonMonthlyPrice.toLocaleString('vi-VN')}đ/tháng</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">Thời hạn mua thêm:</span>
+                        <span className="text-ink font-semibold whitespace-nowrap">{selectedMonths} tháng</span>
+                      </div>
+                    </div>
+                    <div className="border-t border-border pt-3 flex justify-between items-center">
+                      <span className="text-xs font-bold text-ink uppercase tracking-wider whitespace-nowrap">Tổng thanh toán:</span>
+                      <span className="text-xl font-bold font-mono text-indigo-600 whitespace-nowrap">{addonTotalPrice.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleCheckout}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+                    disabled={checkoutLoading || numericAddonSeats < 1}
+                  >
+                    {checkoutLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        Thanh toán Mua thêm Seats
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                /* TAB 1: GIA HẠN / ĐỔI GÓI CHÍNH */
+                <div className="space-y-6">
+                  {/* Plan Selector */}
+                  <div className="space-y-2">
+                    <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">1. Chọn gói dịch vụ</span>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {plansList.map((plan) => (
+                        <div
+                          key={plan.id}
+                          onClick={() => {
+                            setSelectedPlan(plan.id);
+                            if (selectedSeats < (plan.seats || 1)) {
+                              setSelectedSeats(plan.seats || 1);
+                            }
+                          }}
+                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                            selectedPlan === plan.id
+                              ? 'border-indigo-600 bg-indigo-50/40 shadow-sm'
+                              : 'border-border hover:border-indigo-200 hover:bg-bg-subtle/50'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-ink text-sm">{plan.name}</span>
+                            <span className="text-xs font-bold text-indigo-600 whitespace-nowrap">
+                              {plan.price === 0 ? 'Miễn phí' : `${plan.price.toLocaleString('vi-VN')}đ/tháng`}
+                            </span>
+                          </div>
+                          <p className="text-xs text-ink-muted mt-1 leading-relaxed">
+                            Bao gồm <strong>{plan.seats >= 999 ? 'Không giới hạn' : `${plan.seats} seats`}</strong>
+                            {plan.extra_seat_price > 0 && ` (Mua thêm: ${plan.extra_seat_price.toLocaleString('vi-VN')}đ/seat/tháng)`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Seat Count Input */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">2. Số tài khoản (Seats)</span>
+                      <span className="text-xs text-indigo-600 font-bold whitespace-nowrap">Hiện hoạt động: {activeUserCount}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        value={selectedSeats}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setSelectedSeats('');
+                          } else {
+                            setSelectedSeats(parseInt(val, 10) || 0);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (selectedSeats === '' || Number(selectedSeats) < 1) {
+                            setSelectedSeats(Math.max(1, activeUserCount));
+                          }
+                        }}
+                        className="rounded-xl border-border focus:ring-indigo-500 font-semibold"
+                      />
+                      <span className="text-sm font-semibold text-ink-muted whitespace-nowrap">tài khoản</span>
+                    </div>
+                    {numericSeats < activeUserCount && (
+                      <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                        <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                        Không được nhỏ hơn {activeUserCount} tài khoản hiện đang active.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Months Selector */}
+                  <div className="space-y-2">
+                    <span className="text-xs text-ink-muted uppercase font-bold tracking-wider">3. Thời gian gia hạn</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 3, 6, 12].map((m) => (
+                        <Button
+                          key={m}
+                          variant={selectedMonths === m ? 'default' : 'outline'}
+                          onClick={() => setSelectedMonths(m)}
+                          className={`rounded-xl text-xs font-semibold ${
+                            selectedMonths === m
+                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                              : 'border-border text-ink-muted hover:bg-bg-subtle'
+                          }`}
+                        >
+                          {m} T
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price Calculation Card Tab 1 */}
+                  <div className="border border-border rounded-2xl p-4 bg-bg-subtle space-y-3">
+                    <h4 className="text-xs text-ink font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Package className="h-4 w-4 text-indigo-600 flex-shrink-0" /> Chi tiết đơn hàng
+                    </h4>
+                    <div className="text-xs space-y-2 text-ink-muted font-medium">
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">Gói cơ bản ({currentPlanObj.name}):</span>
+                        <span className="text-ink font-semibold font-mono whitespace-nowrap">{basePrice.toLocaleString('vi-VN')}đ/tháng</span>
+                      </div>
+
+                      {extraSeats > 0 ? (
+                        <div className="flex justify-between items-center text-indigo-600 font-semibold">
+                          <span>Mua thêm ({extraSeats} seats lẻ):</span>
+                          <span className="font-mono whitespace-nowrap">+{extraPriceTotal.toLocaleString('vi-VN')}đ/tháng</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center text-emerald-600 font-medium">
+                          <span>Tài khoản thuộc gói gốc:</span>
+                          <span className="font-mono whitespace-nowrap">0đ (Đủ {selectedSeats}/{baseSeats} seats)</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                        <span className="text-ink-muted">Cước phí 1 tháng:</span>
+                        <span className="text-ink font-bold font-mono whitespace-nowrap">{monthlyPrice.toLocaleString('vi-VN')}đ/tháng</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-ink-muted">Thời hạn gia hạn:</span>
+                        <span className="text-ink font-semibold whitespace-nowrap">{selectedMonths} tháng</span>
+                      </div>
+                    </div>
+                    <div className="border-t border-border pt-3 flex justify-between items-center">
+                      <span className="text-xs font-bold text-ink uppercase tracking-wider whitespace-nowrap">Tổng thanh toán:</span>
+                      <span className="text-xl font-bold font-mono text-indigo-600 whitespace-nowrap">{totalPrice.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleCheckout}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+                    disabled={checkoutLoading || numericSeats < activeUserCount || numericSeats < 1}
+                  >
+                    {checkoutLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        Tiến hành thanh toán
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

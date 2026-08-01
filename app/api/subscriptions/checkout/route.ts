@@ -5,12 +5,6 @@ import { createPayOSPaymentLink } from '@/src/lib/payos';
 
 export const runtime = 'nodejs';
 
-const PLAN_PRICES: Record<string, number> = {
-  starter: 0,
-  professional: 150000,
-  enterprise: 300000,
-};
-
 /**
  * POST /api/subscriptions/checkout
  * Tạo hóa đơn SaaS mới và trả về link thanh toán (hoặc link thanh toán giả lập nếu chưa cấu hình cổng thanh toán)
@@ -21,9 +15,10 @@ export async function POST(request: Request) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { plan, seats, months } = body;
+    const { plan, seats, months, checkout_type } = body;
+    const isAddSeats = checkout_type === 'add_seats';
 
-    if (!plan || !seats || !months || !PLAN_PRICES.hasOwnProperty(plan)) {
+    if (!plan || !seats || !months) {
       return NextResponse.json({ error: 'Thông tin thanh toán không hợp lệ' }, { status: 400 });
     }
 
@@ -32,8 +27,43 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Tài khoản không thuộc công ty nào' }, { status: 400 });
     }
 
-    const pricePerMonth = PLAN_PRICES[plan] * seats;
-    const amount = pricePerMonth * months;
+    // Query plan config dynamically from DB / saas_plans
+    let planObj: any = null;
+    try {
+      const { data: dbPlans } = await supabaseAdmin
+        .from('saas_plans')
+        .select('*')
+        .eq('id', plan)
+        .maybeSingle();
+      if (dbPlans) planObj = dbPlans;
+    } catch (e) {
+      // Fallback
+    }
+
+    if (!planObj) {
+      const defaults: Record<string, any> = {
+        starter: { price: 500000, seats: 5, extra_seat_price: 50000 },
+        professional: { price: 2000000, seats: 20, extra_seat_price: 100000 },
+        enterprise: { price: 5000000, seats: 999, extra_seat_price: 0 },
+      };
+      planObj = defaults[plan] || defaults['professional'];
+    }
+
+    let amount = 0;
+    const extraSeatPrice = Number(planObj.extra_seat_price) || 100000;
+
+    if (isAddSeats) {
+      // Tab 2: Tính cước phí duy nhất cho số Seats mua thêm
+      const monthlyPrice = seats * extraSeatPrice;
+      amount = monthlyPrice * months;
+    } else {
+      // Tab 1: Gói trọn gói + Seats vượt mốc
+      const basePrice = Number(planObj.price) || 0;
+      const baseSeats = Number(planObj.seats) || 5;
+      const extraSeats = Math.max(0, seats - baseSeats);
+      const monthlyPrice = basePrice + (extraSeats * extraSeatPrice);
+      amount = monthlyPrice * months;
+    }
     
     // Nếu là gói starter và giá là 0đ, tự động kích hoạt luôn không cần thanh toán
     if (amount === 0) {
@@ -42,7 +72,7 @@ export async function POST(request: Request) {
       endsAt.setMonth(endsAt.getMonth() + months);
 
       // Cập nhật subscription
-      const { data: sub, error: subErr } = await supabaseAdmin
+      const { error: subErr } = await supabaseAdmin
         .from('subscriptions')
         .insert({
           company_id: companyId,
@@ -52,9 +82,7 @@ export async function POST(request: Request) {
           price_per_month: 0,
           starts_at: now.toISOString(),
           ends_at: endsAt.toISOString(),
-        })
-        .select()
-        .single();
+        });
 
       if (subErr) throw subErr;
 
@@ -67,9 +95,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, instantActive: true });
     }
 
-    const invoiceCode = `INV-SAAS-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const invoicePrefix = isAddSeats ? 'INV-ADDON' : 'INV-SAAS';
+    const targetPlanName = isAddSeats ? `${plan}_addon` : plan;
+    const invoiceCode = `${invoicePrefix}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const payosOrderCode = Number(`${Date.now()}`.slice(-9)); // PayOS orderCode là kiểu int32 hợp lệ
-    const now = new Date();
     const billingStart = new Date();
     const billingEnd = new Date();
     billingEnd.setMonth(billingEnd.getMonth() + months);
@@ -81,7 +110,7 @@ export async function POST(request: Request) {
         company_id: companyId,
         invoice_code: invoiceCode,
         amount,
-        plan,
+        plan: targetPlanName,
         seats,
         status: 'unpaid',
         payment_method: 'payos',
@@ -102,7 +131,7 @@ export async function POST(request: Request) {
       const payosResponse = await createPayOSPaymentLink({
         orderCode: payosOrderCode,
         amount,
-        description: `Thanh toan ${plan.toUpperCase()}`,
+        description: isAddSeats ? `Mua ${seats} seats` : `Thanh toan ${plan.toUpperCase()}`,
         returnUrl: `${siteUrl}/admin/system/billing?payment=success&order_code=${payosOrderCode}`,
         cancelUrl: `${siteUrl}/admin/system/billing?payment=cancelled`,
       });
