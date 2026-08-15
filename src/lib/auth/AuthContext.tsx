@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Khách thuê → chuyển sang Cổng Khách Thuê
           router.push('/customer/tenant-portal');
         } else if (role === 'sales_agent') {
-          router.push('/customer/properties');
+          router.push('/broker');
         } else {
           router.push('/admin');
         }

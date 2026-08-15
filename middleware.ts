@@ -6,23 +6,26 @@ import { verifyJWT } from '@/lib/auth-utils';
 const SUPER_ADMIN_PREFIXES = ['/super-admin'];
 const COMPANY_PREFIXES = ['/admin'];
 const LANDLORD_PREFIXES = ['/landlord'];
-const PROTECTED_PREFIXES = ['/admin', '/super-admin', '/landlord'];
+const BROKER_PREFIXES = ['/broker'];
+const PROTECTED_PREFIXES = ['/admin', '/super-admin', '/landlord', '/broker'];
 
 // Các route bỏ qua hoàn toàn không cần kiểm tra xác thực (API, assets, v.v.)
-const SKIP_PREFIXES = ['/api', '/_next', '/favicon', '/customer', '/onboarding'];
+const SKIP_PREFIXES = ['/api', '/_next', '/favicon'];
+// Các route /customer được phép truy cập không cần auth, nhưng middleware VẪN chạy
+// để redirect Sale về /broker khi họ đã đăng nhập
+const CUSTOMER_PREFIXES = ['/customer', '/onboarding'];
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 export async function middleware(request: NextRequest) {
   const { pathname, hostname } = request.nextUrl;
 
-  // 1. Bỏ qua các route không cần auth
+  // 1. Bỏ qua các route không cần auth (static assets, API, onboarding)
   const shouldSkip = SKIP_PREFIXES.some((p) => pathname.startsWith(p));
   if (shouldSkip) {
     return injectHeaders(NextResponse.next({ request }), hostname);
   }
 
   // 2. Đọc token JWT tùy chỉnh từ HTTP-only cookie
-  // Cookie JWT_SECRET được dùng ở server-side để giải mã và kiểm tra chữ ký ở hàm verifyJWT
   let token = request.cookies.get('auth_token')?.value;
   if (!token) {
     const authHeader = request.headers.get('authorization');
@@ -35,12 +38,44 @@ export async function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   const isLoginPage = pathname === '/login';
 
-  // 3. Đang ở trang login nhưng đã có session hợp lệ -> chuyển hướng đến trang dashboard tương ứng
+  // 3a. Truy cập root '/' khi đã đăng nhập → redirect thẳng về dashboard tương ứng
+  if (pathname === '/' && user) {
+    const role = user.user_role || user.role;
+    const destination =
+      role === 'super_admin' ? '/super-admin' :
+      role === 'landlord' ? '/landlord' :
+      role === 'sales_agent' ? '/broker' :
+      '/admin';
+    return NextResponse.redirect(new URL(destination, request.url));
+  }
+
+  // 3b. Sale đăng nhập cố vào /customer/properties → chuyển về /broker/rooms
+  const isCustomerRoute = CUSTOMER_PREFIXES.some((p) => pathname.startsWith(p));
+  if (isCustomerRoute && user) {
+    const role = user.user_role || user.role;
+    if (role === 'sales_agent') {
+      if (pathname === '/customer/properties' || pathname === '/customer') {
+        return NextResponse.redirect(new URL('/broker/rooms', request.url));
+      }
+      const buildingMatch = pathname.match(/^\/customer\/properties\/([^/]+)$/);
+      if (buildingMatch && buildingMatch[1] !== 'rooms') {
+        return NextResponse.redirect(new URL(`/broker/properties/${buildingMatch[1]}`, request.url));
+      }
+      const roomMatch = pathname.match(/^\/customer\/properties\/rooms\/([^/]+)$/);
+      if (roomMatch) {
+        return NextResponse.redirect(new URL(`/broker/properties/rooms/${roomMatch[1]}`, request.url));
+      }
+    }
+    return injectHeaders(NextResponse.next({ request }), hostname);
+  }
+
+  // 3c. Đang ở trang login nhưng đã có session hợp lệ -> chuyển hướng đến trang dashboard tương ứng
   if (isLoginPage && user) {
     const role = user.user_role || user.role;
     const destination =
       role === 'super_admin' ? '/super-admin' :
       role === 'landlord' ? '/landlord' :
+      role === 'sales_agent' ? '/broker' :
       '/admin';
     return NextResponse.redirect(new URL(destination, request.url));
   }
@@ -60,40 +95,36 @@ export async function middleware(request: NextRequest) {
       const isSuperAdminRoute = SUPER_ADMIN_PREFIXES.some((p) => pathname.startsWith(p));
       const isCompanyRoute = COMPANY_PREFIXES.some((p) => pathname.startsWith(p));
       const isLandlordRoute = LANDLORD_PREFIXES.some((p) => pathname.startsWith(p));
+      const isBrokerRoute = BROKER_PREFIXES.some((p) => pathname.startsWith(p));
 
-      // Quản trị viên của công ty cố vào trang super-admin -> về trang admin của họ
       if (isSuperAdminRoute && role !== 'super_admin') {
         return NextResponse.redirect(new URL('/admin', request.url));
       }
 
-      // Super admin cố vào trang của một công ty đơn lẻ -> về trang super-admin
       if (isCompanyRoute && role === 'super_admin') {
         return NextResponse.redirect(new URL('/super-admin', request.url));
       }
 
-      // Chủ nhà (landlord) cố vào /admin -> chuyển sang /landlord
       if (isCompanyRoute && role === 'landlord') {
         return NextResponse.redirect(new URL('/landlord', request.url));
       }
 
-      // Người không phải landlord cố vào /landlord -> chuyển về /admin
-      if (isLandlordRoute && role !== 'landlord' && role !== 'super_admin') {
-        return NextResponse.redirect(new URL('/admin', request.url));
+      // Môi giới (sales_agent) cố vào /admin -> chuyển sang bàn làm việc Môi giới (/broker)
+      if (isCompanyRoute && role === 'sales_agent') {
+        return NextResponse.redirect(new URL('/broker', request.url));
+      }
+
+      if ((isCompanyRoute || isLandlordRoute || isBrokerRoute || isSuperAdminRoute) && (role === 'customer' || role === 'tenant')) {
+        return NextResponse.redirect(new URL('/customer/tenant-portal', request.url));
       }
     }
   }
 
-  // 6. Cho phép đi tiếp và đính kèm các headers bổ trợ cho Server Components
   return injectHeaders(NextResponse.next({ request }), hostname);
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-/**
- * Inject headers hỗ trợ cho Server Components và layout:
- * - x-company-domain: subdomain của công ty (multi-tenant routing)
- * - x-forwarded-host: hostname gốc
- */
 function injectHeaders(response: NextResponse, hostname: string): NextResponse {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'localhost';
   let companyDomain: string | null = null;
@@ -105,7 +136,6 @@ function injectHeaders(response: NextResponse, hostname: string): NextResponse {
   ) {
     const withoutPort = hostname.split(':')[0];
     if (withoutPort !== rootDomain) {
-      // Pass the FULL custom domain or subdomain + domain (e.g., congtya.realhome.vn or congtya.com)
       companyDomain = withoutPort;
     }
   }
@@ -121,12 +151,6 @@ function injectHeaders(response: NextResponse, hostname: string): NextResponse {
 // ─── Matcher config ────────────────────────────────────────────────────────────
 export const config = {
   matcher: [
-    /*
-     * Áp dụng middleware cho tất cả routes TRỪ:
-     * - _next/static, _next/image (static assets)
-     * - favicon.ico
-     * - Các file ảnh tĩnh (.svg, .png, .jpg, .jpeg, .gif, .webp)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

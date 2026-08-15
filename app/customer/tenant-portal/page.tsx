@@ -192,7 +192,7 @@ export default function TenantPortalOverviewPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-ink font-heading flex items-center gap-2">
             <LayoutDashboard className="h-7 w-7 text-amber-600" />
-            Tổng quan Cổng Khách Thuê
+            Quản lý căn hộ của bạn
           </h1>
           <p className="text-sm text-ink-muted mt-1">
             {loading ? 'Đang tải thông tin...' : `Xin chào${profile?.full_name ? `, ${profile.full_name.split(' ').slice(-1)[0]}` : ''}! Đây là tổng hợp thông tin căn hộ của bạn.`}

@@ -7,7 +7,7 @@ import { Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Logo } from '@/components/Logo';
 
-type AllowedRole = 'super_admin' | 'company_admin' | 'manager' | 'sales_agent' | 'landlord';
+type AllowedRole = 'super_admin' | 'company_admin' | 'admin' | 'manager' | 'sales_agent' | 'landlord' | 'customer' | 'tenant' | 'accountant';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -26,9 +26,11 @@ export function AuthGuard({ children, allowedRoles, redirectTo = '/login' }: Aut
       return;
     }
     if (role && !allowedRoles.includes(role as AllowedRole)) {
-      // Wrong portal — redirect to the correct one
+      // Wrong portal — redirect to the correct workspace for this role
       if (role === 'super_admin') router.replace('/super-admin');
       else if (role === 'landlord') router.replace('/landlord');
+      else if (role === 'sales_agent') router.replace('/broker');
+      else if ((role as string) === 'customer' || (role as string) === 'tenant') router.replace('/customer/tenant-portal');
       else router.replace('/admin');
     }
   }, [loading, user, role, router, allowedRoles, redirectTo]);

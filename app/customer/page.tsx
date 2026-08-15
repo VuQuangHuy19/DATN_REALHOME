@@ -304,7 +304,7 @@ export default function CustomerHomePage() {
               <Building2 className="h-5 w-5" />
             </div>
             <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono">{stats.totalRooms || '—'}</div>
-            <div className="text-xs md:text-sm text-ink-muted mt-0.5 font-medium">Phòng cho thuê trong DB</div>
+            <div className="text-xs md:text-sm text-ink-muted mt-0.5 font-medium">Tổng nguồn phòng</div>
           </div>
 
           <div className="flex flex-col items-center">
