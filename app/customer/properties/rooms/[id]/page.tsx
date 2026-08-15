@@ -32,7 +32,8 @@ export default function RoomDetailPage() {
   const router = useRouter();
   const { role } = useAuth();
   const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
-  const contractsBasePath = role === 'landlord' ? '/landlord' : '/admin';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const contractsBasePath = role === 'landlord' ? '/landlord' : role === 'sales_agent' || pathname.startsWith('/broker') ? '/broker' : '/admin';
 
   const hotline = company?.phone || '(028) 1234-5678';
   const hotlineHref = company?.phone ? `tel:${company.phone.replace(/\D/g, '')}` : 'tel:02812345678';

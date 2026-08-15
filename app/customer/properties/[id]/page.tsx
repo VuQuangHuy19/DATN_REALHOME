@@ -43,7 +43,8 @@ export default function BuildingDetailPage() {
   // Logged-in users or sales agents can see all rooms (including rented/maintenance)
   const showAll = !!role;
   const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
-  const contractsBasePath = role === 'landlord' ? '/landlord' : '/admin';
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const contractsBasePath = role === 'landlord' ? '/landlord' : role === 'sales_agent' || pathname.startsWith('/broker') ? '/broker' : '/admin';
 
   const { building, loading: buildingLoading, error: buildingError } = usePublicBuilding(buildingId);
   const { listings: rooms, loading: roomsLoading, error: roomsError } = usePublicListingsByBuilding(buildingId, showAll);

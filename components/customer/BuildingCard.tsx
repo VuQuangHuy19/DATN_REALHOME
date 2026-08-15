@@ -8,6 +8,7 @@ import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { maskHouseNumberInBuildingName } from '@/lib/utils';
 import type { CustomerListing } from '@/lib/customer/types';
+import { formatDateDisplay } from '@/lib/room-status';
 import { Calendar, Phone, Cat, FileText, Eye } from 'lucide-react';
 
 export interface BuildingGroup {
@@ -17,12 +18,19 @@ export interface BuildingGroup {
   address: string;
   companyId: string;
   availableRoomCodes: string[];
+  soonAvailableRooms?: {
+    code: string;
+    expectedAvailableDate?: string | null;
+  }[];
   minPrice: number;
   maxPrice: number;
   allImages: string[];
   rooms: CustomerListing[];
   representativeRoom: CustomerListing;
   allowPet?: boolean;
+  isVerifiedProperty?: boolean;
+  landlordSystemName?: string | null;
+  landlordName?: string | null;
 }
 
 export function formatArea(area: string): string {
@@ -94,17 +102,31 @@ export function BuildingCard({
           )}
         </div>
 
-        {/* Phòng trống */}
-        <div className="text-xs sm:text-sm py-1.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
-          {hasAvailable ? (
-            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-              🟢 Phòng trống:{' '}
+        {/* Phòng trống & Sắp trống */}
+        <div className="text-xs sm:text-sm py-1.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-1">
+          {hasAvailable && (
+            <div className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1 flex-wrap">
+              <span>🟢 Phòng trống:</span>
               <span className="text-slate-900 dark:text-slate-100 font-semibold">
                 {group.availableRoomCodes.slice(0, 5).join(', ')}
                 {group.availableRoomCodes.length > 5 && ` +${group.availableRoomCodes.length - 5} phòng`}
               </span>
-            </span>
-          ) : (
+            </div>
+          )}
+
+          {group.soonAvailableRooms && group.soonAvailableRooms.length > 0 && (
+            <div className="text-amber-700 dark:text-amber-400 font-medium text-xs flex items-center gap-1 flex-wrap">
+              <span>🟡 Sắp trống:</span>
+              <span className="text-amber-900 dark:text-amber-200 font-semibold">
+                {group.soonAvailableRooms.map((r, i) => {
+                  const dateFmt = r.expectedAvailableDate ? formatDateDisplay(r.expectedAvailableDate) : '';
+                  return `${r.code}${dateFmt ? ` (${dateFmt})` : ''}${i < group.soonAvailableRooms!.length - 1 ? ', ' : ''}`;
+                })}
+              </span>
+            </div>
+          )}
+
+          {!hasAvailable && (!group.soonAvailableRooms || group.soonAvailableRooms.length === 0) && (
             <span className="text-slate-400 italic text-xs">Hiện tại hết phòng trống</span>
           )}
         </div>

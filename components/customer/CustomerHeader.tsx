@@ -81,7 +81,7 @@ export function CustomerHeader() {
       { href: '/customer/favorites', label: 'Yêu thích', icon: Heart },
     ];
     if (role === 'sales_agent') {
-      base.push({ href: '/admin', label: 'Khu vực CRM', icon: LayoutDashboard });
+      base.push({ href: '/broker', label: 'Bàn làm việc Sale', icon: LayoutDashboard });
     }
     return base;
   }, [role]);

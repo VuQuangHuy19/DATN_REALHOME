@@ -1,29 +1,33 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
+import { PriceRangeFilter, type MultiPriceValue } from '@/components/customer/PriceRangeFilter';
+import { SizeRangeFilter, type MultiSizeValue } from '@/components/customer/SizeRangeFilter';
+import { computeSmartPriceBrackets } from '@/src/hooks/useSmartPriceBrackets';
+import { computeSmartSizeBrackets } from '@/src/hooks/useSmartSizeBrackets';
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
-import { usePublicListings } from '@/lib/hooks/usePublicListings';
-import type { CustomerListing } from '@/lib/customer/types';
+import { usePublicListings } from '@/src/hooks/usePublicListings';
+import type { CustomerListing } from '@/src/lib/customer/types';
 import {
   MapPin, Phone, Calendar, Loader2, AlertCircle,
-  SlidersHorizontal, Filter, ArrowUpDown, FileText, Search, X
+  SlidersHorizontal, Filter, ArrowUpDown, FileText, Search, X, Copy, CheckCheck, Link as LinkIcon
 } from 'lucide-react';
-import { getAreaColorClass } from '@/lib/utils/colors';
-import { maskHouseNumberInBuildingName } from '@/lib/utils';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
+import { getAreaColorClass } from '@/src/lib/utils/colors';
+import { maskHouseNumberInBuildingName, cn } from '@/src/lib/utils';
+import { useAuth } from '@/src/lib/auth/AuthContext';
+import { DEPOSIT_COMPOSER_ROLES } from '@/src/lib/customer/constants';
 import Pagination from '@/components/Pagination';
-import { supabase } from '@/lib/supabase/client';
+import { supabase } from '@/src/lib/supabase/client';
 import dynamic from 'next/dynamic';
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
 import { FavoriteButton } from '@/components/customer/FavoriteButton';
@@ -32,10 +36,7 @@ const PropertiesMapViewDynamic = dynamic(() => import('@/src/features/properties
 
 import { BuildingCard, type BuildingGroup, formatArea } from '@/components/customer/BuildingCard';
 
-// ─── Location Filter 3 cấp thật (vn_provinces → vn_districts → vn_wards) ────
-interface VnProvince { id: string; name: string; }
-interface VnDistrict { id: string; name: string; province_id: string; }
-interface VnWard { id: string; name: string; level: string; district_id: string; }
+import { getProvinces, getDistricts, getWards, type VnProvince, type VnDistrict, type VnWard } from '@/src/lib/supabase/repositories/vn_locations';
 
 function LocationFilter({
   selectedProvinceId,
@@ -62,14 +63,10 @@ function LocationFilter({
   // Load tất cả tỉnh/thành phố khi mount
   useEffect(() => {
     setLoadingProv(true);
-    supabase
-      .from('vn_provinces')
-      .select('id, name')
-      .order('name')
-      .then(({ data }: { data: VnProvince[] | null }) => {
-        setProvinces(data ?? []);
-        setLoadingProv(false);
-      });
+    getProvinces().then((data) => {
+      setProvinces(data);
+      setLoadingProv(false);
+    });
   }, []);
 
   // Load quận/huyện khi chọn tỉnh
@@ -78,15 +75,10 @@ function LocationFilter({
     setWards([]);
     if (!selectedProvinceId) return;
     setLoadingDist(true);
-    supabase
-      .from('vn_districts')
-      .select('id, name, province_id')
-      .eq('province_id', selectedProvinceId)
-      .order('name')
-      .then(({ data }: { data: VnDistrict[] | null }) => {
-        setDistricts(data ?? []);
-        setLoadingDist(false);
-      });
+    getDistricts(selectedProvinceId).then((data) => {
+      setDistricts(data);
+      setLoadingDist(false);
+    });
   }, [selectedProvinceId]);
 
   // Load phường/xã khi chọn quận
@@ -94,15 +86,10 @@ function LocationFilter({
     setWards([]);
     if (!selectedDistrictId) return;
     setLoadingWard(true);
-    supabase
-      .from('vn_wards')
-      .select('id, name, level, district_id')
-      .eq('district_id', selectedDistrictId)
-      .order('name')
-      .then(({ data }: { data: VnWard[] | null }) => {
-        setWards(data ?? []);
-        setLoadingWard(false);
-      });
+    getWards(selectedDistrictId).then((data) => {
+      setWards(data);
+      setLoadingWard(false);
+    });
   }, [selectedDistrictId]);
 
   return (
@@ -189,11 +176,14 @@ export default function PropertiesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('q') || '';
+  const pathname = usePathname() || '';
+  const isBrokerRoute = pathname.startsWith('/broker') || pathname.startsWith('/admin') || pathname.startsWith('/landlord');
   const { company, companies, loading: companyLoading } = useCustomerCompany();
-  const { role } = useAuth();
-  const isSale = role === 'sales_agent';
+  const { role, user, profile } = useAuth();
+  const isStaffOrBroker = isBrokerRoute || (!!role && ['company_admin', 'manager', 'sales_agent', 'super_admin', 'landlord'].includes(role));
+  const isSale = isStaffOrBroker;
   const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
-  const contractsBasePath = role === 'landlord' ? '/landlord' : '/admin';
+  const contractsBasePath = role === 'landlord' ? '/landlord' : role === 'sales_agent' || pathname.startsWith('/broker') ? '/broker' : '/admin';
   const { listings, loading: listingsLoading, error } = usePublicListings(
     useMemo(() => companies.map((c) => c.id), [companies]),
     isSale
@@ -207,10 +197,45 @@ export default function PropertiesPage() {
   const [selectedWardName, setSelectedWardName] = useState('');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
-  const [priceSlider, setPriceSlider] = useState<number[]>([500000, 100000000]);
-  const [priceRange, setPriceRange] = useState<number[]>([500000, 100000000]);
-  const [sizeSlider, setSizeSlider] = useState<number[]>([0, 500]);
-  const [sizeRange, setSizeRange] = useState<number[]>([0, 500]);
+
+  // Bộ lọc giá thông minh: null = không lọc ("Tất cả")
+  const [priceFilter, setPriceFilter] = useState<MultiPriceValue | null>(null);
+  const priceParamKey = searchParams?.get('price') || '';
+
+  // Bộ lọc diện tích thông minh: null = không lọc ("Tất cả")
+  const [sizeFilter, setSizeFilter] = useState<MultiSizeValue | null>(null);
+
+  const smartPriceBrackets = useMemo(() => computeSmartPriceBrackets(listings), [listings]);
+  const smartSizeBrackets = useMemo(() => computeSmartSizeBrackets(listings), [listings]);
+
+  const [hasInitDbRanges, setHasInitDbRanges] = useState(false);
+
+  useEffect(() => {
+    if (listings.length > 0 && !hasInitDbRanges) {
+      if (priceParamKey) {
+        setPriceFilter({ selectedKeys: [priceParamKey], manual: null });
+      }
+      setHasInitDbRanges(true);
+    }
+  }, [listings, hasInitDbRanges, priceParamKey]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedProvinceId || selectedDistrictId || selectedWardId) count++;
+    if (selectedAreas.length > 0) count++;
+    if (selectedRoomTypes.length > 0) count++;
+    if (priceFilter !== null) count++;
+    if (sizeFilter !== null) count++;
+    return count;
+  }, [
+    selectedProvinceId,
+    selectedDistrictId,
+    selectedWardId,
+    selectedAreas,
+    selectedRoomTypes,
+    priceFilter,
+    sizeFilter,
+  ]);
   const [sortBy, setSortBy] = useState<SortOption>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
@@ -218,6 +243,28 @@ export default function PropertiesPage() {
 
   const [isContactOpen, setIsContactOpen] = useState(false);
   const [viewingGroup, setViewingGroup] = useState<BuildingGroup | null>(null);
+
+  // ━━━ Sale Referral Link Tracking ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const refSaleId = searchParams?.get('ref') || null;
+  const [copyLinkDone, setCopyLinkDone] = useState(false);
+
+  useEffect(() => {
+    if (refSaleId && typeof window !== 'undefined') {
+      sessionStorage.setItem('sale_ref_id', refSaleId);
+    }
+  }, [refSaleId]);
+
+  const handleCopyReferralLink = useCallback(() => {
+    const saleId = user?.id || profile?.id;
+    if (!saleId || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('ref', saleId);
+    url.searchParams.delete('q');
+    navigator.clipboard.writeText(url.toString()).then(() => {
+      setCopyLinkDone(true);
+      setTimeout(() => setCopyLinkDone(false), 2500);
+    });
+  }, [user?.id, profile?.id]);
 
   useEffect(() => {
     setSearchValue(searchQuery);
@@ -235,7 +282,7 @@ export default function PropertiesPage() {
     router.replace(`/customer/properties${qs ? `?${qs}` : ''}`, { scroll: false });
   };
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedProvinceId, selectedDistrictId, selectedWardId, selectedAreas, priceRange, sizeRange, selectedRoomTypes, sortBy]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, selectedProvinceId, selectedDistrictId, selectedWardId, selectedAreas, priceFilter, sizeFilter, selectedRoomTypes, sortBy]);
 
   const roomTypeOptions = useMemo(
     () => Array.from(new Set(listings.map((p) => p.roomType).filter(Boolean))).sort(),
@@ -256,17 +303,53 @@ export default function PropertiesPage() {
       map.get(key)!.push(listing);
     }
 
-    return Array.from(map.entries()).map(([buildingId, rooms]) => {
+    const groups = Array.from(map.entries()).map(([buildingId, rooms]) => {
       const rep = rooms[0];
-      const available = rooms.filter((r) => r.status === 'available' || r.status === 'soon_available');
+      const extractNum = (t: string) => {
+        const code = t.split('—')[1]?.trim() || t;
+        const match = code.match(/(\d+)/);
+        return match ? parseInt(match[1], 10) : 99999;
+      };
+      const available = rooms
+        .filter((r) => r.status === 'available')
+        .sort((a, b) => {
+          if (a.floor !== b.floor) return a.floor - b.floor;
+          const numA = extractNum(a.title);
+          const numB = extractNum(b.title);
+          if (numA !== numB) return numA - numB;
+          return a.title.localeCompare(b.title, undefined, { numeric: true });
+        });
+
+      const soonAvailable = rooms
+        .filter((r) => {
+          if (r.status !== 'soon_available') return false;
+          const targetDateStr = r.expectedAvailableDate || (r as any).availableDate;
+          if (!targetDateStr) return false;
+          const end = new Date(targetDateStr);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          end.setHours(0, 0, 0, 0);
+          const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 30;
+        })
+        .sort((a, b) => {
+          if (a.floor !== b.floor) return a.floor - b.floor;
+          const numA = extractNum(a.title);
+          const numB = extractNum(b.title);
+          if (numA !== numB) return numA - numB;
+          return a.title.localeCompare(b.title, undefined, { numeric: true });
+        });
+
       const prices = rooms.map((r) => r.price).filter((p) => p > 0);
       const allImages = Array.from(
-        new Set(rooms.flatMap((r) => 
-          (r.imageUrls ?? [])
-            .concat(r.thumbnailUrls ?? [])
-            .concat([r.imageUrl, r.thumbnailUrl])
-            .filter(Boolean)
-        ))
+        new Set(
+          rooms.flatMap((r) => {
+            const highResImgs = (r.imageUrls && r.imageUrls.length > 0)
+              ? r.imageUrls
+              : (r.imageUrl ? [r.imageUrl] : (r.thumbnailUrls && r.thumbnailUrls.length > 0 ? r.thumbnailUrls : [r.thumbnailUrl]));
+            return highResImgs.filter((img): img is string => !!img);
+          })
+        )
       );
 
       return {
@@ -276,13 +359,24 @@ export default function PropertiesPage() {
         address: rep.address,
         companyId: rep.companyId,
         availableRoomCodes: available.map((r) => r.title.split('—')[1]?.trim() || r.id.slice(0, 6)),
+        soonAvailableRooms: soonAvailable.map((r) => ({
+          code: r.title.split('—')[1]?.trim() || r.id.slice(0, 6),
+          expectedAvailableDate: r.expectedAvailableDate || (r as any).availableDate,
+        })),
         minPrice: prices.length ? Math.min(...prices) : 0,
         maxPrice: prices.length ? Math.max(...prices) : 0,
         allImages: allImages.length ? allImages : ['/placeholder.jpg'],
         rooms,
         representativeRoom: rep,
+        isVerifiedProperty: rooms.some((r) => r.isVerifiedProperty),
+        landlordSystemName: rep.landlordSystemName ?? rooms.find((r) => r.landlordSystemName)?.landlordSystemName,
+        landlordName: rep.landlordName ?? rooms.find((r) => r.landlordName)?.landlordName,
       } satisfies BuildingGroup;
     });
+
+    return groups.filter(
+      (g) => isStaffOrBroker ? g.rooms.length > 0 : (g.availableRoomCodes.length > 0 || (g.soonAvailableRooms && g.soonAvailableRooms.length > 0))
+    );
   }, [listings]);
 
   // Lọc
@@ -294,8 +388,6 @@ export default function PropertiesPage() {
         g.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
         g.rooms.some((r) => r.address?.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      // Lọc theo quận/huyện (districtId) hoặc phường/xã (wardId) nếu đã chọn
-      // Fallback: nếu dữ liệu import từ file csv ko có districtId/wardId, ta parse tên quận/phường và so khớp với g.area hoặc g.address
       const distNameClean = selectedDistrictName.replace(/^(Quận|Huyện|Thị xã)\s+/i, '').trim().toLowerCase();
       const matchDistrict = !selectedDistrictId || (
         g.representativeRoom.districtId === selectedDistrictId ||
@@ -310,14 +402,46 @@ export default function PropertiesPage() {
       );
 
       const matchArea = selectedAreas.length === 0 || selectedAreas.includes(g.area);
-      const isPriceActive = priceRange[0] !== 500000 || priceRange[1] !== 100000000;
-      const matchPrice = !isPriceActive || (g.minPrice <= priceRange[1] && g.maxPrice >= priceRange[0]);
-      const isSizeActive = sizeRange[0] !== 0 || sizeRange[1] !== 500;
-      const matchSize = !isSizeActive || g.rooms.some((r) => r.size >= sizeRange[0] && r.size <= sizeRange[1]);
+      const matchPrice = !priceFilter || (
+        priceFilter.selectedKeys.length === 0 && !priceFilter.manual
+      ) || g.rooms.some((r) => {
+        const p = r.price;
+        if (!p) return false;
+        const matchKey = priceFilter.selectedKeys.some((k) => {
+          const b = smartPriceBrackets.find((sb) => sb.key === k);
+          if (!b) return false;
+          return p >= b.min && (b.max === Infinity ? true : p < b.max);
+        });
+        if (matchKey) return true;
+        if (priceFilter.manual) {
+          const { min, max } = priceFilter.manual;
+          return p >= min && (max === Infinity ? true : p <= max);
+        }
+        return false;
+      });
+
+      const matchSize = !sizeFilter || (
+        sizeFilter.selectedKeys.length === 0 && !sizeFilter.manual
+      ) || g.rooms.some((r) => {
+        const s = r.size;
+        if (!s) return false;
+        const matchKey = sizeFilter.selectedKeys.some((k) => {
+          const b = smartSizeBrackets.find((sb) => sb.key === k);
+          if (!b) return false;
+          return s >= b.min && (b.max === Infinity ? true : s < b.max);
+        });
+        if (matchKey) return true;
+        if (sizeFilter.manual) {
+          const { min, max } = sizeFilter.manual;
+          return s >= min && (max === Infinity ? true : s <= max);
+        }
+        return false;
+      });
+
       const matchRoomType = selectedRoomTypes.length === 0 || g.rooms.some((r) => selectedRoomTypes.includes(r.roomType));
       return matchSearch && matchDistrict && matchWard && matchArea && matchPrice && matchSize && matchRoomType;
     });
-  }, [buildingGroups, searchQuery, selectedDistrictId, selectedWardId, selectedAreas, priceRange, sizeRange, selectedRoomTypes]);
+  }, [buildingGroups, searchQuery, selectedDistrictId, selectedWardId, selectedAreas, priceFilter, sizeFilter, selectedRoomTypes, smartPriceBrackets, smartSizeBrackets]);
 
   // Sắp xếp
   const sortedGroups = useMemo(() => {
@@ -367,10 +491,8 @@ export default function PropertiesPage() {
     setSelectedWardId('');
     setSelectedAreas([]);
     setSelectedRoomTypes([]);
-    setPriceSlider([500000, 100000000]);
-    setPriceRange([500000, 100000000]);
-    setSizeSlider([0, 500]);
-    setSizeRange([0, 500]);
+    setPriceFilter(null);
+    setSizeFilter(null);
     setSortBy('newest');
     const params = new URLSearchParams(searchParams?.toString() || '');
     params.delete('q');
@@ -382,8 +504,8 @@ export default function PropertiesPage() {
     !!searchValue || !!searchQuery || !!selectedProvinceId || !!selectedDistrictId || !!selectedWardId ||
     selectedAreas.length > 0 ||
     selectedRoomTypes.length > 0 ||
-    priceRange[0] > 500000 || priceRange[1] < 100000000 ||
-    sizeRange[0] > 0 || sizeRange[1] < 500;
+    priceFilter !== null ||
+    sizeFilter !== null;
 
   const loading = companyLoading || listingsLoading;
   const hotline = company?.phone || '(028) 1234-5678';
@@ -392,42 +514,24 @@ export default function PropertiesPage() {
   const renderFilterContent = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="font-semibold font-heading text-ink mb-3">Khoảng giá</h3>
-        <div className="px-2">
-          <Slider
-            value={priceSlider}
-            onValueChange={setPriceSlider}
-            onValueCommit={(v) => setPriceRange(v)}
-            min={500000}
-            max={100000000}
-            step={100000}
-            className="w-full"
-          />
-          <div className="flex justify-between mt-3 text-sm font-medium text-ink-muted">
-            <span>{priceSlider[0].toLocaleString('vi-VN')} đ</span>
-            <span>{priceSlider[1].toLocaleString('vi-VN')} đ</span>
-          </div>
-        </div>
+        <h3 className="font-semibold font-heading text-ink mb-3">Khoảng giá (triệu đ)</h3>
+        <PriceRangeFilter
+          listings={listings}
+          value={priceFilter}
+          onChange={setPriceFilter}
+          showManualInput={true}
+        />
       </div>
 
       <div>
         <h3 className="font-semibold font-heading text-ink mb-3">Diện tích (m²)</h3>
-        <div className="px-2">
-          <Slider
-            value={sizeSlider}
-            onValueChange={setSizeSlider}
-            onValueCommit={(v) => setSizeRange(v)}
-            max={500}
-            step={5}
-            className="w-full"
-          />
-          <div className="flex justify-between mt-3 text-sm font-medium text-ink-muted">
-            <span>{sizeSlider[0]}m²</span>
-            <span>{sizeSlider[1]}m²</span>
-          </div>
-        </div>
+        <SizeRangeFilter
+          listings={listings}
+          value={sizeFilter}
+          onChange={setSizeFilter}
+          showManualInput={true}
+        />
       </div>
-
 
       <div>
         <h3 className="font-semibold font-heading text-ink mb-3">Loại phòng</h3>
@@ -506,23 +610,29 @@ export default function PropertiesPage() {
           {company && <p className="text-sm text-ink-muted mt-0.5">{company.name}</p>}
         </div>
 
-        {/* Mobile filter */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="lg:hidden flex-shrink-0">
-              <SlidersHorizontal className="h-4 w-4 mr-1.5" />
-              Lọc
+        <div className="flex items-center gap-2">
+          {/* Nút Copy Link Môi giới — chỉ hiện khi role = sales_agent */}
+          {isSale && (
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex-shrink-0 gap-1.5 font-bold transition-all ${
+                copyLinkDone
+                  ? 'border-emerald-400 text-emerald-700 bg-emerald-50'
+                  : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'
+              }`}
+              onClick={handleCopyReferralLink}
+              title="Copy link giới thiệu phòng cho khách — lịch hẹn sẽ tự động gắn cho bạn"
+            >
+              {copyLinkDone
+                ? <><CheckCheck className="h-3.5 w-3.5" /> Đã copy!</>
+                : <><LinkIcon className="h-3.5 w-3.5" /> Copy Link</>}
             </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[300px] flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto py-6">
-              {renderFilterContent()}
-            </div>
-          </SheetContent>
-        </Sheet>
+          )}
+        </div>
       </div>
 
-      {/* 3-cấp vị trí (Cuộn tự nhiên theo trang, không dính) */}
+      {/* 3-cấp vị trí */}
       <LocationFilter
         selectedProvinceId={selectedProvinceId}
         selectedDistrictId={selectedDistrictId}
@@ -538,72 +648,6 @@ export default function PropertiesPage() {
         }}
       />
 
-      {/* Thanh tìm kiếm độc lập (CHỈ thanh này dính cố định khi cuộn) */}
-      <div className="sticky top-16 z-30 bg-bg-base/95 backdrop-blur-md border border-border-subtle/80 shadow-md p-2.5 sm:p-3 rounded-xl mb-6 transition-all">
-        <div className="relative w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Tìm bất động sản, tên tòa nhà, địa chỉ, khu vực..."
-            className="w-full h-10 pl-10 pr-9 rounded-lg border border-border-subtle bg-card text-sm text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition placeholder:text-ink-muted/60"
-          />
-          {searchValue && (
-            <button
-              type="button"
-              onClick={() => handleSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition"
-              title="Xóa tìm kiếm"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Thanh kết quả + sort */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <span className="text-sm text-ink-muted font-medium">
-          {sortedGroups.length} bất động sản được tìm thấy
-        </span>
-
-        <div className="flex items-center gap-2">
-          <div className="flex bg-slate-100 dark:bg-slate-900/50 p-1 rounded-lg border border-border-subtle mr-2">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white dark:bg-card shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
-            >
-              Danh sách
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'map' ? 'bg-white dark:bg-card shadow-sm text-ink' : 'text-ink-muted hover:text-ink'}`}
-            >
-              Bản đồ
-            </button>
-          </div>
-          
-          <ArrowUpDown className="h-4 w-4 text-ink-muted flex-shrink-0 hidden sm:block" />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="h-9 rounded-lg border border-border-subtle bg-card px-3 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition"
-          >
-            {(Object.keys(SORT_LABELS) as SortOption[]).map((k) => (
-              <option key={k} value={k}>{SORT_LABELS[k]}</option>
-            ))}
-          </select>
-
-        </div>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 p-3 mb-6 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
-        </div>
-      )}
-
       <div className="flex gap-8">
         {/* Sidebar filter (desktop) */}
         <aside className="hidden lg:block w-64 flex-shrink-0">
@@ -614,8 +658,99 @@ export default function PropertiesPage() {
           </div>
         </aside>
 
-        {/* Grid tòa nhà */}
+        {/* Cột phải: Cụm Control dính cố định + Grid tòa nhà */}
         <div className="flex-1 min-w-0">
+          <div className="sticky top-16 z-30 bg-bg-base/75 dark:bg-bg-base/75 backdrop-blur-md pt-1 pb-3 mb-4 transition-all">
+            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-border-subtle/90 shadow-md p-2.5 sm:p-3 rounded-xl mb-2.5 flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-accent pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchValue}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="Tìm bất động sản, tên tòa nhà, địa chỉ, khu vực..."
+                  className="w-full h-10 pl-10 pr-9 rounded-lg border border-border-subtle bg-white/90 dark:bg-slate-800/90 text-sm text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition placeholder:text-ink-muted/70 shadow-xs"
+                />
+                {searchValue && (
+                  <button
+                    type="button"
+                    onClick={() => handleSearchChange('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition"
+                    title="Xóa tìm kiếm"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div className="lg:hidden">
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-10 px-3 flex-shrink-0 border-border-subtle bg-white/90 dark:bg-slate-800/90 hover:bg-bg-subtle text-ink font-bold gap-1.5 shadow-xs"
+                    >
+                      <SlidersHorizontal className="h-4 w-4 text-accent" />
+                      <span>Lọc</span>
+                      {activeFilterCount > 0 && (
+                        <Badge variant="default" className="h-5 px-1.5 text-[10px] bg-accent text-white font-extrabold rounded-full">
+                          {activeFilterCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[300px] sm:w-[360px] flex flex-col overflow-hidden">
+                    <div className="flex-1 overflow-y-auto py-6">
+                      {renderFilterContent()}
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 px-0.5 sm:px-1 flex-nowrap w-full min-w-0">
+              <span className="text-[11px] sm:text-xs text-ink-muted font-bold whitespace-nowrap bg-white/60 dark:bg-slate-900/60 backdrop-blur-xs px-2 sm:px-2.5 py-1 rounded-lg border border-border-subtle/50 shrink-0">
+                <span className="sm:hidden">{sortedGroups.length} BĐS</span>
+                <span className="hidden sm:inline">{sortedGroups.length} bất động sản được tìm thấy</span>
+              </span>
+
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
+                <div className="flex bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs p-0.5 sm:p-1 rounded-lg border border-border-subtle shadow-xs shrink-0">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-md transition-colors whitespace-nowrap ${viewMode === 'grid' ? 'bg-accent text-white shadow-xs' : 'text-ink-muted hover:text-ink'}`}
+                  >
+                    Danh sách
+                  </button>
+                  <button
+                    onClick={() => setViewMode('map')}
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-md transition-colors ${viewMode === 'map' ? 'bg-accent text-white shadow-xs' : 'text-ink-muted hover:text-ink'}`}
+                  >
+                    Bản đồ
+                  </button>
+                </div>
+                
+                <ArrowUpDown className="h-3.5 w-3.5 text-ink-muted flex-shrink-0 hidden sm:block" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="h-7 sm:h-8.5 rounded-lg border border-border-subtle bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs px-1.5 sm:px-2.5 text-[11px] sm:text-xs font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition shadow-xs max-w-[115px] sm:max-w-none truncate"
+                >
+                  {(Object.keys(SORT_LABELS) as SortOption[]).map((k) => (
+                    <option key={k} value={k}>{SORT_LABELS[k]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 mb-6 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-accent" />

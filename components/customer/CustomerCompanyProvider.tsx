@@ -65,12 +65,10 @@ export function CustomerCompanyProvider({ children }: { children: React.ReactNod
       .then((resolved) => {
         let finalCompanies = resolved;
 
-        // Nếu user đang đăng nhập và là nhân sự của công ty, chỉ hiển thị công ty của họ
-        if (profile?.company_id && ['company_admin', 'manager', 'sales_agent'].includes(profile.role)) {
-          finalCompanies = resolved.filter(c => c.id === profile.company_id);
-          
-          // Nếu ở root domain mà bị filter mất (hoặc queryParam khác), ta có thể lấy company bằng API
-          // Nhưng resolveCompaniesFromSources mặc định trả về ALL ở root domain, nên filter sẽ ra 1 company của user.
+        // Chỉ lọc 1 công ty nếu có subdomain hoặc queryParam chỉ định cụ thể
+        if ((subdomain || queryParam) && profile?.company_id && ['company_admin', 'manager', 'sales_agent'].includes(profile.role)) {
+          const userComp = resolved.filter(c => c.id === profile.company_id);
+          if (userComp.length > 0) finalCompanies = userComp;
         }
 
         setCompanies(finalCompanies);
