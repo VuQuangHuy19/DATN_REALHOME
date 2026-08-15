@@ -18,11 +18,21 @@
 # misc
 .DS_Store
 *.pem
+*.zip
+bds1.code-workspace
 
-# debug
+# debug, scratch & test folders
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+scratch/
+scratch Oke/
+scratch*/
+scripts/
+artifacts/
+pr/
+"gg sheet"/
+gg sheet/
 
 # local env files
 .env
@@ -54,13 +64,10 @@ secrets.json
 .bolt/
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
 # database migrations & documentation
-*.sql
-*.md
 docs/
-supabase/migrations/
+supabase/
