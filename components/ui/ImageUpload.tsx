@@ -13,6 +13,7 @@ interface ImageUploadProps {
   multiple?: boolean;
   className?: string;
   allowVideo?: boolean;
+  extraAction?: React.ReactNode;
 }
 
 export function ImageUpload({
@@ -22,6 +23,7 @@ export function ImageUpload({
   multiple = false,
   className,
   allowVideo = false,
+  extraAction,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,44 +65,55 @@ export function ImageUpload({
           thumbToUpload = await compressImage(file, 300, 0.80, true);
         }
 
-        // Create unique path
-        const fileExt = (fileToUpload instanceof File ? fileToUpload.name : file.name).split('.').pop();
-        const randomName = Math.random().toString(36).substring(2, 15);
-        const timestamp = Date.now();
-        const fileName = `${randomName}-${timestamp}.${fileExt}`;
-        const filePath = `${fileName}`;
-        const thumbPath = `${randomName}-${timestamp}-thumb.${fileExt}`;
+        // Hàm helper upload file qua API /api/upload-r2 (Check MD5 -> Cloudflare R2 -> Fallback Supabase Storage)
+        const uploadFileWithR2Fallback = async (blobOrFile: File | Blob, originalName: string, prefix: string) => {
+          try {
+            const formData = new FormData();
+            formData.append('file', blobOrFile, originalName);
+            formData.append('pathPrefix', prefix);
 
-        // Upload main file to Supabase storage
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(filePath, fileToUpload);
+            const res = await fetch('/api/upload-r2', {
+              method: 'POST',
+              body: formData,
+            });
 
-        if (uploadError) {
-          throw uploadError;
-        }
+            const data = await res.json();
+            if (res.ok && data.url) {
+              return data.url as string;
+            }
+            throw new Error(data.error || 'R2 API failed');
+          } catch (r2Err) {
+            // Fallback: upload trực tiếp lên Supabase Storage nếu API R2 lỗi
+            const fileExt = originalName.split('.').pop();
+            const randomName = Math.random().toString(36).substring(2, 15);
+            const fileName = `${prefix}/${randomName}-${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from(bucket)
+              .upload(fileName, blobOrFile);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(fileName);
+
+            return publicUrl;
+          }
+        };
+
+        const originalName = fileToUpload instanceof File ? fileToUpload.name : file.name;
+        const publicUrl = await uploadFileWithR2Fallback(fileToUpload, originalName, bucket);
 
         let thumbnailPublicUrl = null;
-
         if (thumbToUpload) {
-          const { error: thumbUploadError } = await supabase.storage
-            .from(bucket)
-            .upload(thumbPath, thumbToUpload);
-
-          if (thumbUploadError) {
-            console.warn('Could not upload thumbnail, but continuing with main file:', thumbUploadError.message);
-          } else {
-            const { data: thumbData } = supabase.storage
-              .from(bucket)
-              .getPublicUrl(thumbPath);
-            thumbnailPublicUrl = thumbData.publicUrl;
+          try {
+            const thumbName = `thumb_${originalName}`;
+            thumbnailPublicUrl = await uploadFileWithR2Fallback(thumbToUpload, thumbName, `${bucket}/thumbnails`);
+          } catch (e) {
+            console.warn('Could not upload thumbnail, but continuing with main file:', e);
           }
         }
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(filePath);
 
         return { publicUrl, thumbnailPublicUrl, isVideo };
       });
@@ -204,7 +217,7 @@ export function ImageUpload({
           <p className="font-semibold text-slate-600">Định dạng hỗ trợ</p>
           <p>PNG, JPG, WEBP, GIF (Tối đa 10 MB)</p>
           {allowVideo && <p>MP4, MOV, WEBM (Video tối đa 500 MB)</p>}
-          <p>{multiple ? 'Chọn và tải lên cùng lúc nhiều file.' : 'File sẽ được tự động tải lên.'}</p>
+          {extraAction && <div className="pt-1.5">{extraAction}</div>}
         </div>
       </div>
 
