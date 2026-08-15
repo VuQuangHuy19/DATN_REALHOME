@@ -11,13 +11,13 @@ DATN_REALHOME/
 │   ├── landlord/                        # Phân hệ Cổng Chủ nhà
 │   └── customer/                        # Phân hệ Cổng Khách thuê & Public Search
 │
-├── components/admin/hubs/               # 🏛️ KHU VỰC HUBS ĐA PHÂN HỆ (Pluggable Hub Architecture)
+├── components/admin/hubs/               # KHU VỰC HUBS ĐA PHÂN HỆ (Pluggable Hub Architecture)
 │   ├── SupplyOperationsHub.tsx          # Hub Phân hệ 1: Nguồn Hàng & Vận Hành BĐS
 │   ├── SalesDealFlowHub.tsx             # Hub Phân hệ 2: Bán Hàng & Phễu CRM Giao Dịch
 │   ├── FinancialCommissionHub.tsx       # Hub Phân hệ 3: Tài Chính & Chi Trả Hoa Hồng
 │   └── OrganizationSystemHub.tsx        # Hub Phân hệ 4: Quản Trị Đội Ngũ & Audit Logs
 │
-├── src/features/                        # 🧩 KHU VỰC MODULE TÍNH NĂNG ĐỘC LẬP (Feature Modules)
+├── src/features/                        # KHU VỰC MODULE TÍNH NĂNG ĐỘC LẬP (Feature Modules)
 │   ├── admin/context/                   # Context Quản lý Trạng thái Phân hệ (useAdminModule)
 │   ├── sales/                           # Module Kinh doanh & Dẫn khách (Leads, Appointments)
 │   ├── rooms/                           # Module Căn hộ / Phòng (Matrix, Status, Specs)
@@ -28,12 +28,12 @@ DATN_REALHOME/
 │   ├── import/                          # Module AI Sync Google Sheet
 │   └── staff/                           # Module Nhân sự & KPI
 │
-└── src/lib/hooks/                       # 🛠️ GLOBAL HOOKS & UTILITIES
+└── src/lib/hooks/                       # GLOBAL HOOKS & UTILITIES
     ├── useFeatureToggles.ts             # Hook Tùy chỉnh Bật/Tắt tính năng động
     └── room-status.ts                   # Utility Tính toán trạng thái Phòng [Sắp trống]
 ```
 
-## 🛠️ Công nghệ cốt lõi
+## Công nghệ cốt lõi
 - **Framework**: Next.js (App Router), React, TypeScript
 - **Database & Auth**: Supabase (PostgreSQL, RLS, Edge Auth)
 - **CDN Storage**: Cloudflare R2 (Ảnh tòa nhà, phòng, ảnh check-in TimeMark phân thư mục)
