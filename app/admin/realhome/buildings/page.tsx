@@ -5,3 +5,4 @@ import { BuildingListPage } from '@/src/features/properties/components/BuildingL
 export default function BuildingsPage() {
   return <BuildingListPage />;
 }
+

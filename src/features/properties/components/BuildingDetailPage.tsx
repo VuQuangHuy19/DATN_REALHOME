@@ -14,10 +14,10 @@ import { PermissionGate } from '@/components/ui/PermissionGate';
 import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage, ArrowUpDown, ShieldCheck, ShieldAlert, PawPrint, Globe, Zap, Check, X, Settings } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
-import { useRoomsFeature } from '@/src/features/rooms/hooks/useRoomsFeature';
-import { useRoomImages } from '@/src/features/properties/hooks/useRoomImages';
-import { useRentalContracts, useDepositContracts } from '@/src/features/finance/hooks/useContracts';
-import { useRoomTypesCatalog } from '@/src/features/categories/hooks/useCategories';;
+import { useRoomsFeature } from '@/features/rooms/hooks/useRoomsFeature';
+import { useRoomImages } from '@/features/properties/hooks/useRoomImages';
+import { useRentalContracts, useDepositContracts } from '@/features/finance/hooks/useContracts';
+import { useRoomTypesCatalog } from '@/features/categories/hooks/useCategories';;
 import { DepositCountdown } from '@/components/ui/DepositCountdown';
 import { getRoomImages, addRoomImage } from '@/lib/supabase/repositories/room_images';
 import { supabase } from '@/lib/supabase/client';
@@ -26,6 +26,9 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import type { DBRoom } from '@/lib/supabase/types';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import { useBuildingServices } from '../hooks/useBuildingServices';
+import { getBuilding } from '../services/buildings';
+
+import { BuildingPhotoAssignModal } from './BuildingPhotoAssignModal';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -50,8 +53,18 @@ export function BuildingDetailPage() {
   const { company, role } = useAuth();
   const pathname = usePathname();
   const { items: buildingList, loading: buildingLoading, refetch: refetchBuildings } = usePropertiesFeature(company?.id);
-  const building = useMemo(() => buildingList.find((b) => b.id === buildingId), [buildingList, buildingId]);
-  const { items: roomList, loading: roomLoading, error: roomError, add: addRoom, update: updateRoom, remove: removeRoom } = useRoomsFeature(building?.code, company?.id);
+
+  const [directBuilding, setDirectBuilding] = useState<any | null>(null);
+  const foundBuilding = useMemo(() => buildingList.find((b) => b.id === buildingId || b.code === buildingId), [buildingList, buildingId]);
+
+  useEffect(() => {
+    if (!buildingLoading && !foundBuilding && buildingId) {
+      getBuilding(buildingId).then(setDirectBuilding).catch(() => setDirectBuilding(null));
+    }
+  }, [buildingLoading, foundBuilding, buildingId]);
+
+  const building = foundBuilding || directBuilding;
+  const { items: roomList, loading: roomLoading, error: roomError, add: addRoom, update: updateRoom, remove: removeRoom } = useRoomsFeature(building?.id || buildingId, company?.id);
 
   const [managementFeeRate, setManagementFeeRate] = useState<number>(0);
   const [updatingFee, setUpdatingFee] = useState(false);
@@ -234,17 +247,26 @@ export function BuildingDetailPage() {
     }
   };
 
+  const [filterRoomStatus, setFilterRoomStatus] = useState<string>('all');
+
   const roomsByFloor = useMemo(() => {
     const grouped: Record<number, DBRoom[]> = {};
     roomList.forEach((room) => {
       if (role === 'sales_agent' && room.status === 'rented') {
         return;
       }
+      const ds = getRoomDisplayStatus(room, contracts);
+      if (filterRoomStatus === 'available' && ds.status !== 'available' && ds.status !== 'soon_available') {
+        return;
+      }
+      if (filterRoomStatus === 'rented' && ds.status !== 'rented') {
+        return;
+      }
       if (!grouped[room.floor]) grouped[room.floor] = [];
       grouped[room.floor].push(room);
     });
     return Object.entries(grouped).sort((a, b) => Number(a[0]) - Number(b[0])).map(([floor, rooms]) => ({ floor: Number(floor), rooms }));
-  }, [roomList, role]);
+  }, [roomList, role, filterRoomStatus, contracts]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc muốn xóa phòng này?')) return;
@@ -475,6 +497,8 @@ export function BuildingDetailPage() {
     setIsViewOpen(true);
   };
 
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+
   if (buildingLoading) {
     return <div className="flex justify-center items-center py-24"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>;
   }
@@ -493,9 +517,18 @@ export function BuildingDetailPage() {
             <p className="text-ink-muted text-sm font-mono mt-0.5">{building.code} — {building.address}</p>
           </div>
         </div>
-        <PermissionGate roles={['company_admin', 'manager']}>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
+        <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setAssignModalOpen(true)}
+              variant="outline"
+              className="border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg gap-1.5 text-xs shadow-xs"
+            >
+              <LucideImage className="h-4 w-4 text-indigo-600" />
+              Quản lý &amp; Phân loại Ảnh (AI)
+            </Button>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
             <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white shadow-lg">
               <DialogHeader className="flex-shrink-0 px-6 pt-6">
                 <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
@@ -700,7 +733,8 @@ export function BuildingDetailPage() {
                     )}
 
                     <div className="pt-1">
-                      <ImageUpload allowVideo={true}
+                      <ImageUpload
+                        allowVideo={true}
                         value={null}
                         onChange={handleImageUploaded}
                         bucket="room_images"
@@ -720,7 +754,8 @@ export function BuildingDetailPage() {
               </div>
             </DialogContent>
           </Dialog>
-        </PermissionGate>
+        </div>
+      </PermissionGate>
       </div>
 
       {roomError && <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm"><AlertCircle className="h-4 w-4 flex-shrink-0" />{roomError}</div>}
@@ -841,7 +876,7 @@ export function BuildingDetailPage() {
                     <td className="p-2 text-accent font-bold font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</td>
                   </tr>
                   <tr className="hover:bg-bg-subtle/50 transition-colors">
-                    <td className="p-2 text-ink font-semibold">Phí dịch vụ chung</td>
+                    <td className="p-2 font-ink font-semibold">Phí dịch vụ chung</td>
                     <td className="p-2 text-accent font-bold font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/{(building as any).common_service_unit || 'người'}</td>
                   </tr>
                   <tr className="hover:bg-bg-subtle/50 transition-colors">
@@ -892,81 +927,6 @@ export function BuildingDetailPage() {
           </CardContent>
         </Card>
 
-        {/* ➕ Hộp thoại Thêm dịch vụ bổ sung tòa nhà */}
-        <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
-          <DialogContent className="max-w-md p-6 rounded-2xl">
-            <DialogHeader className="border-b border-border pb-3">
-              <DialogTitle className="font-heading text-lg font-bold text-ink flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-amber-600" />
-                Thêm dịch vụ bổ sung cho Tòa nhà
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleAddServiceSubmit} className="space-y-4 pt-2">
-              <div>
-                <Label className="text-xs font-bold text-ink-muted mb-1 block">Tên dịch vụ *</Label>
-                <Input
-                  placeholder="VD: Dọn dẹp phòng theo giờ, Giặt đồ..."
-                  value={serviceName}
-                  onChange={(e) => setServiceName(e.target.value)}
-                  required
-                  className="rounded-xl"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn giá (VNĐ) *</Label>
-                  <Input
-                    placeholder="VD: 50000"
-                    value={servicePrice}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      setServicePrice(val ? Number(val).toLocaleString('vi-VN') : '');
-                    }}
-                    required
-                    className="rounded-xl font-mono"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn tính *</Label>
-                  <select
-                    value={serviceUnit}
-                    onChange={(e) => setServiceUnit(e.target.value)}
-                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm font-semibold"
-                  >
-                    <option value="lần">lần</option>
-                    <option value="tháng">tháng</option>
-                    <option value="phòng">phòng</option>
-                    <option value="người">người</option>
-                    <option value="xe">xe</option>
-                    <option value="can">can</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs font-bold text-ink-muted mb-1 block">Mô tả dịch vụ</Label>
-                <Input
-                  placeholder="VD: Dọn vệ sinh, lau nhà, thay ga giường..."
-                  value={serviceDesc}
-                  onChange={(e) => setServiceDesc(e.target.value)}
-                  className="rounded-xl"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-border">
-                <Button type="button" variant="ghost" onClick={() => setServiceDialogOpen(false)} className="rounded-xl font-bold">
-                  Hủy
-                </Button>
-                <Button type="submit" disabled={isSavingService} className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl shadow-md">
-                  {isSavingService ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang lưu...</> : 'Lưu dịch vụ'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
         {/* Configuration for company management fee */}
         <PermissionGate roles={['company_admin', 'manager']}>
           <Card className="border-border rounded-lg shadow-none bg-white border-t-2 border-t-indigo-600">
@@ -1007,7 +967,30 @@ export function BuildingDetailPage() {
       </div>
 
       <div className="space-y-4">
-        {roomsByFloor.map(({ floor, rooms }) => (
+        <div className="flex items-center justify-between flex-wrap gap-3 px-1">
+          <h2 className="text-lg font-bold font-heading text-ink flex items-center gap-2">
+            <Layers className="h-5 w-5 text-accent" /> Danh sách phòng theo tầng
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-ink-muted">Bộ lọc phòng:</span>
+            <select
+              value={filterRoomStatus}
+              onChange={(e) => setFilterRoomStatus(e.target.value)}
+              className="h-8 rounded-lg border border-border bg-white px-2.5 text-xs font-semibold text-ink focus-visible:ring-accent"
+            >
+              <option value="all">Tất cả phòng ({roomList.length})</option>
+              <option value="available">Chỉ phòng trống / sắp trống</option>
+              <option value="rented">Chỉ phòng đã cho thuê</option>
+            </select>
+          </div>
+        </div>
+
+        {roomsByFloor.length === 0 ? (
+          <Card className="border-border rounded-lg shadow-none bg-white p-8 text-center text-ink-muted text-sm">
+            Không có phòng nào phù hợp với bộ lọc được chọn.
+          </Card>
+        ) : (
+          roomsByFloor.map(({ floor, rooms }) => (
           <Card key={floor} className="border-border rounded-lg shadow-none bg-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <CardTitle className="text-base font-bold font-heading text-ink">Tầng {floor}</CardTitle>
@@ -1163,7 +1146,7 @@ export function BuildingDetailPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+        )))}
       </div>
 
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
@@ -1275,6 +1258,20 @@ export function BuildingDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Quản lý & Phân loại Ảnh AI */}
+      <BuildingPhotoAssignModal
+        open={assignModalOpen}
+        onOpenChange={setAssignModalOpen}
+        buildingId={building.id}
+        buildingName={building.name}
+        buildingCode={building.code}
+        companyId={company?.id}
+        rooms={roomList}
+        onSuccess={() => {
+          refetchBuildings();
+        }}
+      />
     </div>
   );
 }

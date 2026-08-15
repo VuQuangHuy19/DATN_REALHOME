@@ -22,13 +22,21 @@ export type RoomWithBuilding = DBRoom & {
 };
 
 export async function getRooms(companyId?: string, landlordId?: string): Promise<RoomWithBuilding[]> {
-  let filterLandlordCode = landlordId;
-  if (landlordId && landlordId.includes('-')) {
-    const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
-    filterLandlordCode = landlord?.code || landlordId;
+  let validLandlordCodes: string[] = [];
+  if (landlordId) {
+    validLandlordCodes.push(landlordId);
+    const { data: landlord } = await supabase
+      .from('landlords')
+      .select('id, code')
+      .or(`id.eq.${landlordId},code.eq.${landlordId}`)
+      .maybeSingle();
+    if (landlord) {
+      if (landlord.id && !validLandlordCodes.includes(landlord.id)) validLandlordCodes.push(landlord.id);
+      if (landlord.code && !validLandlordCodes.includes(landlord.code)) validLandlordCodes.push(landlord.code);
+    }
   }
 
-  const selectQuery = filterLandlordCode 
+  const selectQuery = validLandlordCodes.length > 0 
     ? '*, buildings!inner(id, name, area, address, landlord_id, electricity_price, water_price, internet_price, common_service_price, washing_machine_type, dryer_type)' 
     : '*, buildings(id, name, area, address, landlord_id, electricity_price, water_price, internet_price, common_service_price, washing_machine_type, dryer_type)';
 
@@ -36,8 +44,10 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
     .from('rooms')
     .select(selectQuery)
     .order('created_at', { ascending: false });
-  if (companyId) q = q.eq('company_id', companyId);
-  if (filterLandlordCode) q = q.eq('buildings.landlord_id', filterLandlordCode);
+  if (companyId) q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+  if (validLandlordCodes.length > 0) {
+    q = q.in('buildings.landlord_id', validLandlordCodes);
+  }
   const { data, error } = await q;
   if (error) throw error;
 
@@ -52,13 +62,26 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
 }
 
 export async function getRoomsByBuilding(buildingId: string, companyId?: string): Promise<DBRoom[]> {
+  if (!buildingId) return [];
+
+  const { data: buildingData } = await supabase
+    .from('buildings')
+    .select('id, code')
+    .or(`id.eq.${buildingId},code.eq.${buildingId}`)
+    .maybeSingle();
+
+  const buildingKeys = Array.from(
+    new Set([buildingId, buildingData?.id, buildingData?.code].filter(Boolean) as string[])
+  );
+
   let q = supabase
     .from('rooms')
     .select('*')
-    .eq('building_id', buildingId)
+    .in('building_id', buildingKeys)
     .order('floor', { ascending: true })
     .order('code', { ascending: true });
-  if (companyId) q = q.eq('company_id', companyId);
+
+  if (companyId) q = q.or(`company_id.eq.${companyId},company_id.is.null`);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as unknown as DBRoom[];
@@ -81,6 +104,22 @@ export async function getRoomWithBuilding(id: string): Promise<RoomWithBuilding 
 }
 
 export async function createRoom(r: RoomInsert): Promise<DBRoom> {
+  // Anti-duplication check for room in same building & company
+  if (r.company_id && r.building_id && r.code) {
+    const { data: existing } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('company_id', r.company_id)
+      .eq('building_id', r.building_id)
+      .ilike('code', r.code.trim())
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      return updateRoom(existing.id, r);
+    }
+  }
+
   const { data, error } = await supabase.from('rooms').insert(r as any).select().single();
   if (error) throw error;
   return data as unknown as DBRoom;

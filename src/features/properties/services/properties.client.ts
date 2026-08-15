@@ -20,5 +20,11 @@ export async function updateBuildingClient(id: string, payload: Partial<DBBuildi
 
 export async function deleteBuildingClient(id: string, companyId?: string): Promise<void> {
   void companyId;
-  return deleteBuilding(id);
+  const res = await fetch(`/api/buildings/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Lỗi khi xóa tòa nhà');
+  }
 }

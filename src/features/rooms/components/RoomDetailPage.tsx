@@ -463,7 +463,7 @@ export function RoomDetailPage() {
             <CardHeader><CardTitle className="text-base font-bold font-heading text-ink">Metadata</CardTitle></CardHeader>
             <CardContent className="space-y-1.5 text-xs text-ink-muted font-medium">
               <div>ID: <span className="font-mono text-ink font-semibold">{room.id.slice(0, 8)}…</span></div>
-              <div>Tạo lúc: {new Date(room.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+              <div>Tạo lúc: {room.created_at ? new Date(room.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</div>
               {room.updated_at && (
                 <div>Cập nhật: {new Date(room.updated_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
               )}
@@ -550,11 +550,11 @@ export function RoomDetailPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">HĐ tối thiểu (tháng)</Label>
-                  <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={room.min_contract_months} required className="rounded-lg border-border focus-visible:ring-accent" />
+                  <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={room.min_contract_months ?? 12} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="has_private_balcony" className="text-ink font-semibold text-xs uppercase tracking-wider">Ban công riêng</Label>
-                  <select id="has_private_balcony" name="has_private_balcony" defaultValue={String(room.has_private_balcony)} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
+                  <select id="has_private_balcony" name="has_private_balcony" defaultValue={String(room.has_private_balcony ?? false)} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
                     <option value="false">Không có</option>
                     <option value="true">Có ban công riêng</option>
                   </select>
@@ -564,19 +564,19 @@ export function RoomDetailPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ</Label>
-                  <Input id="bedrooms" name="bedrooms" type="number" defaultValue={room.bedrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
+                  <Input id="bedrooms" name="bedrooms" type="number" defaultValue={room.bedrooms ?? 1} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm</Label>
-                  <Input id="bathrooms" name="bathrooms" type="number" defaultValue={room.bathrooms} required className="rounded-lg border-border focus-visible:ring-accent" />
+                  <Input id="bathrooms" name="bathrooms" type="number" defaultValue={room.bathrooms ?? 1} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa</Label>
-                  <Input id="max_occupants" name="max_occupants" type="number" defaultValue={room.max_occupants} required className="rounded-lg border-border focus-visible:ring-accent" />
+                  <Input id="max_occupants" name="max_occupants" type="number" defaultValue={room.max_occupants ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa</Label>
-                  <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={room.max_vehicles_per_room} required className="rounded-lg border-border focus-visible:ring-accent" />
+                  <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={room.max_vehicles_per_room ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
                 </div>
               </div>
 

@@ -62,6 +62,13 @@ export async function resolveCompanyFromSources(options: {
     if (company) return company;
   }
 
+  // Ưu tiên company code mặc định từ env (dùng cho localhost dev)
+  const defaultCode = process.env.NEXT_PUBLIC_DEFAULT_COMPANY_CODE;
+  if (defaultCode) {
+    const defaultCompany = await getCompanyByCode(defaultCode.trim());
+    if (defaultCompany) return defaultCompany;
+  }
+
   // Ultimate fallback: company đầu tiên trong DB
   return getFirstActiveCompany();
 }
@@ -101,8 +108,8 @@ export async function resolveCompaniesFromSources(options: {
   const candidates = [...subdomainCandidates, ...queryCandidates];
 
   if (candidates.length === 0) {
-    const fallback = await getFirstActiveCompany();
-    return fallback ? [fallback] : [];
+    // Không truyền subdomain/queryParam -> Trả về tất cả các công ty active để hiển thị toàn bộ bất động sản
+    return getAllActiveCompanies();
   }
 
   const resolvedCompanies: PublicCompany[] = [];
@@ -117,8 +124,7 @@ export async function resolveCompaniesFromSources(options: {
   }
 
   if (resolvedCompanies.length === 0) {
-    const fallback = await getFirstActiveCompany();
-    return fallback ? [fallback] : [];
+    return getAllActiveCompanies();
   }
 
   return resolvedCompanies;
