@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { companyId, customerName, customerPhone, property, viewingDate, viewingTime } = body;
+    const { companyId, customerName, customerPhone, property, viewingDate, viewingTime, createdByUserId, assignedToUserId, assignedToName, leadSource } = body;
 
     if (!companyId || !customerName || !customerPhone || !property || !viewingDate || !viewingTime) {
       return NextResponse.json({ error: 'Thiếu thông tin bắt buộc' }, { status: 400 });
@@ -72,6 +72,10 @@ export async function POST(request: Request) {
     const landlordId = roomData?.landlord_id ?? null;
     const buildingId = roomData?.building_id ?? null;
 
+    const finalAssignedTo = assignedToUserId || createdByUserId || null;
+    const finalAssignedToName = assignedToName || null;
+    const finalLeadSource = leadSource || (finalAssignedTo ? 'self_sourced' : 'company_mkt');
+
     // 2. Tạo lịch hẹn (appointments) bằng admin client (bypass RLS)
     const { data: appointment, error: aptError } = await supabaseAdmin
       .from('appointments')
@@ -87,10 +91,12 @@ export async function POST(request: Request) {
         area: property.area ?? null,
         status: 'Pending',
         notes: 'Yêu cầu xem qua website',
-        assigned_to: null,
-        assigned_to_name: null,
+        assigned_to: finalAssignedTo,
+        assigned_to_name: finalAssignedToName,
+        created_by: createdByUserId || null,
         landlord_id: landlordId,
         building_id: buildingId,
+        lead_source: finalLeadSource,
       })
       .select()
       .single();
@@ -115,7 +121,8 @@ export async function POST(request: Request) {
         preferred_area: property.area ?? null,
         preferred_room_type: null,
         interested_area: property.area ?? null,
-        assigned_to: null,
+        assigned_to: finalAssignedTo,
+        created_by: createdByUserId || null,
         notes: `Đặt lịch xem: ${property.title} — ${normalizedDate} ${viewingTime}`,
         last_contacted_at: null,
       })
