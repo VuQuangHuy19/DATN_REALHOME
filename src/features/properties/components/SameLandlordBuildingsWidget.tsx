@@ -65,7 +65,7 @@ export function SameLandlordBuildingsWidget({
       const soonAvailable = rooms
         .filter((r) => {
           if (r.status !== 'soon_available') return false;
-          const targetDateStr = r.expectedAvailableDate || (r as any).availableDate;
+          const targetDateStr = r.expectedAvailableDate || r.availableDate;
           if (!targetDateStr) return false;
           const end = new Date(targetDateStr);
           const today = new Date();
@@ -108,7 +108,7 @@ export function SameLandlordBuildingsWidget({
         availableRoomCodes: available.map((r) => r.title.split('—')[1]?.trim() || r.id.slice(0, 6)),
         soonAvailableRooms: soonAvailable.map((r) => ({
           code: r.title.split('—')[1]?.trim() || r.id.slice(0, 6),
-          expectedAvailableDate: r.expectedAvailableDate || (r as any).availableDate,
+          expectedAvailableDate: r.expectedAvailableDate || r.availableDate,
         })),
         minPrice: prices.length ? Math.min(...prices) : 0,
         maxPrice: prices.length ? Math.max(...prices) : 0,

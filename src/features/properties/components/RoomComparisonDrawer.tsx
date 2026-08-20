@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useCompare } from '@/src/lib/customer/RoomCompareContext';
+import { useCompare } from '@/lib/customer/RoomCompareContext';
 import type { CustomerListing } from '@/lib/customer/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';

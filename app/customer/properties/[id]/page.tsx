@@ -21,6 +21,7 @@ import {
   ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText
 } from 'lucide-react';
 import { maskHouseNumberInBuildingName } from '@/lib/utils';
+import { detectDryerFeature } from '@/lib/utils/dryer-parser';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -31,6 +32,8 @@ const statusLabels: Record<string, string> = {
 };
 
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
+import { SameLandlordBuildingsWidget } from '@/src/features/properties/components/SameLandlordBuildingsWidget';
+import { SimilarBuildingsWidget } from '@/src/features/properties/components/SimilarBuildingsWidget';
 
 export default function BuildingDetailPage() {
   const params = useParams();
@@ -201,7 +204,7 @@ export default function BuildingDetailPage() {
 
           {/* Nội thất */}
           {(() => {
-            const activeFurniture = [
+            const baseFurniture = [
               { key: 'has_air_conditioner', label: 'Điều hòa' },
               { key: 'has_water_heater', label: 'Nóng lạnh' },
               { key: 'has_bed', label: 'Giường ngủ' },
@@ -211,6 +214,20 @@ export default function BuildingDetailPage() {
               { key: 'has_hood', label: 'Máy hút mùi' },
               { key: 'has_dressing_table', label: 'Bàn trang điểm' }
             ].filter((item) => building[item.key] === true);
+
+            // Dynamic scan for dryer / washing dryer from description & dryer_type
+            const dryerScan = detectDryerFeature(
+              [building.dryer_type, building.description, ...rooms.map(r => r.description)].filter(Boolean).join(' | ')
+            );
+
+            if (dryerScan.hasDryer) {
+              baseFurniture.push({
+                key: 'has_dryer_dynamic',
+                label: dryerScan.label || 'Máy sấy',
+              });
+            }
+
+            const activeFurniture = baseFurniture;
 
             if (activeFurniture.length === 0) return null;
 
@@ -599,6 +616,24 @@ export default function BuildingDetailPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Gợi ý Tòa cùng nguồn chủ & Tòa nhà tương tự */}
+      <SameLandlordBuildingsWidget
+        currentBuilding={{
+          id: building.id,
+          landlord_id: building.landlord_id,
+          company_id: building.company_id,
+          area: building.area,
+        }}
+      />
+      <SimilarBuildingsWidget
+        currentBuilding={{
+          id: building.id,
+          landlord_id: building.landlord_id,
+          company_id: building.company_id,
+          area: building.area,
+        }}
+      />
 
       {/* Hotline contact dialog */}
       <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>

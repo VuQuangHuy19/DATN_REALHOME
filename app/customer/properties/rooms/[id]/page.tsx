@@ -18,6 +18,7 @@ import { formatDateDisplay } from '@/lib/room-status';
 import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, Check, X, Zap, PawPrint, Globe, Award, Layers, FileText } from 'lucide-react';
 
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
+import { detectDryerFeature } from '@/lib/utils/dryer-parser';
 
 
 
@@ -120,7 +121,7 @@ export default function RoomDetailPage() {
 
           {/* Nội thất */}
           {(() => {
-            const activeFurniture = [
+            const baseFurniture = [
               { key: 'hasAirConditioner', label: 'Điều hòa' },
               { key: 'hasWaterHeater', label: 'Nóng lạnh' },
               { key: 'hasBed', label: 'Giường ngủ' },
@@ -130,6 +131,20 @@ export default function RoomDetailPage() {
               { key: 'hasHood', label: 'Máy hút mùi' },
               { key: 'hasDressingTable', label: 'Bàn trang điểm' }
             ].filter((item) => property[item.key as keyof typeof property] === true);
+
+            // Dynamic scan for dryer / washing dryer from description & building title
+            const dryerScan = detectDryerFeature(
+              [property.description, property.buildingName, property.title].filter(Boolean).join(' | ')
+            );
+
+            if (dryerScan.hasDryer) {
+              baseFurniture.push({
+                key: 'hasDryerDynamic',
+                label: dryerScan.label || 'Máy sấy',
+              });
+            }
+
+            const activeFurniture = baseFurniture;
 
             if (activeFurniture.length === 0) return null;
 
