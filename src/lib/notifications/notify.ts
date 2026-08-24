@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getSubscriptionsByProfileId, getSubscriptionsByCompanyId } from '@/src/features/notifications/services/push-subscriptions';
-import { sendWebPushNotification } from '@/src/features/notifications/services/web-push-sender';
+import { getSubscriptionsByProfileId, getSubscriptionsByCompanyId } from '@/features/notifications/services/push-subscriptions';
+import { sendWebPushNotification } from '@/features/notifications/services/web-push-sender';
 import { sendEmail as sendEmailViaMailjet } from '@/lib/mail';
 export type NotificationChannel = 'in_app' | 'push' | 'email';
 // Đã bỏ 'sms' ra khỏi type vì yêu cầu để lại làm sau

@@ -78,6 +78,66 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
     }
   }, [isOpen]);
 
+  // Dynamic Visual Viewport Height & Offset state for Mobile Keyboard handling
+  const [viewportStyle, setViewportStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Lock body scroll on mobile when chat is open to prevent page scrolling behind modal
+    const originalOverflow = document.body.style.overflow;
+    if (window.innerWidth < 640) {
+      document.body.style.overflow = 'hidden';
+    }
+
+    const updateViewport = () => {
+      if (window.innerWidth >= 640) {
+        setViewportStyle({});
+        return;
+      }
+
+      if (window.visualViewport) {
+        const height = window.visualViewport.height;
+        const top = window.visualViewport.offsetTop;
+        setViewportStyle({
+          position: 'fixed',
+          top: `${top}px`,
+          left: '0px',
+          right: '0px',
+          height: `${height}px`,
+          maxHeight: `${height}px`,
+        });
+      } else {
+        setViewportStyle({
+          position: 'fixed',
+          top: '0px',
+          left: '0px',
+          right: '0px',
+          bottom: '0px',
+          height: '100dvh',
+        });
+      }
+    };
+
+    updateViewport();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
+    }
+
+    window.addEventListener('resize', updateViewport);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      }
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, [isOpen]);
+
   const openChat = () => setIsOpen(true);
   const closeChat = () => {
     setIsOpen(false);
@@ -99,7 +159,20 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
   }, [input]);
 
   const handleCustomSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) handleSubmit(e);
+    if (e) {
+      handleSubmit(e, {
+        options: {
+          body: {
+            data: {
+              companyId: company?.id || profile?.company_id,
+              role: userRole || profile?.role || role,
+              userId: user?.id,
+              landlordId: profile?.landlord_id,
+            },
+          },
+        },
+      });
+    }
     setTimeout(() => {
       inputRef.current?.focus();
     }, 50);
@@ -138,7 +211,7 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
     <>
       <Button
         onClick={openChat}
-        className="fixed bottom-20 lg:bottom-6 right-6 h-13 w-13 md:h-14 md:w-14 rounded-full shadow-xl shadow-amber-500/30 bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 transition-all duration-300 hover:scale-110 z-50 flex items-center justify-center p-0 ring-4 ring-amber-400/30 border border-amber-300/40"
+        className="fixed bottom-20 lg:bottom-6 right-5 lg:right-6 h-12 w-12 md:h-14 md:w-14 rounded-full shadow-xl shadow-amber-500/30 bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-600 hover:to-yellow-500 transition-all duration-300 hover:scale-110 z-40 flex items-center justify-center p-0 ring-4 ring-amber-400/30 border border-amber-300/40"
         aria-label="Mở Trợ lý AI"
       >
         <div className="relative flex items-center justify-center">
@@ -159,7 +232,8 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
 
       {isOpen && (
         <div
-          className="fixed inset-x-0 bottom-0 sm:bottom-22 sm:right-6 sm:inset-x-auto w-full sm:w-[410px] h-[85dvh] sm:h-[580px] max-h-[85dvh] sm:max-h-[85vh] bg-white dark:bg-bg-base border-t border-x sm:border border-border-subtle rounded-t-[28px] sm:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
+          style={viewportStyle}
+          className="fixed inset-x-0 bottom-0 sm:bottom-22 sm:right-6 sm:inset-x-auto w-full sm:w-[410px] h-[100dvh] sm:h-[580px] max-h-full sm:max-h-[85vh] bg-white dark:bg-bg-base border-t border-x sm:border border-border-subtle rounded-t-2xl sm:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300"
         >
           <div
             onTouchStart={handleTouchStart}
@@ -227,7 +301,38 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
                 >
                   {m.content ? (
                     <div className="prose prose-xs sm:prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-a:text-amber-600 prose-a:font-semibold prose-a:underline hover:prose-a:text-amber-700">
-                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                      <ReactMarkdown
+                        components={{
+                          table: ({ node, ...props }) => (
+                            <div className="overflow-x-auto my-2 rounded-xl border border-amber-200 dark:border-border-subtle shadow-sm bg-amber-50/30 dark:bg-bg-base/50">
+                              <table className="min-w-full divide-y divide-amber-200 dark:divide-border-subtle text-xs" {...props} />
+                            </div>
+                          ),
+                          thead: ({ node, ...props }) => (
+                            <thead className="bg-amber-500/10 text-amber-950 font-semibold" {...props} />
+                          ),
+                          th: ({ node, ...props }) => (
+                            <th className="px-2.5 py-1.5 text-left font-semibold text-[11px] whitespace-nowrap text-amber-900 dark:text-amber-300" {...props} />
+                          ),
+                          td: ({ node, ...props }) => (
+                            <td className="px-2.5 py-1.5 border-t border-amber-100 dark:border-border-subtle text-[11px] align-top text-ink" {...props} />
+                          ),
+                          ul: ({ node, ...props }) => (
+                            <ul className="list-disc list-outside ml-4 space-y-1 my-1.5" {...props} />
+                          ),
+                          ol: ({ node, ...props }) => (
+                            <ol className="list-decimal list-outside ml-4 space-y-1 my-1.5" {...props} />
+                          ),
+                          p: ({ node, ...props }) => (
+                            <p className="mb-2 last:mb-0 leading-relaxed" {...props} />
+                          ),
+                          a: ({ node, ...props }) => (
+                            <a className="text-amber-600 font-semibold underline hover:text-amber-700 inline-flex items-center gap-0.5" target="_blank" rel="noopener noreferrer" {...props} />
+                          ),
+                        }}
+                      >
+                        {m.content}
+                      </ReactMarkdown>
                     </div>
                   ) : m.toolInvocations ? (
                     <div className="text-xs text-ink-muted italic flex items-center gap-2 py-1">

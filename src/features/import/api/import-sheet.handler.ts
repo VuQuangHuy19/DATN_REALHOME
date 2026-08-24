@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 import { generateOnboardingToken } from '@/lib/auth/onboarding-token';
 import { sendEmail } from '@/lib/mail';
+import { geocodeLandmark } from '@/lib/geocoding';
+import { normalizeStringForMatching, isMatchingBuilding } from '@/lib/utils';
 
 // Helper to normalize area/size texts like "25m2" or "25 m2" to "25 m²"
 function normalizeAreaText(text: string | null | undefined): string | null {
@@ -14,13 +16,9 @@ function normalizeAreaText(text: string | null | undefined): string | null {
 
 // Helper to normalize strings for building address/name matching
 function normalizeString(str: string): string {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
+  return normalizeStringForMatching(str);
 }
+
 
 // Helper to normalize room code for room deduplication matching
 function normalizeRoomCode(roomCodeStr: string): string {
@@ -303,34 +301,54 @@ export async function handleImportSheet(request: Request) {
       landlordsImported: 0,
       buildingsImported: 0,
       roomsImported: 0,
+      roomsMarkedAsRented: 0,
       errors: [] as string[]
     };
 
     // 1. IMPORT LANDLORDS (Chủ nhà)
+    const { data: existingLandlordsList } = await supabaseAdmin
+      .from('landlords')
+      .select('id, code, name, phone, email, address, notes')
+      .eq('company_id', companyId);
+    const companyLandlords = existingLandlordsList || [];
+
     for (const landlord of landlords) {
       try {
         const { code, name, phone, email, address, notes } = landlord;
-        if (!code || !name) {
-          results.errors.push(`Chủ nhà lỗi: Thiếu thông tin bắt buộc (mã hoặc tên)`);
+        if (!code && !name && !phone) {
+          results.errors.push(`Chủ nhà lỗi: Thiếu thông tin bắt buộc (mã, tên hoặc SĐT)`);
           continue;
         }
 
-        // Kiểm tra xem đã có chủ nhà này chưa
-        const { data: existing } = await supabaseAdmin
-          .from('landlords')
-          .select('id')
-          .eq('company_id', companyId)
-          .eq('code', code)
-          .maybeSingle();
+        const cleanCode = code ? String(code).trim().toLowerCase() : '';
+        const normCode = code ? normalizeStringForMatching(code) : '';
+        const normName = name ? normalizeStringForMatching(name) : '';
+        const cleanPhone = phone ? String(phone).replace(/[^\d]/g, '') : '';
+        const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
+        // Kiểm tra xem đã có chủ nhà này trong công ty chưa (theo Mã, SĐT, Email hoặc Tên)
+        const existing = companyLandlords.find((l: any) => {
+          if (cleanCode && l.code && String(l.code).trim().toLowerCase() === cleanCode) return true;
+          if (normCode && l.code && normalizeStringForMatching(l.code) === normCode) return true;
+          if (cleanPhone && cleanPhone.length >= 8 && l.phone) {
+            const lPhoneClean = String(l.phone).replace(/[^\d]/g, '');
+            if (lPhoneClean && lPhoneClean === cleanPhone) return true;
+          }
+          if (cleanEmail && l.email && String(l.email).trim().toLowerCase() === cleanEmail) return true;
+          if (normName && normName.length >= 2 && l.name && normalizeStringForMatching(l.name) === normName) return true;
+          return false;
+        });
+
+        const targetCode = existing?.code || code || (normName ? `CN-${normName.toUpperCase().slice(0, 10)}` : 'CN-HE_THONG');
 
         const payload = {
           company_id: companyId,
-          code,
-          name,
-          phone: phone ? String(phone) : null,
-          email: email || null,
-          address: address || null,
-          notes: notes ? normalizeAreaText(notes) : null,
+          code: targetCode,
+          name: name || existing?.name || 'Chủ nhà',
+          phone: phone ? String(phone) : (existing?.phone || null),
+          email: email || existing?.email || null,
+          address: address || existing?.address || null,
+          notes: notes ? normalizeAreaText(notes) : (existing?.notes || null),
           updated_at: new Date().toISOString()
         };
 
@@ -350,7 +368,19 @@ export async function handleImportSheet(request: Request) {
             .single();
           if (error) throw error;
           landlordId = newLandlord.id;
+          if (newLandlord) {
+            companyLandlords.push({
+              id: newLandlord.id,
+              code: targetCode,
+              name: payload.name,
+              phone: payload.phone,
+              email: payload.email,
+              address: payload.address,
+              notes: payload.notes
+            });
+          }
         }
+
 
         // Tự động tạo profile chưa kích hoạt và gửi email mời onboarding nếu có email và chưa có profile
         if (email && landlordId) {
@@ -481,13 +511,27 @@ export async function handleImportSheet(request: Request) {
         const normAddr = normalizeString(address || name);
 
         const existing = dbBuildings.find((b: any) => {
-          if (b.code === code) return true;
-          const bNormName = normalizeString(b.name || '');
-          if (bNormName && normName && bNormName === normName) return true;
-          const bNormAddr = normalizeString(b.address || '');
-          if (bNormAddr && normAddr && bNormAddr === normAddr) return true;
-          return false;
+          if (b.code && code && b.code.toLowerCase() === code.toLowerCase()) return true;
+          const matches = isMatchingBuilding(b.name || '', name) || isMatchingBuilding(b.address || '', address || name);
+          if (!matches) return false;
+
+          if (landlord_id && b.landlord_id) {
+            const cleanCurLandlord = String(landlord_id).trim().toLowerCase();
+            const cleanDbLandlord = String(b.landlord_id).trim().toLowerCase();
+            if (cleanCurLandlord !== cleanDbLandlord) {
+              const normBName = normalizeStringForMatching(b.name || '');
+              const normCurName = normalizeStringForMatching(name);
+              const normBAddr = normalizeStringForMatching(b.address || '');
+              const normCurAddr = normalizeStringForMatching(address || name);
+              if (normBName === normCurName || (normBAddr && normCurAddr && normBAddr === normCurAddr)) {
+                return true;
+              }
+              return false;
+            }
+          }
+          return true;
         });
+
 
         let processedImageUrl = image_url || null;
         let processedThumbnailUrl = null;
@@ -501,39 +545,65 @@ export async function handleImportSheet(request: Request) {
 
         let finalManagerIds: string[] = [];
         if (manager_raw) {
+          // Parse "Tên Người Dẫn - SĐT" từ manager_raw
+          // Hỗ trợ nhiều SĐT trong 1 ô (ngăn cách bằng \n hoặc /)
           const parts = manager_raw.split('-');
-          const mName = parts[0]?.trim();
-          let mPhone = parts[1]?.trim() || '';
-          mPhone = mPhone.replace(/[^\d]/g, '');
-
-          if (mName) {
-            // Find manager
+          const mName = parts[0]?.trim().split('\n')[0].trim(); // lấy dòng đầu tiên nếu tên có nhiều dòng
+          let mPhoneRaw = parts.slice(1).join('-').trim(); // lấy phần sau dấu -
+          
+          // Lấy SĐT đầu tiên (bỏ qua SĐT phụ nếu có nhiều)
+          const mPhone = mPhoneRaw.split('\n')[0].replace(/[^\\d]/g, '').slice(0, 11) || '';
+          
+          if (mName && mName.length >= 2 && mName.toLowerCase() !== 'x9') {
+            // Tra cứu Manager theo tên + công ty (cache theo session để tránh spam DB)
+            const cacheKey = `${companyId}::${mName}::${mPhone}`;
+            
+            // Tìm manager đã có trong DB
             const { data: existingMgr } = await supabaseAdmin
               .from('managers')
-              .select('id')
+              .select('id, name, phone, landlord_id')
               .eq('company_id', companyId)
-              .eq('name', mName)
+              .ilike('name', mName)
               .maybeSingle();
             
             let mId = existingMgr?.id;
+            
             if (!mId) {
+              // Tự động tạo Manager mới với đầy đủ thông tin:
+              // - Tên người dẫn (Bảo Chấn, Thịnh, Hoàng...)
+              // - SĐT người dẫn
+              // - landlord_id = chủ nhà đang chọn khi import (TH03 - Bảo Chấn)
+              //   → Manager thuộc quyền sở hữu / giám sát của TH03
               const { data: newMgr, error: mErr } = await supabaseAdmin
                 .from('managers')
                 .insert({
                   company_id: companyId,
                   name: mName,
                   phone: mPhone || null,
-                  manager_type: 'individual'
+                  manager_type: 'individual',
+                  landlord_id: landlord_id || null, // ← Gắn TH03 làm chủ giám sát
+                  code: `MGR-${mName.toUpperCase().replace(/\s+/g, '').slice(0, 8)}-${mPhone.slice(-4) || '0000'}`
                 })
                 .select('id')
                 .single();
               if (!mErr && newMgr) {
                 mId = newMgr.id;
+                console.log(`[Import] Đã tạo Quản lý tòa mới: ${mName} (${mPhone}) thuộc giám sát của landlord ${landlord_id}`);
+              } else if (mErr) {
+                console.warn(`[Import] Không thể tạo quản lý ${mName}:`, mErr.message);
               }
+            } else if (existingMgr && !existingMgr.landlord_id && landlord_id) {
+              // Nếu manager đã có nhưng chưa gán landlord → gán luôn
+              await supabaseAdmin
+                .from('managers')
+                .update({ landlord_id: landlord_id })
+                .eq('id', existingMgr.id);
             }
+            
             if (mId) finalManagerIds.push(mId);
           }
         }
+
 
         const targetCode = existing?.code || code;
 
@@ -559,11 +629,20 @@ export async function handleImportSheet(request: Request) {
           internet_price: internet_price ? Number(internet_price) : 100000,
           common_service_price: common_service_price ? Number(common_service_price) : 200000,
           electric_vehicle_fee: electric_vehicle_fee ? Number(electric_vehicle_fee) : 0,
-          latitude: latitude !== undefined ? latitude : null,
-          longitude: longitude !== undefined ? longitude : null,
+          latitude: latitude !== undefined && latitude !== null ? latitude : null,
+          longitude: longitude !== undefined && longitude !== null ? longitude : null,
           manager_ids: finalManagerIds.length > 0 ? finalManagerIds : null,
           updated_at: new Date().toISOString()
         };
+
+        if (payload.latitude === null || payload.longitude === null) {
+          const geoQuery = `${address || name}${area ? `, ${area}` : ''}`;
+          const geoResult = await geocodeLandmark(geoQuery);
+          if (geoResult) {
+            payload.latitude = geoResult.lat;
+            payload.longitude = geoResult.lng;
+          }
+        }
 
         if (total_floors !== undefined && total_floors !== null && total_floors !== '') {
           payload.total_floors = Number(total_floors);
@@ -582,10 +661,15 @@ export async function handleImportSheet(request: Request) {
           if (payload.total_floors === undefined) payload.total_floors = 1;
           if (payload.total_rooms === undefined) payload.total_rooms = 0;
           
-          const { error } = await supabaseAdmin
+          const { data: newBld, error } = await supabaseAdmin
             .from('buildings')
-            .insert({ ...payload, created_at: new Date().toISOString() });
+            .insert({ ...payload, created_at: new Date().toISOString() })
+            .select('id, code, name, address, landlord_id')
+            .single();
           if (error) throw error;
+          if (newBld) {
+            dbBuildings.push(newBld);
+          }
         }
         results.buildingsImported++;
       } catch (err: any) {
@@ -614,26 +698,28 @@ export async function handleImportSheet(request: Request) {
         const cleanCode = String(code).trim().replace(/\.0+$/, '');
         const normCode = normalizeRoomCode(cleanCode);
 
+        // Lấy thông tin building UUID và landlord_id của tòa nhà để điền vào phòng cho đồng bộ
+        const { data: bld } = await supabaseAdmin
+          .from('buildings')
+          .select('id, landlord_id')
+          .eq('company_id', companyId)
+          .or(`code.eq.${building_code},id.eq.${building_code}`)
+          .maybeSingle();
+
+        const bldId = bld?.id || building_code;
+
         // Lấy danh sách phòng hiện có của tòa nhà này để check trùng trong memory
         const { data: dbRoomsList } = await supabaseAdmin
           .from('rooms')
           .select('id, code')
           .eq('company_id', companyId)
-          .eq('building_id', building_code);
+          .eq('building_id', bldId);
         
         const existing = dbRoomsList?.find((r: any) => normalizeRoomCode(r.code) === normCode);
 
-        // Lấy thông tin landlord_id của tòa nhà để điền vào phòng cho đồng bộ
-        const { data: bld } = await supabaseAdmin
-          .from('buildings')
-          .select('landlord_id')
-          .eq('company_id', companyId)
-          .eq('code', building_code)
-          .maybeSingle();
-
         const payload = {
           company_id: companyId,
-          building_id: building_code, // building_id hiện tại lưu code của building
+          building_id: bldId,
           code,
           floor: floor ? Number(floor) : 1,
           room_type: room_type || null,
@@ -737,14 +823,87 @@ export async function handleImportSheet(request: Request) {
     for (const room of rooms) {
       if (room.building_code) buildingCodesToUpdate.add(room.building_code);
     }
+
+    // 4b. ĐỒNG BỘ TRẠNG THÁI PHÒNG BỊ XÓA KHỎI BẢNG SHEET
+    // Nếu một mã phòng đã tồn tại trong DB (thuộc tòa nhà đang import) nhưng KHÔNG còn xuất hiện
+    // trong dữ liệu đọc được từ sheet ở lần import này => coi như phòng đã bị xóa khỏi bảng
+    // (thường do đã cho thuê nên chủ nhà xóa khỏi danh sách phòng trống) => tự động chuyển status = 'rented'.
+    // Xây map: building_code -> tập hợp mã phòng (đã chuẩn hóa) đang có trong sheet lần này
+    const roomCodesInSheetByBuilding = new Map<string, Set<string>>();
+    for (const room of rooms) {
+      if (!room.building_code || !room.code) continue;
+      const cleanCode = String(room.code).trim().replace(/\.0+$/, '');
+      const normCode = normalizeRoomCode(cleanCode);
+      if (!roomCodesInSheetByBuilding.has(room.building_code)) {
+        roomCodesInSheetByBuilding.set(room.building_code, new Set());
+      }
+      roomCodesInSheetByBuilding.get(room.building_code)!.add(normCode);
+    }
+
+    for (const buildingCode of Array.from(buildingCodesToUpdate)) {
+      try {
+        const { data: targetBld } = await supabaseAdmin
+          .from('buildings')
+          .select('id')
+          .eq('company_id', companyId)
+          .or(`code.eq.${buildingCode},id.eq.${buildingCode}`)
+          .maybeSingle();
+
+        const bldId = targetBld?.id || buildingCode;
+
+        const { data: dbRoomsOfBuilding } = await supabaseAdmin
+          .from('rooms')
+          .select('id, code, status')
+          .eq('company_id', companyId)
+          .eq('building_id', bldId);
+
+        if (!dbRoomsOfBuilding || dbRoomsOfBuilding.length === 0) continue;
+
+        const sheetCodes = roomCodesInSheetByBuilding.get(buildingCode) || new Set<string>();
+
+        for (const dbRoom of dbRoomsOfBuilding as any[]) {
+          const normDbCode = normalizeRoomCode(String(dbRoom.code || '').trim());
+          const missingFromSheet = !sheetCodes.has(normDbCode);
+
+          // Chỉ tự động chuyển sang "đã thuê" nếu phòng không còn trong sheet
+          // và trạng thái hiện tại chưa phải là 'rented' (tránh ghi log/update thừa)
+          if (missingFromSheet && dbRoom.status !== 'rented') {
+            const { error: statusErr } = await supabaseAdmin
+              .from('rooms')
+              .update({ status: 'rented', updated_at: new Date().toISOString() })
+              .eq('id', dbRoom.id);
+
+            if (!statusErr) {
+              results.roomsMarkedAsRented++;
+            } else {
+              results.errors.push(
+                `Không thể cập nhật trạng thái phòng ${dbRoom.code} (đã bị xóa khỏi sheet, tòa ${buildingCode}): ${statusErr.message}`
+              );
+            }
+          }
+        }
+      } catch (err: any) {
+        results.errors.push(`Lỗi đồng bộ trạng thái phòng bị xóa khỏi sheet (tòa ${buildingCode}): ${err.message}`);
+      }
+    }
     
     for (const buildingCode of Array.from(buildingCodesToUpdate)) {
       try {
-        const { data: bldRooms } = await supabaseAdmin
-          .from('rooms')
-          .select('floor')
+        const { data: targetBld } = await supabaseAdmin
+          .from('buildings')
+          .select('id, code')
           .eq('company_id', companyId)
-          .eq('building_id', buildingCode);
+          .eq('code', buildingCode)
+          .maybeSingle();
+
+        const bldId = targetBld?.id || buildingCode;
+
+        if (bldId) {
+          const { data: bldRooms } = await supabaseAdmin
+            .from('rooms')
+            .select('floor')
+            .eq('company_id', companyId)
+            .eq('building_id', bldId);
           
         if (bldRooms && bldRooms.length > 0) {
           const totalRooms = bldRooms.length;
@@ -754,12 +913,14 @@ export async function handleImportSheet(request: Request) {
             .from('buildings')
             .update({
               total_rooms: totalRooms,
-              total_floors: totalFloors
+              total_floors: totalFloors,
+              updated_at: new Date().toISOString()
             })
             .eq('company_id', companyId)
-            .eq('code', buildingCode);
+            .or(`code.eq.${buildingCode},id.eq.${bldId}`);
         }
-      } catch (err: any) {
+      }
+    } catch (err: any) {
         console.error(`Lỗi cập nhật số phòng/tầng cho tòa nhà ${buildingCode}:`, err);
       }
     }

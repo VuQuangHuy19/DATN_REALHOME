@@ -16,6 +16,9 @@ const nextConfig = {
     serverComponentsExternalPackages: ['heic-convert', 'heic-decode', 'libheif-js'],
   },
   images: {
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Cho phép load ảnh từ các domain bên ngoài
     remotePatterns: [
       {
@@ -37,6 +40,26 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '**.supabase.in',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.r2.dev',
+      },
+      {
+        protocol: 'https',
+        hostname: 'drive.google.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.google.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.ggpht.com',
       },
     ],
   },

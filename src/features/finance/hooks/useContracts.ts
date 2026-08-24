@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { makeHook } from '@/src/lib/hooks/makeHook';
-import { getDepositContracts, createDepositContract, updateDepositContract, deleteDepositContract, type DepositContractWithRoom } from '@/src/features/finance/services/deposit_contracts';
-import { getRentalContracts, createRentalContract, updateRentalContract, deleteRentalContract, type RentalContractWithRoom } from '@/src/features/finance/services/rental_contracts';
+import { makeHook } from '@/hooks/makeHook';
+import { getDepositContracts, createDepositContract, updateDepositContract, deleteDepositContract, type DepositContractWithRoom } from '@/features/finance/services/deposit_contracts';
+import { getRentalContracts, createRentalContract, updateRentalContract, deleteRentalContract, type RentalContractWithRoom } from '@/features/finance/services/rental_contracts';
 import { getContractTemplates, createContractTemplate, updateContractTemplate, deleteContractTemplate } from '@/lib/supabase/repositories/contracts';
 import type { DBContractTemplate } from '@/lib/supabase/types';
 

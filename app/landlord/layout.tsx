@@ -62,6 +62,7 @@ const landlordNav: NavItem[] = [
 
 function LandlordSidebar() {
   const pathname = usePathname();
+  const { profile, signOut } = useAuth();
   const [expanded, setExpanded] = useState<string[]>(['Bất động sản', 'Hóa đơn & Dịch vụ']);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
@@ -79,6 +80,11 @@ function LandlordSidebar() {
   const isActive = (href: string) =>
     href === '/landlord' ? pathname === '/landlord' : pathname === href || pathname.startsWith(href + '/');
 
+  // Avatar initials from full name
+  const initials = profile?.full_name
+    ? profile.full_name.split(' ').slice(-2).map((w: string) => w[0]?.toUpperCase() ?? '').join('')
+    : 'CH';
+
   if (isMobile) return null;
 
   return (
@@ -87,7 +93,7 @@ function LandlordSidebar() {
         <Link href="/customer/properties" title="Về trang chủ RealHome" className="hover:opacity-90 transition-opacity flex items-center gap-2">
           <Logo align="start" className="h-8" />
         </Link>
-        <span className="text-[10px] font-bold uppercase tracking-wider bg-accent-soft text-accent px-2 py-0.5 rounded-full">Chủ nhà</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Chủ nhà</span>
       </div>
 
       {/* Nav */}
@@ -108,12 +114,12 @@ function LandlordSidebar() {
                   className={cn(
                     'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     groupActive
-                      ? 'bg-accent-soft text-ink font-semibold'
+                      ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-500 pl-2.5 rounded-l-none'
                       : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <Icon className={cn('h-4 w-4 flex-shrink-0', groupActive && 'text-blue-600')} />
                     {item.label}
                   </div>
                   {isExpand ? (
@@ -128,11 +134,11 @@ function LandlordSidebar() {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive(item.href)
-                      ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
+                      ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-500 pl-2.5 rounded-r-lg rounded-l-none'
                       : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                   )}
                 >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <Icon className={cn('h-4 w-4 flex-shrink-0', isActive(item.href) && 'text-blue-600')} />
                   {item.label}
                 </Link>
               )}
@@ -148,11 +154,11 @@ function LandlordSidebar() {
                         className={cn(
                           'flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
                           isActive(child.href)
-                            ? 'bg-accent-soft text-ink font-semibold border-l-2 border-accent pl-2.5 rounded-r-lg rounded-l-none'
+                            ? 'bg-blue-50 text-blue-700 font-semibold border-l-2 border-blue-500 pl-2.5 rounded-r-lg rounded-l-none'
                             : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
                         )}
                       >
-                        {ChildIcon && <ChildIcon className="h-3.5 w-3.5 flex-shrink-0" />}
+                        {ChildIcon && <ChildIcon className={cn('h-3.5 w-3.5 flex-shrink-0', isActive(child.href) && 'text-blue-600')} />}
                         {child.label}
                       </Link>
                     );
@@ -163,6 +169,27 @@ function LandlordSidebar() {
           );
         })}
       </nav>
+
+      {/* Sticky User Footer */}
+      <div className="shrink-0 border-t border-border-subtle p-3 bg-bg-subtle">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm border border-border-subtle">
+          {/* Avatar */}
+          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-extrabold shrink-0">
+            {initials}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-ink truncate">{profile?.full_name ?? 'Chủ nhà'}</p>
+            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">Chủ nhà</span>
+          </div>
+          <button
+            onClick={signOut}
+            title="Đăng xuất"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }

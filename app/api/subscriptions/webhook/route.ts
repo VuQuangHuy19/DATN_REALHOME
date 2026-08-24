@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { verifyPayOSWebhookData } from '@/src/lib/payos';
+import { verifyPayOSWebhookData } from '@/lib/payos';
 
 export const runtime = 'nodejs';
 

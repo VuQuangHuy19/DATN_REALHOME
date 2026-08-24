@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Search, User, LogOut, Settings, Lock, CreditCard } from 'lucide-react';
+import { Bell, Search, User, LogOut, Settings, Lock, CreditCard, PanelLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useNotifications } from '@/lib/hooks/useNotifications';
-import WebPushManager from '@/src/features/notifications/components/WebPushManager';
+import { useNotifications } from '@/hooks/useNotifications';
+import WebPushManager from '@/features/notifications/components/WebPushManager';
 
 import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
 
@@ -23,13 +23,27 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
 import { Logo } from '@/components/Logo';
+import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/ui/NotificationBell';
+
+import { useAdminModule, AdminModuleId } from '@/features/admin/context/admin-module-context';
+import { Building2, Handshake, Wallet, SlidersHorizontal, LayoutGrid } from 'lucide-react';
 
 export function AdminHeader() {
   const { profile, company, signOut, user, role } = useAuth();
-  const { unreadCount } = useNotifications(user?.id, company?.id);
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications(user?.id, company?.id);
   const { language } = useAppPreferences();
   const isEn = language === 'en';
   const router = useRouter();
+  const { activeModule, setActiveModule, badgeCounts, isSidebarCollapsed, toggleSidebar } = useAdminModule();
+
+  const MODULES: { id: AdminModuleId; label: string; icon: React.ElementType; color: string; badge?: number }[] = [
+    { id: 'all', label: 'Tất cả', icon: LayoutGrid, color: 'text-slate-600 dark:text-slate-300' },
+    { id: 'supply', label: '1. Nguồn Hàng', icon: Building2, color: 'text-blue-600 dark:text-blue-400', badge: badgeCounts.supply },
+    { id: 'sales', label: '2. Bán Hàng', icon: Handshake, color: 'text-emerald-600 dark:text-emerald-400', badge: badgeCounts.sales },
+    { id: 'finance', label: '3. Tài Chính', icon: Wallet, color: 'text-amber-600 dark:text-amber-400', badge: badgeCounts.finance },
+    { id: 'governance', label: '4. Quản Trị', icon: SlidersHorizontal, color: 'text-purple-600 dark:text-purple-400', badge: badgeCounts.governance },
+  ];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{
@@ -117,133 +131,64 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="h-16 bg-white dark:bg-bg-subtle border-b border-border-subtle px-4 md:px-6 flex items-center justify-between shadow-none">
-      <div className="flex items-center gap-1.5 sm:gap-4 flex-1 min-w-0">
+    <header className="sticky top-0 z-40 w-full h-16 bg-white/95 dark:bg-bg-subtle/95 backdrop-blur-md border-b border-border-subtle px-4 md:px-6 flex items-center justify-between shadow-xs">
+      <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+
+
         {/* Logo RealHome trên Mobile */}
         <Link href="/customer/properties" className="md:hidden flex items-center shrink-0 hover:opacity-90 transition-opacity">
           <Logo className="text-[18px] sm:text-[20px]" />
         </Link>
         <Badge className="md:hidden bg-accent-soft text-accent border border-accent/20 font-semibold px-2 py-0.5 rounded-lg text-[10px] shrink-0">
-          🏢 Quản lý
+          {role === 'sales_agent' ? '💼 Sale' : role === 'landlord' ? '🏠 Chủ nhà' : '🏢 Quản lý'}
         </Badge>
-        <div ref={searchRef} className="hidden md:block relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => searchQuery.trim() && setShowDropdown(true)}
-            placeholder={isEn ? "Tìm kiếm tòa nhà, phòng, khách hàng..." : "Tìm kiếm tòa nhà, phòng, khách hàng..."}
-            className="pl-9 w-full rounded-lg border-border text-sm"
-          />
 
-          {/* Floating Search Results Dropdown */}
-          {showDropdown && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-zinc-900 border border-border rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto p-2">
-              {isSearching ? (
-                <p className="p-3 text-xs text-ink-muted text-center italic">Đang tìm kiếm...</p>
-              ) : searchResults.buildings.length === 0 && searchResults.landlords.length === 0 && searchResults.rooms.length === 0 && searchResults.leads.length === 0 ? (
-                <p className="p-3 text-xs text-ink-muted text-center">Không tìm thấy kết quả phù hợp với &quot;{searchQuery}&quot;</p>
-              ) : (
-                <div className="space-y-2 text-xs">
-                  {searchResults.buildings.length > 0 && (
-                    <div>
-                      <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted bg-bg-subtle rounded-md">Tòa nhà</p>
-                      {searchResults.buildings.map((b) => (
-                        <div
-                          key={b.id}
-                          onClick={() => {
-                            setShowDropdown(false);
-                            router.push(`/admin/realhome/buildings`);
-                          }}
-                          className="p-2 hover:bg-accent-soft/40 rounded-lg cursor-pointer flex justify-between items-center"
-                        >
-                          <span className="font-semibold text-ink">{b.name}</span>
-                          <span className="text-[10px] text-ink-muted font-mono bg-bg-subtle px-1.5 py-0.5 rounded">{b.code}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.landlords.length > 0 && (
-                    <div>
-                      <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted bg-bg-subtle rounded-md">Chủ nhà</p>
-                      {searchResults.landlords.map((lnd) => (
-                        <div
-                          key={lnd.id}
-                          onClick={() => {
-                            setShowDropdown(false);
-                            router.push(`/admin/landlords`);
-                          }}
-                          className="p-2 hover:bg-accent-soft/40 rounded-lg cursor-pointer flex justify-between items-center"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-ink">{lnd.name}</span>
-                            {lnd.code && <span className="text-[10px] text-accent font-mono font-bold bg-accent/10 px-1.5 py-0.5 rounded">Mã: {lnd.code}</span>}
-                          </div>
-                          {lnd.phone && <span className="text-[11px] text-ink-muted font-mono">{lnd.phone}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.rooms.length > 0 && (
-                    <div>
-                      <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted bg-bg-subtle rounded-md">Phòng trọ</p>
-                      {searchResults.rooms.map((r) => (
-                        <div
-                          key={r.id}
-                          onClick={() => {
-                            setShowDropdown(false);
-                            router.push(`/admin/realhome/rooms`);
-                          }}
-                          className="p-2 hover:bg-accent-soft/40 rounded-lg cursor-pointer flex justify-between items-center"
-                        >
-                          <span className="font-bold text-ink">Phòng {r.code}</span>
-                          <span className="text-xs font-semibold text-accent">{Number(r.price).toLocaleString('vi-VN')} đ/tháng</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.leads.length > 0 && (
-                    <div>
-                      <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-muted bg-bg-subtle rounded-md">Khách hàng CRM</p>
-                      {searchResults.leads.map((l) => (
-                        <div
-                          key={l.id}
-                          onClick={() => {
-                            setShowDropdown(false);
-                            router.push(`/admin/customers/leads`);
-                          }}
-                          className="p-2 hover:bg-accent-soft/40 rounded-lg cursor-pointer flex justify-between items-center"
-                        >
-                          <span className="font-semibold text-ink">{l.full_name}</span>
-                          <span className="text-xs text-ink-muted">{l.phone}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+        {/* Module Switcher Pills — Chỉ hiện khi không phải môi giới hoặc màn hình đủ lớn */}
+        <div className="hidden 2xl:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 overflow-x-auto scrollbar-none max-w-full shrink-0">
+          {MODULES.map((m) => {
+            const Icon = m.icon;
+            const isSelected = activeModule === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setActiveModule(m.id);
+                  if (window.location.pathname !== '/admin') {
+                    router.push('/admin');
+                  }
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all relative shrink-0 whitespace-nowrap',
+                  isSelected
+                    ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
+                )}
+              >
+                <Icon className={cn('h-3.5 w-3.5 shrink-0', m.color)} />
+                <span>{m.label}</span>
+                {m.badge && m.badge > 0 ? (
+                  <span
+                    className={cn(
+                      'ml-0.5 px-1.5 py-0.2 text-[10px] font-extrabold rounded-full',
+                      isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                    )}
+                  >
+                    {m.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <WebPushManager />
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto">
+        <div className="hidden sm:block">
+          <WebPushManager />
+        </div>
 
-        <Button variant="ghost" size="icon" className="relative" asChild>
-          <Link href="/admin/system/notifications">
-            <Bell className="h-5 w-5 text-ink-muted" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 h-4 w-4 bg-danger rounded-full text-white text-[10px] font-bold flex items-center justify-center leading-none">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </Link>
-        </Button>
+        {/* Realtime Notification Bell */}
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

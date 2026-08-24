@@ -46,6 +46,10 @@ export interface CustomerListing {
   latitude?: number | null;
   longitude?: number | null;
   createdAt?: string | null;
+  availableDate?: string | null;
+  isVerifiedProperty?: boolean;
+  landlordSystemName?: string | null;
+  landlordName?: string | null;
 }
 
 export interface PublicCompany {

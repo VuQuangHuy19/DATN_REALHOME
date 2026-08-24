@@ -1,5 +1,7 @@
-import { ManagerListPage } from '@/src/features/managers/components/ManagerListPage';
+'use client';
 
-export default function ManagersAdminRoute() {
-  return <ManagerListPage />;
+import { UnifiedPropertyMasterPage } from '@/features/properties/components/UnifiedPropertyMasterPage';
+
+export default function Page() {
+  return <UnifiedPropertyMasterPage defaultTab="managers" />;
 }

@@ -10,9 +10,9 @@ import {
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Plus, Search, UserCog, Loader2, AlertCircle } from 'lucide-react';
 import { ImageUpload } from '@/components/ui/ImageUpload';
-import { useManagers } from '@/src/features/managers/hooks/useManagers';
-import { useLandlords } from '@/src/features/properties/hooks/useLandlords';;
-import { usePropertiesFeature } from '@/src/features/properties/hooks/usePropertiesFeature';
+import { useManagers } from '@/features/managers/hooks/useManagers';
+import { useLandlords } from '@/features/properties/hooks/useLandlords';;
+import { usePropertiesFeature } from '@/features/properties/hooks/usePropertiesFeature';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { toast } from 'sonner';
 import type { DBManager } from '@/lib/supabase/types';

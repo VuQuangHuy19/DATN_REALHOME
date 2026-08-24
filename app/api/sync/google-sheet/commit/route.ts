@@ -1,36 +1,23 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { maskHouseNumberInBuildingName } from '@/lib/utils';
-import { extractGoogleSheetId, ParsedBuilding } from '@/src/features/import/services/googleSheetAiParser';
-import { syncGoogleDriveImagesForProperty, syncGoogleDriveImagesForBuilding } from '@/src/lib/services/google-drive';
-import { parseRoomType } from '@/src/lib/constants/roomTypes';
+import { maskHouseNumberInBuildingName, formatStandardBuildingAddress, normalizeStringForMatching, isMatchingBuilding } from '@/lib/utils';
+import { extractGoogleSheetId, ParsedBuilding, detectHanoiDistrict } from '@/features/import/services/googleSheetAiParser';
+import { syncGoogleDriveImagesForProperty, syncGoogleDriveImagesForBuilding } from '@/lib/services/google-drive';
+import { parseRoomType } from '@/lib/constants/roomTypes';
+import { detectDryerFeature } from '@/lib/utils/dryer-parser';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-// Chuyển chuỗi về dạng chuẩn không ký tự đặc biệt để so sánh trùng lặp
-function normalizeString(str: string): string {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
-}
 
-// So sánh 2 tên hoặc địa chỉ tòa nhà (Yêu cầu chính xác 100%)
-function isMatchingBuilding(bName1: string, bName2: string): boolean {
-  const n1 = normalizeString(bName1);
-  const n2 = normalizeString(bName2);
-  if (!n1 || !n2) return false;
-  return n1 === n2;
-}
-
-// Chuẩn hóa mã phòng (P.201 -> 201, p201 -> 201, 201.0 -> 201)
+// Chuẩn hóa mã phòng (P.201 -> 201, p201 -> 201, phòng 201 -> 201, 201.0 -> 201)
 function normalizeRoomCode(code: string): string {
   if (!code) return '';
-  let clean = code.trim().toLowerCase().replace(/^p\.?/i, '').trim();
-  clean = clean.replace(/\.0+$/, '');
+  let clean = code.trim().toLowerCase()
+    .replace(/^p\.?/i, '')
+    .replace(/^phòng\s*/i, '')
+    .replace(/\.0+$/, '')
+    .trim();
   return clean;
 }
 
@@ -41,7 +28,7 @@ export async function POST(req: Request) {
       company_id?: string;
       landlord_id?: string;
       sheet_url: string;
-      buildings: ParsedBuilding[];
+      buildings: (ParsedBuilding & { target_building_id?: string })[];
     };
 
     if (!sheet_url || !buildings || !Array.isArray(buildings)) {
@@ -53,7 +40,7 @@ export async function POST(req: Request) {
     // Lấy toàn bộ danh sách tòa nhà hiện có của công ty để CHECK TRÙNG LẶP
     let buildingQuery = supabaseAdmin
       .from('buildings')
-      .select('id, code, name, address, area, landlord_id');
+      .select('id, code, name, address, area, landlord_id, image_url, description, external_sync_id');
 
     if (company_id) {
       buildingQuery = buildingQuery.eq('company_id', company_id);
@@ -68,24 +55,88 @@ export async function POST(req: Request) {
     const syncBuildingDriveTasks: { buildingId: string; driveUrl: string; companyId?: string }[] = [];
     const syncDriveTasks: { roomId: string; driveUrl: string; companyId?: string }[] = [];
 
+    const matchedDbBuildingIds = new Set<string>();
+
+    // Lấy toàn bộ danh sách chủ nhà để map (ID / Code) -> Code chính xác (TH01, TH02...)
+    const { data: allLandlords } = await supabaseAdmin.from('landlords').select('id, code');
+    const landlordKeyToCodeMap = new Map<string, string>();
+    (allLandlords || []).forEach((l: any) => {
+      if (l.code) {
+        landlordKeyToCodeMap.set(l.code.toLowerCase(), l.code);
+        if (l.id) landlordKeyToCodeMap.set(l.id.toLowerCase(), l.code);
+      }
+    });
+
+    const resolveLandlordId = (rawId: string | null | undefined): string | null => {
+      if (!rawId) return null;
+      const clean = String(rawId).trim().toLowerCase();
+      return landlordKeyToCodeMap.get(clean) || rawId;
+    };
+
+    // Trích xuất Code và ID của chủ nhà (nếu có landlord_id) để khớp tòa nhà chính xác
+    const validLandlordKeys = new Set<string>();
+    let resolvedLandlordUuid: string | null = resolveLandlordId(landlord_id);
+    if (landlord_id) {
+      const cleanLId = String(landlord_id).trim().toLowerCase();
+      validLandlordKeys.add(cleanLId);
+      if (resolvedLandlordUuid) validLandlordKeys.add(resolvedLandlordUuid.toLowerCase());
+      (allLandlords || []).forEach((l: any) => {
+        if (
+          (l.id && l.id.toLowerCase() === cleanLId) ||
+          (l.code && l.code.toLowerCase() === cleanLId) ||
+          (resolvedLandlordUuid && l.code && l.code.toLowerCase() === resolvedLandlordUuid.toLowerCase())
+        ) {
+          if (l.id) validLandlordKeys.add(l.id.toLowerCase());
+          if (l.code) validLandlordKeys.add(l.code.toLowerCase());
+        }
+      });
+    }
+
     for (const bData of buildings) {
       if (!bData.name) continue;
 
-      const buildingName = bData.name.trim();
-      const area = bData.area || 'Đống Đa';
-      const address = bData.address || buildingName;
+      const buildingName = formatStandardBuildingAddress(bData.name.trim());
+      const area = detectHanoiDistrict(buildingName, bData.area);
+      const address = formatStandardBuildingAddress(bData.address || buildingName);
 
-      // 1. CHÉC TRÙNG TÒA NHÀ HỆ THỐNG (Phân biệt theo Chủ nhà và Địa chỉ chuẩn)
-      const existingBuilding = dbBuildings.find((b: any) => {
-        // Nếu import cho một chủ nhà cụ thể, KHÔNG ghép trùng vào tòa nhà của chủ nhà khác!
-        if (landlord_id && b.landlord_id && b.landlord_id !== landlord_id) {
-          return false;
-        }
-        return isMatchingBuilding(b.name, buildingName) || isMatchingBuilding(b.address || '', address);
-      });
+      // 1. CHÉC TRÙNG TÒA NHÀ HỆ THỐNG (Ưu tiên target_building_id từ Preview, external_sync_id, hoặc so khớp địa chỉ)
+      let existingBuilding = null;
+      if (bData.target_building_id) {
+        existingBuilding = dbBuildings.find((b: any) => b.id === bData.target_building_id);
+      }
+      if (!existingBuilding && sheet_url) {
+        existingBuilding = dbBuildings.find((b: any) => b.external_sync_id === sheet_url);
+      }
+      if (!existingBuilding) {
+        existingBuilding = dbBuildings.find((b: any) => {
+          const nameOrAddressMatches = isMatchingBuilding(b.name, buildingName) || isMatchingBuilding(b.address || '', address);
+          if (!nameOrAddressMatches) return false;
+
+          if (landlord_id && b.landlord_id) {
+            const bLClean = String(b.landlord_id).trim().toLowerCase();
+            const bResolved = resolveLandlordId(b.landlord_id)?.toLowerCase();
+            const matchesLandlord = validLandlordKeys.has(bLClean) || (bResolved && validLandlordKeys.has(bResolved));
+            if (!matchesLandlord) {
+              // Tên / Địa chỉ trùng hệt 100% trong cùng công ty -> Gộp luôn để tránh nhân đôi
+              const normBName = normalizeStringForMatching(b.name);
+              const normBAddr = normalizeStringForMatching(b.address || '');
+              const normCurName = normalizeStringForMatching(buildingName);
+              const normCurAddr = normalizeStringForMatching(address);
+              if (normBName === normCurName || (normBAddr && normCurAddr && normBAddr === normCurAddr)) {
+                return true;
+              }
+              return false;
+            }
+          }
+          return true;
+        });
+      }
 
       let buildingId = existingBuilding?.id;
       let buildingCode = existingBuilding?.code;
+      if (existingBuilding?.id) {
+        matchedDbBuildingIds.add(existingBuilding.id);
+      }
 
       if (!buildingId) {
         // Tạo mã tòa nhà ngẫu nhiên nếu là tòa mới
@@ -103,6 +154,10 @@ export async function POST(req: Request) {
         if (bData.drive_media_url) {
           buildingDesc = buildingDesc ? `${buildingDesc}\nLink ảnh: ${bData.drive_media_url}` : `Link ảnh: ${bData.drive_media_url}`;
         }
+
+        const bNotesCombined = [bData.general_notes, ...bData.rooms.map(r => r.description)].filter(Boolean).join(' | ');
+        const detectedDryer = detectDryerFeature(bNotesCombined);
+        const dryerTypeVal = detectedDryer.hasDryer ? (detectedDryer.label || 'có máy sấy') : undefined;
 
         const { data: newBuilding, error: bErr } = await supabaseAdmin
           .from('buildings')
@@ -124,6 +179,7 @@ export async function POST(req: Request) {
             internet_price: 100000,
             common_service_price: 200000,
             deposit_terms: 'đóng 1 cọc 1',
+            ...(dryerTypeVal ? { dryer_type: dryerTypeVal } : {}),
           })
           .select('id, code')
           .single();
@@ -136,41 +192,224 @@ export async function POST(req: Request) {
         buildingId = newBuilding.id;
         buildingCode = newBuilding.code;
         totalBuildingsCreated++;
+        if (newBuilding.id) {
+          matchedDbBuildingIds.add(newBuilding.id);
+          dbBuildings.push({
+            id: newBuilding.id,
+            code: newBuilding.code,
+            name: buildingName,
+            address: address,
+            landlord_id: landlord_id || null,
+            external_sync_id: sheet_url,
+          });
+        }
       } else {
+        const targetBuildingLandlordId =
+          resolveLandlordId(existingBuilding.landlord_id) ||
+          resolveLandlordId(landlord_id) ||
+          null;
+
+        const bNotesCombined = [bData.general_notes, ...bData.rooms.map(r => r.description)].filter(Boolean).join(' | ');
+        const detectedDryer = detectDryerFeature(bNotesCombined);
+        const dryerTypeVal = detectedDryer.hasDryer ? (detectedDryer.label || 'có máy sấy') : undefined;
+
         // Cập nhật tòa nhà sẵn có (Không bao giờ ghi đè landlord_id của chủ nhà khác)
         await supabaseAdmin
           .from('buildings')
           .update({
+            name: buildingName,
+            address: address,
+            area: area,
             total_rooms: bData.rooms.length,
             description: bData.general_notes || undefined,
             external_sync_id: sheet_url,
-            landlord_id: existingBuilding.landlord_id || landlord_id || null,
+            landlord_id: targetBuildingLandlordId,
+            ...(dryerTypeVal ? { dryer_type: dryerTypeVal } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('id', buildingId);
       }
 
-      // Link Drive ảnh chung cấp Tòa nhà
-      if (buildingId && bData.drive_media_url) {
-        syncBuildingDriveTasks.push({
-          buildingId: buildingId,
-          driveUrl: bData.drive_media_url,
-          companyId: company_id
-        });
+      // 1.5 TỰ ĐỘNG TẠO / LIÊN KẾT NGƯỜI QUẢN LÝ TÒA (Số dẫn)
+      // Format manager_raw: "Bảo Chấn|0934686094;Trung Kiên|0967691507"
+      // - Mỗi người cách nhau bằng ";"
+      // - Tên và SĐT cách nhau bằng "|"
+      // - landlord_id = chủ nhà đang chọn khi import (TH03) → Manager thuộc giám sát của TH03
+      if (buildingId && (bData as any).manager_raw) {
+        const managerRawStr: string = (bData as any).manager_raw || '';
+        const managerEntries = managerRawStr.split(';').map((s: string) => s.trim()).filter(Boolean);
+        
+        const newManagerIds: string[] = [];
+        
+        for (const entry of managerEntries) {
+          const [mName, mPhoneRaw] = entry.split('|');
+          const name = (mName || '').trim();
+          const phone = (mPhoneRaw || '').replace(/[^\d]/g, '').slice(0, 11);
+          
+          if (!name || name.length < 2) continue;
+
+          // Nếu SĐT trùng với SĐT của Chủ nhà (Bảo Chấn) -> Bỏ qua không tạo Quản lý cho chính Chủ nhà
+          if (landlord_id && phone) {
+            const { data: targetL } = await supabaseAdmin
+              .from('landlords')
+              .select('phone')
+              .or(`id.eq.${landlord_id},code.eq.${landlord_id}`)
+              .maybeSingle();
+            const lPhone = targetL?.phone ? targetL.phone.replace(/[^\d]/g, '') : null;
+            if (lPhone && phone === lPhone) {
+              console.log(`[Import] SĐT ${phone} trùng với Chủ nhà ${landlord_id} -> Bỏ qua tạo Manager cho Chủ nhà.`);
+              continue;
+            }
+          }
+          
+          let actualName = name;
+          let existingMgr: any = null;
+
+          if (phone && phone.length >= 8) {
+            // Tra cứu manager theo SĐT trước để lấy định danh đã có (Ví dụ: 0967691507 -> Trung Kiên)
+            const { data: byPhone } = await supabaseAdmin
+              .from('managers')
+              .select('id, landlord_id, phone, name')
+              .eq('company_id', company_id || '')
+              .eq('phone', phone)
+              .maybeSingle();
+
+            if (byPhone) {
+              existingMgr = byPhone;
+              actualName = byPhone.name;
+            } else {
+              // Tìm theo tên
+              const { data: byName } = await supabaseAdmin
+                .from('managers')
+                .select('id, landlord_id, phone, name')
+                .eq('company_id', company_id || '')
+                .ilike('name', name)
+                .maybeSingle();
+              existingMgr = byName;
+
+              // Tra cứu thêm bảng profiles nếu tên bị lệch (ví dụ "Bảo Chấn" gán nhầm cho SĐT của Trung Kiên)
+              const { data: prof } = await supabaseAdmin
+                .from('profiles')
+                .select('full_name')
+                .eq('company_id', company_id || '')
+                .eq('phone', phone)
+                .maybeSingle();
+              if (prof?.full_name) {
+                actualName = prof.full_name;
+              }
+            }
+          } else {
+            const { data: byName } = await supabaseAdmin
+              .from('managers')
+              .select('id, landlord_id, phone, name')
+              .eq('company_id', company_id || '')
+              .ilike('name', name)
+              .maybeSingle();
+            existingMgr = byName;
+          }
+          
+          let mId = existingMgr?.id;
+          
+          if (!mId) {
+            const targetLandlordIdVal = resolvedLandlordUuid || landlord_id || null;
+            const mCode = `MGR-${actualName.toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${(phone || '0000').slice(-4)}`;
+            const { data: newMgr, error: mErr } = await supabaseAdmin
+              .from('managers')
+              .insert({
+                company_id: company_id || null,
+                name: actualName,
+                phone: phone || null,
+                manager_type: 'individual',
+                landlord_id: targetLandlordIdVal,
+                code: mCode,
+              })
+              .select('id')
+              .single();
+            
+            if (!mErr && newMgr) {
+              mId = newMgr.id;
+              console.log(`[Import] Tạo Quản lý tòa: "${actualName}" (${phone}) → giám sát bởi landlord ${targetLandlordIdVal}`);
+            } else {
+              console.warn(`[Import] Không thể tạo quản lý "${actualName}":`, mErr?.message);
+            }
+          } else {
+            // Manager đã có - nếu chưa có landlord_id thì gán vào
+            const targetLandlordIdVal = resolvedLandlordUuid || landlord_id || null;
+            if (!existingMgr.landlord_id && targetLandlordIdVal) {
+              await supabaseAdmin
+                .from('managers')
+                .update({ landlord_id: targetLandlordIdVal, phone: existingMgr.phone || phone || null })
+                .eq('id', existingMgr.id);
+            }
+          }
+          
+          if (mId) newManagerIds.push(mId);
+        }
+        
+        // Gán manager_ids vào bảng buildings (nếu building hỗ trợ cột manager_ids)
+        if (newManagerIds.length > 0) {
+          await supabaseAdmin
+            .from('buildings')
+            .update({ manager_ids: newManagerIds, updated_at: new Date().toISOString() })
+            .eq('id', buildingId);
+          
+          console.log(`[Import] Tòa "${buildingName}" → ${newManagerIds.length} quản lý: [${managerEntries.map(e => e.split('|')[0]).join(', ')}]`);
+        }
+      }
+
+      // Link Drive ảnh chung cấp Tòa nhà (fallback sang link Drive của phòng nếu tòa nhà chưa có)
+
+      let buildingDriveUrl: string | null = bData.drive_media_url || null;
+      if (!buildingDriveUrl && bData.rooms && bData.rooms.length > 0) {
+        const roomWithDrive = bData.rooms.find((r) => r.drive_media_url);
+        if (roomWithDrive && roomWithDrive.drive_media_url) {
+          buildingDriveUrl = roomWithDrive.drive_media_url;
+        }
+      }
+
+      if (buildingId && buildingDriveUrl) {
+        // Bỏ qua sync Drive ảnh tòa nhà nếu đã có ảnh (image_url) từ lần trước
+        const buildingAlreadyHasImage = !!(existingBuilding?.image_url);
+        if (!buildingAlreadyHasImage) {
+          syncBuildingDriveTasks.push({
+            buildingId: buildingId,
+            driveUrl: buildingDriveUrl,
+            companyId: company_id
+          });
+        } else {
+          console.log(`[Commit Route] Bỏ qua sync Drive ảnh tòa nhà ${buildingName} - đã có ảnh từ lần trước.`);
+        }
       }
 
       // Lấy toàn bộ danh sách phòng hiện tại của Tòa nhà này để CHECK TRÙNG PHÒNG
+      const validBuildingUuids = Array.from(
+        new Set([buildingId, existingBuilding?.id].filter(Boolean) as string[])
+      );
       let existingRoomsQuery = supabaseAdmin
         .from('rooms')
-        .select('id, code')
-        .or(`building_id.eq.${buildingCode},building_id.eq.${buildingId}`);
+        .select('id, code, description, status, price, size, room_type, landlord_id')
+        .in('building_id', validBuildingUuids);
 
       if (company_id) {
         existingRoomsQuery = existingRoomsQuery.eq('company_id', company_id);
       }
 
-      const { data: dbRoomsList } = await existingRoomsQuery;
+      const { data: dbRoomsList, error: dbRoomsErr } = await existingRoomsQuery;
+      if (dbRoomsErr) {
+        console.error('[Commit Route] Lỗi truy vấn danh sách phòng hiện tại:', dbRoomsErr);
+      }
       const dbRooms = dbRoomsList || [];
+
+      // Lấy tập hợp các room_id đã có ảnh (để biết phòng nào chưa có ảnh khi gắn ảnh chung)
+      const allRoomIds = dbRooms.map((r: any) => r.id).filter(Boolean);
+      const roomsWithImages = new Set<string>();
+      if (allRoomIds.length > 0) {
+        const { data: existingImgs } = await supabaseAdmin
+          .from('room_images')
+          .select('room_id')
+          .in('room_id', allRoomIds);
+        (existingImgs || []).forEach((img: any) => roomsWithImages.add(img.room_id));
+      }
 
       // 2. XỬ LÝ VÀ CHÉC TRÙNG PHÒNG
       const processedRoomCodes = new Set<string>();
@@ -197,24 +436,48 @@ export async function POST(req: Request) {
           roomDesc = roomDesc ? `${roomDesc}\nLink ảnh: ${roomDriveMediaUrl}` : `Link ảnh: ${roomDriveMediaUrl}`;
         }
 
+        // Kiểm tra xem available_date có phải là ngày tương lai hay không (không lưu ngày trong quá khứ)
+        const todayStr = new Date().toISOString().split('T')[0];
+        let validAvailableDate: string | null = null;
+        if (rData.available_date && rData.available_date > todayStr) {
+          validAvailableDate = rData.available_date;
+        }
+
+        // Nhúng marker [Sắp trống: YYYY-MM-DD] vào description để getRoomDisplayStatus nhận diện
+        if (validAvailableDate && status === 'rented') {
+          const cleanDesc = (roomDesc || '').replace(/\s*\[Sắp trống:\s*\d{4}-\d{2}-\d{2}\]/g, '').trim();
+          roomDesc = cleanDesc ? `${cleanDesc} [Sắp trống: ${validAvailableDate}]` : `[Sắp trống: ${validAvailableDate}]`;
+        } else if (roomDesc) {
+          // Xóa marker cũ nếu không có ngày sắp trống ở tương lai
+          roomDesc = roomDesc.replace(/\s*\[Sắp trống:\s*\d{4}-\d{2}-\d{2}\]/g, '').trim() || null;
+        }
+
+        const finalPrice = price > 0 ? price : (existingRoom?.price || 0);
+        const finalDesc = roomDesc || existingRoom?.description || null;
+
+        const targetRoomLandlordId =
+          resolveLandlordId(existingRoom?.landlord_id) ||
+          resolveLandlordId(existingBuilding?.landlord_id) ||
+          resolveLandlordId(landlord_id) ||
+          null;
+
         const roomPayload: any = {
           company_id: company_id || null,
-          landlord_id: landlord_id || existingBuilding?.landlord_id || null,
-          building_id: buildingCode,
+          landlord_id: targetRoomLandlordId,
+          building_id: buildingId || existingBuilding?.id,
           code: rawCode,
           floor: floor,
-          price: price,
-          size: rData.size || 25,
-          room_type: roomType,
+          price: finalPrice,
+          size: rData.size || existingRoom?.size || 25,
+          room_type: roomType || existingRoom?.room_type || 'Studio',
           status: status,
-          available_date: rData.available_date || null,
           bedrooms: rData.bedrooms || 1,
           bathrooms: rData.bathrooms || 1,
           max_occupants: 2,
           max_vehicles_per_room: 2,
           deposit_terms: 'đóng 1 cọc 1',
           min_contract_months: 6,
-          description: roomDesc,
+          description: finalDesc,
           external_sync_id: `${sheet_url}#${rawCode}`,
           updated_at: new Date().toISOString(),
         };
@@ -223,8 +486,12 @@ export async function POST(req: Request) {
 
         if (existingRoom) {
           // CẬP NHẬT PHÒNG ĐÃ CÓ (KHÔNG BỊ TẠO TRÙNG)
-          await supabaseAdmin.from('rooms').update(roomPayload).eq('id', existingRoom.id);
-          totalRoomsUpdated++;
+          const { error: uErr } = await supabaseAdmin.from('rooms').update(roomPayload).eq('id', existingRoom.id);
+          if (uErr) {
+            console.error(`[Commit Route] Lỗi cập nhật phòng ${rawCode} (${existingRoom.id}):`, uErr.message);
+          } else {
+            totalRoomsUpdated++;
+          }
         } else {
           // THÊM MỚI PHÒNG
           const { data: newRoom, error: rErr } = await supabaseAdmin
@@ -236,21 +503,45 @@ export async function POST(req: Request) {
           if (!rErr && newRoom) {
             targetRoomId = newRoom.id;
             totalRoomsCreated++;
+          } else if (rErr) {
+            console.error(`[Commit Route] Lỗi thêm mới phòng ${rawCode}:`, rErr.message);
           }
         }
 
-        // Chỉ thêm task sync ảnh phòng nếu phòng có link Drive riêng biệt
-        if (targetRoomId && roomDriveMediaUrl) {
-          syncDriveTasks.push({
-            roomId: targetRoomId,
-            driveUrl: roomDriveMediaUrl,
-            companyId: company_id,
-          });
+        // Thêm task sync ảnh cho phòng:
+        // - Ưu tiên: phòng có link Drive riêng biệt chưa được import
+        // - Fallback: phòng chưa có ảnh nào + tòa nhà có link Drive chung → gắn ảnh tòa nhà vào phòng
+        if (targetRoomId) {
+          if (roomDriveMediaUrl) {
+            // Phòng có link Drive riêng: kiểm tra đã sync chưa
+            const existingDesc = existingRoom?.description || '';
+            const alreadySynced = existingDesc.includes(roomDriveMediaUrl);
+            if (!alreadySynced) {
+              syncDriveTasks.push({
+                roomId: targetRoomId,
+                driveUrl: roomDriveMediaUrl,
+                companyId: company_id,
+              });
+            } else {
+              console.log(`[Commit Route] Bỏ qua sync Drive cho phòng ${rawCode} - link đã import trước đó: ${roomDriveMediaUrl}`);
+            }
+          } else if (buildingDriveUrl && !roomsWithImages.has(targetRoomId)) {
+            // Phòng không có link Drive riêng, chưa có ảnh nào, nhưng tòa nhà có link Drive chung
+            // → Gắn ảnh tòa nhà vào phòng này (ảnh dùng chung)
+            console.log(`[Commit Route] Phòng ${rawCode} chưa có ảnh → dùng ảnh chung tòa nhà: ${buildingDriveUrl}`);
+            syncDriveTasks.push({
+              roomId: targetRoomId,
+              driveUrl: buildingDriveUrl,
+              companyId: company_id,
+            });
+            // Đánh dấu phòng mới này đã được lên kế hoạch sync để tránh duplicate
+            roomsWithImages.add(targetRoomId);
+          }
         }
       }
 
       // 3. AUTO-MARK PHÒNG BIẾN MẤT KHỎI SHEET → "ĐÃ THUÊ"
-      if (existingBuilding && bData.rooms.length > 0 && dbRooms.length > 0) {
+      if (existingBuilding && dbRooms.length > 0) {
         const missingRooms = dbRooms.filter(
           (r: any) => !processedRoomCodes.has(normalizeRoomCode(r.code))
         );
@@ -258,16 +549,55 @@ export async function POST(req: Request) {
         if (missingRooms.length > 0) {
           console.log(`[Commit Route] ${missingRooms.length} phòng không còn trong Sheet của tòa "${buildingName}" → tự động đánh dấu "Đã thuê"`);
           for (const missingRoom of missingRooms) {
+            const cleanDesc = (missingRoom.description || '')
+              .replace(/\s*\[Sắp trống:\s*[^\]]+\]/g, '')
+              .trim() || null;
+
             await supabaseAdmin
               .from('rooms')
               .update({
                 status: 'rented',
-                available_date: null,
+                description: cleanDesc,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', missingRoom.id);
             totalRoomsMarkedRented++;
           }
+        }
+      }
+    }
+
+    // 3.5 AUTO-MARK TẤT CẢ PHÒNG CỦA TÒA NHÀ KHÔNG CÓ TRONG SHEET (0 PHÒNG TRỐNG TRÊN SHEET) → "ĐÃ THUÊ"
+    const unmatchedBuildings = dbBuildings.filter((b: any) => {
+      if (matchedDbBuildingIds.has(b.id)) return false;
+      if (landlord_id && b.landlord_id && validLandlordKeys.has(b.landlord_id)) return true;
+      if (sheet_url && b.external_sync_id === sheet_url) return true;
+      return false;
+    });
+
+    for (const uBld of unmatchedBuildings) {
+      const { data: uRooms } = await supabaseAdmin
+        .from('rooms')
+        .select('id, code, status, description')
+        .eq('building_id', uBld.id)
+        .neq('status', 'rented');
+
+      if (uRooms && uRooms.length > 0) {
+        console.log(`[Commit Route] Tòa nhà "${uBld.name}" (${uBld.id}) không có phòng trống nào trên Sheet → tự động đánh dấu ${uRooms.length} phòng là "Đã thuê"`);
+        for (const room of uRooms) {
+          const cleanDesc = (room.description || '')
+            .replace(/\s*\[Sắp trống:\s*[^\]]+\]/g, '')
+            .trim() || null;
+
+          await supabaseAdmin
+            .from('rooms')
+            .update({
+              status: 'rented',
+              description: cleanDesc,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', room.id);
+          totalRoomsMarkedRented++;
         }
       }
     }
@@ -287,15 +617,47 @@ export async function POST(req: Request) {
     );
 
     // 5. CHẠY TIẾN TRÌNH NỀN TẢI ẢNH TỪ GOOGLE DRIVE (Không block response)
-    if (syncBuildingDriveTasks.length > 0 || syncDriveTasks.length > 0) {
+    const totalDriveTasks = syncBuildingDriveTasks.length + syncDriveTasks.length;
+    let syncJobId: string | null = null;
+
+    if (totalDriveTasks > 0) {
+      // Tạo job record trong DB để tracking tiến độ thực tế
+      const { data: newJob } = await supabaseAdmin
+        .from('drive_sync_jobs')
+        .insert({
+          company_id: company_id || null,
+          status: 'syncing',
+          total_tasks: totalDriveTasks,
+          completed_tasks: 0,
+        })
+        .select('id')
+        .single();
+
+      syncJobId = newJob?.id || null;
+
+      const jobId = syncJobId;
       (async () => {
+        let completedCount = 0;
+
+        const markProgress = async () => {
+          completedCount++;
+          if (jobId) {
+            await supabaseAdmin
+              .from('drive_sync_jobs')
+              .update({ completed_tasks: completedCount })
+              .eq('id', jobId);
+          }
+        };
+
         // Sync ảnh cấp Tòa nhà
         for (const bTask of syncBuildingDriveTasks) {
           try {
             await syncGoogleDriveImagesForBuilding(bTask.buildingId, bTask.driveUrl, bTask.companyId);
+            await markProgress();
             await new Promise((r) => setTimeout(r, 500));
           } catch (err: any) {
             console.error(`[Building Drive Sync Error for building ${bTask.buildingId}]:`, err?.message);
+            await markProgress();
           }
         }
 
@@ -303,11 +665,38 @@ export async function POST(req: Request) {
         for (const task of syncDriveTasks) {
           try {
             await syncGoogleDriveImagesForProperty(task.roomId, task.driveUrl, task.companyId);
+            await markProgress();
             await new Promise((r) => setTimeout(r, 800));
           } catch (err: any) {
             console.error(`[Drive Sync Background Error for room ${task.roomId}]:`, err?.message);
+            await markProgress();
           }
         }
+
+        // Đánh dấu job hoàn tất
+        if (jobId) {
+          await supabaseAdmin
+            .from('drive_sync_jobs')
+            .update({
+              status: 'done',
+              completed_tasks: totalDriveTasks,
+              finished_at: new Date().toISOString(),
+            })
+            .eq('id', jobId);
+        }
+
+        // Broadcast Supabase Realtime để client nhận biết sync xong
+        if (company_id) {
+          await supabaseAdmin
+            .channel(`import-progress-${company_id}`)
+            .send({
+              type: 'broadcast',
+              event: 'sync-complete',
+              payload: { message: `Đã tải xong ${totalDriveTasks} ảnh/video từ Google Drive!` },
+            });
+        }
+
+        console.log(`[Drive Sync] Job ${jobId} hoàn tất - ${totalDriveTasks} tasks.`);
       })();
     }
 
@@ -318,7 +707,8 @@ export async function POST(req: Request) {
       totalRoomsUpdated,
       totalRoomsMarkedRented,
       totalRooms: totalRoomsCreated + totalRoomsUpdated,
-      hasDriveSyncTasks: syncBuildingDriveTasks.length > 0 || syncDriveTasks.length > 0,
+      hasDriveSyncTasks: totalDriveTasks > 0,
+      syncJobId,
     });
   } catch (error: any) {
     console.error('[Commit Route Error]:', error);

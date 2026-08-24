@@ -11,7 +11,8 @@ import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import Link from 'next/link';
-import ImageGallery from '@/src/features/properties/components/ImageGallery';
+import ImageGallery from '@/features/properties/components/ImageGallery';
+import { maskHouseNumberInBuildingName, formatVnPrice, formatVnPriceRange } from '@/lib/utils';
 
 // Fix leaflet icon
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -49,11 +50,7 @@ export function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: numb
 }
 
 const formatShortPrice = (price: number) => {
-  if (price >= 1000000) {
-    const p = price / 1000000;
-    return Number.isInteger(p) ? `${p}tr` : `${p.toFixed(1)}tr`;
-  }
-  return `${Math.floor(price / 1000)}k`;
+  return formatVnPrice(price);
 };
 
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
@@ -101,7 +98,21 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
 
   // Filter groups that have coordinates, then filter/sort by radius if userLoc exists
   const markers = useMemo(() => {
-    let m = groups.filter(g => g.representativeRoom.latitude && g.representativeRoom.longitude);
+    let m = groups
+      .filter(g => {
+        const lat = g.representativeRoom?.latitude ?? (g as any).latitude;
+        const lng = g.representativeRoom?.longitude ?? (g as any).longitude;
+        return lat !== null && lat !== undefined && lng !== null && lng !== undefined;
+      })
+      .map(g => {
+        const lat = (g.representativeRoom?.latitude ?? (g as any).latitude)!;
+        const lng = (g.representativeRoom?.longitude ?? (g as any).longitude)!;
+        return {
+          ...g,
+          lat,
+          lng,
+        };
+      });
 
     if (userLoc) {
       m = m
@@ -109,19 +120,42 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
           ...g,
           distance: getDistanceFromLatLonInKm(
             userLoc[0], userLoc[1],
-            g.representativeRoom.latitude!, g.representativeRoom.longitude!
+            g.lat, g.lng
           ),
         }))
         .filter(x => x.distance <= radiusKm)       // chỉ giữ BĐS trong bán kính
         .sort((a, b) => a.distance - b.distance);   // gần nhất trước
     }
-    return m;
+
+    // Tự động phân tách các marker bị trùng tọa độ (Jitter offset) để ghim không đè khuất nhau
+    const coordCounts = new Map<string, number>();
+    return m.map(g => {
+      const key = `${g.lat.toFixed(5)},${g.lng.toFixed(5)}`;
+      const count = coordCounts.get(key) || 0;
+      coordCounts.set(key, count + 1);
+
+      if (count > 0) {
+        const angle = (count * 2 * Math.PI) / 6;
+        const offset = 0.00035 * Math.ceil(count / 6);
+        return {
+          ...g,
+          renderLat: g.lat + offset * Math.cos(angle),
+          renderLng: g.lng + offset * Math.sin(angle),
+        };
+      }
+
+      return {
+        ...g,
+        renderLat: g.lat,
+        renderLng: g.lng,
+      };
+    });
   }, [groups, userLoc, radiusKm]);
 
   // Adjust center if markers exist and no userLoc
   useEffect(() => {
     if (!isSelectingLocation && markers.length > 0 && !userLoc) {
-      setMapCenter([markers[0].representativeRoom.latitude!, markers[0].representativeRoom.longitude!]);
+      setMapCenter([markers[0].renderLat, markers[0].renderLng]);
     }
   }, [markers, isSelectingLocation, userLoc]);
 
@@ -218,7 +252,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         {markers.map(g => (
           <Marker
             key={g.buildingId}
-            position={[g.representativeRoom.latitude!, g.representativeRoom.longitude!]}
+            position={[g.renderLat, g.renderLng]}
             icon={L.divIcon({
               className: 'custom-price-marker',
               html: `<div style="background-color: #2563eb; color: white; padding: 4px 8px; border-radius: 9999px; font-weight: 700; font-size: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 2px solid white; white-space: nowrap; text-align: center; display: inline-block;">${formatShortPrice(g.minPrice)}</div>`,
@@ -236,13 +270,13 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
                   />
                 </div>
                 <div className="p-3">
-                  <h4 className="font-bold text-ink text-sm line-clamp-1">{g.buildingName}</h4>
+                  <h4 className="font-bold text-ink text-sm line-clamp-1">{maskHouseNumberInBuildingName(g.buildingName)}</h4>
                   <p className="text-[11px] text-ink-muted flex items-start gap-1 mt-1 mb-2">
                     <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                    <span className="line-clamp-2 leading-tight">{g.address}</span>
+                    <span className="line-clamp-2 leading-tight">{maskHouseNumberInBuildingName(g.address || g.buildingName)}</span>
                   </p>
-                  <p className="text-accent font-bold mb-3 text-sm">
-                    Từ {g.minPrice.toLocaleString('vi-VN')} đ
+                  <p className="text-accent font-bold mb-3 text-sm font-mono">
+                    {formatVnPriceRange(g.minPrice, g.maxPrice)}
                   </p>
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1 h-8 text-xs bg-accent hover:bg-accent-500" asChild>

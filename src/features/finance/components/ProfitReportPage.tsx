@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   DollarSign, TrendingUp, TrendingDown, Plus, Trash2, Pencil,
-  Loader2, Calculator, Sparkles, RefreshCw, AlertCircle, Calendar, Check
+  Loader2, Calculator, Sparkles, RefreshCw, AlertCircle, Calendar, Check,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import {
   getCompanyExpenses, createCompanyExpense, updateCompanyExpense, deleteCompanyExpense
-} from '@/src/features/finance/services/company_expenses';
+} from '@/features/finance/services/company_expenses';
 import type { DBCompanyExpense } from '@/lib/supabase/types';
 import { toast } from 'sonner';
 import {
@@ -39,7 +40,26 @@ function formatVND(n: number) {
 
 export function ProfitReportPage() {
   const { company } = useAuth();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  
+  // Custom Date Range State (Default to current month)
+  const getInitialDates = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const firstDay = new Date(y, m, 1);
+    const lastDay = new Date(y, m + 1, 0);
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+    return {
+      start: formatDate(firstDay),
+      end: formatDate(lastDay),
+    };
+  };
+
+  const initialDates = useMemo(() => getInitialDates(), []);
+  const [startDate, setStartDate] = useState<string>(initialDates.start);
+  const [endDate, setEndDate] = useState<string>(initialDates.end);
+  const [preset, setPreset] = useState<string>('this_month');
+
   const [expenses, setExpenses] = useState<DBCompanyExpense[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -60,38 +80,70 @@ export function ProfitReportPage() {
     setIsExpenseModalOpen(true);
   };
 
+  const handleSelectPreset = (p: string) => {
+    setPreset(p);
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+
+    if (p === 'this_month') {
+      const first = new Date(y, m, 1).toISOString().split('T')[0];
+      const last = new Date(y, m + 1, 0).toISOString().split('T')[0];
+      setStartDate(first);
+      setEndDate(last);
+    } else if (p === 'last_month') {
+      const first = new Date(y, m - 1, 1).toISOString().split('T')[0];
+      const last = new Date(y, m, 0).toISOString().split('T')[0];
+      setStartDate(first);
+      setEndDate(last);
+    } else if (p === 'last_30_days') {
+      const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const today = now.toISOString().split('T')[0];
+      setStartDate(past);
+      setEndDate(today);
+    } else if (p === 'this_year') {
+      setStartDate(`${y}-01-01`);
+      setEndDate(`${y}-12-31`);
+    }
+  };
+
+  const displayDateRange = useMemo(() => {
+    if (!startDate || !endDate) return '';
+    const [sY, sM, sD] = startDate.split('-');
+    const [eY, eM, eD] = endDate.split('-');
+    return `${sD}/${sM}/${sY} → ${eD}/${eM}/${eY}`;
+  }, [startDate, endDate]);
+
   // Load Data function
   const loadFinancialData = useCallback(async () => {
-    if (!company?.id) return;
+    if (!company?.id || !startDate || !endDate) return;
     setLoading(true);
     try {
-      const startDate = `${selectedPeriod}-01T00:00:00.000Z`;
-      const [yearStr, monthStr] = selectedPeriod.split('-');
-      const year = parseInt(yearStr, 10);
-      const month = parseInt(monthStr, 10);
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear = month === 12 ? year + 1 : year;
-      const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00.000Z`;
+      const startISO = `${startDate}T00:00:00.000Z`;
+      const endISO = `${endDate}T23:59:59.999Z`;
 
-      // 1. Fetch Dynamic Expenses for selected period
-      const expData = await getCompanyExpenses(company.id, selectedPeriod);
+      const startYearMonth = startDate.slice(0, 7);
+      const endYearMonth = endDate.slice(0, 7);
+
+      // 1. Fetch Dynamic Expenses for selected range period
+      const expData = await getCompanyExpenses(company.id, startYearMonth);
       setExpenses(expData);
 
-      // 2. Fetch Deposit & Rental Contracts created/closed in selected period
+      // 2. Fetch Deposit & Rental Contracts created/closed in selected date range
       const { data: deposits } = await supabase
         .from('deposit_contracts')
         .select('id, contract_code, rent_price, deposit_amount, commission_amount, created_at, party_b_name, party_b_phone, rooms(code, buildings(name))')
         .eq('company_id', company.id)
-        .gte('created_at', startDate)
-        .lt('created_at', endDate)
+        .gte('created_at', startISO)
+        .lte('created_at', endISO)
         .neq('status', 'cancelled');
 
       const { data: rentals } = await supabase
         .from('rental_contracts')
         .select('id, contract_code, rent_price, deposit_amount, commission_amount, created_at, party_b_name, party_b_phone, rooms(code, buildings(name))')
         .eq('company_id', company.id)
-        .gte('created_at', startDate)
-        .lt('created_at', endDate)
+        .gte('created_at', startISO)
+        .lte('created_at', endISO)
         .neq('status', 'cancelled');
 
       const allDeals = [...(deposits || []), ...(rentals || [])];
@@ -106,7 +158,8 @@ export function ProfitReportPage() {
         .from('employee_kpis')
         .select('commission_earned')
         .eq('company_id', company.id)
-        .eq('period', selectedPeriod);
+        .gte('period', startYearMonth)
+        .lte('period', endYearMonth);
 
       const totalCommPaidToSale = (kpis || []).reduce((sum: number, k: any) => sum + (Number(k.commission_earned) || 0), 0);
       // Fallback if no KPI generated yet: default 60% of landlord commission
@@ -117,7 +170,7 @@ export function ProfitReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [company?.id, selectedPeriod]);
+  }, [company?.id, startDate, endDate]);
 
   useEffect(() => {
     loadFinancialData();
@@ -137,14 +190,14 @@ export function ProfitReportPage() {
   const chartData = useMemo(() => {
     return [
       {
-        name: `Kỳ ${selectedPeriod}`,
+        name: displayDateRange,
         'Doanh thu từ Chủ nhà': grossLandlordComm / 1000000,
         'Hoa hồng trả Sale': totalSaleComm / 1000000,
         'Chi phí vận hành': totalExpenses / 1000000,
         'Lợi nhuận thuần (Net)': netProfit / 1000000,
       },
     ];
-  }, [selectedPeriod, grossLandlordComm, totalSaleComm, totalExpenses, netProfit]);
+  }, [displayDateRange, grossLandlordComm, totalSaleComm, totalExpenses, netProfit]);
 
   // Expense Handlers
   const handleSaveExpense = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -157,11 +210,12 @@ export function ProfitReportPage() {
     const is_recurring = fd.get('is_recurring') === 'on';
     const category = fd.get('category') as string || 'Khác';
     const note = fd.get('note') as string || '';
+    const expensePeriod = startDate ? startDate.slice(0, 7) : new Date().toISOString().slice(0, 7);
 
     try {
       if (editExpense) {
         await updateCompanyExpense(editExpense.id, {
-          name, amount, is_recurring, category, note, period: selectedPeriod
+          name, amount, is_recurring, category, note, period: editExpense.period || expensePeriod
         });
         toast.success('Đã cập nhật khoản chi phí!');
       } else {
@@ -172,7 +226,7 @@ export function ProfitReportPage() {
           is_recurring,
           category,
           note,
-          period: selectedPeriod,
+          period: expensePeriod,
         });
         toast.success('Đã thêm khoản chi phí mới!');
       }
@@ -210,18 +264,47 @@ export function ProfitReportPage() {
             Bóc tách Doanh thu Hoa hồng Chủ nhà, Chi trả Sale, Chi phí Vận hành Dynamic & Lợi nhuận Net
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-border">
-            <Calendar className="h-4 w-4 text-ink-muted" />
-            <span className="text-xs font-semibold text-ink-muted">Kỳ hạch toán:</span>
-            <input
-              type="month"
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="text-xs font-bold font-mono text-ink bg-transparent focus:outline-none cursor-pointer"
-            />
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Custom Date Range Picker Container */}
+          <div className="flex items-center gap-2 bg-white border border-border rounded-xl shadow-2xs p-1.5 flex-wrap">
+            <select
+              value={preset}
+              onChange={(e) => handleSelectPreset(e.target.value)}
+              className="h-8 px-2.5 rounded-lg border border-border bg-slate-50 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer"
+            >
+              <option value="this_month">Tháng này</option>
+              <option value="last_month">Tháng trước</option>
+              <option value="last_30_days">30 ngày qua</option>
+              <option value="this_year">Năm nay</option>
+              <option value="custom">Tùy chọn khoảng ngày</option>
+            </select>
+
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-ink-muted font-medium">Từ:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPreset('custom');
+                }}
+                className="h-8 px-2 rounded-lg border border-border font-mono text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent bg-white cursor-pointer"
+              />
+              <span className="text-ink-muted font-bold">→</span>
+              <span className="text-ink-muted font-medium">Đến:</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPreset('custom');
+                }}
+                className="h-8 px-2 rounded-lg border border-border font-mono text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent bg-white cursor-pointer"
+              />
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={loadFinancialData} className="rounded-lg gap-1">
+
+          <Button variant="outline" size="sm" onClick={loadFinancialData} className="rounded-xl h-10 px-3.5 text-xs font-semibold gap-1.5 shadow-2xs">
             <RefreshCw className="h-3.5 w-3.5" /> Làm mới
           </Button>
         </div>
@@ -306,7 +389,7 @@ export function ProfitReportPage() {
               <div>
                 <CardTitle className="text-base font-bold text-ink flex items-center gap-2">
                   <TrendingDown className="h-4.5 w-4.5 text-rose-600" />
-                  Quản lý Chi phí Vận hành Dynamic (Kỳ {selectedPeriod})
+                  Quản lý Chi phí Vận hành Dynamic ({displayDateRange})
                 </CardTitle>
                 <p className="text-xs text-ink-muted mt-0.5">
                   Thêm/bớt linh hoạt các khoản chi phí cố định (Mặt bằng, Lương, Server) và chi phí phát sinh 1 lần
@@ -383,7 +466,7 @@ export function ProfitReportPage() {
                     {expenses.length === 0 && (
                       <tr>
                         <td colSpan={6} className="text-center py-8 text-ink-muted text-xs">
-                          Chưa có khoản chi phí nào cho kỳ {selectedPeriod}. Bấm <strong>&quot;Thêm khoản chi phí&quot;</strong> để bắt đầu.
+                          Chưa có khoản chi phí nào trong khoảng thời gian này. Bấm <strong>&quot;Thêm khoản chi phí&quot;</strong> để bắt đầu.
                         </td>
                       </tr>
                     )}

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Bell, Building2, CalendarDays, MessageSquare, Settings, UserSearch, Check, CheckCheck, Loader2, Receipt } from 'lucide-react';
 import Link from 'next/link';
-import { useNotifications } from '@/lib/hooks/useNotifications';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBNotification } from '@/lib/supabase/types';
 

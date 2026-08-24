@@ -10,7 +10,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, User, Loader2, AlertCircle } from 'lucide-react';
-import { useEmployees } from '@/src/features/staff/hooks/useStaff';;
+import { useEmployees } from '@/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import { authFetch } from '@/lib/supabase/auth-fetch';
 import type { DBEmployee, DBRole } from '@/lib/supabase/types';
@@ -55,15 +55,29 @@ export function EmployeesPage() {
     (e.department ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const [empErrors, setEmpErrors] = useState<Record<string, string>>({});
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
     const formData = new FormData(e.currentTarget);
+    const name = (formData.get('name') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+
+    const errs: Record<string, string> = {};
+    if (!name) errs.name = 'Không được để trống';
+    if (!email) errs.email = 'Không được để trống';
+
+    if (Object.keys(errs).length > 0) {
+      setEmpErrors(errs);
+      return;
+    }
+    setEmpErrors({});
+    setSaving(true);
     
     const payload = {
       company_id: company?.id ?? '',
-      name: formData.get('name') as string,
-      email: formData.get('email') as string || null,
+      name,
+      email: email || null,
       phone: formData.get('phone') as string || null,
       department: formData.get('department') as string || null,
       position: formData.get('position') as string || null,
@@ -125,10 +139,31 @@ export function EmployeesPage() {
               <DialogHeader>
                 <DialogTitle>{editItem ? 'Chỉnh sửa' : 'Thêm'} nhân viên</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSave} className="space-y-4 pt-4">
+              <form onSubmit={handleSave} noValidate className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label htmlFor="name">Họ tên <span className="text-red-500">*</span></Label><Input id="name" name="name" defaultValue={editItem?.name} required /></div>
-                  <div><Label htmlFor="email">Email <span className="text-red-500">*</span></Label><Input id="email" name="email" type="email" defaultValue={editItem?.email ?? ''} required /></div>
+                  <div>
+                    <Label htmlFor="name">Họ tên <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      defaultValue={editItem?.name}
+                      onChange={() => empErrors.name && setEmpErrors(prev => ({ ...prev, name: '' }))}
+                      className={empErrors.name ? 'border-red-500 ring-1 ring-red-500' : ''}
+                    />
+                    {empErrors.name && <p className="text-xs font-semibold text-red-500 mt-1">⚠️ {empErrors.name}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      defaultValue={editItem?.email ?? ''}
+                      onChange={() => empErrors.email && setEmpErrors(prev => ({ ...prev, email: '' }))}
+                      className={empErrors.email ? 'border-red-500 ring-1 ring-red-500' : ''}
+                    />
+                    {empErrors.email && <p className="text-xs font-semibold text-red-500 mt-1">⚠️ {empErrors.email}</p>}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><Label htmlFor="phone">Số điện thoại</Label><Input id="phone" name="phone" defaultValue={editItem?.phone ?? ''} /></div>

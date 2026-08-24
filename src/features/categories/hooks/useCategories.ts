@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
-import { getPriceRanges, createPriceRange, updatePriceRange, deletePriceRange, getAmenities, createAmenity, updateAmenity, deleteAmenity, getRoomTypes, createRoomType, updateRoomType, deleteRoomType, type DBPriceRange, type DBAmenity, type DBRoomType } from '@/src/lib/supabase/repositories/categories';
-import { getProvinces, getDistricts, getWards, type VnProvince, type VnDistrict, type VnWard } from '@/src/lib/supabase/repositories/vn_locations';
+import { getPriceRanges, createPriceRange, updatePriceRange, deletePriceRange, getAmenities, createAmenity, updateAmenity, deleteAmenity, getRoomTypes, createRoomType, updateRoomType, deleteRoomType, type DBPriceRange, type DBAmenity, type DBRoomType } from '@/lib/supabase/repositories/categories';
+import { getProvinces, getDistricts, getWards, type VnProvince, type VnDistrict, type VnWard } from '@/lib/supabase/repositories/vn_locations';
 
 export function usePriceRanges(companyId?: string) {
   const [items, setItems] = useState<DBPriceRange[]>([]);

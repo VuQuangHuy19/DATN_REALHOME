@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { sendMonthlyInvoiceEmail } from '@/src/lib/mail';
+import { sendMonthlyInvoiceEmail } from '@/lib/mail';
 
 export async function POST(req: NextRequest) {
   try {

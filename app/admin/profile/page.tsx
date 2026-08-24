@@ -8,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, User, Building2, Shield, Mail, Phone } from 'lucide-react';
+import { Loader2, User, Building2, Shield, Mail, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
+import KYCForm from '@/components/kyc/KYCForm';
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -130,7 +131,7 @@ export default function AdminProfilePage() {
               <CardDescription>{isEn ? 'Edit your basic details' : 'Chỉnh sửa các thông tin cơ bản của bạn'}</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSave} className="space-y-5">
+              <form onSubmit={handleSave} noValidate className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <Label htmlFor="full_name">{isEn ? 'Full Name' : 'Họ và tên'}</Label>
@@ -188,6 +189,29 @@ export default function AdminProfilePage() {
               </form>
             </CardContent>
           </Card>
+
+          {/* Thẻ Xác thực KYC & Badge Nguồn hàng sạch / Môi giới chính thức */}
+          {user?.id && (role === 'landlord' || role === 'sales_agent') && (
+            <Card className="mt-6 border border-emerald-200/80 rounded-2xl bg-white shadow-sm p-6">
+              <CardHeader className="px-0 pt-0 pb-4 border-b border-slate-100">
+                <CardTitle className="text-base font-bold font-heading text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                  {role === 'landlord' ? 'Xác thực KYC & Nguồn hàng sạch' : 'Xác thực KYC Môi giới & CRM Lead'}
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500 mt-1">
+                  Upload CCCD 2 mặt + Ảnh 3D sinh trắc học người thực để khẳng định uy tín và nhận đặc quyền đẩy tin/nhận lead.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-0 pt-4">
+                <KYCForm
+                  userId={user.id}
+                  userRole={role === 'landlord' ? 'landlord' : 'sale'}
+                  landlordId={profile?.landlord_id ?? undefined}
+                  companyId={profile?.company_id ?? undefined}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

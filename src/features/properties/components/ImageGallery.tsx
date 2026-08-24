@@ -4,6 +4,10 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react';
 
+// Inline SVG placeholder — tránh Next.js optimizer load file không tồn tại
+const PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f1f5f9'/%3E%3Cg fill='%23cbd5e1'%3E%3Crect x='160' y='100' width='80' height='60' rx='4'/%3E%3Ccircle cx='180' cy='120' r='12'/%3E%3Cpath d='M155 160 L200 120 L245 160Z'/%3E%3C/g%3E%3C/svg%3E";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type GalleryItem = {
   url: string;
@@ -30,7 +34,11 @@ function isVideoUrl(url: string): boolean {
   return (
     cleanUrl.endsWith('.mp4') ||
     cleanUrl.endsWith('.mov') ||
-    cleanUrl.endsWith('.webm')
+    cleanUrl.endsWith('.webm') ||
+    cleanUrl.endsWith('.m4v') ||
+    cleanUrl.endsWith('.mkv') ||
+    cleanUrl.endsWith('.avi') ||
+    cleanUrl.endsWith('.3gp')
   );
 }
 
@@ -71,10 +79,46 @@ export default function ImageGallery({
 }: ImageGalleryProps) {
   const items = normaliseItems(rawItems);
   const [idx, setIdx] = useState(0);
+  // Track broken URLs; also auto-advance idx when the current slide's image fails
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
+  const markBroken = useCallback(
+    (url: string, currentIdx?: number) => {
+      setBrokenUrls((prev) => {
+        const next = new Set(prev).add(url);
+        // If the broken image is the currently shown slide, skip to next good image
+        if (currentIdx !== undefined) {
+          setIdx((oldIdx) => {
+            if (oldIdx !== currentIdx) return oldIdx; // user already moved on
+            for (let offset = 1; offset < items.length; offset++) {
+              const tryIdx = (currentIdx + offset) % items.length;
+              const tryUrl = items[tryIdx]?.url;
+              if (tryUrl && !next.has(tryUrl)) return tryIdx;
+            }
+            return oldIdx; // all broken, stay put
+          });
+        }
+        return next;
+      });
+    },
+    [items],
+  );
+  const isBroken = useCallback(
+    (url: string | null | undefined) => !url || brokenUrls.has(url),
+    [brokenUrls],
+  );
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
+  const closeLightbox = useCallback(() => {
+    setIsLightboxOpen(false);
+    if (typeof window !== 'undefined' && window.history.state?.lightbox) {
+      try {
+        window.history.back();
+      } catch (err) {}
+    }
+  }, []);
+
   useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
+    const handlePopState = () => {
       setIsLightboxOpen(false);
     };
     window.addEventListener('popstate', handlePopState);
@@ -83,17 +127,32 @@ export default function ImageGallery({
     };
   }, []);
 
-  const openLightbox = () => {
-    window.history.pushState({ lightbox: true }, '');
-    setIsLightboxOpen(true);
-  };
+  useEffect(() => {
+    if (!isLightboxOpen) return;
 
-  const closeLightbox = () => {
-    if (window.history.state?.lightbox) {
-      window.history.back();
-    } else {
-      setIsLightboxOpen(false);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeLightbox();
+      } else if (e.key === 'ArrowLeft') {
+        setIdx((i) => (i - 1 + items.length) % items.length);
+      } else if (e.key === 'ArrowRight') {
+        setIdx((i) => (i + 1) % items.length);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [isLightboxOpen, items.length, closeLightbox]);
+
+  const openLightbox = () => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ lightbox: true }, '');
     }
+    setIsLightboxOpen(true);
   };
 
   // Touch swipe refs
@@ -137,19 +196,17 @@ export default function ImageGallery({
     touchEndX.current = null;
   }, [items.length]);
 
-  // Fallback
+  // Fallback khi không có ảnh
   if (items.length === 0) {
     return (
       <div
-        className={`relative bg-slate-100 overflow-hidden ${ASPECT_CLASSES[aspectRatio] ?? ASPECT_CLASSES.card}`}
+        className={`relative bg-slate-100 overflow-hidden flex items-center justify-center ${ASPECT_CLASSES[aspectRatio] ?? ASPECT_CLASSES.card}`}
       >
-        <Image
-          src="/placeholder.jpg"
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={PLACEHOLDER}
           alt={alt}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 50vw"
-          quality={90}
-          className="object-cover"
+          className="w-full h-full object-cover"
         />
       </div>
     );
@@ -172,11 +229,25 @@ export default function ImageGallery({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
+        {/* Blurred background backdrop for detail view to avoid harsh black void sidebars */}
+        {isDetail && !isVideo && current?.url && !isBroken(current.url) && (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-35 blur-2xl scale-110">
+            <Image
+              src={current.url}
+              alt="Backdrop blur"
+              fill
+              sizes="100vw"
+              className="object-cover"
+              onError={() => current.url && markBroken(current.url, idx)}
+            />
+          </div>
+        )}
+
         {/* Current media */}
         {isVideo ? (
           <div 
             onClick={openLightbox}
-            className="relative w-full h-full cursor-zoom-in flex items-center justify-center bg-black"
+            className="relative w-full h-full cursor-zoom-in flex items-center justify-center bg-black/90 z-10"
           >
             <video
               src={current.url}
@@ -192,9 +263,17 @@ export default function ImageGallery({
               </div>
             </div>
           </div>
+        ) : isBroken(current.url) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={PLACEHOLDER}
+            alt={alt}
+            className={`w-full h-full ${objectFit} cursor-zoom-in relative z-10`}
+            onClick={openLightbox}
+          />
         ) : (
           <Image
-            src={current.url || '/placeholder.jpg'}
+            src={current.url}
             alt={`${alt} - ${idx + 1}`}
             fill
             sizes={
@@ -203,9 +282,10 @@ export default function ImageGallery({
                 : '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 50vw'
             }
             quality={90}
-            className={`${objectFit} transition-opacity duration-300 cursor-zoom-in`}
+            className={`${objectFit} transition-opacity duration-300 cursor-zoom-in relative z-10`}
             priority={priority && idx === 0}
             onClick={openLightbox}
+            onError={() => current.url && markBroken(current.url, idx)}
           />
         )}
 
@@ -304,13 +384,17 @@ export default function ImageGallery({
                   <div className="w-full h-full bg-slate-200 flex items-center justify-center text-xs text-ink-muted">
                     ▶
                   </div>
+                ) : isBroken(thumbUrl) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={PLACEHOLDER} alt={`${alt} thumb ${i + 1}`} className="w-full h-full object-cover" />
                 ) : (
                   <Image
-                    src={thumbUrl || '/placeholder.jpg'}
+                    src={thumbUrl!}
                     alt={`${alt} thumb ${i + 1}`}
                     fill
                     sizes="64px"
                     className="object-cover"
+                    onError={() => thumbUrl && markBroken(thumbUrl)}
                   />
                 )}
               </button>
@@ -346,6 +430,11 @@ export default function ImageGallery({
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                closeLightbox();
+              }
+            }}
           >
             {/* Left navigation arrow */}
             {items.length > 1 && (
@@ -367,12 +456,12 @@ export default function ImageGallery({
                 className="max-w-full max-h-[85vh] object-contain rounded"
               />
             ) : (
-              <div className="relative w-full h-[85vh] flex items-center justify-center">
+              <div className="relative w-full h-[85vh] flex items-center justify-center p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={items[idx].url}
                   alt={`${alt} - ${idx + 1}`}
-                  className="max-w-full max-h-[85vh] object-contain rounded"
+                  className="w-full h-full max-w-full max-h-[85vh] object-contain rounded shadow-2xl transition-all duration-200"
                 />
               </div>
             )}

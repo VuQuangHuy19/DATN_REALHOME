@@ -220,21 +220,31 @@ ${contactInfo}`
 
   // Download Single Image file
   const handleDownloadSingleImage = async (url: string, index: number) => {
+    const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+    const filename = `Anh_Phong_${room.code}_${index + 1}.${ext}`;
     try {
       const response = await fetch(url);
+      if (!response.ok) throw new Error('Fetch failed');
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
-      const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `Anh_Phong_${room.code}_${index + 1}.${ext}`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       toast.success(`Đã tải ảnh ${index + 1} thành công.`);
     } catch (err) {
-      toast.error('Lỗi khi tải ảnh. Thử nhấn giữ trực tiếp vào ảnh để lưu.');
+      // Fallback: Dùng API proxy tải thẳng file về máy không bị lỗi CORS
+      const proxyUrl = `/api/download-image?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+      const a = document.createElement('a');
+      a.href = proxyUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success(`Đã tải ảnh ${index + 1} thành công.`);
     }
   };
 
@@ -253,7 +263,11 @@ ${contactInfo}`
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
         setZipProgress(`Đang tải ảnh ${i + 1}/${images.length}...`);
-        const response = await fetch(img.url);
+        
+        let response = await fetch(img.url).catch(() => null);
+        if (!response || !response.ok) {
+          response = await fetch(`/api/download-image?url=${encodeURIComponent(img.url)}`);
+        }
         if (!response.ok) throw new Error(`Lỗi tải ảnh số ${i + 1}`);
         const blob = await response.blob();
         

@@ -1,75 +1,76 @@
-import { supabase } from '../client';
-import { getKPIConfiguration, calculateSaleCommissionInfo } from '@/src/features/staff/services/kpi_configurations';
+import { supabase as defaultClient } from '../client';
+import { supabaseAdmin } from '../admin';
+import { getKPIConfiguration, calculateSaleCommissionInfo } from '@/features/staff/services/kpi_configurations';
 
-export async function getDashboardStats(companyId: string, landlordId?: string, timeframe: string = 'current_month') {
+export async function getDashboardStats(companyId: string, landlordId?: string, timeframe: string = 'current_month', customClient?: any) {
+  const db = customClient || (typeof window === 'undefined' ? supabaseAdmin : defaultClient);
+  // Determine date ranges and period strings according to timeframe filter
+  const now = new Date();
+  let startDateISO = '';
+  let endDateISO = '';
+  let periods: string[] = [];
+
+  if (timeframe === 'current_month') {
+    const currentPeriod = now.toISOString().substring(0, 7); // 'YYYY-MM'
+    startDateISO = `${currentPeriod}-01T00:00:00.000Z`;
+    const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endDateISO = `${currentPeriod}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+    periods = [currentPeriod];
+  } else if (timeframe === 'last_month') {
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthPeriod = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    startDateISO = `${lastMonthPeriod}-01T00:00:00.000Z`;
+    const endMonth = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0);
+    endDateISO = `${lastMonthPeriod}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+    periods = [lastMonthPeriod];
+  } else if (timeframe === 'this_quarter') {
+    const currentMonth = now.getMonth(); // 0-indexed
+    const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
+    const quarterStart = new Date(now.getFullYear(), quarterStartMonth, 1);
+    const quarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
+    startDateISO = quarterStart.toISOString();
+    endDateISO = `${quarterEnd.getFullYear()}-${String(quarterEnd.getMonth() + 1).padStart(2, '0')}-${String(quarterEnd.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+
+    for (let m = 0; m < 3; m++) {
+      const pDate = new Date(now.getFullYear(), quarterStartMonth + m, 1);
+      periods.push(`${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`);
+    }
+  } else if (timeframe === 'this_year') {
+    const year = now.getFullYear();
+    startDateISO = `${year}-01-01T00:00:00.000Z`;
+    endDateISO = `${year}-12-31T23:59:59.999Z`;
+    for (let m = 1; m <= 12; m++) {
+      periods.push(`${year}-${String(m).padStart(2, '0')}`);
+    }
+  } else if (timeframe === 'all_time') {
+    startDateISO = '1970-01-01T00:00:00.000Z';
+    endDateISO = '2099-12-31T23:59:59.999Z';
+    periods = [];
+  } else if (/^\d{4}-\d{2}$/.test(timeframe)) {
+    // Custom YYYY-MM selected
+    const [yStr, mStr] = timeframe.split('-');
+    const customYear = parseInt(yStr, 10);
+    const customMonth = parseInt(mStr, 10);
+    startDateISO = `${timeframe}-01T00:00:00.000Z`;
+    const endMonth = new Date(customYear, customMonth, 0);
+    endDateISO = `${timeframe}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
+    periods = [timeframe];
+  } else {
+    const currentPeriod = now.toISOString().substring(0, 7);
+    startDateISO = `${currentPeriod}-01T00:00:00.000Z`;
+    endDateISO = `${currentPeriod}-31T23:59:59.999Z`;
+    periods = [currentPeriod];
+  }
+
   if (landlordId) {
     let filterLandlordCode = landlordId;
     if (landlordId && landlordId.includes('-')) {
-      const { data: landlord } = await supabase.from('landlords').select('code').eq('id', landlordId).maybeSingle();
+      const { data: landlord } = await db.from('landlords').select('code').eq('id', landlordId).maybeSingle();
       filterLandlordCode = landlord?.code || landlordId;
     }
 
-    // Determine date ranges and period strings according to timeframe filter
-    const now = new Date();
-    let startDateISO = '';
-    let endDateISO = '';
-    let periods: string[] = [];
-    
-    if (timeframe === 'current_month') {
-      const currentPeriod = now.toISOString().substring(0, 7); // 'YYYY-MM'
-      startDateISO = `${currentPeriod}-01T00:00:00.000Z`;
-      const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      endDateISO = `${currentPeriod}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
-      periods = [currentPeriod];
-    } else if (timeframe === 'last_month') {
-      const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthPeriod = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
-      startDateISO = `${lastMonthPeriod}-01T00:00:00.000Z`;
-      const endMonth = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0);
-      endDateISO = `${lastMonthPeriod}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
-      periods = [lastMonthPeriod];
-    } else if (timeframe === 'this_quarter') {
-      const currentMonth = now.getMonth(); // 0-indexed
-      const quarterStartMonth = Math.floor(currentMonth / 3) * 3;
-      const quarterStart = new Date(now.getFullYear(), quarterStartMonth, 1);
-      const quarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 0);
-      startDateISO = quarterStart.toISOString();
-      endDateISO = `${quarterEnd.getFullYear()}-${String(quarterEnd.getMonth() + 1).padStart(2, '0')}-${String(quarterEnd.getDate()).padStart(2, '0')}T23:59:59.999Z`;
-      
-      for (let m = 0; m < 3; m++) {
-        const pDate = new Date(now.getFullYear(), quarterStartMonth + m, 1);
-        periods.push(`${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`);
-      }
-    } else if (timeframe === 'this_year') {
-      const year = now.getFullYear();
-      startDateISO = `${year}-01-01T00:00:00.000Z`;
-      endDateISO = `${year}-12-31T23:59:59.999Z`;
-      for (let m = 1; m <= 12; m++) {
-        periods.push(`${year}-${String(m).padStart(2, '0')}`);
-      }
-    } else if (timeframe === 'all_time') {
-      startDateISO = '1970-01-01T00:00:00.000Z';
-      endDateISO = '2099-12-31T23:59:59.999Z';
-      periods = [];
-    } else if (/^\d{4}-\d{2}$/.test(timeframe)) {
-      // Custom YYYY-MM selected
-      const [yStr, mStr] = timeframe.split('-');
-      const customYear = parseInt(yStr, 10);
-      const customMonth = parseInt(mStr, 10);
-      startDateISO = `${timeframe}-01T00:00:00.000Z`;
-      const endMonth = new Date(customYear, customMonth, 0);
-      endDateISO = `${timeframe}-${String(endMonth.getDate()).padStart(2, '0')}T23:59:59.999Z`;
-      periods = [timeframe];
-    } else {
-      const currentPeriod = now.toISOString().substring(0, 7);
-      startDateISO = `${currentPeriod}-01T00:00:00.000Z`;
-      endDateISO = `${currentPeriod}-31T23:59:59.999Z`;
-      periods = [currentPeriod];
-    }
-
     // 1. Fetch landlord's buildings
-    const { data: landlordBuildings } = await supabase
-      .from('buildings')
+    const { data: landlordBuildings } = await db.from('buildings')
       .select('id, name, code, area, address, total_rooms, total_floors')
       .eq('company_id', companyId)
       .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
@@ -110,9 +111,8 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     }
 
     // 2. Fetch rooms in those buildings
-    const { data: landlordRooms } = await supabase
-      .from('rooms')
-      .select('id, building_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until')
+    const { data: landlordRooms } = await db.from('rooms')
+      .select('id, building_id, status, code, floor, price, description, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until')
       .eq('company_id', companyId)
       .in('building_id', buildingCodes);
 
@@ -122,8 +122,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     // Fetch active/signed deposit contracts to verify valid deposit locks
     let validDepositRoomIds = new Set<string>();
     if (rawRoomIds.length > 0) {
-      const { data: activeDeposits } = await supabase
-        .from('deposit_contracts')
+      const { data: activeDeposits } = await db.from('deposit_contracts')
         .select('room_id')
         .in('room_id', rawRoomIds)
         .in('status', ['active', 'signed']);
@@ -159,8 +158,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
     if (roomIds.length > 0) {
-      const { data: contracts, count } = await supabase
-        .from('rental_contracts')
+      const { data: contracts, count } = await db.from('rental_contracts')
         .select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone')
         .eq('company_id', companyId)
         .eq('status', 'active')
@@ -190,12 +188,11 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     let netRentRevenue = 0;
 
     // Fetch deposit contracts in timeframe
-    let depQuery = supabase
-      .from('deposit_contracts')
+    let depQuery = db.from('deposit_contracts')
       .select('id, deposit_amount, created_at, status, room_id')
       .eq('company_id', companyId)
       .in('room_id', roomIds);
-    
+
     if (timeframe !== 'all_time') {
       depQuery = depQuery.gte('created_at', startDateISO).lte('created_at', endDateISO);
     }
@@ -203,8 +200,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     const monthlyDepositsList = (timeframeDeposits ?? []) as any[];
 
     // Fetch rental contracts in timeframe
-    let rentQuery = supabase
-      .from('rental_contracts')
+    let rentQuery = db.from('rental_contracts')
       .select('id, deposit_amount, rent_price, deposit_contract_id, created_at, status, room_id')
       .eq('company_id', companyId)
       .in('room_id', roomIds);
@@ -233,8 +229,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     const firstMonthRentSum = validRentals.reduce((sum: number, r: any) => sum + Number(r.rent_price || 0), 0);
 
     // Fetch invoices in timeframe
-    let invQuery = supabase
-      .from('invoices')
+    let invQuery = db.from('invoices')
       .select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id, period, status')
       .eq('company_id', companyId)
       .in('room_id', roomIds);
@@ -272,13 +267,12 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     orClauses.push(`landlord_id.eq.${filterLandlordCode}`);
     if (landlordId && landlordId !== filterLandlordCode) orClauses.push(`landlord_id.eq.${landlordId}`);
 
-    const { data: appts } = await supabase
-      .from('appointments')
+    const { data: appts } = await db.from('appointments')
       .select('id, status, customer_name, room_title, date, time, building_id, room_id, landlord_id')
       .eq('company_id', companyId)
       .or(orClauses.join(','))
       .order('date', { ascending: false });
-    
+
     const allAppts = appts ?? [];
     recentAppointments = allAppts.slice(0, 5);
 
@@ -298,13 +292,12 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     // 6. Overdue invoices grouped by building
     let overdueInvoicesGrouped: any[] = [];
     if (roomIds.length > 0) {
-      const { data: overdueInvs } = await supabase
-        .from('invoices')
+      const { data: overdueInvs } = await db.from('invoices')
         .select('id, invoice_code, total_amount, period, room_id, rooms(code, building_id)')
         .eq('company_id', companyId)
         .in('room_id', roomIds)
         .eq('status', 'overdue');
-      
+
       overdueInvoicesGrouped = (overdueInvs ?? []).map((inv: any) => {
         const roomCode = inv.rooms?.code || '—';
         const bCode = inv.rooms?.building_id;
@@ -344,11 +337,10 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
       const bRoomsCount = bRooms.length;
       const bRentedCount = bRooms.filter((r: any) => r.status === 'rented').length;
       const bRoomIds = bRooms.map((r: any) => r.id);
-      
+
       let bRevenue = 0;
       if (bRoomIds.length > 0) {
-        let bInvQuery = supabase
-          .from('invoices')
+        let bInvQuery = db.from('invoices')
           .select('total_amount, rent_amount, landlord_payout_amount')
           .eq('company_id', companyId)
           .in('room_id', bRoomIds);
@@ -357,7 +349,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
           bInvQuery = bInvQuery.in('period', periods);
         }
         const { data: bInvoices } = await bInvQuery;
-        
+
         bRevenue = (bInvoices ?? []).reduce((sum: number, inv: any) => {
           const payout = inv.landlord_payout_amount !== null && inv.landlord_payout_amount !== undefined
             ? Number(inv.landlord_payout_amount)
@@ -376,8 +368,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
 
     let recentInvoices: any[] = [];
     if (roomIds.length > 0) {
-      const { data: invoices } = await supabase
-        .from('invoices')
+      const { data: invoices } = await db.from('invoices')
         .select('id, invoice_code, period, total_amount, status, payment_date, room_id, rooms(code)')
         .in('room_id', roomIds)
         .order('created_at', { ascending: false })
@@ -386,14 +377,34 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     }
 
     let landlordRevenueHistory: any[] = [];
+    let topCompanyPartners: any[] = [];
     if (roomIds.length > 0) {
-      const { data: invoiceHistory } = await supabase
-        .from('invoices')
-        .select('period, rent_amount, electricity_amount, water_amount, service_amount, total_amount, status')
-        .eq('company_id', companyId)
-        .in('room_id', roomIds)
-        .order('period', { ascending: true });
-      landlordRevenueHistory = invoiceHistory ?? [];
+      const [invoiceRes, contractsRes] = await Promise.all([
+        db.from('invoices')
+          .select('period, rent_amount, electricity_amount, water_amount, service_amount, total_amount, status')
+          .eq('company_id', companyId)
+          .in('room_id', roomIds)
+          .order('period', { ascending: true }),
+        db.from('rental_contracts')
+          .select('company_id, rent_price, companies(name)')
+          .in('room_id', roomIds)
+          .eq('status', 'active')
+      ]);
+
+      landlordRevenueHistory = invoiceRes.data ?? [];
+
+      const companyMap = new Map<string, { company_name: string; closedDeals: number; totalRent: number }>();
+      (contractsRes.data ?? []).forEach((c: any) => {
+        const compName = c.companies?.name || 'Công ty Quản lý';
+        if (!companyMap.has(compName)) {
+          companyMap.set(compName, { company_name: compName, closedDeals: 0, totalRent: 0 });
+        }
+        const item = companyMap.get(compName)!;
+        item.closedDeals += 1;
+        item.totalRent += Number(c.rent_price || 0);
+      });
+
+      topCompanyPartners = Array.from(companyMap.values()).sort((a, b) => b.closedDeals - a.closedDeals);
     }
 
     return {
@@ -431,13 +442,15 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
         cancelDepositCount: cancelDepositCountMonth,
       },
       areaPerformanceList,
+      topCompanyPartners,
     };
   }
 
   // ─── ADMIN DASHBOARD SECTION ────────────────────────────────────────────────
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-  const currentPeriod = today.toISOString().substring(0, 7); // 'YYYY-MM'
+  // Use the shared periods[0] for single-period timeframes, fallback to current month
+  const currentPeriod = periods.length > 0 ? periods[0] : today.toISOString().substring(0, 7);
   const in30Days = new Date();
   in30Days.setDate(today.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
@@ -467,25 +480,40 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     rentalContractsHistoryRes,
     allAppointmentsRes,
   ] = await Promise.all([
-    supabase.from('buildings').select('id, name, code, area, address, total_rooms, total_floors').eq('company_id', companyId),
-    supabase.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until').eq('company_id', companyId),
-    supabase.from('leads').select('*').eq('company_id', companyId),
-    supabase.from('appointments').select('id, status, customer_name, room_title, date, time').eq('company_id', companyId).order('date', { ascending: false }).limit(5),
-    supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new'),
-    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_read', false),
-    supabase.from('landlords').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
-    supabase.from('invoices').select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id').eq('company_id', companyId).eq('status', 'paid').eq('period', currentPeriod),
-    supabase.from('rental_contracts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active').gte('end_date', todayStr).lte('end_date', in30DaysStr),
-    supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['Pending', 'pending']).eq('date', todayStr),
-    supabase.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new').is('assigned_to', null),
-    supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'overdue'),
-    supabase.from('deposit_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
-    supabase.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
-    supabase.from('rental_contracts').select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone').eq('company_id', companyId).eq('status', 'active'),
-    supabase.from('deposit_contracts').select('id, room_id, rent_price, commission_amount, sales_agent_id, created_by, created_at, status').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).in('status', ['active', 'signed']),
-    supabase.from('rental_contracts').select('id, room_id, deposit_contract_id, rent_price, commission_amount, sales_agent_id, created_by, created_at, status').eq('company_id', companyId).gte('created_at', `${currentPeriod}-01T00:00:00.000Z`).neq('status', 'cancelled'),
-    supabase.from('rental_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
-    supabase.from('appointments').select('id, date, status, room_id').eq('company_id', companyId),
+    db.from('buildings').select('id, name, code, area, address, total_rooms, total_floors').eq('company_id', companyId),
+    db.from('rooms').select('id, building_id, landlord_id, status, code, floor, price, description, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until').eq('company_id', companyId),
+    db.from('leads').select('*').eq('company_id', companyId),
+    db.from('appointments').select('id, status, customer_name, room_title, date, time').eq('company_id', companyId).order('date', { ascending: false }).limit(5),
+    db.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new'),
+    db.from('notifications').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('is_read', false),
+    db.from('landlords').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+    // Paid invoices filtered by selected timeframe period(s)
+    (() => {
+      let q = db.from('invoices').select('total_amount, rent_amount, management_fee_amount, landlord_payout_amount, room_id').eq('company_id', companyId).eq('status', 'paid');
+      if (timeframe !== 'all_time' && periods.length > 0) q = q.in('period', periods);
+      return q;
+    })(),
+    db.from('rental_contracts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'active').gte('end_date', todayStr).lte('end_date', in30DaysStr),
+    db.from('appointments').select('id', { count: 'exact', head: true }).eq('company_id', companyId).in('status', ['Pending', 'pending']).eq('date', todayStr),
+    db.from('consultations').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'new').is('assigned_to', null),
+    db.from('invoices').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'overdue'),
+    db.from('deposit_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
+    db.from('employee_kpis').select('employee_name, score, revenue_generated, successful_deals').eq('company_id', companyId).eq('period', currentPeriod).order('score', { ascending: false }).limit(5),
+    db.from('rental_contracts').select('id, contract_code, tenant_count, start_date, end_date, rent_price, party_b_name, room_id, party_b_phone').eq('company_id', companyId).eq('status', 'active'),
+    // Deposit contracts filtered by selected timeframe
+    (() => {
+      let q = db.from('deposit_contracts').select('id, room_id, rent_price, commission_amount, sales_agent_id, created_by, created_at, status').eq('company_id', companyId).in('status', ['active', 'signed']);
+      if (timeframe !== 'all_time') q = q.gte('created_at', startDateISO).lte('created_at', endDateISO);
+      return q;
+    })(),
+    // Rental contracts filtered by selected timeframe
+    (() => {
+      let q = db.from('rental_contracts').select('id, room_id, deposit_contract_id, rent_price, commission_amount, sales_agent_id, created_by, created_at, status').eq('company_id', companyId).neq('status', 'cancelled');
+      if (timeframe !== 'all_time') q = q.gte('created_at', startDateISO).lte('created_at', endDateISO);
+      return q;
+    })(),
+    db.from('rental_contracts').select('commission_amount, created_at').eq('company_id', companyId).neq('status', 'cancelled').gte('created_at', startOf6MonthsAgoStr),
+    db.from('appointments').select('id, date, status, room_id').eq('company_id', companyId),
   ]);
 
   const buildingRows = buildingsRes.data ?? [];
@@ -620,7 +648,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     const bRoomsCount = bRooms.length;
     const bRentedCount = bRooms.filter((r: any) => r.status === 'rented').length;
     const bRoomIds = bRooms.map((r: any) => r.id);
-    
+
     const bRevenue = paidInvoicesList
       .filter((inv: any) => bRoomIds.includes(inv.room_id))
       .reduce((sum: number, inv: any) => {
@@ -639,19 +667,23 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
   });
 
   // Dynamic KPI for Top Employees
+  // Doanh số = commission_amount = giá phòng * %hoa hồng (đã được tính sẵn trong DB)
   const depositsList = dynamicDepositsRes?.data ?? [];
   const rentalsList = dynamicRentalsRes?.data ?? [];
-  const agentStatsMap = new Map<string, { deals: number; revenue: number }>();
+  const agentStatsMap = new Map<string, { deals: number; revenue: number; commissionRevenue: number }>();
 
   const processContract = (c: any) => {
     const agentId = c.sales_agent_id || c.created_by;
     if (!agentId) return;
     if (!agentStatsMap.has(agentId)) {
-      agentStatsMap.set(agentId, { deals: 0, revenue: 0 });
+      agentStatsMap.set(agentId, { deals: 0, revenue: 0, commissionRevenue: 0 });
     }
-    const stats = agentStatsMap.get(agentId)!;
-    stats.deals += 1;
-    stats.revenue += (Number(c.rent_price) || 0);
+    const agentStats = agentStatsMap.get(agentId)!;
+    agentStats.deals += 1;
+    // Doanh số = commission_amount (tổng giá trị phòng * %hoa hồng)
+    agentStats.commissionRevenue += (Number(c.commission_amount) || 0);
+    // Vẫn lưu tổng giá trị phòng để tính KPI score nếu cần
+    agentStats.revenue += (Number(c.rent_price) || 0);
   };
 
   depositsList.forEach(processContract);
@@ -659,20 +691,22 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
 
   const agentIds = Array.from(agentStatsMap.keys());
   let dynamicTopEmployees: any[] = [];
-  
+
   if (agentIds.length > 0) {
-    const { data: profilesData } = await supabase
-      .from('profiles')
+    const { data: profilesData } = await db.from('profiles')
       .select('id, full_name, email')
       .in('id', agentIds);
-    
+
     dynamicTopEmployees = (profilesData ?? []).map((prof: any) => {
-      const stats = agentStatsMap.get(prof.id);
+      const agentStats = agentStatsMap.get(prof.id);
+      // revenue_generated = Doanh số = commission_amount (giá phòng * %hoa hồng)
+      const commRev = agentStats?.commissionRevenue || 0;
       return {
         employee_name: prof.full_name || prof.email,
-        score: stats ? Math.round(stats.deals * 10 + (stats.revenue / 1000000) * 2) : 0,
-        revenue_generated: stats?.revenue || 0,
-        successful_deals: stats?.deals || 0
+        // Score tính dựa trên số deal và doanh số hoa hồng
+        score: agentStats ? Math.round(agentStats.deals * 10 + (commRev / 1000000) * 5) : 0,
+        revenue_generated: commRev,
+        successful_deals: agentStats?.deals || 0
       };
     });
   }
@@ -723,25 +757,24 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
   };
 }
 
-export async function getSalesDashboardStats(companyId: string, saleId: string) {
+export async function getSalesDashboardStats(companyId: string, saleId: string, customClient?: any) {
+  const db = customClient || (typeof window === 'undefined' ? supabaseAdmin : defaultClient);
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
   const currentPeriod = now.toISOString().slice(0, 7); // 'YYYY-MM'
-  
+
   const in30Days = new Date(now);
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
-  const { data: profile } = await supabase
-    .from('profiles')
+  const { data: profile } = await db.from('profiles')
     .select('full_name, email')
     .eq('id', saleId)
     .maybeSingle();
 
   let employeeIdFromTable = null;
   if (profile?.email) {
-    const { data: emp } = await supabase
-      .from('employees')
+    const { data: emp } = await db.from('employees')
       .select('id')
       .eq('company_id', companyId)
       .eq('email', profile.email)
@@ -770,47 +803,40 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
     monthlyDeposits,
     monthlyRentals,
   ] = await Promise.all([
-    supabase
-      .from('leads')
+    db.from('leads')
       .select('id, status, full_name, phone, created_at, assigned_to, source, last_contacted_at')
       .eq('company_id', companyId)
       .eq('assigned_to', saleId)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('appointments')
+    db.from('appointments')
       .select('id, status, customer_name, room_title, date, time, room_id')
       .eq('company_id', companyId)
       .eq('assigned_to', saleId)
       .order('date', { ascending: false })
       .limit(20),
-    supabase
-      .from('deposit_contracts')
+    db.from('deposit_contracts')
       .select('id, contract_code, party_b_name, party_b_phone, deposit_amount, created_at, status, deadline_sign_contract')
       .eq('company_id', companyId)
       .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
       .order('created_at', { ascending: false })
       .limit(10),
-    supabase
-      .from('rooms')
+    db.from('rooms')
       .select('id, code, status, price, building_id, buildings(name)')
       .eq('company_id', companyId)
       .eq('status', 'available')
       .limit(20),
-    supabase
-      .from('notifications')
+    db.from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('recipient_id', saleId)
       .eq('is_read', false),
-    supabase
-      .from('employee_kpis')
+    db.from('employee_kpis')
       .select('*')
       .eq('company_id', companyId)
       .eq('employee_id', employeeIdFromTable || saleId)
       .eq('period', currentPeriod)
       .maybeSingle(),
-    supabase
-      .from('rental_contracts')
+    db.from('rental_contracts')
       .select('id, contract_code, party_b_name, party_b_phone, end_date, room_id, rooms(id, code, building_id, buildings(name))')
       .eq('company_id', companyId)
       .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
@@ -818,16 +844,14 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
       .gte('end_date', todayStr)
       .lte('end_date', in30DaysStr)
       .order('end_date', { ascending: true }),
-    supabase
-      .from('deposit_contracts')
+    db.from('deposit_contracts')
       .select('id, room_id, rent_price, commission_amount, deposit_amount, status')
       .eq('company_id', companyId)
       .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
       .gte('created_at', startOfMonthISO)
       .lt('created_at', endOfMonthISO)
       .neq('status', 'cancelled'),
-    supabase
-      .from('rental_contracts')
+    db.from('rental_contracts')
       .select('id, room_id, deposit_contract_id, rent_price, commission_amount, status')
       .eq('company_id', companyId)
       .or(`created_by.eq.${saleId},sales_agent_id.eq.${saleId}`)
@@ -877,8 +901,7 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
 
   let collectedGrossCommission = 0;
   if (roomIdsClosed.length > 0) {
-    const { data: paidRoomInvoices } = await supabase
-      .from('invoices')
+    const { data: paidRoomInvoices } = await db.from('invoices')
       .select('room_id')
       .eq('company_id', companyId)
       .eq('status', 'paid')
@@ -898,7 +921,7 @@ export async function getSalesDashboardStats(companyId: string, saleId: string) 
   }
 
   // Read company KPI / commission config dynamically from DB
-  const kpiConfig = await getKPIConfiguration(companyId);
+  const kpiConfig = await getKPIConfiguration(companyId, db);
   const commInfo = calculateSaleCommissionInfo(dynamicRevenueGenerated, totalGrossCommEarned, kpiConfig, collectedGrossCommission);
   const dynamicCommissionEarned = commInfo.calculatedCommission;
   const dynamicCollectedCommission = commInfo.collectedCommission;

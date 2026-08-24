@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageSquare, X, Send, PhoneCall, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
-import { createConsultation } from '@/src/features/staff/services/consultations';
-import { createLead, createLeadActivity } from '@/src/features/staff/services/leads';
+import { createConsultation } from '@/features/staff/services/consultations';
+import { createLead, createLeadActivity } from '@/features/staff/services/leads';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export function FloatingConsultation() {
@@ -110,15 +110,15 @@ export function FloatingConsultation() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-36 lg:bottom-22 right-6 z-50 h-14 w-14 bg-accent hover:bg-accent-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
+        className={`fixed bottom-36 lg:bottom-22 right-5 lg:right-6 z-40 h-12 w-12 md:h-14 md:w-14 bg-accent hover:bg-accent-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
         aria-label="Tư vấn và Liên hệ"
       >
-        <MessageSquare className="h-6 w-6" />
+        <MessageSquare className="h-5 w-5 md:h-6 md:w-6" />
       </button>
 
       {/* Floating Dialog/Panel */}
       <div
-        className={`fixed bottom-36 lg:bottom-22 right-6 z-50 w-[calc(100vw-48px)] max-w-[360px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'}`}
+        className={`fixed bottom-36 lg:bottom-22 right-5 lg:right-6 z-50 w-[calc(100vw-40px)] max-w-[360px] bg-card border border-border-subtle rounded-2xl shadow-xl overflow-hidden transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'}`}
       >
         {/* Header */}
         <div className="bg-accent p-4 flex items-center justify-between text-white">

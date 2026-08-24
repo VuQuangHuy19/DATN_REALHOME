@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client';
-import type { Database } from '@/src/lib/supabase/types';
+import type { Database } from '@/lib/supabase/types';
 
 export type DBMaintenanceRequest = Database['public']['Tables']['maintenance_requests']['Row'];
 export type DBMaintenanceComment = Database['public']['Tables']['maintenance_comments']['Row'];

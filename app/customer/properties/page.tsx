@@ -660,8 +660,8 @@ export default function PropertiesPage() {
 
         {/* Cột phải: Cụm Control dính cố định + Grid tòa nhà */}
         <div className="flex-1 min-w-0">
-          <div className="sticky top-16 z-30 bg-bg-base/75 dark:bg-bg-base/75 backdrop-blur-md pt-1 pb-3 mb-4 transition-all">
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-border-subtle/90 shadow-md p-2.5 sm:p-3 rounded-xl mb-2.5 flex items-center gap-2">
+          <div className="sticky top-16 z-30 bg-bg-base pt-1 pb-3 mb-4 transition-all">
+            <div className="bg-card border border-border-subtle shadow-sm p-2.5 sm:p-3 rounded-2xl mb-2.5 flex items-center gap-2">
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-accent pointer-events-none" />
                 <input
@@ -669,7 +669,7 @@ export default function PropertiesPage() {
                   value={searchValue}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder="Tìm bất động sản, tên tòa nhà, địa chỉ, khu vực..."
-                  className="w-full h-10 pl-10 pr-9 rounded-lg border border-border-subtle bg-white/90 dark:bg-slate-800/90 text-sm text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition placeholder:text-ink-muted/70 shadow-xs"
+                  className="w-full h-10 pl-10 pr-9 rounded-xl border border-border-subtle bg-bg-subtle text-sm text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition placeholder:text-ink-muted/70 shadow-xs"
                 />
                 {searchValue && (
                   <button
@@ -689,7 +689,7 @@ export default function PropertiesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-10 px-3 flex-shrink-0 border-border-subtle bg-white/90 dark:bg-slate-800/90 hover:bg-bg-subtle text-ink font-bold gap-1.5 shadow-xs"
+                      className="h-10 px-3 flex-shrink-0 border-border-subtle bg-bg-subtle hover:bg-card text-ink font-bold gap-1.5 shadow-xs"
                     >
                       <SlidersHorizontal className="h-4 w-4 text-accent" />
                       <span>Lọc</span>
@@ -710,22 +710,22 @@ export default function PropertiesPage() {
             </div>
 
             <div className="flex items-center justify-between gap-1.5 sm:gap-2 px-0.5 sm:px-1 flex-nowrap w-full min-w-0">
-              <span className="text-[11px] sm:text-xs text-ink-muted font-bold whitespace-nowrap bg-white/60 dark:bg-slate-900/60 backdrop-blur-xs px-2 sm:px-2.5 py-1 rounded-lg border border-border-subtle/50 shrink-0">
+              <span className="text-[11px] sm:text-xs text-ink-muted font-bold whitespace-nowrap bg-bg-subtle px-2 sm:px-2.5 py-1 rounded-xl border border-border-subtle shrink-0">
                 <span className="sm:hidden">{sortedGroups.length} BĐS</span>
                 <span className="hidden sm:inline">{sortedGroups.length} bất động sản được tìm thấy</span>
               </span>
 
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
-                <div className="flex bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs p-0.5 sm:p-1 rounded-lg border border-border-subtle shadow-xs shrink-0">
+                <div className="flex bg-bg-subtle p-0.5 sm:p-1 rounded-xl border border-border-subtle shadow-xs shrink-0">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-md transition-colors whitespace-nowrap ${viewMode === 'grid' ? 'bg-accent text-white shadow-xs' : 'text-ink-muted hover:text-ink'}`}
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-lg transition-colors whitespace-nowrap ${viewMode === 'grid' ? 'bg-accent text-white shadow-xs' : 'text-ink-muted hover:text-ink'}`}
                   >
                     Danh sách
                   </button>
                   <button
                     onClick={() => setViewMode('map')}
-                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-md transition-colors ${viewMode === 'map' ? 'bg-accent text-white shadow-xs' : 'text-ink-muted hover:text-ink'}`}
+                    className={`px-2 py-0.5 sm:px-2.5 sm:py-1 text-[11px] sm:text-xs font-bold rounded-lg transition-colors ${viewMode === 'map' ? 'bg-accent text-white shadow-xs' : 'text-ink-muted hover:text-ink'}`}
                   >
                     Bản đồ
                   </button>
@@ -735,7 +735,7 @@ export default function PropertiesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="h-7 sm:h-8.5 rounded-lg border border-border-subtle bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs px-1.5 sm:px-2.5 text-[11px] sm:text-xs font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition shadow-xs max-w-[115px] sm:max-w-none truncate"
+                  className="h-7 sm:h-8.5 rounded-xl border border-border-subtle bg-bg-subtle px-1.5 sm:px-2.5 text-[11px] sm:text-xs font-semibold text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent transition shadow-xs max-w-[115px] sm:max-w-none truncate cursor-pointer"
                 >
                   {(Object.keys(SORT_LABELS) as SortOption[]).map((k) => (
                     <option key={k} value={k}>{SORT_LABELS[k]}</option>

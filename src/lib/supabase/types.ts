@@ -353,9 +353,12 @@ export interface Database {
           image_url: string | null;
           owner_type: 'individual' | 'company' | null;
           company_name: string | null;
+          system_name?: string | null;
           bank_name?: string | null;
           bank_account_number?: string | null;
           bank_account_owner?: string | null;
+          is_kyc_verified?: boolean;
+          kyc_status?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['landlords']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
@@ -363,6 +366,7 @@ export interface Database {
           image_url?: string | null;
           owner_type?: 'individual' | 'company' | null;
           company_name?: string | null;
+          system_name?: string | null;
         };
         Update: Partial<Database['public']['Tables']['landlords']['Insert']>;
         Relationships: [];
@@ -499,7 +503,7 @@ export interface Database {
           date: string;
           time: string;
           area: string | null;
-          status: 'Pending' | 'Confirm' | 'Viewed' | 'Dealed' | 'Cancel' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+          status: 'Pending' | 'Confirm' | 'Viewed' | 'Dealed' | 'Cancel' | 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'on_the_way';
           notes: string | null;
           assigned_to: string | null;
           assigned_to_name: string | null;
@@ -512,6 +516,21 @@ export interface Database {
           landlord_id?: string | null;
           building_id?: string | null;
           building_address?: string | null;
+          reminded_90m?: boolean;
+          on_the_way_at?: string | null;
+          checkin_status?: 'pending' | 'checked_in_gps' | 'checked_in_photo';
+          checkin_at?: string | null;
+          checkin_lat?: number | null;
+          checkin_lng?: number | null;
+          checkin_photo_with_client?: string | null;
+          checkin_photo_building?: string | null;
+          phone_unlocked_until?: string | null;
+          lead_source?: 'company_mkt' | 'self_sourced' | string | null;
+          result_status?: 'interested' | 'deposit_pending' | 'rejected' | 'no_show' | string | null;
+          rejection_reason?: 'price_too_high' | 'room_too_small' | 'bad_location' | 'images_mismatch' | 'rented_elsewhere' | 'other' | string | null;
+          feedback_notes?: string | null;
+          next_followup_at?: string | null;
+          lead_id?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['appointments']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['appointments']['Insert']>;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useRooms } from '@/src/features/rooms/hooks/useRooms';;
+import { useRooms } from '@/features/rooms/hooks/useRooms';;
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { authFetch } from '@/lib/supabase/auth-fetch';
 import { Button } from '@/components/ui/button';

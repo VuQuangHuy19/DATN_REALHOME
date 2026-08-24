@@ -2,316 +2,47 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import * as XLSX from 'xlsx';
-import { parseRoomType, RoomType } from '@/src/lib/constants/roomTypes';
+import { parseRoomType, RoomType } from '@/lib/constants/roomTypes';
+import { formatStandardBuildingAddress } from '@/lib/utils';
+import { cleanPriceNumber, isPurePriceString } from './parser/priceCleaner';
+import { detectHanoiDistrict } from './parser/hanoiDistricts';
+import { isBuildingHeader } from './parser/buildingHeaderParser';
+import { parseDateFromStatusString } from './parser/dateParser';
+import {
+  parseFloorFromRoomCode,
+  cleanRoomCodeAndType,
+  transformTrucRoomCode,
+  expandBuildingGrid,
+} from './parser/roomCodeParser';
+import {
+  cleanVietnameseString,
+  parseLandlordPoliciesFromWorkbook,
+  extractGoogleSheetId,
+  extractGidFromUrl,
+} from './parser/landlordPolicyParser';
+
+export {
+  cleanPriceNumber,
+  isPurePriceString,
+  detectHanoiDistrict,
+  isBuildingHeader,
+  parseDateFromStatusString,
+  parseFloorFromRoomCode,
+  cleanRoomCodeAndType,
+  transformTrucRoomCode,
+  expandBuildingGrid,
+  cleanVietnameseString,
+  parseLandlordPoliciesFromWorkbook,
+  extractGoogleSheetId,
+  extractGidFromUrl,
+};
 
 const CANDIDATE_MODELS = [
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest',
   'gemini-2.0-flash-lite',
-  'gemini-3.6-flash',
-  'gemini-2.5-flash',
-  'gemini-3-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro-latest',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
 ];
-
-// Helper to parse messy price strings like "5.5tr", "5tr5", "4.800.000", "5,500,000", "5500000" to number
-export function cleanPriceNumber(val: any): number {
-  if (typeof val === 'number') return val;
-  if (!val) return 0;
-  const str = String(val).toLowerCase().trim();
-  if (!str) return 0;
-
-  // Match "4tr800", "4tr8", "5tr5"
-  const trSubMatch = str.match(/(\d+)\s*(?:tr|triệu|trieu)\s*(\d+)/);
-  if (trSubMatch) {
-    const main = parseInt(trSubMatch[1], 10);
-    let subStr = trSubMatch[2];
-    if (subStr.length === 1) subStr = subStr + '00000';
-    else if (subStr.length === 2) subStr = subStr + '0000';
-    else if (subStr.length === 3) subStr = subStr + '000';
-    const sub = parseInt(subStr, 10);
-    return main * 1000000 + sub;
-  }
-
-  // Match "5.5tr", "5,5 tr"
-  const trMatch = str.match(/(\d+(?:[.,]\d+)?)\s*(?:tr|triệu|trieu)/);
-  if (trMatch) {
-    const num = parseFloat(trMatch[1].replace(',', '.'));
-    return Math.round(num * 1000000);
-  }
-
-  // Match "500k", "500 k"
-  const kMatch = str.match(/(\d+(?:[.,]\d+)?)\s*k/);
-  if (kMatch) {
-    const num = parseFloat(kMatch[1].replace(',', '.'));
-    return Math.round(num * 1000);
-  }
-
-  const digitsOnly = str.replace(/[^\d]/g, '');
-  const parsed = parseInt(digitsOnly, 10);
-  if (isNaN(parsed) || parsed <= 0) return 0;
-
-  if (parsed < 100) return parsed * 1000000;
-  if (parsed >= 100 && parsed < 100000) return parsed * 1000;
-  return parsed;
-}
-
-/**
- * Kiểm tra xem chuỗi có phải duy nhất là Giá thuê hay không (ví dụ "4.800.000", "5.5tr", "500k")
- * Tránh nhầm lẫn địa chỉ có số (như "24 ngách 24", "196 Trần Duy Hưng") thành Giá tiền.
- */
-export function isPurePriceString(val: any): boolean {
-  if (typeof val === 'number') return true;
-  if (!val) return false;
-  const str = String(val).toLowerCase().trim();
-  if (!str) return false;
-
-  // Nếu chứa các từ chỉ địa chỉ, chắc chắn không phải giá tiền thuần
-  if (/(ngõ|ngách|hẻm|đường|phố|quận|phường|nhà|tòa|bàn|trục|thổ quan|láng|yên hoà|cẩm văn|đê la thành|nguyễn ngọc vũ)/i.test(str)) {
-    return false;
-  }
-
-  // Nếu chứa nhiều ký tự chữ ngoài k/tr/triệu
-  const nonDigitWords = str.replace(/[\d.,\s\-\+\*\/k|tr|triệu|trieu]/gi, '');
-  if (nonDigitWords.length > 2) return false;
-
-  const isPure = /^(\d+(?:[.,]\d+)?\s*(?:tr|triệu|trieu|k)?|\d{1,3}(?:[.,]\d{3})+)$/i.test(str);
-  return isPure;
-}
-
-/**
- * Nhận diện xem một ô có phải là Tiêu đề Tòa nhà / Địa chỉ mới hay không
- */
-export function isBuildingHeader(val: any): boolean {
-  if (!val) return false;
-  const str = String(val).trim();
-  if (str.length < 4) return false;
-
-  const lower = str.toLowerCase();
-  const IGNORE = [
-    'full đồ', 'phòng trống', 'chờ vào', 'còn trống', 'đã hết', 'lưu ý', 'ghi chú',
-    'dịch vụ', 'link ảnh', 'sđt', 'stt', 'giá phòng', 'loại phòng', 'diện tích',
-    'tình trạng', 'trạng thái', 'thanh toán', 'internet', 'dvc', 'danh sách', 'bảng hàng'
-  ];
-
-  if (IGNORE.some(kw => lower.includes(kw))) return false;
-  if (isPurePriceString(str)) return false;
-
-  // Tiêu đề địa chỉ thường chứa các từ địa danh hoặc chứa chữ & số có độ dài vừa đủ
-  if (/(ngõ|ngách|hẻm|đường|phố|quận|phường|nhà|tòa|bù|cơ sở|phân khu)/i.test(lower)) return true;
-  if (str.length >= 8 && /[a-zA-Zàáảãạăắằẳẵặânấầnẩẫậnèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ]/i.test(str)) return true;
-
-  return false;
-}
-
-export function parseFloorFromRoomCode(code: string): number {
-  const clean = String(code).trim();
-  const match = clean.match(/^P?\.?\s*(\d{1,4})/i) || clean.match(/(\d{1,4})/);
-  if (match) {
-    const numOnly = parseInt(match[1], 10);
-    if (!isNaN(numOnly) && numOnly > 0) {
-      if (numOnly >= 100) return Math.floor(numOnly / 100);
-      return numOnly;
-    }
-  }
-  return 1;
-}
-
-export function cleanRoomCodeAndType(rawCode: string, currentType: string): { code: string; roomType: RoomType } {
-  let code = String(rawCode || '').trim();
-  let roomType = currentType || 'Studio';
-
-  if (code.includes('_') || code.includes('-')) {
-    const parts = code.split(/[_|-]/).map(p => p.trim());
-    if (parts.length >= 2) {
-      const firstPart = parts[0];
-      const secondPart = parts.slice(1).join(' ');
-      if (/^\d{1,4}$/.test(firstPart) || /^P?\d{1,4}$/i.test(firstPart)) {
-        code = firstPart;
-        roomType = parseRoomType(secondPart);
-      }
-    }
-  }
-
-  return { code, roomType: parseRoomType(roomType) };
-}
-
-/**
- * Chuyển đổi các mã phòng dạng "trục 0x" hoặc "0x" thành mã phòng chuẩn "20x"
- * Ví dụ: "trục 01" / "01" -> "201", "trục 02" / "02" -> "202", "trục 03" -> "203"
- */
-export function transformTrucRoomCode(codeStr: string): string | null {
-  if (!codeStr) return null;
-  const clean = String(codeStr).trim().toLowerCase();
-
-  const match = clean.match(/^(?:trục\s*)?0?([1-9]\d?)$/i);
-  if (match) {
-    const num = parseInt(match[1], 10);
-    if (!isNaN(num) && num > 0 && num < 100) {
-      return (200 + num).toString();
-    }
-  }
-
-  return null;
-}
-
-/**
- * Phân tích chuỗi ngày tháng từ trạng thái phòng (vd: "31/7", "July-7", "7/7/2026")
- * Dùng để nhận biết phòng "sắp trống" với ngày có thể vào ở cụ thể.
- */
-export function parseDateFromStatusString(statusStr: string): {
-  available_date: string | null;
-  is_within_30_days: boolean;
-} {
-  if (!statusStr) return { available_date: null, is_within_30_days: false };
-  const str = statusStr.toLowerCase().trim();
-  const currentYear = new Date().getFullYear();
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
-  // Pattern 1: dd/mm, dd-mm, d/m (có thể có năm: dd/mm/yyyy)
-  const dmPattern = /\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/;
-  const dmMatch = str.match(dmPattern);
-  if (dmMatch) {
-    let day = parseInt(dmMatch[1]);
-    let month = parseInt(dmMatch[2]);
-    const yearRaw = dmMatch[3];
-    let year = yearRaw
-      ? parseInt(yearRaw.length === 2 ? '20' + yearRaw : yearRaw)
-      : currentYear;
-
-    // Hoán đổi nếu tháng > 12 (format mm/dd)
-    if (month > 12 && day <= 12) { [day, month] = [month, day]; }
-
-    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
-      const dateObj = new Date(year, month - 1, day);
-      if (!isNaN(dateObj.getTime())) {
-        const diffDays = Math.floor((dateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        // Nếu ngày đã qua nhiều hơn 60 ngày và không có năm rõ ràng → thử năm sau
-        if (diffDays < -60 && !yearRaw) {
-          dateObj.setFullYear(currentYear + 1);
-        }
-        const finalDiff = Math.floor((dateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        const dateStr = dateObj.toISOString().split('T')[0];
-        return { available_date: dateStr, is_within_30_days: finalDiff >= -1 && finalDiff <= 30 };
-      }
-    }
-  }
-
-  // Pattern 2: "July-7", "Jul 7", "Aug 15"
-  const monthNames: Record<string, number> = {
-    'jan': 1, 'january': 1, 'feb': 2, 'february': 2, 'mar': 3, 'march': 3,
-    'apr': 4, 'april': 4, 'may': 5, 'jun': 6, 'june': 6,
-    'jul': 7, 'july': 7, 'aug': 8, 'august': 8, 'sep': 9, 'september': 9,
-    'oct': 10, 'october': 10, 'nov': 11, 'november': 11, 'dec': 12, 'december': 12,
-  };
-
-  for (const [name, monthNum] of Object.entries(monthNames)) {
-    const regex = new RegExp(`${name}[\\s\\-\\/]*(\\d{1,2})`, 'i');
-    const m = str.match(regex);
-    if (m) {
-      const day = parseInt(m[1]);
-      if (day >= 1 && day <= 31) {
-        const dateObj = new Date(currentYear, monthNum - 1, day);
-        const diffDays = Math.floor((dateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays < -60) dateObj.setFullYear(currentYear + 1);
-        const finalDiff = Math.floor((dateObj.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        const dateStr = dateObj.toISOString().split('T')[0];
-        return { available_date: dateStr, is_within_30_days: finalDiff >= -1 && finalDiff <= 30 };
-      }
-    }
-  }
-
-  return { available_date: null, is_within_30_days: false };
-}
-
-/**
- * Tự động nhân bản/triển khai ma trận phòng (Building Grid Expansion x0y)
- * Khi xuất hiện các ô "trục 01", "trục 02", "trục 03"... hoặc "01", "02"...
- * Hệ thống tự phát hiện số tầng tối đa và triển khai toàn bộ các phòng còn thiếu
- */
-export function expandBuildingGrid(bld: ParsedBuilding): ParsedBuilding {
-  if (!bld.rooms || bld.rooms.length === 0) return bld;
-
-  let maxFloor = 1;
-  const explicitRooms: ParsedRoom[] = [];
-  const trucEntries: { axis: number; price: number; description?: string | null; drive_media_url?: string | null }[] = [];
-
-  bld.rooms.forEach(r => {
-    const cleanCode = r.code.trim().toLowerCase();
-    const cleanDesc = (r.description || '').trim().toLowerCase();
-
-    const matchCode = cleanCode.match(/^(?:trục\s*)?0?([1-9]\d?)$/i) || cleanCode.match(/^0([1-9]\d?)$/);
-    const matchDesc = cleanDesc.match(/(?:trục\s*)0?([1-9]\d?)/i);
-
-    let axis: number | null = null;
-    if (matchCode) {
-      axis = parseInt(matchCode[1], 10);
-    } else if (matchDesc) {
-      axis = parseInt(matchDesc[1], 10);
-    }
-
-    if (axis !== null && !isNaN(axis) && axis > 0 && axis < 100) {
-      trucEntries.push({ axis, price: r.price, description: r.description, drive_media_url: r.drive_media_url });
-      if (!matchCode) {
-        if (r.floor > maxFloor && r.floor < 25) maxFloor = r.floor;
-        explicitRooms.push(r);
-      }
-      return;
-    }
-
-    if (r.floor > maxFloor && r.floor < 25) {
-      maxFloor = r.floor;
-    }
-    explicitRooms.push(r);
-  });
-
-  if (trucEntries.length === 0) {
-    return bld;
-  }
-
-  if (maxFloor < 2) maxFloor = 5;
-
-  const roomMap = new Map<string, ParsedRoom>();
-  explicitRooms.forEach(r => {
-    roomMap.set(r.code, r);
-  });
-
-  const hasFloor1 = explicitRooms.some(r => r.code.startsWith('1') || r.floor === 1);
-  const startFloor = hasFloor1 ? 2 : 1;
-
-  trucEntries.forEach(t => {
-    const axisStr = t.axis.toString().padStart(2, '0');
-    for (let f = startFloor; f <= maxFloor; f++) {
-      const code = `${f}${axisStr}`;
-      if (!roomMap.has(code)) {
-        const newRoom: ParsedRoom = {
-          code,
-          floor: f,
-          price: t.price > 0 ? t.price : 0,
-          room_type: parseRoomType(null),
-          size: 25,
-          status: t.price > 0 ? 'available' : 'rented',
-          bedrooms: 1,
-          bathrooms: 1,
-          description: t.description || null,
-          drive_media_url: t.drive_media_url || bld.drive_media_url || null,
-        };
-        roomMap.set(code, newRoom);
-      }
-    }
-  });
-
-  const sortedRooms = Array.from(roomMap.values()).sort((a, b) => a.floor - b.floor || a.code.localeCompare(b.code));
-  bld.rooms = sortedRooms;
-  return bld;
-}
 
 export const ParsedRoomSchema = z.object({
   code: z.string().describe("Mã phòng (ví dụ: '101', '201', '302', 'P.401', 'Trục 01')"),
@@ -325,6 +56,17 @@ export const ParsedRoomSchema = z.object({
   bathrooms: z.number().default(1),
   description: z.string().nullable().optional(),
   drive_media_url: z.string().nullable().optional().describe("Link Google Drive / Zalo ẩn trong ô của phòng"),
+  manager_raw: z.string().nullable().optional(),
+  deposit_terms: z.string().nullable().optional().describe("Quy định cọc (ví dụ: 'Cọc 1.5 tháng', 'Đóng 1 cọc 1.5 tháng')"),
+  max_occupants: z.number().optional().describe("Số người ở tối đa trong phòng (ví dụ: 3, 4 người)"),
+  max_vehicles_per_room: z.number().optional().describe("Số xe máy gửi tối đa per room (ví dụ: 1, 2 xe)"),
+});
+
+export const LandlordPoliciesSchema = z.object({
+  commission_policy: z.array(z.string()).default([]),
+  duplicate_customer_policy: z.array(z.string()).default([]),
+  duplicate_customer_conditions: z.array(z.string()).default([]),
+  closing_notes: z.array(z.string()).default([]),
 });
 
 export const ParsedBuildingSchema = z.object({
@@ -334,27 +76,28 @@ export const ParsedBuildingSchema = z.object({
   general_notes: z.string().nullable().optional(),
   electricity_price: z.string().nullable().optional(),
   water_price: z.string().nullable().optional(),
+  allow_pet: z.string().nullable().optional(),
+  allow_foreigners: z.boolean().optional(),
+  allow_vinfast_electric: z.boolean().optional(),
   drive_media_url: z.string().nullable().optional().describe("Link Google Drive folder ảnh chung của tòa nhà"),
+  latitude: z.number().nullable().optional().describe("Vĩ độ GPS của tòa nhà (ví dụ: 20.9827808)"),
+  longitude: z.number().nullable().optional().describe("Kinh độ GPS của tòa nhà (ví dụ: 105.8165477)"),
+  map_link: z.string().nullable().optional().describe("Link Google Maps vị trí tòa nhà"),
+  manager_raw: z.string().nullable().optional().describe("Người quản lý  / Liên hệ tòa nhà (ví dụ: 'Bảo Chấn - 0934686094' hoặc 'Trung Kiên|0967691507'). Lấy từ cột bất kỳ như: Số dẫn, Quản lý tòa, Quản lý, Liên hệ, Đầu chủ, SĐT dẫn, SĐT quản lý, Hotline, Người dẫn."),
+  deposit_terms: z.string().nullable().optional().describe("Quy định cọc của tòa nhà (ví dụ: 'Cọc 1.5 tháng', 'Đóng 1 cọc 1.5 tháng')"),
   rooms: z.array(ParsedRoomSchema).default([]).describe("Danh sách TOÀN BỘ các phòng thuộc tòa nhà này"),
+  landlord_policies: LandlordPoliciesSchema.nullable().optional(),
 });
 
 export const SheetImportResultSchema = z.object({
   buildings: z.array(ParsedBuildingSchema).describe("Danh sách các Tòa nhà và toàn bộ phòng bóc tách được"),
+  landlord_policies: LandlordPoliciesSchema.nullable().optional(),
 });
 
 export type ParsedRoom = z.infer<typeof ParsedRoomSchema>;
 export type ParsedBuilding = z.infer<typeof ParsedBuildingSchema>;
+export type LandlordPoliciesParsed = z.infer<typeof LandlordPoliciesSchema>;
 export type SheetImportResult = z.infer<typeof SheetImportResultSchema>;
-
-export function extractGoogleSheetId(url: string): string | null {
-  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
-}
-
-export function extractGidFromUrl(url: string): string | null {
-  const match = url.match(/[?&]gid=([0-9]+)/);
-  return match ? match[1] : null;
-}
 
 /**
  * Lọc bỏ các Tab ghi chú, quy định không chứa bất động sản
@@ -377,6 +120,124 @@ const GENERIC_TAB_NAMES = [
   'bảng hàng', 'bang hang', 'tổng hợp', 'tong hop', 'kho hàng', 'kho hang',
   'phòng trống', 'phong trong', 'trang tính', 'trang tinh', 'tất cả', 'tat ca'
 ];
+
+/**
+ * Trích xuất các Tiêu chí / Quy định nhận khách xem phòng từ Tab "Tiêu chí..." (nếu có)
+ */
+export function extractPolicyRulesFromWorkbook(wb: XLSX.WorkBook): string | null {
+  const policySheetName = wb.SheetNames.find(name => {
+    const lower = name.toLowerCase().trim();
+    return lower.includes('tiêu chí') || lower.includes('quy định') || lower.includes('chính sách');
+  });
+
+  if (!policySheetName) return null;
+
+  const ws = wb.Sheets[policySheetName];
+  if (!ws || !ws['!ref']) return null;
+
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+  if (!rows || rows.length === 0) return null;
+
+  const rules: string[] = [];
+  rows.forEach(row => {
+    if (!row || !Array.isArray(row)) return;
+    row.forEach(cell => {
+      if (!cell) return;
+      const str = String(cell).trim();
+      if (str.length > 8 && !str.startsWith('===') && !rules.includes(str)) {
+        rules.push(str.replace(/\r?\n/g, ' '));
+      }
+    });
+  });
+
+  if (rules.length === 0) return null;
+
+  // Lọc các dòng nội dung tiêu chí/quy định chính
+  const keyRules = rules.filter(r =>
+    /^[-*+]/.test(r) ||
+    /hđ|hợp đồng|tối thiểu|cọc|xem|dẫn|người|xe|nước ngoài|thời hạn|khách|báo/i.test(r)
+  );
+
+  const selectedRules = keyRules.length > 0 ? keyRules : rules;
+  return cleanAndDeduplicateNotes(selectedRules.join(' | '));
+}
+
+/**
+ * Chỉ loại bỏ các cụm từ Thưởng / Tặng tiền mặt / Thưởng sale (cho nhân viên)
+ * Giữ lại các ưu đãi cho khách như: "Miễn phí tiền nhà đến...", "Miễn phí dịch vụ", "Khuyến mại/Ưu đãi wifi, điện nước"
+ */
+export function stripPromoAndRewardNotes(text: string | null | undefined): string | null {
+  if (!text) return null;
+
+  const parts = text.split(/[\|\n;]/);
+  const filteredParts = parts.filter(part => {
+    const norm = part.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!norm) return false;
+
+    // Chỉ lọc bỏ thưởng sale / thưởng nóng / tặng tiền mặt (Vd: "thưởng 500k", "tặng 1000k", "thưởng 1tr", "tặng tiền", "thưởng sale")
+    const isCashReward =
+      /\bthuong\b/i.test(norm) ||
+      /tang\s*\d+\s*k/i.test(norm) ||
+      /tang\s*\d+\s*tr/i.test(norm) ||
+      /tang\s*tien/i.test(norm) ||
+      /tang\s*\d+k\s*chuyen\s*vao/i.test(norm);
+
+    return !isCashReward;
+  });
+
+  const result = filteredParts.map(p => p.trim()).filter(Boolean).join(' | ');
+  return result.length > 0 ? result : null;
+}
+
+/**
+ * Làm sạch cuối cùng: Loại bỏ tất cả chính sách tặng tiền, thưởng, khuyến mại cũ khỏi general_notes và room.description
+ */
+export function cleanAllPromoAndRewards(result: SheetImportResult | null): SheetImportResult {
+  if (!result || !result.buildings) return result || { buildings: [] };
+
+  result.buildings.forEach(b => {
+    if (b.general_notes) {
+      b.general_notes = stripPromoAndRewardNotes(b.general_notes);
+    }
+
+    b.rooms.forEach(r => {
+      if (r.description) {
+        // Bảo tồn marker [Sắp trống: YYYY-MM-DD] nếu có
+        const matchAvailable = r.description.match(/^(\[Sắp trống:[^\]]+\])\s*(.*)/);
+        if (matchAvailable) {
+          const prefix = matchAvailable[1];
+          const rest = matchAvailable[2];
+          const cleanedRest = stripPromoAndRewardNotes(rest);
+          r.description = cleanedRest ? `${prefix} ${cleanedRest}` : prefix;
+        } else {
+          r.description = stripPromoAndRewardNotes(r.description);
+        }
+      }
+    });
+  });
+
+  return result;
+}
+
+/**
+ * Loại bỏ trùng lặp và làm sạch chuỗi Ghi chú / Dịch vụ
+ */
+export function cleanAndDeduplicateNotes(notesStr: string | null | undefined): string | null {
+  if (!notesStr) return null;
+  const parts = notesStr.split(/[\|\n;]/).map(s => s.trim()).filter(Boolean);
+  const uniqueParts: string[] = [];
+  const seen = new Set<string>();
+
+  for (const part of parts) {
+    const norm = part.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      uniqueParts.push(part);
+    }
+  }
+
+  return uniqueParts.length > 0 ? uniqueParts.join(' | ') : null;
+}
 
 /**
  * Xây dựng Ghi chú chung tổng hợp cho từng Tòa nhà
@@ -403,30 +264,1126 @@ export function buildGeneralNotesForBuilding(globalNotes: string, bldDvc: string
     notes = notes ? `${notes} | ${specStr}` : specStr;
   }
 
-  return notes || null;
+  return cleanAndDeduplicateNotes(notes);
+}
+
+
+
+/**
+ * Tổng hợp SĐT/Người quản lý cho Tòa nhà theo cơ chế Majority Vote (Số điện thoại/Người quản lý xuất hiện nhiều nhất)
+ * - Nếu nhiều phòng có số chung -> gán số đó cho Tòa nhà
+ * - Nếu phòng nào có số riêng khác với số của tòa nhà -> đính kèm [Quản lý riêng: ...] vào mô tả phòng
+ */
+export function resolveBuildingManagerRaw(bld: ParsedBuilding): string | null {
+  const managerCounts = new Map<string, { raw: string; count: number; hasPhone: boolean }>();
+
+  const allRaws: string[] = [];
+  if (bld.manager_raw) allRaws.push(bld.manager_raw);
+
+  bld.rooms.forEach((r: any) => {
+    if (r.manager_raw) allRaws.push(r.manager_raw);
+  });
+
+  allRaws.forEach((rawStr) => {
+    if (!rawStr) return;
+    const entries = String(rawStr).split(';').map(s => s.trim()).filter(Boolean);
+    entries.forEach(entry => {
+      const parts = entry.split('|').map(p => p.trim());
+      const name = parts[0] || '';
+      const phone = (parts[1] || (parts.length === 1 ? parts[0] : '')).replace(/[^\d]/g, '');
+
+      const hasPhone = phone.length >= 8;
+      const key = hasPhone ? phone : name.toLowerCase();
+      if (!key) return;
+
+      const formattedRaw = hasPhone && name && name !== phone ? `${name}|${phone}` : (hasPhone ? phone : name);
+
+      const existing = managerCounts.get(key);
+      if (existing) {
+        existing.count++;
+        if (!existing.hasPhone && hasPhone) {
+          existing.raw = formattedRaw;
+          existing.hasPhone = true;
+        }
+      } else {
+        managerCounts.set(key, { raw: formattedRaw, count: 1, hasPhone });
+      }
+    });
+  });
+
+  if (managerCounts.size > 0) {
+    const sorted = Array.from(managerCounts.values()).sort((a, b) => {
+      if (a.hasPhone !== b.hasPhone) return a.hasPhone ? -1 : 1;
+      return b.count - a.count;
+    });
+
+    const topManagers = sorted
+      .filter((item) => item.hasPhone)
+      .slice(0, 3)
+      .map((item) => item.raw);
+
+    const bestBuildingManager = topManagers.length > 0
+      ? Array.from(new Set(topManagers)).join('; ')
+      : (sorted[0]?.raw || null);
+
+    if (bestBuildingManager) {
+      bld.manager_raw = bestBuildingManager;
+    }
+  }
+
+  if (bld.manager_raw) {
+    const bldPhoneMatches = (String(bld.manager_raw).match(/(0[35789]\d{8})/g) || []) as string[];
+    bld.rooms.forEach((r: any) => {
+      const rRaw = (r as any).manager_raw;
+      if (rRaw) {
+        const rPhoneMatches = (String(rRaw).match(/(0[35789]\d{8})/g) || []) as string[];
+        if (rPhoneMatches.length > 0) {
+          const isDifferent = rPhoneMatches.some(rp => !bldPhoneMatches.includes(rp));
+          if (isDifferent) {
+            const specMgrStr = `[Quản lý riêng: ${rRaw.replace(/\|/g, ' - ')}]`;
+            if (!r.description?.includes(specMgrStr)) {
+              r.description = r.description ? `${r.description} ${specMgrStr}` : specMgrStr;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  return bld.manager_raw || null;
+}
+
+/**
+ * Nhận diện layout "Dual-Column" đặc biệt:
+ * - Có cột phân loại ("Còn trống"/"Đã hết"/"Chờ vào") ở cột 1
+ * - Vùng trái (col2-12): Địa chỉ tòa nhà + Phòng có data
+ * - Vùng phải (col13+): Mã phòng liệt kê (đã thuê / ảnh / số dẫn)
+ */
+export function detectDualColumnLayout(rows: any[][]): boolean {
+  for (let r = 0; r < Math.min(rows.length, 8); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    const col1Val = String(row[1] || '').trim().toLowerCase();
+    const col1Norm = col1Val.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (
+      col1Norm === 'con trong' ||
+      col1Norm === 'da het' ||
+      col1Norm === 'cho vao' ||
+      col1Norm === 'da thue'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Parser cho layout "Dual-Column" (2 vùng ngang trong cùng 1 sheet):
+ *
+ * Cấu trúc:
+ *   - Col0     : rỗng (STT)
+ *   - Col1     : Nhãn loại ("Còn trống"/"Đã hết"/"Chờ vào")
+ *   - Col2     : Địa chỉ tòa nhà (khi có)
+ *   - Col3     : Mã phòng vùng trái
+ *   - Col4     : Giá thuê
+ *   - Col5     : Loại phòng
+ *   - Col6     : Diện tích
+ *   - Col9     : Điều kiện cọ
+ *   - Col10    : Internet
+ *   - Col11    : DVC
+ *   - Col12    : Trạng thái
+ *   - Col13    : Mã phòng vùng phải ("Đã thuê") hoặc link ảnh
+ *
+ * Logic:
+ *   - Dòng có col3 = mã phòng + col4 = giá → phòng vùng trái có data
+ *   - Dòng có col13 = mã phòng (và không có Drive link) → phòng đã thuê vùng phải
+ *   - Dòng có cả col3 và col13 → cả 2 phòng thuộc cùng tòa nhà
+ */
+export function parseDualColumnLayout(
+  ws: XLSX.WorkSheet,
+  rows: any[][],
+  sheetName: string,
+  globalNotes: string
+): SheetImportResult | null {
+  const buildingsMap = new Map<string, ParsedBuilding>();
+  const buildingMetaMap = new Map<string, { dvc: string; internet: string; notes: string[] }>();
+
+  // Cột mặc định
+  let rightCodeCol = 13;
+  let leftBldCol = 2;
+  let leftCodeCol = 3;
+  let leftPriceCol = 4;
+  let leftTypeCol = 5;
+  let leftSizeCol = 6;
+  let leftInternetCol = 10;
+  let leftDvcCol = 11;
+  let leftStatusCol = 12;
+
+  // Quét header để tìm chính xác vị trí cột
+  for (let r = 0; r < Math.min(rows.length, 8); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    row.forEach((cell, cIdx) => {
+      const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (cIdx > 1) {
+        if (cStr.includes('loai phong') || cStr === 'loai') leftTypeCol = cIdx;
+        else if (cStr.includes('dien tich')) leftSizeCol = cIdx;
+        else if (cStr.includes('internet') || cStr.includes('mang')) leftInternetCol = cIdx;
+        else if (cStr === 'dvc' || cStr.includes('dich vu chung')) leftDvcCol = cIdx;
+        else if (cStr.includes('trang thai') || cStr.includes('tinh trang')) leftStatusCol = cIdx;
+        else if ((cStr.includes('link') || cStr.includes('anh') || cStr.includes('hinh')) && cIdx >= 10) {
+          rightCodeCol = cIdx;
+        }
+      }
+    });
+  }
+
+  let currentBldName = '';
+  let currentBldDvc = '';
+  let currentBldInternet = '';
+
+  // Tìm dòng bắt đầu dữ liệu (sau dòng header "Chờ vào")
+  let startRow = 0;
+  for (let r = 0; r < Math.min(rows.length, 8); r++) {
+    const row = rows[r];
+    if (!row) continue;
+    const col1Norm = String(row[1] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (col1Norm === 'cho vao') {
+      startRow = r + 1;
+      break;
+    }
+  }
+
+  for (let r = startRow; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+    const col2Val = String(row[leftBldCol] || '').trim();
+    const col3Val = String(row[leftCodeCol] || '').trim();
+    const col4Val = row[leftPriceCol];
+    const col5Val = String(row[leftTypeCol] || '').trim();
+    const col6Val = String(row[leftSizeCol] || '').trim();
+    const col10Val = String(row[leftInternetCol] || '').trim();
+    const col11Val = String(row[leftDvcCol] || '').trim();
+    const col12Val = String(row[leftStatusCol] || '').trim();
+    const col13Val = String(row[rightCodeCol] || '').trim();
+
+    // 1. Nhận diện địa chỉ tòa nhà mới (col2)
+    if (col2Val && isBuildingHeader(col2Val)) {
+      currentBldName = formatStandardBuildingAddress(col2Val);
+      currentBldDvc = '';
+      currentBldInternet = '';
+      if (!buildingMetaMap.has(currentBldName)) {
+        buildingMetaMap.set(currentBldName, { dvc: '', internet: '', notes: [] });
+      }
+    }
+
+    // Thu thập DVC/Internet cho tòa nhà hiện tại
+    if (col11Val && !currentBldDvc && col11Val.length > 2 && col11Val.toLowerCase() !== 'dvc') currentBldDvc = col11Val;
+    if (col10Val && !currentBldInternet && col10Val.length > 2 && col10Val.toLowerCase() !== 'internet') currentBldInternet = col10Val;
+
+    if (currentBldName) {
+      const meta = buildingMetaMap.get(currentBldName);
+      if (meta) {
+        if (currentBldDvc && !meta.dvc) meta.dvc = currentBldDvc;
+        if (currentBldInternet && !meta.internet) meta.internet = currentBldInternet;
+      }
+    }
+
+    // 1.5. Trích xuất Quản lý / Số dẫn từ khối thông tin (Ví dụ: Header "SỐ DẪN", bên dưới có "397040567")
+    row.forEach((cell, cIdx) => {
+      const cellStr = String(cell || '').trim();
+      const lowerCell = cellStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (
+        lowerCell === 'so dan' ||
+        lowerCell.includes('sdt dan') ||
+        lowerCell.includes('quan ly') ||
+        lowerCell.includes('lien he')
+      ) {
+        const candidates = [
+          cellStr,
+          String(rows[r + 1]?.[cIdx] || '').trim(),
+          String(rows[r + 2]?.[cIdx] || '').trim(),
+          String(rows[r]?.[cIdx + 1] || '').trim(),
+        ];
+
+        for (const candidate of candidates) {
+          const phones = candidate.match(/(?:0|[35789])\d{8}/g);
+          if (phones && phones.length > 0) {
+            const formattedPhones = phones.map(p => (p.length === 9 ? '0' + p : p));
+            const namePart = candidate.replace(/[\d\-\:\,\;\(\)\|]/g, '').trim();
+            const mgrRaw = namePart.length >= 2 ? `${namePart}|${formattedPhones[0]}` : formattedPhones[0];
+
+            if (currentBldName && buildingsMap.has(currentBldName)) {
+              const bldObj = buildingsMap.get(currentBldName)!;
+              if (!bldObj.manager_raw) {
+                bldObj.manager_raw = mgrRaw;
+              }
+            }
+            break;
+          }
+        }
+      }
+    });
+
+    // 1.6. Trích xuất Link Google Maps & Tọa độ GPS từ các ô trên dòng
+    row.forEach((cell, cIdx) => {
+      const cellRef = XLSX.utils.encode_cell({ r, c: cIdx });
+      const cellObj = ws[cellRef];
+      const link = cellObj?.l?.Target || String(cell || '').trim();
+
+      if (link && (link.includes('maps') || link.includes('goo.gl') || link.includes('location'))) {
+        const coords = parseLatLongFromGoogleMapsUrl(link);
+        if (currentBldName && buildingsMap.has(currentBldName)) {
+          const bldObj = buildingsMap.get(currentBldName)!;
+          if (coords && !bldObj.latitude) {
+            bldObj.latitude = coords.latitude;
+            bldObj.longitude = coords.longitude;
+          }
+          if (!bldObj.map_link) {
+            bldObj.map_link = link;
+          }
+        }
+      }
+    });
+
+    // 2. Xử lý Phòng vùng trái (col3 = mã phòng có data)
+    const leftCode = col3Val;
+    const leftPrice = cleanPriceNumber(col4Val);
+
+    const isValidCode = (code: string) =>
+      code.length > 0 &&
+      code.length <= 15 &&
+      !code.toLowerCase().includes('sđt') &&
+      !code.toLowerCase().includes('link') &&
+      !code.toLowerCase().includes('lưu ý') &&
+      !code.toLowerCase().includes('ghi chú') &&
+      !code.toLowerCase().includes('nhà để xe') &&
+      !code.toLowerCase().includes('số dận') &&
+      !code.toLowerCase().includes('stt');
+
+    if (leftCode && isValidCode(leftCode) && currentBldName) {
+      // Trích xuất Drive link từ ô
+      let roomDriveUrl: string | null = null;
+      row.forEach((_, cIdx) => {
+        const cellRef = XLSX.utils.encode_cell({ r, c: cIdx });
+        const cellObj = ws[cellRef];
+        if (cellObj?.l?.Target?.includes('drive.google.com')) {
+          roomDriveUrl = cellObj.l.Target;
+        }
+      });
+
+      // Phân tích trạng thái
+      const cleanStat = col12Val.toLowerCase().trim();
+      const normStat = cleanStat.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      let leftStatus: 'available' | 'rented' | 'reserved' = 'rented';
+      let leftAvailableDate: string | null = null;
+
+      const dateInfo = parseDateFromStatusString(cleanStat);
+      if (dateInfo.available_date) {
+        leftAvailableDate = dateInfo.available_date;
+        leftStatus = 'rented';
+      } else if (normStat.includes('trong') || normStat.includes('o ngay') || normStat.includes('o luon') || normStat.includes('san') || normStat === 'available') {
+        leftStatus = 'available';
+      } else if (normStat.includes('giu') || normStat.includes('coc')) {
+        leftStatus = 'reserved';
+      }
+
+      // Quét tất cả các ô trên dòng này để thu thập Ghi chú riêng hoặc Ngày sắp trống ở bất kỳ cột nào
+      const roomSpecificNotes: string[] = [];
+      row.forEach((cell, cIdx) => {
+        if (cIdx === leftBldCol || cIdx === leftCodeCol || cIdx === leftPriceCol || cIdx === leftTypeCol || cIdx === leftSizeCol) return;
+        const cellStr = String(cell || '').trim();
+        if (!cellStr || cellStr.length < 2) return;
+
+        const lower = cellStr.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const IGNORE_KWS = ['dvc', 'internet', 'mang', 'wifi', 'truc', 'so dan', 'phong', 'thue', 'trong', 'tinh trang', 'trang thai', 'dien tich', 'loai', 'link anh', 'full do'];
+
+        // Nếu dòng ghi chú có chứa "FULL", "ĐÃ HẾT", "ĐÃ THUÊ" -> Đổi trạng thái thành Đã thuê (Rented)
+        if (lower === 'full' || lower.includes('da het') || lower.includes('da thue') || lower === 'het') {
+          leftStatus = 'rented';
+          leftAvailableDate = null;
+        }
+
+        if (IGNORE_KWS.some(kw => lower === kw)) return;
+
+        const dateCheck = parseDateFromStatusString(cellStr);
+        if (dateCheck.available_date) {
+          if (!leftAvailableDate) {
+            leftAvailableDate = dateCheck.available_date;
+            leftStatus = 'rented';
+          }
+          return;
+        }
+
+        if (!cleanPriceNumber(cellStr) && !isPurePriceString(cellStr) && !lower.includes('so dan')) {
+          if (!roomSpecificNotes.includes(cellStr)) roomSpecificNotes.push(cellStr);
+        }
+      });
+
+      let leftDesc: string | null = null;
+      if (leftAvailableDate && leftStatus === 'rented') {
+        leftDesc = `[Sắp trống: ${leftAvailableDate}]`;
+      }
+      if (roomSpecificNotes.length > 0) {
+        const specStr = `💡 Ghi chú riêng: ${roomSpecificNotes.join(' | ')}`;
+        leftDesc = leftDesc ? `${leftDesc} ${specStr}` : specStr;
+      }
+
+      const sizeMatch = col6Val.match(/(\d{2,3})/);
+      const sizeNum = sizeMatch ? Math.min(200, Math.max(10, parseInt(sizeMatch[1]))) : 25;
+      const parsedType = parseRoomType(col5Val);
+      const cleanedCode = cleanRoomCodeAndType(leftCode, parsedType);
+
+      const leftRoom: ParsedRoom = {
+        code: cleanedCode.code,
+        floor: parseFloorFromRoomCode(cleanedCode.code),
+        price: leftPrice,
+        room_type: cleanedCode.roomType,
+        size: sizeNum,
+        status: leftStatus,
+        available_date: leftAvailableDate,
+        bedrooms: cleanedCode.roomType.includes('2N') ? 2 : 1,
+        bathrooms: cleanedCode.roomType.includes('2WC') ? 2 : 1,
+        description: leftDesc,
+        drive_media_url: roomDriveUrl,
+      };
+
+      if (!buildingsMap.has(currentBldName)) {
+        buildingsMap.set(currentBldName, {
+          name: currentBldName, address: currentBldName,
+          area: detectHanoiDistrict(currentBldName), drive_media_url: null,
+          general_notes: globalNotes || null, rooms: [],
+        });
+      }
+      buildingsMap.get(currentBldName)!.rooms.push(leftRoom);
+    }
+
+    // 3. Xử lý Phòng vùng phải (col13 = mã phòng đã thuê hoặc Drive link)
+    const col14Val = String(row[rightCodeCol + 1] || '').trim();
+    if (
+      col13Val &&
+      isValidCode(col13Val) &&
+      (/\d/.test(col13Val) || col13Val.toLowerCase().includes('trục')) &&
+      currentBldName
+    ) {
+
+      // Trích xuất Drive link từ ô nếu có
+      const cellRef13 = XLSX.utils.encode_cell({ r, c: rightCodeCol });
+      const cellObj13 = ws[cellRef13];
+      let roomDriveUrl: string | null = null;
+      if (cellObj13?.l?.Target && (cellObj13.l.Target.includes('drive.google.com') || cellObj13.l.Target.includes('zalo'))) {
+        roomDriveUrl = cellObj13.l.Target;
+        const bldObj = buildingsMap.get(currentBldName);
+        if (bldObj && !bldObj.drive_media_url) {
+          bldObj.drive_media_url = roomDriveUrl;
+        }
+      }
+
+      // Xử lý mã phòng đã thuê (hoặc mã trục)
+      const bld = buildingsMap.get(currentBldName);
+      // Chuẩn hóa mã phòng để kiểm tra trùng (bỏ prefix p., đuôi .0, lowercase)
+      const normCode = (c: string) => c.trim().toLowerCase().replace(/^p\.?/i, '').replace(/\.0+$/, '');
+      const alreadyAdded = bld?.rooms.some(
+        rm => normCode(rm.code) === normCode(col13Val)
+      );
+
+      if (!alreadyAdded) {
+        const rightClean = cleanRoomCodeAndType(col13Val, 'Studio');
+        const rightRoom: ParsedRoom = {
+          code: rightClean.code,
+          floor: parseFloorFromRoomCode(rightClean.code),
+          price: 0,
+          room_type: rightClean.roomType,
+          size: 25,
+          status: 'rented',
+          available_date: null,
+          bedrooms: 1,
+          bathrooms: 1,
+          description: null,
+          drive_media_url: roomDriveUrl,
+        };
+
+        if (!buildingsMap.has(currentBldName)) {
+          buildingsMap.set(currentBldName, {
+            name: currentBldName, address: currentBldName,
+            area: detectHanoiDistrict(currentBldName), drive_media_url: roomDriveUrl,
+            general_notes: globalNotes || null, rooms: [],
+          });
+        }
+        buildingsMap.get(currentBldName)!.rooms.push(rightRoom);
+      }
+    }
+  }
+
+  const rawBuildings = Array.from(buildingsMap.values()).filter(b => b.rooms.length > 0);
+  rawBuildings.forEach(b => {
+    const meta = buildingMetaMap.get(b.name);
+    b.general_notes = buildGeneralNotesForBuilding(
+      b.general_notes || '', meta?.dvc || '', meta?.internet || '', meta?.notes || []
+    );
+    b.area = detectHanoiDistrict(b.name, b.area);
+    resolveBuildingManagerRaw(b);
+  });
+
+  const buildings = rawBuildings.map(expandBuildingGrid);
+  const totalRooms = buildings.reduce((sum, b) => sum + b.rooms.length, 0);
+  if (buildings.length > 0 && totalRooms > 0) return { buildings };
+  return null;
+}
+
+export function parseLatLongFromGoogleMapsUrl(urlStr: string): { latitude: number; longitude: number } | null {
+  if (!urlStr) return null;
+  let decoded = urlStr;
+  try {
+    decoded = decodeURIComponent(urlStr);
+  } catch (e) {
+    decoded = urlStr;
+  }
+
+  // 1. Dạng !3d<lat>!4d<lon> (Tọa độ ghim điểm chính xác nhất trên Google Maps)
+  const d3d4Match = decoded.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (d3d4Match) {
+    const lat = parseFloat(d3d4Match[1]);
+    const lng = parseFloat(d3d4Match[2]);
+    if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) {
+      return { latitude: parseFloat(lat.toFixed(7)), longitude: parseFloat(lng.toFixed(7)) };
+    }
+  }
+
+  // 2. Dạng /@<lat>,<lon> (Tọa độ tâm bản đồ)
+  const atMatch = decoded.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (atMatch) {
+    const lat = parseFloat(atMatch[1]);
+    const lng = parseFloat(atMatch[2]);
+    if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) {
+      return { latitude: parseFloat(lat.toFixed(7)), longitude: parseFloat(lng.toFixed(7)) };
+    }
+  }
+
+  // 3. Dạng q=<lat>,<lon> hoặc place/<lat>,<lon>
+  const qMatch = decoded.match(/(?:q=|place\/)(-?\d+\.\d+)(?:,|%2C|\s+)(-?\d+\.\d+)/);
+  if (qMatch) {
+    const lat = parseFloat(qMatch[1]);
+    const lng = parseFloat(qMatch[2]);
+    if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) {
+      return { latitude: parseFloat(lat.toFixed(7)), longitude: parseFloat(lng.toFixed(7)) };
+    }
+  }
+
+  // 4. Dạng Độ Phút Giây: 20°58'58.0"N 105°48'59.6"E
+  const dmsLat = decoded.match(/(\d+)°(\d+)'([\d\.]+)"([NS])/);
+  const dmsLng = decoded.match(/(\d+)°(\d+)'([\d\.]+)"([EW])/);
+  if (dmsLat && dmsLng) {
+    let lat = parseInt(dmsLat[1], 10) + parseInt(dmsLat[2], 10) / 60 + parseFloat(dmsLat[3]) / 3600;
+    if (dmsLat[4] === 'S') lat = -lat;
+    let lng = parseInt(dmsLng[1], 10) + parseInt(dmsLng[2], 10) / 60 + parseFloat(dmsLng[3]) / 3600;
+    if (dmsLng[4] === 'W') lng = -lng;
+    if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) {
+      return { latitude: parseFloat(lat.toFixed(7)), longitude: parseFloat(lng.toFixed(7)) };
+    }
+  }
+
+  return null;
+}
+
+
+
+/**
+ * Trích xuất diện tích m2 (xử lý cả dạng "25+6 GÁC", "Sàn 26 Gác 8", "104m2")
+ */
+export function parseRoomSize(sizeVal: any): number {
+  if (typeof sizeVal === 'number') return sizeVal > 0 && sizeVal <= 200 ? sizeVal : 25;
+  if (!sizeVal) return 25;
+  const str = String(sizeVal).trim();
+  if (!str) return 25;
+
+  const numbers = str.match(/\d+/g);
+  if (numbers && numbers.length > 0) {
+    const nums = numbers.map(n => parseInt(n, 10)).filter(n => n >= 3 && n <= 150);
+    if (nums.length === 1) return nums[0];
+    if (nums.length >= 2) {
+      const sum = nums.reduce((a, b) => a + b, 0);
+      if (sum >= 10 && sum <= 200) return sum;
+    }
+  }
+  return 25;
+}
+
+/**
+ * Nhận diện Layout "Single-Row-Building":
+ * Mỗi dòng phòng chứa thẳng tên Tòa nhà / Địa chỉ ở 1 cột riêng (thường là Cột "Tòa" / "Địa chỉ")
+ * Cấu trúc Header ví dụ: STT | Tòa | Phòng | Khu vực | Hình ảnh,video | Loại phòng | Diện tích | Giá | Dịch vụ | Tình trạng
+ */
+export function detectSingleRowBuildingLayout(rows: any[][]): boolean {
+  for (let r = 0; r < Math.min(rows.length, 10); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+
+    let hasBldHeader = false;
+    let hasRoomHeader = false;
+    let hasPriceHeader = false;
+
+    row.forEach(cell => {
+      const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+      if (cStr === 'toa' || cStr === 'toa nha' || cStr.includes('dia chi')) hasBldHeader = true;
+      if (cStr === 'phong' || cStr.includes('so phong') || cStr.includes('ma phong')) hasRoomHeader = true;
+      if (cStr.includes('gia') || cStr.includes('price')) hasPriceHeader = true;
+    });
+
+    if (hasBldHeader && hasRoomHeader && hasPriceHeader) {
+      return true;
+    }
+  }
+
+  // TỰ ĐỘNG NHẬN DIỆN HEADLESS SINGLE ROW LAYOUT (Không có dòng header tiêu đề)
+  const sampleRow = rows.find((r) => Array.isArray(r) && r[1] && r[2] && r[6]);
+  if (sampleRow) {
+    const col1 = String(sampleRow[1]).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const col2 = String(sampleRow[2]).trim();
+    const col6Price = cleanPriceNumber(sampleRow[6]);
+    if (
+      (col1.includes('ngo') || col1.includes('so') || col1.includes('duong') || col1.includes('pho') || col1.includes('ngach') || col1.includes('hem')) &&
+      (/^[pP]?\.?\d+[a-zA-Z0-9\-_]*$/.test(col2) || /^(?:ki\s*ot|mb|cua\s*hang|\d+)/i.test(col2)) &&
+      col6Price > 500000
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function parseSingleRowBuildingLayout(
+  ws: XLSX.WorkSheet,
+  rows: any[][],
+  sheetName: string,
+  globalNotes: string
+): SheetImportResult | null {
+  const buildingsMap = new Map<string, ParsedBuilding>();
+
+  let bldCol = -1;
+  let codeCol = -1;
+  let priceCol = -1;
+  let typeCol = -1;
+  let sizeCol = -1;
+  let statusCol = -1;
+  let serviceCol = -1;
+  let interiorCol = -1;
+  let areaCol = -1;
+  let depositCol = -1;
+  let managerNameCol = -1;
+  let managerPhoneCol = -1;
+  let elecCol = -1;
+  let waterCol = -1;
+  let internetCol = -1;
+  let commonServiceCol = -1;
+  let maxOccupantsCol = -1;
+  let parkingFeeCol = -1;
+  let parkingNotesCol = -1;
+  let headerRowIdx = -1;
+
+  for (let r = 0; r < Math.min(rows.length, 10); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+
+    row.forEach((cell, cIdx) => {
+      const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+      if (cStr === 'toa' || cStr === 'toa nha' || cStr.includes('dia chi')) bldCol = cIdx;
+      else if (cStr === 'so dan' || cStr.includes('sdt dan') || cStr.includes('quan ly') || cStr.includes('nguoi dan') || cStr.includes('lien he')) managerPhoneCol = cIdx;
+      else if (cStr.includes('nguoi dan') || cStr.includes('ten quan ly')) managerNameCol = cIdx;
+      else if (!cStr.includes('quan ly') && (cStr.includes('khu vuc') || cStr.includes('quan') || cStr === 'khu')) areaCol = cIdx;
+      else if (cStr === 'phong' || cStr.includes('so phong') || cStr.includes('ma phong')) codeCol = cIdx;
+      else if (cStr.includes('tinh trang') || cStr.includes('trang thai') || cStr.includes('thoi gian') || cStr.includes('o duoc')) statusCol = cIdx;
+      else if (cStr.includes('dat coc') || cStr.includes('coc')) depositCol = cIdx;
+      else if (!cStr.includes('gian') && (cStr.includes('gia') || cStr.includes('price'))) priceCol = cIdx;
+      else if (cStr.includes('loai phong') || cStr === 'loai') typeCol = cIdx;
+      else if (cStr.includes('dien tich')) sizeCol = cIdx;
+      else if (cStr.includes('dich vu') || cStr === 'dvc') serviceCol = cIdx;
+      else if (cStr.includes('noi that')) interiorCol = cIdx;
+      else if (cStr.includes('dien') && !cStr.includes('tich')) elecCol = cIdx;
+      else if (cStr.includes('nuoc')) waterCol = cIdx;
+      else if (cStr.includes('internet') || cStr.includes('mang')) internetCol = cIdx;
+      else if (cStr.includes('dv chung') || cStr.includes('dich vu chung')) commonServiceCol = cIdx;
+      else if (cStr.includes('so nguoi') || cStr.includes('toi da') || cStr.includes('nguoi o')) maxOccupantsCol = cIdx;
+      else if (cStr.includes('gui xe') || cStr.includes('xe/xe') || cStr.includes('tien xe')) parkingFeeCol = cIdx;
+      else if (cStr.includes('ghi chu') && cIdx >= 18) parkingNotesCol = cIdx;
+    });
+
+    if (bldCol !== -1 && codeCol !== -1 && priceCol !== -1) {
+      headerRowIdx = r;
+      break;
+    }
+  }
+
+  if (headerRowIdx === -1) {
+    // TỰ ĐỘNG NHẬN DIỆN SHEET THỦ CÔNG/HEADLESS KHÔNG CÓ DÒNG HEADER GÕ TIÊU ĐỀ
+    // Kiểm tra xem các dòng đầu có đúng cấu trúc: Col 1 = Địa chỉ, Col 2 = Mã phòng, Col 6 = Giá tiền không
+    const sampleRow = rows.find((r) => Array.isArray(r) && r[1] && r[2] && r[6]);
+    if (sampleRow) {
+      const col1 = String(sampleRow[1]).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const col2 = String(sampleRow[2]).trim();
+      const col6Price = cleanPriceNumber(sampleRow[6]);
+      if (
+        (col1.includes('ngo') || col1.includes('so') || col1.includes('duong') || col1.includes('pho') || col1.includes('ngach') || col1.includes('hem')) &&
+        (/^[pP]?\.?\d+[a-zA-Z0-9\-_]*$/.test(col2) || /^(?:ki\s*ot|mb|cua\s*hang|\d+)/i.test(col2)) &&
+        col6Price > 500000
+      ) {
+        bldCol = 1;
+        codeCol = 2;
+        areaCol = 3;
+        sizeCol = 4;
+        typeCol = 5;
+        priceCol = 6;
+        depositCol = 7;
+        statusCol = 8;
+        managerPhoneCol = (sampleRow[13] && String(sampleRow[13]).replace(/\D/g, '').length >= 8) ? 13 : 12;
+        interiorCol = managerPhoneCol === 13 ? 14 : 13;
+        serviceCol = managerPhoneCol === 13 ? 15 : 14;
+        elecCol = 15;
+        waterCol = 16;
+        internetCol = 17;
+        commonServiceCol = 18;
+        maxOccupantsCol = 19;
+        parkingFeeCol = 20;
+        parkingNotesCol = 21;
+        headerRowIdx = -2;
+      }
+    }
+  }
+
+  if (headerRowIdx === -1) return null;
+
+  const startRowIdx = headerRowIdx === -2 ? 0 : headerRowIdx + 1;
+  for (let r = startRowIdx; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+    // Kiểm tra xem dòng này có phải dòng Header phụ hay không
+    let isSubHeader = false;
+    row.forEach(cell => {
+      const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (cStr === 'phong' || cStr === 'ma phong' || cStr === 'gia' || cStr === 'gia (vnd)' || cStr === 'toa') {
+        isSubHeader = true;
+      }
+    });
+
+    if (isSubHeader) {
+      row.forEach((cell, cIdx) => {
+        const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+        if (cStr === 'toa' || cStr === 'toa nha' || cStr.includes('dia chi')) bldCol = cIdx;
+        else if (cStr === 'so dan' || cStr.includes('sdt dan') || cStr.includes('quan ly') || cStr.includes('nguoi dan') || cStr.includes('lien he')) managerPhoneCol = cIdx;
+        else if (cStr.includes('nguoi dan') || cStr.includes('ten quan ly')) managerNameCol = cIdx;
+        else if (!cStr.includes('quan ly') && (cStr.includes('khu vuc') || cStr.includes('quan') || cStr === 'khu')) areaCol = cIdx;
+        else if (cStr === 'phong' || cStr.includes('so phong') || cStr.includes('ma phong')) codeCol = cIdx;
+        else if (cStr.includes('tinh trang') || cStr.includes('trang thai') || cStr.includes('thoi gian') || cStr.includes('o duoc')) statusCol = cIdx;
+        else if (cStr.includes('dat coc') || cStr.includes('coc')) depositCol = cIdx;
+        else if (!cStr.includes('gian') && (cStr.includes('gia') || cStr.includes('price'))) priceCol = cIdx;
+        else if (cStr.includes('loai phong') || cStr === 'loai') typeCol = cIdx;
+        else if (cStr.includes('dien tich')) sizeCol = cIdx;
+        else if (cStr.includes('dich vu') || cStr === 'dvc') serviceCol = cIdx;
+        else if (cStr.includes('noi that')) interiorCol = cIdx;
+      });
+      continue;
+    }
+
+    let rawBld = bldCol !== -1 && row[bldCol] !== undefined ? String(row[bldCol]).trim() : '';
+    let codeVal = codeCol !== -1 && row[codeCol] !== undefined ? String(row[codeCol]).trim() : '';
+    let priceVal = priceCol !== -1 && row[priceCol] !== undefined ? row[priceCol] : '';
+    let typeVal = typeCol !== -1 && row[typeCol] !== undefined ? String(row[typeCol]).trim() : '';
+    let sizeVal = sizeCol !== -1 && row[sizeCol] !== undefined ? String(row[sizeCol]).trim() : '';
+    let statusVal = statusCol !== -1 && row[statusCol] !== undefined ? String(row[statusCol]).trim() : '';
+    let serviceVal = serviceCol !== -1 && row[serviceCol] !== undefined ? String(row[serviceCol]).trim() : '';
+    let interiorVal = interiorCol !== -1 && row[interiorCol] !== undefined ? String(row[interiorCol]).trim() : '';
+    let areaVal = areaCol !== -1 && row[areaCol] !== undefined ? String(row[areaCol]).trim() : '';
+
+    // Đọc thông tin người dẫn / quản lý tòa nhà từ các cột liên quan
+    let rawNameCell = managerNameCol !== -1 && row[managerNameCol] !== undefined ? String(row[managerNameCol]).trim() : '';
+    let rawPhoneCell = managerPhoneCol !== -1 && row[managerPhoneCol] !== undefined ? String(row[managerPhoneCol]).trim() : '';
+
+    // Nếu đã lấy được rawPhoneCell từ managerPhoneCol nhưng chưa có rawNameCell, kiểm tra ô kề trái (cIdx - 1)
+    if (rawPhoneCell && !rawNameCell && managerPhoneCol > 0) {
+      const leftVal = String(row[managerPhoneCol - 1] || '').trim();
+      const normLeft = leftVal.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const isGarbage = ['full do', 'nhu anh', 'x9', 'vi tri', 'anh', 'video', 'map', 'link', 'tinh trang', 'trang thai', 'khu vuc', 'phong', 'stt'].some(g => normLeft.includes(g));
+      if (leftVal.length >= 2 && !isGarbage && !/^\d+$/.test(leftVal)) {
+        rawNameCell = leftVal;
+      }
+    }
+
+    // Nếu chưa có SĐT, thử đọc từ các cột sau cột Nội thất hoặc quét toàn bộ các ô trong dòng
+    if (!rawPhoneCell && interiorCol !== -1) {
+      for (let c = interiorCol + 1; c < row.length; c++) {
+        const valStr = String(row[c] || '').trim();
+        const phones = valStr.match(/(0[35789]\d{8})/g);
+        if (phones && phones.length > 0) {
+          rawPhoneCell = valStr;
+          if (c > 0 && !rawNameCell) {
+            const leftVal = String(row[c - 1] || '').trim();
+            const normLeft = leftVal.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            const isGarbage = ['full do', 'nhu anh', 'x9', 'vi tri', 'anh', 'video', 'map', 'link', 'tinh trang', 'trang thai', 'khu vuc', 'phong', 'stt'].some(g => normLeft.includes(g));
+            if (leftVal.length >= 2 && !isGarbage && !/^\d+$/.test(leftVal)) {
+              rawNameCell = leftVal;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    if (!rawPhoneCell) {
+      row.forEach((cell, cIdx) => {
+        if (cell && !rawPhoneCell) {
+          const valStr = String(cell).trim();
+          const phones = valStr.match(/(0[35789]\d{8})/g);
+          if (phones && phones.length > 0) {
+            rawPhoneCell = valStr;
+            if (cIdx > 0 && !rawNameCell) {
+              const leftVal = String(row[cIdx - 1] || '').trim();
+              const normLeft = leftVal.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+              if (leftVal.length >= 2 && !normLeft.includes('full do') && !normLeft.includes('nhu anh') && normLeft !== 'x9') {
+                rawNameCell = leftVal;
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Nếu rawNameCell vẫn trống, thử tách Tên từ chính rawPhoneCell (nếu ô chứa dạng "Nga - 0357992605" hoặc "Nga 0357992605")
+    if (!rawNameCell && rawPhoneCell) {
+      const textOnlyInPhoneCell = rawPhoneCell
+        .replace(/(0[35789]\d{8})/g, '')
+        .replace(/[\-\:\,\;\(\)\|]/g, ' ')
+        .trim();
+      const normText = textOnlyInPhoneCell.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (
+        textOnlyInPhoneCell.length >= 2 &&
+        !normText.includes('full do') &&
+        !normText.includes('nhu anh') &&
+        normText !== 'x9' &&
+        !normText.includes('cho vao') &&
+        !normText.includes('phong trong')
+      ) {
+        rawNameCell = textOnlyInPhoneCell;
+      }
+    }
+
+    let phoneLines: string[] = [];
+    const matchedPhones = rawPhoneCell.match(/(?:0|[35789])\d{8}/g);
+    if (matchedPhones && matchedPhones.length > 0) {
+      const padded = matchedPhones.map(p => (p.length === 9 ? '0' + p : p));
+      phoneLines = Array.from(new Set(padded));
+    }
+
+    const nameLines = rawNameCell
+      .split(/[\r\n;,]+/)
+      .map(n => n.replace(/[\d\s\-\.\(\)\|]/g, '').trim())
+      .filter(n => n.length >= 2 && n.toLowerCase() !== 'x9' && !n.toLowerCase().includes('full do'));
+
+    let rowManagerRaw = '';
+    if (phoneLines.length > 0 || nameLines.length > 0) {
+      const maxLen = Math.max(phoneLines.length, nameLines.length);
+      const pairs: string[] = [];
+      for (let i = 0; i < maxLen; i++) {
+        const n = nameLines[i] || (nameLines.length === 1 ? nameLines[0] : '');
+        const p = phoneLines[i] || (phoneLines.length === 1 ? phoneLines[0] : '');
+        if (n && p) pairs.push(`${n}|${p}`);
+        else if (n) pairs.push(n);
+        else if (p) pairs.push(p);
+      }
+      rowManagerRaw = pairs.join(';');
+    }
+
+    if (!rawBld || rawBld.length < 3 || rawBld.toLowerCase().includes('tiêu chí') || rawBld.toLowerCase().includes('lưu ý') || rawBld.toLowerCase() === 'tòa') {
+      continue;
+    }
+
+    // Làm sạch tên tòa nhà: thay \n bằng dấu cách
+    const cleanBldStr = rawBld.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+    const targetBldName = formatStandardBuildingAddress(cleanBldStr);
+
+    if (!codeVal || codeVal.length > 15 || codeVal.toLowerCase().includes('stt') || codeVal.toLowerCase().includes('lưu ý') || codeVal.toLowerCase() === 'phòng') {
+      continue;
+    }
+
+    const parsedPrice = cleanPriceNumber(priceVal);
+    let parsedType = parseRoomType(typeVal);
+    const cleanedCodeType = cleanRoomCodeAndType(codeVal, parsedType);
+    codeVal = cleanedCodeType.code;
+    parsedType = cleanedCodeType.roomType;
+
+    // Phân tích Drive link
+    let roomDriveUrl: string | null = null;
+    row.forEach((_, cIdx) => {
+      const cellRef = XLSX.utils.encode_cell({ r, c: cIdx });
+      const cellObj = ws[cellRef];
+      if (cellObj && cellObj.l && cellObj.l.Target && (cellObj.l.Target.includes('drive.google.com') || cellObj.l.Target.includes('zalo'))) {
+        roomDriveUrl = cellObj.l.Target;
+      }
+    });
+
+    // Phân tích trạng thái
+    const cleanStat = statusVal.toLowerCase().trim();
+    const normStat = cleanStat.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let status = 'rented';
+    let roomAvailableDate: string | null = null;
+
+    let dateInfo = parseDateFromStatusString(cleanStat);
+
+    // Nếu ô trạng thái không chứa ngày tháng, quét tất cả các ô trên dòng này (như Cột E, F, G...) để tìm ghi chú ngày tháng (vd: Excel date 46264, "15/8", "1/9", "KÍ LẠI 1/9"...)
+    if (!dateInfo.available_date) {
+      row.forEach((cell) => {
+        if (cell !== undefined && cell !== null && !dateInfo.available_date) {
+          const dCheck = parseDateFromStatusString(cell);
+          if (dCheck.available_date) {
+            dateInfo = dCheck;
+          }
+        }
+      });
+    }
+
+    if (dateInfo.available_date) {
+      roomAvailableDate = dateInfo.available_date;
+      status = 'rented';
+    } else if (
+      normStat.includes('trong') ||
+      normStat.includes('o ngay') ||
+      normStat.includes('o luon') ||
+      normStat.includes('san') ||
+      normStat === 'available'
+    ) {
+      status = 'available';
+    } else if (normStat.includes('giu') || normStat.includes('coc')) {
+      status = 'reserved';
+    }
+
+    const sizeNum = parseRoomSize(sizeVal);
+
+    // 1. Số người ở tối đa từ Cột T
+    let rowMaxOccupants = 2;
+    if (maxOccupantsCol !== -1 && row[maxOccupantsCol] !== undefined) {
+      const parsedOcc = cleanPriceNumber(row[maxOccupantsCol]);
+      if (parsedOcc >= 1 && parsedOcc <= 10) rowMaxOccupants = parsedOcc;
+    }
+
+    // 2. Số xe máy & Ghi chú xe từ Cột U & V
+    let rowMaxVehicles = 2;
+    const parkFeeVal = parkingFeeCol !== -1 && row[parkingFeeCol] !== undefined ? String(row[parkingFeeCol]).trim() : '';
+    const parkNoteVal = parkingNotesCol !== -1 && row[parkingNotesCol] !== undefined ? String(row[parkingNotesCol]).trim() : '';
+    const combinedPark = `${parkFeeVal} ${parkNoteVal}`.toLowerCase();
+
+    if (combinedPark.includes('1 xe')) rowMaxVehicles = 1;
+    else if (combinedPark.includes('2 xe')) rowMaxVehicles = 2;
+    else if (combinedPark.includes('3 xe')) rowMaxVehicles = 3;
+
+    let roomDesc = [serviceVal, interiorVal].filter(Boolean).join(' | ') || null;
+    if (parkFeeVal && !cleanPriceNumber(parkFeeVal)) {
+      roomDesc = roomDesc ? `${roomDesc} | Gửi xe: ${parkFeeVal}` : `Gửi xe: ${parkFeeVal}`;
+    }
+    if (roomAvailableDate && status === 'rented') {
+      roomDesc = roomDesc ? `[Sắp trống: ${roomAvailableDate}] ${roomDesc}` : `[Sắp trống: ${roomAvailableDate}]`;
+    }
+
+    // 3. Điện, Nước, Mạng, DV chung từ Cột P, Q, R, S
+    const rowElec = elecCol !== -1 ? cleanPriceNumber(row[elecCol]) : 0;
+    const rowWater = waterCol !== -1 ? cleanPriceNumber(row[waterCol]) : 0;
+    const rowInternet = internetCol !== -1 ? cleanPriceNumber(row[internetCol]) : 0;
+    const rowCommon = commonServiceCol !== -1 ? cleanPriceNumber(row[commonServiceCol]) : 0;
+
+    let depositVal = depositCol !== -1 && row[depositCol] !== undefined ? String(row[depositCol]).trim() : '';
+    let roomDepositTerms: string | null = null;
+    if (depositVal) {
+      const cleanDep = depositVal.replace(',', '.');
+      if (/^\d+(?:\.\d+)?$/.test(cleanDep)) {
+        roomDepositTerms = `Cọc ${cleanDep} tháng`;
+      } else if (cleanDep.toLowerCase().includes('cọc') || cleanDep.toLowerCase().includes('tháng')) {
+        roomDepositTerms = cleanDep;
+      } else {
+        roomDepositTerms = `Cọc ${cleanDep} tháng`;
+      }
+    }
+
+    let rowMapLink: string | null = null;
+    let rowCoords: { latitude: number; longitude: number } | null = null;
+
+    row.forEach((cell, cIdx) => {
+      const cellRef = XLSX.utils.encode_cell({ r, c: cIdx });
+      const cellObj = ws[cellRef];
+      const link = cellObj?.l?.Target || String(cell || '').trim();
+
+      if (link && (link.includes('maps') || link.includes('goo.gl') || link.includes('location'))) {
+        const coords = parseLatLongFromGoogleMapsUrl(link);
+        if (coords) {
+          rowCoords = coords;
+          rowMapLink = link;
+        } else if (link.startsWith('http')) {
+          rowMapLink = link;
+        }
+      }
+    });
+
+    const roomObj: ParsedRoom = {
+      code: codeVal,
+      floor: parseFloorFromRoomCode(codeVal),
+      price: parsedPrice,
+      room_type: parsedType,
+      size: sizeNum,
+      status: status as any,
+      available_date: roomAvailableDate,
+      bedrooms: parsedType.includes('2N') ? 2 : 1,
+      bathrooms: parsedType.includes('2WC') ? 2 : 1,
+      description: roomDesc,
+      drive_media_url: roomDriveUrl || null,
+      manager_raw: rowManagerRaw || null,
+      deposit_terms: roomDepositTerms,
+      max_occupants: rowMaxOccupants,
+      max_vehicles_per_room: rowMaxVehicles,
+    };
+
+    const bldKey = targetBldName.toLowerCase().trim().replace(/\s+/g, ' ');
+
+    if (!buildingsMap.has(bldKey)) {
+      buildingsMap.set(bldKey, {
+        name: targetBldName,
+        address: targetBldName,
+        area: detectHanoiDistrict(targetBldName, areaVal),
+        drive_media_url: roomDriveUrl || null,
+        general_notes: globalNotes || null,
+        deposit_terms: roomDepositTerms || null,
+        manager_raw: rowManagerRaw || null,
+        latitude: rowCoords ? (rowCoords as any).latitude : null,
+        longitude: rowCoords ? (rowCoords as any).longitude : null,
+        map_link: rowMapLink || null,
+        electricity_price: rowElec > 0 ? String(rowElec) : undefined,
+        water_price: rowWater > 0 ? String(rowWater) : undefined,
+        rooms: [],
+      });
+    }
+
+    const bld = buildingsMap.get(bldKey)!;
+    if (!bld.deposit_terms && roomDepositTerms) {
+      bld.deposit_terms = roomDepositTerms;
+    }
+    if (!bld.drive_media_url && roomDriveUrl) {
+      bld.drive_media_url = roomDriveUrl;
+    }
+    if (!bld.manager_raw && rowManagerRaw) {
+      bld.manager_raw = rowManagerRaw;
+    }
+    if (!bld.latitude && rowCoords) {
+      bld.latitude = (rowCoords as any).latitude;
+      bld.longitude = (rowCoords as any).longitude;
+    }
+    if (!bld.map_link && rowMapLink) {
+      bld.map_link = rowMapLink;
+    }
+    if (rowElec > 0 && !bld.electricity_price) bld.electricity_price = String(rowElec);
+    if (rowWater > 0 && !bld.water_price) bld.water_price = String(rowWater);
+    bld.rooms.push(roomObj);
+  }
+
+  buildingsMap.forEach((bld) => {
+    resolveBuildingManagerRaw(bld);
+    const bldServices: string[] = [];
+    bld.rooms.forEach(r => {
+      if (r.description) {
+        const cleanDesc = r.description.replace(/^\[Sắp trống:[^\]]+\]\s*/, '').trim();
+        if (cleanDesc && cleanDesc.length > 5 && !bldServices.includes(cleanDesc)) {
+          bldServices.push(cleanDesc);
+        }
+      }
+    });
+
+    if (bldServices.length > 0) {
+      bld.general_notes = cleanAndDeduplicateNotes(bldServices.join(' ; '));
+    } else {
+      bld.general_notes = null;
+    }
+  });
+
+  const rawBuildings = Array.from(buildingsMap.values()).filter(b => b.rooms.length > 0);
+  const buildings = rawBuildings.map(expandBuildingGrid);
+  const totalRooms = buildings.reduce((sum, b) => sum + b.rooms.length, 0);
+  if (buildings.length > 0 && totalRooms > 0) {
+    return { buildings };
+  }
+
+  return null;
 }
 
 /**
  * Trích xuất toàn bộ Bảng hàng, Tòa nhà, Link Drive ảnh, Nội thất, Dịch vụ cực nhanh
  * Hỗ trợ: nhiều tòa nhà trong 1 tab, nhận diện ngày tháng → "sắp trống"
  */
+
 export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImportResult | null {
   const buildingsMap = new Map<string, ParsedBuilding>();
   const buildingMetaMap = new Map<string, { dvc: string; internet: string; notes: string[] }>();
   const targetSheets = findBestSheetsToProcess(wb);
-  let globalNotes = '';
 
   for (const sheetName of targetSheets) {
+    let globalNotes = '';
     const ws = wb.Sheets[sheetName];
     if (!ws || !ws['!ref']) continue;
 
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
     if (!rows || rows.length === 0) continue;
 
+    // === STRATEGY 1: Thử Dual-Column Layout trước ===
+    let globalNotesForSheet = '';
+    for (let r = 0; r < Math.min(rows.length, 8); r++) {
+      const row = rows[r];
+      if (!row || !Array.isArray(row)) continue;
+      for (let c = 0; c < row.length; c++) {
+        const valStr = String(row[c] || '').trim();
+        const lowerVal = valStr.toLowerCase();
+        if (valStr.length > 25 && (lowerVal.includes('full đồ') || lowerVal.includes('dịch vụ chung') || lowerVal.includes('điện ') || lowerVal.includes('nước '))) {
+          if (!globalNotesForSheet) globalNotesForSheet = valStr;
+        }
+      }
+    }
+
+    if (detectDualColumnLayout(rows)) {
+      console.log(`[Sheet Parser] Phát hiện Dual-Column layout trong tab "${sheetName}"`);
+      const dualResult = parseDualColumnLayout(ws, rows, sheetName, globalNotesForSheet);
+      if (dualResult) {
+        for (const bld of dualResult.buildings) {
+          const existing = buildingsMap.get(bld.name);
+          if (existing) {
+            existing.rooms.push(...bld.rooms);
+          } else {
+            buildingsMap.set(bld.name, bld);
+          }
+        }
+        continue; // Chuyển sang tab tiếp theo
+      }
+    }
+
+    // === STRATEGY 2: Single-Row-Building Layout (Tên tòa nhà nằm thẳng ở từng dòng) ===
+    if (detectSingleRowBuildingLayout(rows)) {
+      console.log(`[Sheet Parser] Phát hiện Single-Row-Building layout trong tab "${sheetName}"`);
+      const singleResult = parseSingleRowBuildingLayout(ws, rows, sheetName, globalNotesForSheet);
+      if (singleResult) {
+        for (const bld of singleResult.buildings) {
+          const existing = buildingsMap.get(bld.name);
+          if (existing) {
+            existing.rooms.push(...bld.rooms);
+          } else {
+            buildingsMap.set(bld.name, bld);
+          }
+        }
+        continue; // Chuyển sang tab tiếp theo
+      }
+    }
+
+    // === STRATEGY 2: Layout chuẩn (cũ) ===
+    globalNotes = globalNotesForSheet;
     let buildingDriveUrl: string | null = null;
     const globalNotesParts: string[] = [];
 
     // 1. Quét tìm Link Drive & Ghi chú chung ở đầu file (Rows 0-10)
+
     for (let r = 0; r < Math.min(rows.length, 10); r++) {
       const row = rows[r];
       if (!row || !Array.isArray(row)) continue;
@@ -477,21 +1434,25 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
     let interiorCol = -1;
     let dvcCol = -1;
     let internetCol = -1;
+    let managerNameCol = -1;
+    let managerPhoneCol = -1;
 
     for (let r = 0; r < Math.min(rows.length, 10); r++) {
       const row = rows[r];
       if (!row || !Array.isArray(row)) continue;
       row.forEach((cell, cIdx) => {
-        const cStr = String(cell || '').toLowerCase().trim();
-        if (cStr.includes('tòa nhà') || cStr.includes('tên tòa') || cStr.includes('địa chỉ') || cStr === 'tòa') bldCol = cIdx;
-        else if (cStr.includes('số phòng') || cStr.includes('mã phòng') || cStr.includes('phòng trống') || cStr === 'phòng') codeCol = cIdx;
-        else if (cStr.includes('giá phòng') || cStr.includes('giá thuê') || cStr === 'giá') priceCol = cIdx;
-        else if (cStr.includes('loại phòng') || cStr === 'loại') typeCol = cIdx;
-        else if (cStr.includes('diện tích')) sizeCol = cIdx;
-        else if (cStr.includes('tình trạng') || cStr.includes('trạng thái')) statusCol = cIdx;
-        else if (cStr === 'dvc' || cStr.includes('dịch vụ chung')) dvcCol = cIdx;
-        else if (cStr.includes('internet') || cStr.includes('mạng')) internetCol = cIdx;
-        else if (cStr.includes('nội thất')) interiorCol = cIdx;
+        const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (cStr.includes('toa nha') || cStr.includes('ten toa') || cStr.includes('dia chi') || cStr === 'toa') bldCol = cIdx;
+        else if (cStr.includes('so phong') || cStr.includes('ma phong') || cStr.includes('phong trong') || cStr === 'phong') codeCol = cIdx;
+        else if (cStr.includes('tinh trang') || cStr.includes('trang thai') || cStr.includes('thoi gian') || cStr.includes('o duoc')) statusCol = cIdx;
+        else if (!cStr.includes('gian') && (cStr.includes('gia') || cStr.includes('price'))) priceCol = cIdx;
+        else if (cStr.includes('loai phong') || cStr === 'loai') typeCol = cIdx;
+        else if (cStr.includes('dien tich')) sizeCol = cIdx;
+        else if (cStr === 'dvc' || cStr.includes('dich vu chung')) dvcCol = cIdx;
+        else if (cStr.includes('internet') || cStr.includes('mang')) internetCol = cIdx;
+        else if (cStr.includes('noi that')) interiorCol = cIdx;
+        else if (cStr.includes('so dan') || cStr.includes('sdt dan') || cStr.includes('sdt quan ly') || cStr.includes('sdt nguoi dan')) managerPhoneCol = cIdx;
+        else if (cStr.includes('nguoi dan') || cStr.includes('ten quan ly') || cStr.includes('quan ly')) managerNameCol = cIdx;
       });
 
       if (codeCol !== -1 || priceCol !== -1) {
@@ -526,17 +1487,35 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
       const col2Val = row[2] !== undefined ? String(row[2]).trim() : '';
       const col0Val = row[0] !== undefined ? String(row[0]).trim() : '';
 
-      // Tự động nhận diện Tòa nhà mới nếu ô thỏa mãn isBuildingHeader
-      const potentialBldHeader = (bldVal && isBuildingHeader(bldVal) ? bldVal : '') ||
-        (col1Val && isBuildingHeader(col1Val) ? col1Val : '') ||
-        (col2Val && isBuildingHeader(col2Val) ? col2Val : '') ||
-        (col0Val && isBuildingHeader(col0Val) ? col0Val : '');
+      // Tự động nhận diện Tòa nhà mới nếu ô thỏa mãn isBuildingHeader (Bỏ qua các cột dữ liệu phòng đã xác định)
+      let potentialBldHeader = '';
+      if (bldCol !== -1 && bldVal && isBuildingHeader(bldVal)) {
+        potentialBldHeader = bldVal;
+      } else if (headerRowIdx === -1) {
+        // Nếu không có header rõ ràng, chỉ check ô col0 hoặc col1 nếu không trùng cột dữ liệu
+        if (col0Val && 0 !== codeCol && 0 !== typeCol && 0 !== priceCol && 0 !== statusCol && isBuildingHeader(col0Val)) {
+          potentialBldHeader = col0Val;
+        } else if (col1Val && 1 !== codeCol && 1 !== typeCol && 1 !== priceCol && 1 !== statusCol && isBuildingHeader(col1Val)) {
+          potentialBldHeader = col1Val;
+        }
+      }
 
       if (potentialBldHeader) {
         currentBldName = potentialBldHeader;
         currentBldSpecificNotes = [];
         currentBldDvc = '';
         currentBldInternet = '';
+
+        // Đọc Số dẫn / Người quản lý nếu có trong cùng dòng tiêu đề tòa nhà
+        if (!buildingsMap.has(formatStandardBuildingAddress(potentialBldHeader))) {
+          const mPhone = managerPhoneCol !== -1 && row[managerPhoneCol] ? String(row[managerPhoneCol]).trim() : '';
+          const mName = managerNameCol !== -1 && row[managerNameCol] ? String(row[managerNameCol]).trim() : '';
+          if (mPhone) {
+            const managerRaw = mName ? `${mName} - ${mPhone}` : mPhone;
+            // Will be assigned when building is created
+            buildingMetaMap.set(formatStandardBuildingAddress(potentialBldHeader), { dvc: '', internet: '', notes: [], managerRaw } as any);
+          }
+        }
       }
 
       // Trích xuất DVC & Internet riêng của Tòa nhà
@@ -564,23 +1543,28 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
       if (noteCandidate && !cleanPriceNumber(priceVal) && currentBldName) {
         if (!currentBldSpecificNotes.includes(noteCandidate)) {
           currentBldSpecificNotes.push(noteCandidate);
-          const existingBld = buildingsMap.get(currentBldName);
-          if (existingBld) {
-            const noteTag = `💡 Ghi chú riêng: ${noteCandidate}`;
-            if (!existingBld.general_notes) {
-              existingBld.general_notes = noteTag;
-            } else if (!existingBld.general_notes.includes(noteCandidate)) {
-              existingBld.general_notes = `${existingBld.general_notes} | ${noteTag}`;
-            }
+          const meta = buildingMetaMap.get(currentBldName);
+          if (meta && !meta.notes.includes(noteCandidate)) {
+            meta.notes.push(noteCandidate);
           }
         }
         continue;
       }
 
-      // Đảo lại nếu tiêu đề cột bị ghi ngược (codeVal mang giá tiền)
+      // Tự động nhận diện nếu ô ở Cột A (col0) chứa Giá tiền (ví dụ 6.800.000, 6.300.000)
+      if (!cleanPriceNumber(priceVal)) {
+        const col0Price = cleanPriceNumber(row[0]);
+        if (col0Price >= 1000000 && isPurePriceString(row[0])) {
+          priceVal = row[0];
+        }
+      }
+
+      // Đảo lại KHI codeVal thực sự mang giá tiền (ví dụ "6.8tr", "6.800.000")
+      // và priceVal không phải giá phòng hợp lý (< 1.000.000 VND)
+      // Điều này xử lý các bảng có header cột bị đặt ngược (Cột A ghi "GIÁ PHÒNG" nhưng thực tế là SỐ PHÒNG)
       const priceFromCode = cleanPriceNumber(codeVal);
       const priceFromPrice = cleanPriceNumber(priceVal);
-      if (priceFromCode >= 500000 && priceFromPrice < 10000) {
+      if (priceFromCode >= 1000000 && isPurePriceString(codeVal) && priceFromPrice < 1000000) {
         const tempCode = codeVal;
         codeVal = String(priceVal).trim();
         priceVal = tempCode;
@@ -603,7 +1587,8 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
         continue;
       }
 
-      const targetBldName = currentBldName || cleanSheetName;
+      const rawBldName = currentBldName || cleanSheetName;
+      const targetBldName = formatStandardBuildingAddress(rawBldName);
 
       // Trích xuất Link Google Drive ẩn trong ô
       let roomDriveUrl: string | null = null;
@@ -624,37 +1609,40 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
       parsedType = cleanedCodeType.roomType;
 
       const cleanStat = statusVal.toLowerCase().trim();
+      const normStat = cleanStat.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       let status = 'rented';
       let roomAvailableDate: string | null = null;
 
       // ===== NHẬN DIỆN NGÀY THÁNG → "SẮP TRỐNG" =====
-      // Nếu ô trạng thái chứa ngày cụ thể (31/7, July-7,...) → phòng đang có người nhưng sắp ra
-      const dateInfo = parseDateFromStatusString(cleanStat);
+      let dateInfo = parseDateFromStatusString(cleanStat);
+
+      // Nếu ô trạng thái không chứa ngày tháng, quét tất cả các ô còn lại trên dòng này (như Cột E, F, G...) để tìm ghi chú ngày tháng (vd: Excel date 46264, "15/8", "1/9", "KÍ LẠI 1/9"...)
+      if (!dateInfo.available_date) {
+        row.forEach((cell) => {
+          if (cell !== undefined && cell !== null && !dateInfo.available_date) {
+            const dCheck = parseDateFromStatusString(cell);
+            if (dCheck.available_date) {
+              dateInfo = dCheck;
+            }
+          }
+        });
+      }
+
       if (dateInfo.available_date) {
         roomAvailableDate = dateInfo.available_date;
-        const parsedDate = new Date(dateInfo.available_date);
-        const nowCheck = new Date();
-        nowCheck.setHours(0, 0, 0, 0);
-        if (parsedDate <= nowCheck) {
-          // Ngày đã qua → phòng đã trống
-          status = 'available';
-          roomAvailableDate = null;
-        } else {
-          // Còn đang thuê nhưng có ngày ra cụ thể → rented + available_date cho hệ thống "sắp trống"
-          status = 'rented';
-        }
+        status = 'rented';
       } else if (
-        cleanStat.includes('trống') ||
-        cleanStat.includes('ở ngay') ||
-        cleanStat.includes('ở luôn') ||
-        cleanStat.includes('sẵn') ||
-        cleanStat === 'available'
+        normStat.includes('trong') ||
+        normStat.includes('o ngay') ||
+        normStat.includes('o luon') ||
+        normStat.includes('san') ||
+        normStat === 'available'
       ) {
         status = 'available';
-      } else if (cleanStat.includes('giữ') || cleanStat.includes('cọc')) {
+      } else if (normStat.includes('giu') || normStat.includes('coc')) {
         status = 'reserved';
       }
-      // Tất cả các trạng thái khác ("có khách", "đã thuê", "có người", rỗng...) → rented (mặc định)
+      // Tất cả các trạng thái khác ("đã ở", "có khách", "đã thuê", rỗng "") → rented (mặc định)
 
       const sizeMatch = sizeVal.match(/(\d{2,3})/);
       const sizeParsed = sizeMatch ? parseInt(sizeMatch[1], 10) : 25;
@@ -698,9 +1686,10 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
 
   const rawBuildings = Array.from(buildingsMap.values()).filter(b => b.rooms.length > 0);
   rawBuildings.forEach(b => {
+    resolveBuildingManagerRaw(b);
     const meta = buildingMetaMap.get(b.name);
     b.general_notes = buildGeneralNotesForBuilding(
-      globalNotes,
+      b.general_notes || '',
       meta?.dvc || '',
       meta?.internet || '',
       meta?.notes || []
@@ -708,6 +1697,16 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
   });
 
   const buildings = rawBuildings.map(expandBuildingGrid);
+
+  const policyRules = extractPolicyRulesFromWorkbook(wb);
+  if (policyRules) {
+    buildings.forEach(b => {
+      b.general_notes = b.general_notes
+        ? `${b.general_notes} | 📋 Quy định nhận khách: ${policyRules}`
+        : `📋 Quy định nhận khách: ${policyRules}`;
+    });
+  }
+
   const totalRooms = buildings.reduce((sum, b) => sum + b.rooms.length, 0);
   if (buildings.length > 0 && totalRooms > 0) {
     return { buildings };
@@ -827,11 +1826,32 @@ export async function parseGoogleSheetFull(sheetUrl: string): Promise<SheetImpor
       const arrayBuffer = await res.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
+      const parsedPolicies = parseLandlordPoliciesFromWorkbook(wb);
       const progResult = parseSheetContentProgrammatically(wb);
       if (progResult) {
-        const totalRooms = progResult.buildings.reduce((sum, b) => sum + b.rooms.length, 0);
-        console.log(`[Sheet Parser] Programmatic parser bóc tách thành công ${progResult.buildings.length} tòa nhà và ${totalRooms} phòng!`);
-        return progResult;
+        const cleanedResult = cleanAllPromoAndRewards(progResult);
+        if (parsedPolicies) {
+          cleanedResult.landlord_policies = parsedPolicies;
+          cleanedResult.buildings.forEach((b) => {
+            b.landlord_policies = parsedPolicies;
+            if (parsedPolicies.closing_notes && parsedPolicies.closing_notes.length > 0) {
+              const notesText = parsedPolicies.closing_notes.join(' ');
+              const normNotes = cleanVietnameseString(notesText);
+              if (normNotes.includes('khong nhan khach nuoi pet') || normNotes.includes('khong cho nuoi pet') || normNotes.includes('khong pet')) {
+                b.allow_pet = 'Không cho nuôi';
+              }
+              if (normNotes.includes('khong nhan khach nuoc ngoai') || normNotes.includes('chi khach viet')) {
+                b.allow_foreigners = false;
+              }
+              if (normNotes.includes('xe dien vinfast') || normNotes.includes('chi nhan xe dien vinfast')) {
+                b.allow_vinfast_electric = true;
+              }
+            }
+          });
+        }
+        const totalRooms = cleanedResult.buildings.reduce((sum, b) => sum + b.rooms.length, 0);
+        console.log(`[Sheet Parser] Programmatic parser bóc tách thành công ${cleanedResult.buildings.length} tòa nhà và ${totalRooms} phòng! (Có quy định chủ nhà: ${Boolean(parsedPolicies)})`);
+        return cleanedResult;
       }
     }
   } catch (err: any) {
@@ -840,7 +1860,8 @@ export async function parseGoogleSheetFull(sheetUrl: string): Promise<SheetImpor
 
   // BƯỚC 2: Fallback sang AI Gemini nếu file có cấu trúc tự do không theo bảng tiêu chuẩn
   const csvContent = await fetchPublicGoogleSheetCsv(sheetUrl);
-  return await parseSheetContentWithAI(csvContent);
+  const rawAiResult = await parseSheetContentWithAI(csvContent);
+  return cleanAllPromoAndRewards(rawAiResult);
 }
 
 export async function parseSheetContentWithAI(csvText: string): Promise<SheetImportResult> {

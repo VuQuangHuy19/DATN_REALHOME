@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getDepositContract, type DepositContractWithRoom } from '@/src/features/finance/services/deposit_contracts';
+import { getDepositContract, type DepositContractWithRoom } from '@/features/finance/services/deposit_contracts';
 import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft, Loader2, AlertCircle, Download } from 'lucide-react';
 import Link from 'next/link';
@@ -111,7 +111,10 @@ export function PrintContractPage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Bản in A4 */}
-      <div className="max-w-[210mm] min-h-[297mm] mx-auto bg-white p-[25mm] shadow-lg border border-slate-200 print:shadow-none print:border-none print:p-0 font-serif text-[13.5px] leading-relaxed text-black">
+      <div
+        style={{ fontFamily: "'Times New Roman', Times, serif" }}
+        className="max-w-[210mm] min-h-[297mm] mx-auto bg-white p-[25mm] shadow-lg border border-slate-200 print:shadow-none print:border-none print:p-0 text-[13.5px] leading-relaxed text-black"
+      >
         {/* Quốc hiệu tiêu ngữ */}
         <div className="text-center space-y-1">
           <h2 className="font-bold text-sm tracking-wider uppercase">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>

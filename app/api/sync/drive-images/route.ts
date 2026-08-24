@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { syncGoogleDriveImagesForProperty } from '@/src/lib/services/google-drive';
+import { syncGoogleDriveImagesForProperty } from '@/lib/services/google-drive';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;

@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   Pencil, Trash2, Plus, Search, Eye, DoorOpen, Loader2, AlertCircle,
   Image as LucideImage, FileSpreadsheet, Link as LinkIcon, Building2,
-  MapPin, Calendar, Layers, Clock, ShieldAlert, Zap, Layers3
+  MapPin, Calendar, Layers, Clock, ShieldAlert, Zap, Layers3,
+  RefreshCw, CheckCircle2
 } from 'lucide-react';
 import { ExcelImportModal } from '@/features/properties/components/ExcelImportModal';
 import { GoogleSheetImportModal } from '@/features/import/components/GoogleSheetImportModal';
@@ -62,8 +63,59 @@ export function RoomListPage() {
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
 
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
-  const [deletingBatch, setDeletingBatch] = useState(false);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
+  const [isBulkStatusModalOpen, setIsBulkStatusModalOpen] = useState(false);
+  const [bulkTargetStatus, setBulkTargetStatus] = useState<string>('available');
+  const [isBulkUpdatingStatus, setIsBulkUpdatingStatus] = useState(false);
+
+  const toggleSelectRoom = (id: string) => {
+    setSelectedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRoomIds.size === 0) return;
+    setIsBulkDeleting(true);
+    toast.loading(`Đang xóa ${selectedRoomIds.size} phòng...`, { id: 'bulk-delete-rooms' });
+    try {
+      const idsArray = Array.from(selectedRoomIds);
+      for (const id of idsArray) {
+        await remove(id);
+      }
+      setSelectedRoomIds(new Set());
+      setIsConfirmBulkDeleteOpen(false);
+      toast.success(`Đã xóa thành công ${idsArray.length} phòng!`, { id: 'bulk-delete-rooms' });
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa phòng: ' + (err.message || ''), { id: 'bulk-delete-rooms' });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (selectedRoomIds.size === 0) return;
+    setIsBulkUpdatingStatus(true);
+    toast.loading(`Đang cập nhật trạng thái ${selectedRoomIds.size} phòng...`, { id: 'bulk-status-update' });
+    try {
+      const idsArray = Array.from(selectedRoomIds);
+      for (const id of idsArray) {
+        await update(id, { status: bulkTargetStatus as any });
+      }
+      setSelectedRoomIds(new Set());
+      setIsBulkStatusModalOpen(false);
+      toast.success(`Đã cập nhật trạng thái cho ${idsArray.length} phòng!`, { id: 'bulk-status-update' });
+    } catch (err: any) {
+      toast.error('Lỗi khi cập nhật trạng thái: ' + (err.message || ''), { id: 'bulk-status-update' });
+    } finally {
+      setIsBulkUpdatingStatus(false);
+    }
+  };
 
   const { images: viewImages } = useRoomImages(viewItem?.id);
   const isCustomer = pathname.startsWith('/customer') || !role || (role as string) === 'customer';
@@ -83,8 +135,8 @@ export function RoomListPage() {
 
   // Area options
   const areaOptions = useMemo(() => {
-    const areas = buildings.map((b) => b.area).filter(Boolean);
-    return Array.from(new Set(areas));
+    const areas = buildings.map((b) => (b.area || '').normalize('NFC')).filter(Boolean);
+    return Array.from(new Set(areas)).sort((a, b) => a.localeCompare(b, 'vi'));
   }, [buildings]);
 
   // Handle uploaded images
@@ -206,55 +258,23 @@ export function RoomListPage() {
       }
 
       const matchesBuilding = !filterBuildingId || r.building_id === filterBuildingId || bld?.id === filterBuildingId || bld?.code === filterBuildingId;
-      const matchesArea = !filterArea || area === filterArea;
+      const matchesArea = !filterArea || (area || '').normalize('NFC') === filterArea.normalize('NFC');
       const matchesLandlord = !filterLandlordCode || (r.landlord_code ?? '') === filterLandlordCode || bld?.landlord_id === filterLandlordCode;
 
       return matchesSearch && matchesStatus && matchesBuilding && matchesArea && matchesLandlord;
     });
   }, [roomList, role, buildings, contracts, searchQuery, filterStatus, filterBuildingId, filterArea, filterLandlordCode]);
 
-  const toggleSelectRoom = (id: string) => {
-    setSelectedRoomIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const isAllSelected = useMemo(() => {
+    if (filteredRooms.length === 0) return false;
+    return filteredRooms.every((r) => selectedRoomIds.has(r.id));
+  }, [filteredRooms, selectedRoomIds]);
 
-  const isAllRoomsSelected =
-    filteredRooms.length > 0 && selectedRoomIds.length === filteredRooms.length;
-
-  const handleSelectAllRooms = () => {
-    if (isAllRoomsSelected) {
-      setSelectedRoomIds([]);
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedRoomIds(new Set());
     } else {
-      setSelectedRoomIds(filteredRooms.map((r) => r.id));
-    }
-  };
-
-  const handleBatchDeleteRooms = async () => {
-    if (selectedRoomIds.length === 0) return;
-    const count = selectedRoomIds.length;
-    if (
-      !window.confirm(
-        `Bạn có chắc chắn muốn xóa ${count} phòng đã chọn? Thao tác này không thể hoàn tác!`
-      )
-    ) {
-      return;
-    }
-
-    setDeletingBatch(true);
-    toast.loading(`Đang xóa ${count} phòng...`, { id: 'batch-delete-room' });
-    try {
-      for (const id of selectedRoomIds) {
-        await remove(id);
-      }
-      setSelectedRoomIds([]);
-      toast.success(`Đã xóa thành công ${count} phòng!`, { id: 'batch-delete-room' });
-    } catch (err: any) {
-      toast.error('Lỗi khi xóa các phòng đã chọn: ' + (err.message || 'Không xác định'), {
-        id: 'batch-delete-room',
-      });
-    } finally {
-      setDeletingBatch(false);
+      setSelectedRoomIds(new Set(filteredRooms.map((r) => r.id)));
     }
   };
 
@@ -388,6 +408,7 @@ export function RoomListPage() {
 
   // Render individual room card for Matrix
   const renderRoomCard = (room: RoomWithBuilding) => {
+    const isSelected = selectedRoomIds.has(room.id);
     const ds = getRoomDisplayStatus(room, contracts);
     const activeDeposit = room.status === 'reserved'
       ? depositContracts.find((c) => c.room_id === room.id && c.status === 'active')
@@ -413,35 +434,22 @@ export function RoomListPage() {
       statusBadgeClass = 'bg-sky-100 text-sky-700 border-sky-200 font-bold';
     }
 
-    const isSelected = selectedRoomIds.includes(room.id);
-
     return (
       <div
         key={room.id}
         onClick={() => openView(room)}
-        className={`p-3.5 rounded-2xl border ${cardBg} shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-2.5 relative group ${
-          isSelected ? 'ring-2 ring-rose-400 border-rose-400 bg-rose-50/40' : ''
-        }`}
+        className={`p-3.5 rounded-2xl border ${isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10' : cardBg} shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-2.5 relative group`}
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            {role !== 'sales_agent' && (
-              <div
-                className="shrink-0 cursor-pointer p-0.5"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSelectRoom(room.id);
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => {}}
-                  className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                />
-              </div>
-            )}
-            <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleSelectRoom(room.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0 mt-0.5"
+            />
+            <div>
               <span className="font-extrabold text-sm text-slate-900 group-hover:text-emerald-600 transition-colors">
                 P.{room.code}
               </span>
@@ -646,6 +654,61 @@ export function RoomListPage() {
             </div>
           </div>
 
+          {/* Inline Bulk Action Bar - Ngay dưới Matrix phòng, Sơ đồ tầng, Xử lý nhanh */}
+          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 flex-wrap bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span>{isAllSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}</span>
+              </label>
+
+              <span className="text-xs text-slate-500 font-medium">
+                • Đã chọn <strong className="text-emerald-700 font-extrabold">{selectedRoomIds.size}</strong> / {filteredRooms.length} phòng
+              </span>
+            </div>
+
+            {selectedRoomIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                {role !== 'sales_agent' && (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => setIsBulkStatusModalOpen(true)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                      Đổi trạng thái ({selectedRoomIds.size})
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setIsConfirmBulkDeleteOpen(true)}
+                      className="bg-rose-600 hover:bg-rose-700 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Xóa đã chọn ({selectedRoomIds.size})
+                    </Button>
+                  </>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedRoomIds(new Set())}
+                  className="bg-white hover:bg-slate-100 text-slate-700 border-slate-200 h-8 text-xs font-bold rounded-xl"
+                >
+                  Hủy chọn
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Search bar & Status Filter Pills */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-100">
             {/* Search Input */}
@@ -703,34 +766,6 @@ export function RoomListPage() {
               )}
             </div>
           </div>
-
-          {/* Selection Toolbar: Select All & Bulk Delete */}
-          {role !== 'sales_agent' && (
-            <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 bg-slate-50/70 p-2.5 rounded-xl">
-              <label className="flex items-center gap-2 text-xs font-extrabold text-slate-800 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isAllRoomsSelected}
-                  onChange={handleSelectAllRooms}
-                  className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                />
-                <span>Chọn tất cả ({filteredRooms.length} phòng)</span>
-              </label>
-
-              {selectedRoomIds.length > 0 && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={deletingBatch}
-                  onClick={handleBatchDeleteRooms}
-                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl h-8 px-3 text-xs shadow-md flex items-center gap-1.5"
-                >
-                  {deletingBatch ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  Xóa ({selectedRoomIds.length}) phòng đã chọn
-                </Button>
-              )}
-            </div>
-          )}
         </CardHeader>
 
         {/* Content Area */}
@@ -1102,6 +1137,72 @@ export function RoomListPage() {
         onOpenChange={setIsSheetModalOpen}
         onSuccess={() => window.location.reload()}
       />
+
+      {/* Dialog Đổi Trạng Thái Hàng Loạt */}
+      <Dialog open={isBulkStatusModalOpen} onOpenChange={setIsBulkStatusModalOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-700 font-bold">
+              <RefreshCw className="h-5 w-5" /> Đổi trạng thái {selectedRoomIds.size} phòng đã chọn
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-xs text-slate-600">
+              Chọn trạng thái mới để áp dụng đồng loạt cho <strong>{selectedRoomIds.size} phòng</strong> đã chọn:
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700 uppercase">Trạng thái mới</Label>
+              <select
+                value={bulkTargetStatus}
+                onChange={(e) => setBulkTargetStatus(e.target.value)}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800"
+              >
+                <option value="available">🟢 Còn trống (Available)</option>
+                <option value="rented">🔴 Đã thuê (Rented)</option>
+                <option value="maintenance">🟡 Bảo trì (Maintenance)</option>
+                <option value="reserved">🔵 Đang giữ cọc (Reserved)</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button variant="outline" size="sm" onClick={() => setIsBulkStatusModalOpen(false)} disabled={isBulkUpdatingStatus}>
+              Hủy
+            </Button>
+            <Button size="sm" onClick={handleBulkStatusUpdate} disabled={isBulkUpdatingStatus} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
+              {isBulkUpdatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
+              Xác nhận cập nhật
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận Xóa Hàng Loạt Phòng */}
+      <Dialog open={isConfirmBulkDeleteOpen} onOpenChange={setIsConfirmBulkDeleteOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 font-bold">
+              <AlertCircle className="h-5 w-5" /> Xác nhận xóa {selectedRoomIds.size} phòng
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs text-slate-600">
+            <p>
+              Bạn có chắc chắn muốn xóa <strong>{selectedRoomIds.size} phòng</strong> đã chọn?
+            </p>
+            <p className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 font-medium">
+              ⚠️ Hình ảnh phòng và dữ liệu liên quan sẽ bị xóa khỏi hệ thống. Thao tác này không thể hoàn tác.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsConfirmBulkDeleteOpen(false)} disabled={isBulkDeleting}>
+              Hủy bỏ
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isBulkDeleting}>
+              {isBulkDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Đồng ý xóa ({selectedRoomIds.size})
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

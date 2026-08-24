@@ -28,6 +28,7 @@ type RoomRow = {
     area: string;
     address: string | null;
     landlord_id?: string | null;
+    is_verified_property?: boolean | null;
     year_built: number | null;
     image_url: string | null;
     thumbnail_url?: string | null;
@@ -82,12 +83,23 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
   let thumbnailUrl = buildingThumbnail || PLACEHOLDER_LISTING_IMAGE;
   let thumbnailUrls: string[] = [];
 
+  // Ảnh: dùng ảnh của phòng hiện tại + ảnh đại diện tòa nhà (không kéo ảnh phòng khác — tránh N+1 explosion)
   if (room.room_images && room.room_images.length > 0) {
     const sorted = [...room.room_images].sort((a, b) => a.priority - b.priority);
     const imagesOnly = sorted.filter((img) => img.media_type !== 'video' && !isVideoStr(img.url));
 
-    imageUrls = (imagesOnly.length > 0 ? imagesOnly : sorted).map((img) => img.url);
-    thumbnailUrls = (imagesOnly.length > 0 ? imagesOnly : sorted).map((img) => img.thumbnail_url || img.url);
+    const currentRoomUrls = sorted.map((img) => img.url);
+    const currentRoomThumbs = sorted.map((img) => img.thumbnail_url || img.url);
+
+    imageUrls = Array.from(new Set([
+      ...currentRoomUrls,
+      ...(buildingImage ? [buildingImage] : []),
+    ])).filter(url => url && url !== PLACEHOLDER_LISTING_IMAGE);
+
+    thumbnailUrls = Array.from(new Set([
+      ...currentRoomThumbs,
+      ...(buildingThumbnail ? [buildingThumbnail] : []),
+    ])).filter(url => url && url !== PLACEHOLDER_LISTING_IMAGE);
     
     let coverImg = sorted.find((img) => img.is_thumbnail && img.media_type !== 'video' && !isVideoStr(img.url));
     if (!coverImg) {
@@ -102,13 +114,26 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
       thumbnailUrl = buildingThumbnail || PLACEHOLDER_LISTING_IMAGE;
     }
   } else {
+    // Phòng không có ảnh riêng — dùng ảnh đại diện tòa nhà
     imageUrl = buildingImage || PLACEHOLDER_LISTING_IMAGE;
-    imageUrls = [imageUrl];
+    imageUrls = buildingImage ? [buildingImage] : [PLACEHOLDER_LISTING_IMAGE];
+
     thumbnailUrl = buildingThumbnail || PLACEHOLDER_LISTING_IMAGE;
-    thumbnailUrls = [thumbnailUrl];
+    thumbnailUrls = buildingThumbnail ? [buildingThumbnail] : [PLACEHOLDER_LISTING_IMAGE];
   }
 
   const ds = getRoomDisplayStatus(room as any, room.rental_contracts || []);
+
+  const rawLandlords = (building as any)?.landlords || (room as any)?.landlords;
+  const landlordObj = Array.isArray(rawLandlords) ? rawLandlords[0] : rawLandlords;
+  const landlordSystemName = landlordObj?.system_name || (building as any)?.system_name || null;
+  const landlordName = landlordObj?.name || (building as any)?.landlord_name || null;
+  const isVerifiedProperty = !!(
+    building?.is_verified_property ||
+    landlordObj?.is_kyc_verified ||
+    landlordObj?.kyc_status === 'verified' ||
+    landlordObj?.kyc_status === 'approved'
+  );
 
   return {
     id: room.id,
@@ -133,6 +158,9 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     thumbnailUrls,
     companyId: room.company_id,
     landlordId: room.landlord_id ?? building?.landlord_id ?? null,
+    landlordSystemName,
+    landlordName,
+    isVerifiedProperty,
     buildingCode: room.building_id ?? null,
     depositTerms: room.deposit_terms || building?.deposit_terms || null,
     hasElevator: building?.has_elevator ?? undefined,
@@ -158,5 +186,6 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     latitude: building?.latitude ?? null,
     longitude: building?.longitude ?? null,
     createdAt: room.created_at || null,
+    availableDate: null,
   };
 }

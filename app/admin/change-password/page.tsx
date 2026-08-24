@@ -19,23 +19,23 @@ export default function ChangePasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!oldPassword) {
-      toast.error('Vui lòng nhập mật khẩu hiện tại');
-      return;
-    }
+    const errs: Record<string, string> = {};
+    if (!oldPassword) errs.oldPassword = 'Không được để trống';
+    if (!password) errs.password = 'Không được để trống';
+    else if (password.length < 6) errs.password = 'Mật khẩu mới phải có tối thiểu 6 ký tự';
+    if (!confirmPassword) errs.confirmPassword = 'Không được để trống';
+    else if (password !== confirmPassword) errs.confirmPassword = 'Mật khẩu xác nhận không khớp';
 
-    if (password.length < 6) {
-      toast.error('Mật khẩu mới phải có tối thiểu 6 ký tự');
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
       return;
     }
-
-    if (password !== confirmPassword) {
-      toast.error('Mật khẩu xác nhận không khớp');
-      return;
-    }
+    setErrors({});
 
     setLoading(true);
     try {
@@ -90,30 +90,38 @@ export default function ChangePasswordPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="old-password">Mật khẩu hiện tại</Label>
+              <Label htmlFor="old-password">Mật khẩu hiện tại *</Label>
               <Input
                 id="old-password"
                 type="password"
                 placeholder="Nhập mật khẩu hiện tại của bạn"
                 value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                required
+                onChange={(e) => {
+                  setOldPassword(e.target.value);
+                  if (e.target.value) setErrors(prev => ({ ...prev, oldPassword: '' }));
+                }}
+                className={errors.oldPassword ? 'border-rose-500 focus:ring-rose-500' : ''}
               />
+              {errors.oldPassword && (
+                <p className="text-xs font-bold text-rose-500 mt-1">⚠️ {errors.oldPassword}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="new-password">Mật khẩu mới</Label>
+              <Label htmlFor="new-password">Mật khẩu mới *</Label>
               <div className="relative">
                 <Input
                   id="new-password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
-                  required
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (e.target.value) setErrors(prev => ({ ...prev, password: '' }));
+                  }}
+                  className={`pr-10 ${errors.password ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                 />
                 <button
                   type="button"
@@ -124,18 +132,27 @@ export default function ChangePasswordPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-xs font-bold text-rose-500 mt-1">⚠️ {errors.password}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="confirm-password">Xác nhận mật khẩu mới</Label>
+              <Label htmlFor="confirm-password">Xác nhận mật khẩu mới *</Label>
               <Input
                 id="confirm-password"
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Nhập lại mật khẩu mới"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (e.target.value) setErrors(prev => ({ ...prev, confirmPassword: '' }));
+                }}
+                className={errors.confirmPassword ? 'border-rose-500 focus:ring-rose-500' : ''}
               />
+              {errors.confirmPassword && (
+                <p className="text-xs font-bold text-rose-500 mt-1">⚠️ {errors.confirmPassword}</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full bg-black text-white hover:bg-zinc-800" disabled={loading}>

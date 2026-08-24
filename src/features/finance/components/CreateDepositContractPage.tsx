@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useRooms } from '@/src/features/rooms/hooks/useRooms';;
+import { useRooms } from '@/features/rooms/hooks/useRooms';;
 import { supabase } from '@/lib/supabase/client';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { authFetch } from '@/lib/supabase/auth-fetch';
@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Landmark, User, Building, Settings, CheckCircle2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
-import { calculateCommissionAmount } from '@/src/features/finance/services/commission';
+import { calculateCommissionAmount } from '@/features/finance/services/commission';
 
 const formatNumber = (num: number | string): string => {
   if (!num && num !== 0) return '';

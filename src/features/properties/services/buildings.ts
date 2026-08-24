@@ -36,24 +36,6 @@ export async function getBuilding(id: string): Promise<DBBuilding | null> {
 }
 
 export async function createBuilding(b: BuildingInsert): Promise<DBBuilding> {
-  // Anti-duplication check: Check if building with same code or name exists in company
-  if (b.company_id) {
-    let checkQuery = supabase.from('buildings').select('id, code, name').eq('company_id', b.company_id);
-    if (b.code && b.name) {
-      checkQuery = checkQuery.or(`code.eq.${b.code},name.ilike.${b.name.trim()}`);
-    } else if (b.code) {
-      checkQuery = checkQuery.eq('code', b.code);
-    } else if (b.name) {
-      checkQuery = checkQuery.ilike('name', b.name.trim());
-    }
-
-    const { data: existing } = await checkQuery.limit(1).maybeSingle();
-    if (existing) {
-      // Update existing building instead of creating duplicate
-      return updateBuilding(existing.id, b);
-    }
-  }
-
   const { data, error } = await supabase.from('buildings').insert(b as any).select().single();
   if (error) throw error;
 

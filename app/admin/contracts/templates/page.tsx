@@ -17,7 +17,7 @@ import {
   saveContractTemplate,
   getDefaultTemplateContent,
   type ContractTemplateItem
-} from '@/src/features/finance/services/contract_templates';
+} from '@/features/finance/services/contract_templates';
 
 const TEMPLATE_TYPES = [
   { id: 'deposit', label: 'Hợp đồng đặt cọc', icon: FileCheck, desc: 'Mẫu thỏa thuận đặt cọc giữ chỗ phòng' },

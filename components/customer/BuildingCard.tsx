@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import ImageGallery from '@/src/features/properties/components/ImageGallery';
+import ImageGallery from '@/features/properties/components/ImageGallery';
 import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { getAreaColorClass } from '@/lib/utils/colors';
-import { maskHouseNumberInBuildingName } from '@/lib/utils';
+import { maskHouseNumberInBuildingName, formatVnPriceRange } from '@/lib/utils';
 import type { CustomerListing } from '@/lib/customer/types';
-import { formatDateDisplay } from '@/lib/room-status';
 import { Calendar, Phone, Cat, FileText, Eye } from 'lucide-react';
+import KYCBadge from '@/components/kyc/KYCBadge';
+import { formatDateDisplay } from '@/lib/room-status';
 
 export interface BuildingGroup {
   buildingId: string;
@@ -18,10 +19,7 @@ export interface BuildingGroup {
   address: string;
   companyId: string;
   availableRoomCodes: string[];
-  soonAvailableRooms?: {
-    code: string;
-    expectedAvailableDate?: string | null;
-  }[];
+  soonAvailableRooms?: { code: string; expectedAvailableDate?: string | null }[];
   minPrice: number;
   maxPrice: number;
   allImages: string[];
@@ -60,12 +58,10 @@ export function BuildingCard({
   onComposeDeposit,
 }: BuildingCardProps) {
   const hasAvailable = group.availableRoomCodes.length > 0;
-  const priceLabel =
-    group.minPrice === group.maxPrice
-      ? `${group.minPrice.toLocaleString('vi-VN')}đ`
-      : `${group.minPrice.toLocaleString('vi-VN')} – ${group.maxPrice.toLocaleString('vi-VN')}đ`;
+  const priceLabel = formatVnPriceRange(group.minPrice, group.maxPrice);
 
   const allowPet = group.allowPet ?? group.rooms?.some((r) => r.allowPet);
+  const isVerified = Boolean(group.isVerifiedProperty || group.representativeRoom?.isVerifiedProperty);
 
   return (
     <Link
@@ -74,13 +70,23 @@ export function BuildingCard({
     >
       <div className="relative" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
         <ImageGallery items={group.allImages} alt={group.buildingName} />
-        {allowPet && (
-          <div className="absolute top-3 right-3 z-10">
+        
+        {/* KYC Badge & Pet Badge */}
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-1 pointer-events-none">
+          <KYCBadge
+            type="property"
+            isVerified={isVerified}
+            size="sm"
+            systemName={group.landlordSystemName || group.representativeRoom?.landlordSystemName}
+            name={group.landlordName || group.representativeRoom?.landlordName}
+          />
+
+          {allowPet && (
             <Badge className="bg-emerald-600 text-white font-medium text-[11px] gap-1 shadow-md">
               <Cat className="h-3 w-3" /> Cho nuôi pet
             </Badge>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="p-4 sm:p-5 flex flex-col gap-3 flex-1">
@@ -103,27 +109,25 @@ export function BuildingCard({
         </div>
 
         {/* Phòng trống & Sắp trống */}
-        <div className="text-xs sm:text-sm py-1.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-1">
+        <div className="flex flex-col gap-1 text-xs py-1.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
           {hasAvailable && (
-            <div className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1 flex-wrap">
-              <span>🟢 Phòng trống:</span>
+            <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+              🟢 Phòng trống:{' '}
               <span className="text-slate-900 dark:text-slate-100 font-semibold">
                 {group.availableRoomCodes.slice(0, 5).join(', ')}
                 {group.availableRoomCodes.length > 5 && ` +${group.availableRoomCodes.length - 5} phòng`}
               </span>
-            </div>
+            </span>
           )}
 
           {group.soonAvailableRooms && group.soonAvailableRooms.length > 0 && (
-            <div className="text-amber-700 dark:text-amber-400 font-medium text-xs flex items-center gap-1 flex-wrap">
-              <span>🟡 Sắp trống:</span>
-              <span className="text-amber-900 dark:text-amber-200 font-semibold">
-                {group.soonAvailableRooms.map((r, i) => {
-                  const dateFmt = r.expectedAvailableDate ? formatDateDisplay(r.expectedAvailableDate) : '';
-                  return `${r.code}${dateFmt ? ` (${dateFmt})` : ''}${i < group.soonAvailableRooms!.length - 1 ? ', ' : ''}`;
-                })}
+            <span className="text-amber-700 dark:text-amber-400 font-medium">
+              🟡 Sắp trống:{' '}
+              <span className="text-slate-900 dark:text-slate-100 font-semibold">
+                {group.soonAvailableRooms.slice(0, 5).map(s => `${s.code}${s.expectedAvailableDate ? ` (${formatDateDisplay(s.expectedAvailableDate)})` : ''}`).join(', ')}
+                {group.soonAvailableRooms.length > 5 && ` +${group.soonAvailableRooms.length - 5} phòng`}
               </span>
-            </div>
+            </span>
           )}
 
           {!hasAvailable && (!group.soonAvailableRooms || group.soonAvailableRooms.length === 0) && (

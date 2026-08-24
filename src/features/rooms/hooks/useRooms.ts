@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getRooms, getRoomsByBuilding, createRoom, updateRoom, deleteRoom, type RoomWithBuilding } from '@/src/features/rooms/services/rooms';
+import { getRooms, getRoomsByBuilding, createRoom, updateRoom, deleteRoom, type RoomWithBuilding } from '@/features/rooms/services/rooms';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBRoom } from '@/lib/supabase/types';
 

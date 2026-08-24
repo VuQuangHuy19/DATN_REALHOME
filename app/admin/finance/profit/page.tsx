@@ -1,7 +1,7 @@
 'use client';
 
-import { ProfitReportPage } from '@/src/features/finance/components/ProfitReportPage';
+import { UnifiedFinanceCommissionPage } from '@/features/finance/components/UnifiedFinanceCommissionPage';
 
 export default function Page() {
-  return <ProfitReportPage />;
+  return <UnifiedFinanceCommissionPage defaultTab="profit" />;
 }

@@ -1,16 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { TrendingUp, TrendingDown, Minus, Search, Loader2, AlertCircle, Settings, Sparkles, Check, Percent, Edit3, Layers, Plus, Trash2 } from 'lucide-react';
-import { getKPIs, createKPI, updateKPI, computeAutoKPI } from '@/src/features/staff/services/kpis';
-import { getProfiles } from '@/src/features/staff/services/profiles';
-import { useEmployees } from '@/src/features/staff/hooks/useStaff';;
+import { 
+  TrendingUp, TrendingDown, Minus, Search, Loader2, AlertCircle, Settings, 
+  Sparkles, Check, Percent, Edit3, Layers, Plus, Trash2, Calendar, Filter, 
+  RotateCcw, BarChart3, PieChart as PieChartIcon, UserCheck, Target, Award 
+} from 'lucide-react';
+import { 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, 
+  PieChart, Pie, Cell 
+} from 'recharts';
+import { getKPIs, createKPI, updateKPI, computeAutoKPI } from '@/features/staff/services/kpis';
+import { getProfiles } from '@/features/staff/services/profiles';
+import { useEmployees } from '@/features/staff/hooks/useStaff';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { getKPIConfiguration, saveKPIConfiguration } from '@/src/features/staff/services/kpi_configurations';
+import { getKPIConfiguration, saveKPIConfiguration } from '@/features/staff/services/kpi_configurations';
 import type { DBEmployeeKPI, DBKPIConfiguration } from '@/lib/supabase/types';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -48,6 +56,8 @@ export function KpiPage() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [filterQuarter, setFilterQuarter] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate, setFilterToDate] = useState('');
   const [filterEmployeeId, setFilterEmployeeId] = useState('');
   const [viewItem, setViewItem] = useState<DBEmployeeKPI | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -138,14 +148,21 @@ export function KpiPage() {
 
   const filtered = kpiList.filter((k) => {
     const [year, month] = k.period.split('-');
-    if (filterYear && year !== filterYear) return false;
-    if (filterMonth && month !== filterMonth) return false;
-    if (filterQuarter) {
-      const m = parseInt(month, 10);
-      const q = Math.ceil(m / 3).toString();
-      if (q !== filterQuarter) return false;
-    }
     if (filterEmployeeId && k.employee_id !== filterEmployeeId) return false;
+
+    if (filterFromDate || filterToDate) {
+      const kpiDateStr = `${k.period}-01`;
+      if (filterFromDate && kpiDateStr < filterFromDate.substring(0, 7) + '-01') return false;
+      if (filterToDate && kpiDateStr > filterToDate.substring(0, 7) + '-31') return false;
+    } else {
+      if (filterYear && year !== filterYear) return false;
+      if (filterMonth && month !== filterMonth) return false;
+      if (filterQuarter) {
+        const m = parseInt(month, 10);
+        const q = Math.ceil(m / 3).toString();
+        if (q !== filterQuarter) return false;
+      }
+    }
     return true;
   });
 
@@ -344,63 +361,229 @@ export function KpiPage() {
     }
   };
 
+  const chartData = useMemo(() => {
+    return filtered.map((item) => ({
+      name: item.employee_name || 'Sales',
+      'Doanh thu thực': Math.round(item.revenue_generated / 1_000_000),
+      'Mục tiêu': Math.round(item.target_revenue / 1_000_000),
+      score: item.score,
+    }));
+  }, [filtered]);
+
+  const pieData = useMemo(() => {
+    const exceeded = filtered.filter((f) => f.status === 'exceeded').length;
+    const onTrack = filtered.filter((f) => f.status === 'on_track').length;
+    const behind = filtered.filter((f) => f.status === 'behind').length;
+
+    return [
+      { name: 'Vượt chỉ tiêu', value: exceeded, color: '#22c55e' },
+      { name: 'Đúng tiến độ', value: onTrack, color: '#3b82f6' },
+      { name: 'Chậm tiến độ', value: behind, color: '#ef4444' },
+    ].filter((d) => d.value > 0);
+  }, [filtered]);
+
+  const totalDeals = filtered.reduce((s, k) => s + k.successful_deals, 0);
+  const totalLeads = filtered.reduce((s, k) => s + k.total_leads, 0);
+  const totalAppointments = filtered.reduce((s, k) => s + k.total_appointments, 0);
+  const achievementRate = totalTarget ? Math.round((totalRevenue / totalTarget) * 100) : 0;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      {/* Top Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-lg border border-slate-800">
         <div>
-          <h1 className="text-2xl font-bold text-ink">KPI Nhân viên</h1>
-          <p className="text-ink-muted">Theo dõi và đánh giá hiệu suất kinh doanh</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold font-heading text-white">Bảng Đánh Giá & Quản Lý KPI Nhân Viên</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              Kinh Doanh & HR
+            </span>
+          </div>
+          <p className="text-slate-400 text-sm mt-1">Theo dõi, phân tích và tối ưu hiệu suất làm việc toàn đội ngũ RealHome</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Button 
             variant="outline" 
-            className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-lg gap-2"
+            className="border-indigo-400/40 text-indigo-200 hover:bg-indigo-900/60 bg-indigo-950/40 rounded-xl gap-2 shadow-xs transition-all font-semibold"
             onClick={handleRunAutoKPI}
             disabled={loadingPreview}
           >
-            {loadingPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings className="h-4 w-4" />}
+            {loadingPreview ? <Loader2 className="h-4 w-4 animate-spin text-indigo-300" /> : <Sparkles className="h-4 w-4 text-indigo-400" />}
             Tính tự động từ hệ thống
           </Button>
-          <Button 
-            variant="outline" 
-            className="border-indigo-200 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 dark:hover:bg-white/5 transition-all rounded-lg gap-2 font-semibold"
-            onClick={() => window.location.href = '/admin/commission-policies'}
-          >
-            <Settings className="h-4 w-4 text-indigo-600" />
-            Cấu hình Cơ chế & Hoa hồng
+          
+          <Button onClick={() => { setEditItem(null); setIsFormOpen(true); }} className="rounded-xl bg-accent text-white hover:bg-accent/90 shadow-md font-semibold gap-2">
+            <Plus className="h-4 w-4" /> Thêm đánh giá KPI
           </Button>
-          <Button onClick={() => { setEditItem(null); setIsFormOpen(true); }} className="rounded-lg bg-accent text-white hover:bg-accent/90">Thêm đánh giá KPI</Button>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="flex items-center gap-2 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl text-red-700 dark:text-red-300 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />{error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card><CardContent className="p-5">
-          <p className="text-sm text-ink-muted">Điểm TB</p>
-          <p className="text-3xl font-bold text-ink mt-1">{avgScore}<span className="text-base text-ink-muted font-normal">/100</span></p>
-        </CardContent></Card>
-        <Card><CardContent className="p-5">
-          <p className="text-sm text-ink-muted">Doanh thu thực tế</p>
-          <p className="text-3xl font-bold text-ink mt-1">{formatVND(totalRevenue)}</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-5">
-          <p className="text-sm text-ink-muted">Đạt / Mục tiêu</p>
-          <p className="text-3xl font-bold text-ink mt-1">
-            {totalTarget ? Math.round((totalRevenue / totalTarget) * 100) : 0}<span className="text-base text-ink-muted font-normal">%</span>
-          </p>
-        </CardContent></Card>
+      {/* Cụm 4 Thẻ Chỉ Số KPI Trực Quan */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="rounded-xl border border-border-subtle bg-card shadow-xs hover:shadow-md transition-all">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Điểm KPI TB</p>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-3xl font-extrabold text-ink font-heading">{avgScore}</span>
+                <span className="text-sm font-medium text-ink-muted">/100</span>
+              </div>
+              <p className="text-xs text-emerald-600 font-semibold mt-1">
+                {avgScore >= 85 ? '🌟 Hiệu suất Xuất sắc' : avgScore >= 70 ? '👍 Hiệu suất Đạt yêu cầu' : '⚠️ Cần cải thiện thêm'}
+              </p>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
+              <Award className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border border-border-subtle bg-card shadow-xs hover:shadow-md transition-all">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Doanh Thu Thực Tế</p>
+              <p className="text-2xl font-extrabold text-amber-500 dark:text-amber-400 font-mono mt-1">{formatVND(totalRevenue)}</p>
+              <p className="text-xs text-ink-muted mt-1">Mục tiêu: <span className="font-semibold">{formatVND(totalTarget)}</span></p>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-100 dark:border-amber-900 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xs">
+              <TrendingUp className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border border-border-subtle bg-card shadow-xs hover:shadow-md transition-all">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Tổng Giao Dịch Chốt</p>
+              <p className="text-3xl font-extrabold text-ink font-heading mt-1">{totalDeals} <span className="text-sm font-normal text-ink-muted">HĐ</span></p>
+              <p className="text-xs text-ink-muted mt-1">{totalAppointments} Lịch hẹn • {totalLeads} Leads</p>
+            </div>
+            <div className="h-12 w-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-xs">
+              <UserCheck className="h-6 w-6" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border border-border-subtle bg-card shadow-xs hover:shadow-md transition-all">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="w-full">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Đạt / Mục Tiêu Kế Hoạch</p>
+                <span className="text-sm font-bold text-accent font-mono">{achievementRate}%</span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-3.5 border border-border-subtle">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${achievementRate >= 100 ? 'bg-emerald-500' : achievementRate >= 70 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                  style={{ width: `${Math.min(achievementRate, 100)}%` }}
+                />
+              </div>
+              <p className="text-xs text-ink-muted mt-2 text-right">
+                {achievementRate >= 100 ? '🟢 Hoàn thành mục tiêu' : `Còn thiếu ${100 - achievementRate}%`}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+      {/* Cụm 2 Biểu Đồ Trực Quan (Recharts Dashboard) */}
+      {filtered.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Biểu đồ Cột: Doanh thu thực tế vs Mục tiêu */}
+          <Card className="lg:col-span-2 rounded-xl border border-border-subtle bg-card shadow-xs p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-accent" />
+                <h3 className="text-base font-bold font-heading text-ink">So sánh Doanh thu Thực tế vs Mục tiêu KPI (Triệu VNĐ)</h3>
+              </div>
+              <span className="text-xs text-ink-muted font-medium">Theo nhân viên</span>
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} unit="tr" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }} 
+                    formatter={(val: any) => [`${val} triệu VNĐ`, '']}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                  <Bar dataKey="Doanh thu thực" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="Mục tiêu" fill="#cbd5e1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+
+          {/* Biểu đồ Tròn: Phân bổ trạng thái KPI */}
+          <Card className="rounded-xl border border-border-subtle bg-card shadow-xs p-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <PieChartIcon className="h-5 w-5 text-indigo-500" />
+                <h3 className="text-base font-bold font-heading text-ink">Phân bổ Trạng thái KPI</h3>
+              </div>
+              <div className="h-56 w-full flex items-center justify-center">
+                {pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry: { name: string; value: number; color: string }, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                        formatter={(val: any) => [`${val} nhân viên`, '']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-xs text-ink-muted">Chưa có dữ liệu trạng thái</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2 pt-2 border-t border-border-subtle">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-emerald-600"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Vượt chỉ tiêu</span>
+                <span className="font-bold font-mono">{filtered.filter(f => f.status === 'exceeded').length} nhân viên</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-blue-600"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> Đúng tiến độ</span>
+                <span className="font-bold font-mono">{filtered.filter(f => f.status === 'on_track').length} nhân viên</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-red-600"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Chậm tiến độ</span>
+                <span className="font-bold font-mono">{filtered.filter(f => f.status === 'behind').length} nhân viên</span>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Thanh Bộ Lọc Thời Gian Nâng Cao */}
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap items-center bg-card p-4 rounded-xl border border-border-subtle shadow-xs">
+        <div className="flex items-center gap-2 shrink-0">
+          <Filter className="h-4 w-4 text-accent" />
+          <span className="text-xs font-bold text-ink uppercase tracking-wider">Bộ lọc KPI:</span>
+        </div>
+
+        {/* Lọc Nhân viên */}
         <select
           value={filterEmployeeId}
           onChange={(e) => setFilterEmployeeId(e.target.value)}
-          className="h-10 min-w-[200px] rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="h-9 min-w-[180px] rounded-lg border border-border bg-background px-3 text-xs text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <option value="">Tất cả nhân viên</option>
           {employees.map((emp) => (
@@ -409,25 +592,33 @@ export function KpiPage() {
             </option>
           ))}
         </select>
-        
+
+        {/* Lọc Năm */}
         <select
           value={filterYear}
-          onChange={(e) => setFilterYear(e.target.value)}
-          className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onChange={(e) => {
+            setFilterYear(e.target.value);
+            setFilterFromDate('');
+            setFilterToDate('');
+          }}
+          className="h-9 rounded-lg border border-border bg-background px-3 text-xs text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <option value="">Tất cả các năm</option>
-          <option value="2026">2026</option>
-          <option value="2025">2025</option>
-          <option value="2024">2024</option>
+          <option value="2026">Năm 2026</option>
+          <option value="2025">Năm 2025</option>
+          <option value="2024">Năm 2024</option>
         </select>
 
+        {/* Lọc Quý */}
         <select
           value={filterQuarter}
           onChange={(e) => {
             setFilterQuarter(e.target.value);
             if (e.target.value) setFilterMonth('');
+            setFilterFromDate('');
+            setFilterToDate('');
           }}
-          className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="h-9 rounded-lg border border-border bg-background px-3 text-xs text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <option value="">Tất cả các quý</option>
           <option value="1">Quý 1</option>
@@ -436,13 +627,16 @@ export function KpiPage() {
           <option value="4">Quý 4</option>
         </select>
 
+        {/* Lọc Tháng */}
         <select
           value={filterMonth}
           onChange={(e) => {
             setFilterMonth(e.target.value);
             if (e.target.value) setFilterQuarter('');
+            setFilterFromDate('');
+            setFilterToDate('');
           }}
-          className="h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="h-9 rounded-lg border border-border bg-background px-3 text-xs text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           <option value="">Tất cả các tháng</option>
           {Array.from({ length: 12 }, (_, i) => {
@@ -452,29 +646,81 @@ export function KpiPage() {
             );
           })}
         </select>
+
+        <div className="h-4 w-[1px] bg-border-subtle hidden lg:block" />
+
+        {/* Khoảng ngày tùy chỉnh */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-ink-muted">Từ:</span>
+          <Input
+            type="date"
+            value={filterFromDate}
+            onChange={(e) => {
+              setFilterFromDate(e.target.value);
+              if (e.target.value) {
+                setFilterQuarter('');
+                setFilterMonth('');
+              }
+            }}
+            className="h-9 w-36 text-xs bg-background rounded-lg border-border"
+          />
+          <span className="text-xs font-semibold text-ink-muted">Đến:</span>
+          <Input
+            type="date"
+            value={filterToDate}
+            onChange={(e) => {
+              setFilterToDate(e.target.value);
+              if (e.target.value) {
+                setFilterQuarter('');
+                setFilterMonth('');
+              }
+            }}
+            className="h-9 w-36 text-xs bg-background rounded-lg border-border"
+          />
+        </div>
+
+        {/* Nút Đặt lại bộ lọc */}
+        {(filterEmployeeId || filterQuarter || filterMonth || filterFromDate || filterToDate || filterYear !== new Date().getFullYear().toString()) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilterEmployeeId('');
+              setFilterYear(new Date().getFullYear().toString());
+              setFilterQuarter('');
+              setFilterMonth('');
+              setFilterFromDate('');
+              setFilterToDate('');
+            }}
+            className="h-9 text-xs gap-1 text-ink-muted hover:text-ink ml-auto"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Xóa bộ lọc
+          </Button>
+        )}
       </div>
 
-      <Card>
+      {/* Bảng Danh Sách KPI Trực Quan */}
+      <Card className="rounded-xl border border-border-subtle bg-card shadow-xs overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-ink-muted" /></div>
+            <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-accent" /></div>
           ) : (
-            <div className="border rounded-lg overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm min-w-[700px]">
-                <thead className="bg-bg-subtle">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[850px]">
+                <thead className="bg-bg-subtle/80 border-b border-border-subtle">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Nhân viên</th>
-                    <th className="px-4 py-3 text-left font-medium text-ink-muted">Kỳ</th>
-                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Leads</th>
-                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Lịch hẹn</th>
-                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Giao dịch</th>
-                    <th className="px-4 py-3 text-right font-medium text-ink-muted">Doanh thu</th>
-                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Điểm</th>
-                    <th className="px-4 py-3 text-center font-medium text-ink-muted">Đánh giá</th>
-                    <th className="px-4 py-3 text-right font-medium text-ink-muted">Thao tác</th>
+                    <th className="px-4 py-3.5 text-left font-bold text-ink-muted text-xs uppercase">Nhân viên</th>
+                    <th className="px-4 py-3.5 text-left font-bold text-ink-muted text-xs uppercase">Kỳ / Thời gian</th>
+                    <th className="px-4 py-3.5 text-center font-bold text-ink-muted text-xs uppercase">Leads</th>
+                    <th className="px-4 py-3.5 text-center font-bold text-ink-muted text-xs uppercase">Lịch hẹn</th>
+                    <th className="px-4 py-3.5 text-center font-bold text-ink-muted text-xs uppercase">Giao dịch</th>
+                    <th className="px-4 py-3.5 text-right font-bold text-ink-muted text-xs uppercase">Doanh thu / Mục tiêu</th>
+                    <th className="px-4 py-3.5 text-center font-bold text-ink-muted text-xs uppercase">Điểm KPI</th>
+                    <th className="px-4 py-3.5 text-center font-bold text-ink-muted text-xs uppercase">Đánh giá</th>
+                    <th className="px-4 py-3.5 text-right font-bold text-ink-muted text-xs uppercase">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-border-subtle">
                   {filtered.map((item) => {
                     const sc = statusConfig[item.status] ?? statusConfig.on_track;
                     const StatusIcon = sc.icon;
@@ -482,37 +728,58 @@ export function KpiPage() {
                     return (
                       <tr
                         key={item.id}
-                        className="hover:bg-bg-subtle dark:hover:bg-white/5 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-all cursor-pointer"
+                        className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all cursor-pointer"
                         onClick={(e) => { if ((e.target as HTMLElement).closest('button')) return; setViewItem(item); setIsViewOpen(true); }}
                       >
-                        <td className="px-4 py-3 font-medium text-ink">
-                          <div className="flex items-center gap-2">
-                            <span>{item.employee_name}</span>
-                            {item.auto_calculated && (
-                              <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] font-bold rounded-md">
-                                Tự động
-                              </span>
-                            )}
+                        <td className="px-4 py-3.5 font-semibold text-ink">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-accent/10 text-accent font-bold text-xs flex items-center justify-center shrink-0">
+                              {item.employee_name ? item.employee_name.charAt(0).toUpperCase() : 'S'}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span>{item.employee_name}</span>
+                                {item.auto_calculated && (
+                                  <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200 text-[10px] font-bold rounded-md">
+                                    Tự động
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-ink-muted text-xs">{item.period}</td>
-                        <td className="px-4 py-3 text-center text-ink-muted">{item.total_leads}</td>
-                        <td className="px-4 py-3 text-center text-ink-muted">{item.total_appointments}</td>
-                        <td className="px-4 py-3 text-center text-ink-muted">{item.successful_deals}</td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="text-ink font-medium">{formatVND(item.revenue_generated)}</div>
-                          <div className={`text-xs ${revenueRate >= 100 ? 'text-green-600' : 'text-ink-muted'}`}>{revenueRate}% mục tiêu</div>
+                        <td className="px-4 py-3.5 text-ink-muted text-xs font-mono font-medium">{item.period}</td>
+                        <td className="px-4 py-3.5 text-center text-ink font-semibold">{item.total_leads}</td>
+                        <td className="px-4 py-3.5 text-center text-ink font-semibold">{item.total_appointments}</td>
+                        <td className="px-4 py-3.5 text-center text-ink font-semibold">{item.successful_deals}</td>
+                        <td className="px-4 py-3.5 text-right min-w-[180px]">
+                          <div className="text-ink font-extrabold font-mono">{formatVND(item.revenue_generated)}</div>
+                          <div className="flex items-center justify-end gap-2 mt-1">
+                            <div className="w-20 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden border border-border-subtle">
+                              <div 
+                                className={`h-full rounded-full transition-all ${revenueRate >= 100 ? 'bg-emerald-500' : revenueRate >= 70 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                                style={{ width: `${Math.min(revenueRate, 100)}%` }}
+                              />
+                            </div>
+                            <span className={`text-[11px] font-bold font-mono ${revenueRate >= 100 ? 'text-emerald-600' : revenueRate >= 70 ? 'text-blue-600' : 'text-amber-600'}`}>
+                              {revenueRate}%
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-bg-subtle text-ink font-bold text-sm">{item.score}</div>
+                        <td className="px-4 py-3.5 text-center">
+                          <div className={`inline-flex items-center justify-center h-8 w-8 rounded-xl font-mono font-extrabold text-sm shadow-xs ${
+                            item.score >= 90 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : item.score >= 70 ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}>
+                            {item.score}
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sc.color}`}>
-                            <StatusIcon className="h-3 w-3" />{sc.label}
+                        <td className="px-4 py-3.5 text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold shadow-2xs ${sc.color}`}>
+                            <StatusIcon className="h-3.5 w-3.5" />{sc.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setEditItem(item); setIsFormOpen(true); }}>Sửa</Button>
+                        <td className="px-4 py-3.5 text-right">
+                          <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg border-border-subtle hover:border-accent hover:text-accent" onClick={(e) => { e.stopPropagation(); setEditItem(item); setIsFormOpen(true); }}>Sửa</Button>
                         </td>
                       </tr>
                     );
@@ -520,9 +787,10 @@ export function KpiPage() {
                 </tbody>
               </table>
               {filtered.length === 0 && (
-                <div className="text-center py-10 text-ink-muted">
-                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p>Không có dữ liệu KPI</p>
+                <div className="text-center py-12 text-ink-muted">
+                  <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-30 text-accent" />
+                  <p className="font-bold text-ink">Không có dữ liệu KPI thỏa mãn bộ lọc</p>
+                  <p className="text-xs text-ink-muted mt-1">Hãy thử nới rộng khoảng ngày hoặc bấm "Xóa bộ lọc"</p>
                 </div>
               )}
             </div>

@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, ClipboardList, Eye, Loader2 } from 'lucide-react';
-import { useActivityLogs } from '@/lib/hooks/useNotifications';
+import { useActivityLogs } from '@/hooks/useNotifications';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBActivityLog } from '@/lib/supabase/types';
 

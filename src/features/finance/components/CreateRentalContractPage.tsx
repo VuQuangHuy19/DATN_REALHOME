@@ -3,10 +3,10 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { useRooms } from '@/src/features/rooms/hooks/useRooms';;
-import { createRentalContract } from '@/src/features/finance/services/rental_contracts';
-import { updateDepositContract } from '@/src/features/finance/services/deposit_contracts';
-import { updateRoom } from '@/src/features/rooms/services/rooms';
+import { useRooms } from '@/features/rooms/hooks/useRooms';;
+import { createRentalContract } from '@/features/finance/services/rental_contracts';
+import { updateDepositContract } from '@/features/finance/services/deposit_contracts';
+import { updateRoom } from '@/features/rooms/services/rooms';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Landmark, User, Building, Settings, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
-import { calculateCommissionAmount } from '@/src/features/finance/services/commission';
+import { calculateCommissionAmount } from '@/features/finance/services/commission';
 import { supabase } from '@/lib/supabase/client';
 
 const formatNumber = (num: number | string): string => {

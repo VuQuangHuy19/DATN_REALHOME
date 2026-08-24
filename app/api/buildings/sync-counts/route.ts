@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { formatStandardBuildingAddress } from '@/lib/utils';
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
     // Lấy tất cả buildings của công ty
     const { data: buildings, error: bldErr } = await supabaseAdmin
       .from('buildings')
-      .select('id, code')
+      .select('id, code, name, address')
       .eq('company_id', companyId);
 
     if (bldErr) throw bldErr;
@@ -26,31 +27,40 @@ export async function POST(request: Request) {
     let updated = 0;
     for (const bld of buildings) {
       try {
-        // Đếm thực tế từ bảng rooms
+        let formattedName = formatStandardBuildingAddress(bld.name || '');
+        let formattedAddress = formatStandardBuildingAddress(bld.address || formattedName);
+
+        // Nếu name đang bị dính mặt nạ x (ví dụ 43.21x GIÁP NHẤT) nhưng address chứa số đầy đủ (43.213 GIÁP NHẤT)
+        if (formattedName.toLowerCase().includes('x') && formattedAddress && !formattedAddress.toLowerCase().includes('x')) {
+          formattedName = formattedAddress;
+        }
+
+        // Đếm thực tế từ bảng rooms theo cả building code và UUID
         const { data: rooms } = await supabaseAdmin
           .from('rooms')
           .select('floor')
           .eq('company_id', companyId)
-          .eq('building_id', bld.code);
+          .or(`building_id.eq.${bld.code},building_id.eq.${bld.id}`);
+
+        const updateData: any = {
+          name: formattedName,
+          address: formattedAddress,
+        };
 
         if (rooms && rooms.length > 0) {
-          const totalRooms = rooms.length;
-          const totalFloors = Math.max(...rooms.map((r: { floor: number | null }) => r.floor ? Number(r.floor) : 1));
-
-          const { error } = await supabaseAdmin
-            .from('buildings')
-            .update({ total_rooms: totalRooms, total_floors: totalFloors })
-            .eq('id', bld.id);
-
-          if (!error) updated++;
+          updateData.total_rooms = rooms.length;
+          updateData.total_floors = Math.max(...rooms.map((r: { floor: number | null }) => r.floor ? Number(r.floor) : 1));
         } else {
-          // Không có phòng => reset về 0
-          await supabaseAdmin
-            .from('buildings')
-            .update({ total_rooms: 0, total_floors: 1 })
-            .eq('id', bld.id);
-          updated++;
+          updateData.total_rooms = 0;
+          updateData.total_floors = 1;
         }
+
+        const { error } = await supabaseAdmin
+          .from('buildings')
+          .update(updateData)
+          .eq('id', bld.id);
+
+        if (!error) updated++;
       } catch (err) {
         console.error(`Lỗi sync tòa nhà ${bld.code}:`, err);
       }

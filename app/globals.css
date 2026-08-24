@@ -109,6 +109,17 @@
     color: var(--ink);
   }
 
+  /* Hide up/down arrows (spinners) on input[type="number"] for clean normal inputs */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
   /* Toàn bộ các phần tử có thể tương tác, lựa chọn, nút bấm, ô chọn, menu item */
   button,
   a,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseGoogleSheetFull } from '@/src/features/import/services/googleSheetAiParser';
+import { parseGoogleSheetFull } from '@/features/import/services/googleSheetAiParser';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // Up to 60s for parsing

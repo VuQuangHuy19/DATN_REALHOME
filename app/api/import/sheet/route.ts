@@ -1,4 +1,4 @@
-import { handleImportSheet } from '@/src/features/import/api/import-sheet.handler';
+import { handleImportSheet } from '@/features/import/api/import-sheet.handler';
 
 export const runtime = 'nodejs';
 

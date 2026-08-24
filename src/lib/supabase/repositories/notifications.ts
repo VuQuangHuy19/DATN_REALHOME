@@ -10,7 +10,7 @@ export async function getNotifications(recipientId?: string, companyId?: string)
     .select('*')
     .order('created_at', { ascending: false });
   if (recipientId) {
-    query = query.or(`recipient_id.eq.${recipientId},recipient_id.is.null`);
+    query = query.eq('recipient_id', recipientId);
   }
   if (companyId) query = query.eq('company_id', companyId);
   const { data, error } = await query;
@@ -30,7 +30,7 @@ export async function markAllNotificationsRead(recipientId: string) {
   const { error } = await supabase
     .from('notifications')
     .update({ is_read: true } as any)
-    .or(`recipient_id.eq.${recipientId},recipient_id.is.null`)
+    .eq('recipient_id', recipientId)
     .eq('is_read', false);
   if (error) throw error;
 }

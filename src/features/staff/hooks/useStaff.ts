@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { makeHook } from '@/src/lib/hooks/makeHook';
-import { getAppointments, createAppointment, updateAppointment, deleteAppointment, type AppointmentWithRelations } from '@/src/features/staff/services/appointments';
-import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from '@/src/features/staff/services/employees';
+import { makeHook } from '@/hooks/makeHook';
+import { getAppointments, createAppointment, updateAppointment, deleteAppointment, type AppointmentWithRelations } from '@/features/staff/services/appointments';
+import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from '@/features/staff/services/employees';
 import type { DBAppointment, DBEmployee } from '@/lib/supabase/types';
 
 export const useEmployees = makeHook<DBEmployee>(getEmployees, createEmployee, updateEmployee, deleteEmployee);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { createPayOSPaymentLink } from '@/src/lib/payos';
+import { createPayOSPaymentLink } from '@/lib/payos';
 
 export const runtime = 'nodejs';
 

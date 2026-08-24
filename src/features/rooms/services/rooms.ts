@@ -64,20 +64,26 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
 export async function getRoomsByBuilding(buildingId: string, companyId?: string): Promise<DBRoom[]> {
   if (!buildingId) return [];
 
-  const { data: buildingData } = await supabase
-    .from('buildings')
-    .select('id, code')
-    .or(`id.eq.${buildingId},code.eq.${buildingId}`)
-    .maybeSingle();
+  const isUuidStr = (val?: string | null): boolean =>
+    !!val && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
 
-  const buildingKeys = Array.from(
-    new Set([buildingId, buildingData?.id, buildingData?.code].filter(Boolean) as string[])
-  );
+  let targetBuildingId: string | null = isUuidStr(buildingId) ? buildingId : null;
+
+  if (!targetBuildingId) {
+    const { data: buildingData } = await supabase
+      .from('buildings')
+      .select('id, code')
+      .eq('code', buildingId)
+      .maybeSingle();
+    targetBuildingId = buildingData?.id ?? null;
+  }
+
+  if (!targetBuildingId) return [];
 
   let q = supabase
     .from('rooms')
     .select('*')
-    .in('building_id', buildingKeys)
+    .eq('building_id', targetBuildingId)
     .order('floor', { ascending: true })
     .order('code', { ascending: true });
 
@@ -104,22 +110,6 @@ export async function getRoomWithBuilding(id: string): Promise<RoomWithBuilding 
 }
 
 export async function createRoom(r: RoomInsert): Promise<DBRoom> {
-  // Anti-duplication check for room in same building & company
-  if (r.company_id && r.building_id && r.code) {
-    const { data: existing } = await supabase
-      .from('rooms')
-      .select('id')
-      .eq('company_id', r.company_id)
-      .eq('building_id', r.building_id)
-      .ilike('code', r.code.trim())
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) {
-      return updateRoom(existing.id, r);
-    }
-  }
-
   const { data, error } = await supabase.from('rooms').insert(r as any).select().single();
   if (error) throw error;
   return data as unknown as DBRoom;

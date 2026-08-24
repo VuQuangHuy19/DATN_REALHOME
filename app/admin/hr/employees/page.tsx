@@ -1,7 +1,7 @@
 'use client';
 
-import { EmployeesPage } from '@/src/features/staff/components/EmployeesPage';
+import { UnifiedGovernanceMasterPage } from '@/features/staff/components/UnifiedGovernanceMasterPage';
 
 export default function Page() {
-  return <EmployeesPage />;
+  return <UnifiedGovernanceMasterPage defaultTab="employees" />;
 }

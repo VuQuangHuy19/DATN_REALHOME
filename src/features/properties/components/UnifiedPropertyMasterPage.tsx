@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { BuildingListPage } from './BuildingListPage';
 import { LandlordsComponent } from './LandlordsComponent';
-import { ManagerListPage } from '@/src/features/managers/components/ManagerListPage';
-import { CategoriesPage } from '@/src/features/categories/components/CategoriesPage';
+import { ManagerListPage } from '@/features/managers/components/ManagerListPage';
+import { CategoriesPage } from '@/features/categories/components/CategoriesPage';
 import { Building2, Users, UserCog, Layers, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

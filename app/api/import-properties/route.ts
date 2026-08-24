@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import { syncGoogleDriveImagesForProperty } from '@/src/lib/services/google-drive';
+import { syncGoogleDriveImagesForProperty } from '@/lib/services/google-drive';
+import { geocodeLandmark } from '@/lib/geocoding';
+import { isMatchingBuilding } from '@/lib/utils';
 
 export const maxDuration = 300; // Allow long execution time
+
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; // Needs service role to bypass RLS in background
@@ -76,6 +79,16 @@ export async function POST(req: Request) {
         }
       }
 
+      // Fallback: Tự động geocode địa chỉ thành lat/lng nếu không cung cấp tọa độ
+      if (latitude === null || longitude === null) {
+        const geoQuery = `${buildingName}${area ? `, ${area}` : ''}`;
+        const geoResult = await geocodeLandmark(geoQuery);
+        if (geoResult) {
+          latitude = geoResult.lat;
+          longitude = geoResult.lng;
+        }
+      }
+
       let commonServicePrice = 200000; // default
       const dvcStr = (firstRow['DVC(*)']?.toString() || firstRow['[Ghi chú] Dịch vụ theo căn (văn bản gốc)']?.toString() || '').toLowerCase();
       
@@ -102,13 +115,16 @@ export async function POST(req: Request) {
       const hasElevator = rows.some(r => r['Thang máy (Y/N)(*)']?.toString().toUpperCase() === 'Y');
       const hasPccc = rows.some(r => r['PCCC (Y/N)(*)']?.toString().toUpperCase() === 'Y');
       
-      // Check if building exists for this company by name
-      const { data: existingBuilding } = await supabase
+      // Check if building exists for this company by name or address using isMatchingBuilding
+      const { data: companyBuildings } = await supabase
         .from('buildings')
-        .select('id, landlord_id, code')
-        .eq('name', buildingName)
-        .eq('company_id', company_id)
-        .single();
+        .select('id, landlord_id, code, name, address')
+        .eq('company_id', company_id);
+
+      const existingBuilding = (companyBuildings || []).find((b: any) => 
+        isMatchingBuilding(b.name || '', buildingName) || isMatchingBuilding(b.address || '', buildingName)
+      );
+
         
       let buildingId = existingBuilding?.id;
       let buildingCode = existingBuilding?.code;
@@ -216,10 +232,15 @@ export async function POST(req: Request) {
         let soonAvailableDate = '';
         const numVal = Number(rawStatus);
         
+        let availableDateDb: string | null = null;
         if (rawStatus && !isNaN(numVal) && numVal > 40000 && numVal < 50000) {
             // Trường hợp Excel tự động format thành serial number (ngày tháng của Excel)
             const date = new Date((numVal - 25569) * 86400 * 1000);
-            soonAvailableDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            soonAvailableDate = `${d}/${m}/${y}`;
+            availableDateDb = `${y}-${m}-${d}`;
             status = 'rented';
         } else {
             const textDateMatch = rawStatus.match(/((\d{1,4}[\/\-]\d{1,2}[\/\-]\d{1,4})|(\d{1,2}[\/\-]\d{1,2}))/)
@@ -228,7 +249,28 @@ export async function POST(req: Request) {
             
             if (textDateMatch) {
               status = 'rented';
-              soonAvailableDate = textDateMatch[0];
+              const rawMatchedDate = textDateMatch[0];
+              const parts = rawMatchedDate.split(/[\/\-]/);
+              if (parts.length === 2) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const now = new Date();
+                let year = now.getFullYear();
+                const cand = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10));
+                if (cand.getTime() - now.getTime() < -30 * 24 * 60 * 60 * 1000) {
+                  year += 1;
+                }
+                soonAvailableDate = `${day}/${month}/${year}`;
+                availableDateDb = `${year}-${month}-${day}`;
+              } else if (parts.length === 3) {
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                soonAvailableDate = `${day}/${month}/${year}`;
+                availableDateDb = `${year}-${month}-${day}`;
+              } else {
+                soonAvailableDate = rawMatchedDate;
+              }
             } else if (rawStatus.toLowerCase().includes('trống') || rawStatus.toLowerCase().includes('ở luôn') || rawStatus.toLowerCase().includes('luôn')) {
               status = 'available';
             }

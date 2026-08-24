@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { parseGoogleSheetFull } from '@/src/features/import/services/googleSheetAiParser';
+import { parseGoogleSheetFull } from '@/features/import/services/googleSheetAiParser';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;

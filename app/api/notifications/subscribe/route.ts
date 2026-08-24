@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
-import { saveSubscription } from '@/src/features/notifications/services/push-subscriptions';
+import { saveSubscription } from '@/features/notifications/services/push-subscriptions';
 
 export const runtime = 'nodejs';
 

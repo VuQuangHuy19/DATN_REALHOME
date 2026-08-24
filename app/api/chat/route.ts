@@ -5,23 +5,15 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { geocodeLandmark, haversineDistanceKm } from '@/lib/geocoding';
 import { getDashboardStats, getSalesDashboardStats } from '@/lib/supabase/repositories/dashboard';
+import { maskHouseNumberInBuildingName } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 
 const CANDIDATE_MODELS = [
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest',
   'gemini-2.0-flash-lite',
-  'gemini-3.6-flash',
-  'gemini-2.5-flash',
-  'gemini-3-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro-latest',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
 ];
 
 // Helper: thử gọi một hàm qua lần lượt các model, trả về kết quả + model đã dùng
@@ -46,10 +38,26 @@ async function withFallback<T>(
 export async function POST(req: Request) {
   try {
     const { messages, data } = await req.json();
-    const companyId = data?.companyId;
+    let companyId = data?.companyId;
     const userRole = data?.role;
     const userId = data?.userId;
     const userLandlordId = data?.landlordId;
+
+    // Auto-resolve companyId from profile if omitted in client payload
+    if (!companyId && userId) {
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from('profiles')
+          .select('company_id')
+          .eq('id', userId)
+          .maybeSingle();
+        if (prof?.company_id) {
+          companyId = prof.company_id;
+        }
+      } catch (pErr) {
+        console.warn('[AIChat] Failed to auto-resolve companyId:', pErr);
+      }
+    }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
 
@@ -73,29 +81,45 @@ export async function POST(req: Request) {
 - Bạn có quyền tối cao truy cập toàn bộ báo cáo nền tảng, danh sách công ty, tổng phòng và doanh thu hệ thống (\`getSuperAdminSystemOverview\`).`;
     } else if (r === 'company_admin' || r === 'admin' || r === 'manager') {
       roleInstructions = `BẠN ĐANG PHỤC VỤ: BAN QUẢN LÝ / ADMIN DOANH NGHIỆP.
-- Bạn có quyền xem toàn bộ báo cáo doanh thu công ty, hóa đơn nợ quá hạn, hợp đồng hết hạn, xếp hạng KPI nhân viên xuất sắc/yếu kém và gợi ý điều quân đánh thị trường (\`getCompanyBusinessOverview\`).`;
+- Bạn có quyền truy cập TOÀN BỘ dữ liệu thuộc công ty của bạn (\`companyId\`) bao gồm: Doanh thu, Hóa đơn nợ quá hạn, Hợp đồng sắp hết hạn, Xếp hạng KPI nhân viên xuất sắc/yếu kém, Tỷ lệ lấp đầy tòa nhà & phòng, Phân tích khu vực HOT/Tiềm năng, Danh sách Lead & Lịch hẹn xem phòng (\`getCompanyBusinessOverview\`).`;
     } else if (r === 'landlord') {
       roleInstructions = `BẠN ĐANG PHỤC VỤ: CHỦ NHÀ (LANDLORD).
-- Bạn CHỈ ĐƯỢC XEM báo cáo tài sản, số tiền Payout thu về và danh sách phòng thuộc quyền quản lý của bạn (\`getLandlordOverview\`).
+- Bạn CHỈ ĐƯỢC XEM báo cáo tài sản, số tiền Payout thu về, danh sách phòng, hợp đồng hết hạn và các đơn vị/công ty đã hỗ trợ đẩy phòng nhiều nhất cho các tòa nhà thuộc quyền sở hữu của chính bạn (\`getLandlordOverview\`).
+- Khi chủ nhà hỏi các câu như "Hệ thống/công ty nào đẩy được nhiều phòng nhất cho mình?", hãy giải đáp chính xác dựa vào danh sách top đối tác (\`topCompanyPartners\`).
 - Tuyệt đối KHÔNG tiết lộ doanh thu nền tảng hay báo cáo của công ty/chủ nhà khác.`;
     } else if (r === 'sales_agent') {
-      roleInstructions = `BẠN ĐANG PHỤC VỤ: NHÂN VIÊN SALE (SALES AGENT).
-- Bạn chỉ được xem KPI cá nhân, hoa hồng tạm tính của CHÍNH BẠN (\`getSalesKpiOverview\`) và tra cứu phòng trống (\`findAvailableRooms\`).
-- Tuyệt đối KHÔNG tiết lộ doanh thu tổng công ty, hoa hồng của NVKD khác, hay báo cáo quản trị cấp cao. Nếu được hỏi, hãy từ chối: "Tôi chỉ có thể hỗ trợ bạn xem KPI cá nhân và bảng hàng phòng trống thôi nhé!".`;
+      roleInstructions = `BẠN ĐANG PHỤC VỤ: NHÂN VIÊN SALE / MÔI GIỚI (SALES AGENT).
+- Bạn có đầy đủ quyền tra cứu dữ liệu công việc cá nhân của Sale này (\`getSalesKpiOverview\`):
+  1. LỊCH HẸN CỦA TÔI: Tra cứu chi tiết số lịch hẹn tháng này, hôm nay, trạng thái từng lịch hẹn (Pending, Confirmed, Cancelled), tên khách hàng, phòng/tòa nhà.
+  2. PHÂN LOẠI KHÁCH HÀNG (LEADS): Trả lời chính xác số lượng Khách nóng (hot), Khách tiềm năng (warm/consulting), Khách mới (new), Khách đã cọc/chốt deal.
+  3. LỊCH HẸN CHỜ NHẬN NGUỒN CÔNG TY (\`findUnassignedAppointments\`): Khi Sale hỏi các câu như "Lịch hẹn nào tôi có thể nhận tại Đống Đa, Cầu Giấy?", BẮT BUỘC gọi tool \`findUnassignedAppointments\` để tìm các lịch hẹn chưa có người phụ trách (\`assigned_to\` là null) tại khu vực đó và liệt kê chi tiết (tên khách, phòng, địa chỉ, ngày giờ) để Sale biết đường nhận.
+  4. KPI CÁ NHÂN & HOA HỒNG: Tra cứu doanh số chốt deal, hoa hồng tạm tính, hợp đồng sắp hết hạn cần gọi chăm sóc tái ký.
+  5. BẢNG HÀNG PHÒNG TRỐNG (\`findAvailableRooms\`): Tìm phòng trống theo tiêu chí giá cả, khu vực, nuôi thú cưng.
+- Tuyệt đối KHÔNG tiết lộ doanh thu tổng của công ty, hoa hồng của NVKD khác, hay báo cáo quản trị cấp cao.`;
     } else {
       roleInstructions = `BẠN ĐANG PHỤC VỤ: KHÁCH THUÊ PHÒNG (TENANT / GUEST).
 - Bạn CHỈ ĐƯỢC PHÉP tìm kiếm phòng trống theo nhu cầu (\`findAvailableRooms\`).
 - Tuyệt đối KHÔNG tiết lộ bất kỳ thông tin nội bộ nào như: Hoa hồng Sale, Doanh thu công ty, Thông tin hợp đồng hay Thông tin chủ nhà. Nếu khách hỏi ngoài phạm vi tìm phòng, hãy lịch sự từ chối: "Tôi là Trợ lý RealHome hỗ trợ tìm phòng trọ. Tôi chỉ có thể giúp bạn tìm kiếm các phòng phù hợp thôi nhé!".`;
     }
 
-    const systemPrompt = `Bạn là Trợ lý AI thông minh hệ thống RealHome - Nền tảng tìm kiếm & quản lý bất động sản hàng đầu.
+    const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống RealHome - Nền tảng tìm kiếm & quản lý bất động sản hàng đầu.
 
 ${roleInstructions}
 
-Quy tắc trình bày:
-- Trình bày dạng Markdown với Bảng biểu (Table) hoặc các Gạch đầu dòng rõ ràng.
-- In đậm các chỉ số quan trọng: **Doanh thu**, **Tỷ lệ lấp đầy %**, **Số tiền**, **Hoa hồng**, **Tên nhân viên**, **Khu vực HOT**.
-- Khi tư vấn chiến lược hay gợi ý điều quân/thầu nhà, đưa ra lời khuyên phân tích chi tiết, mang tính cố vấn chuyên gia.`;
+QUY TẮC CỐT LÕI (NGHIÊM NGẶT):
+1. HỎI GÌ TRẢ LỜI NẤY (ĐÚNG TRỌNG TÂM):
+- Trả lời trực tiếp, chính xác, súc tích đúng với câu hỏi của người dùng.
+- TUYỆT ĐỐI KHÔNG tự ý viết các bài phân tích chiến lược dài dòng, KHÔNG lập các bảng chiến lược rườm rà trừ khi người dùng chủ động yêu cầu "tư vấn chiến lược" hoặc "phân tích sâu".
+- Với câu chào hỏi ("Chào bạn", "Xin chào"): Đáp lại thân thiện trong 1 câu duy nhất (Ví dụ: "Xin chào! Bạn đang muốn tìm phòng ở khu vực nào hoặc cần trợ giúp gì ạ?").
+
+2. GIỚI HẠN PHẠM VI DỰ ÁN REALHOME:
+- Chỉ hỗ trợ tìm kiếm phòng trọ, căn hộ, báo cáo vận hành & quản lý bất động sản của RealHome.
+- Từ chối lịch sự trong 1 câu đối với các chủ đề ngoài lề không thuộc dự án RealHome (thời tiết, lập trình, nấu ăn...): "Tôi là Trợ lý RealHome và chỉ có thể hỗ trợ các thông tin liên quan đến phòng trọ và quản lý bất động sản thôi nhé!".
+
+3. ĐỊNH DẠNG PHẢN HỒI & BẢO MẬT ĐỊA CHỈ:
+- XUỐNG DÒNG ĐỘC LẬP: Khi hiển thị danh sách phòng, BẮT BUỘC MỖI PHÒNG NẰM TRÊN MỘT DÒNG RÊNG BIỆT (dùng gạch đầu dòng '-' hoặc 📍 ở đầu mỗi dòng phòng, có ký tự xuống dòng ở cuối). TUYỆT ĐỐI KHÔNG viết nối liền nhiều phòng trên cùng một dòng.
+- MÃ HÓA ĐỊA CHỈ (NẾU LÀ KHÁCH THUÊ / SALE): Đối với người dùng là Khách thuê (tenant) hoặc Sales Agent, BẮT BUỘC giữ nguyên địa chỉ/tên tòa nhà đã mã hóa số nhà/số ngách (ví dụ: 'x ngách 8x ngõ 678 đê la thành') để tránh lộ địa chỉ thực tế . Đối với Ban Quản Lý/Admin/Chủ nhà, hiển thị đầy đủ địa chỉ chính xác.
+- Khi KHÔNG tìm thấy phòng phù hợp: Thông báo ngắn gọn trong 1-2 câu ("Rất tiếc, hệ thống chưa có phòng trống phù hợp tiêu chí [X] ở [Y]. Bạn có muốn mở rộng ngân sách hoặc tìm ở khu vực lân cận không?").`;
 
     // === 1. Tool findAvailableRooms ===
     const executeFindRooms = async ({
@@ -189,6 +213,8 @@ Quy tắc trình bày:
           }
         }
 
+        const isMaskedRole = r === 'tenant' || r === 'sales_agent' || !r;
+
         return {
           totalFound: finalRows.length,
           landmarkSearch: landmarkCoords ? {
@@ -202,9 +228,9 @@ Quy tắc trình bày:
             price: r.price,
             size: r.size,
             room_type: r.room_type,
-            building_name: r.buildings?.name,
+            building_name: isMaskedRole ? maskHouseNumberInBuildingName(r.buildings?.name || '') : (r.buildings?.name || ''),
             area: r.buildings?.area,
-            address: r.buildings?.address,
+            address: isMaskedRole ? maskHouseNumberInBuildingName(r.buildings?.address || '') : (r.buildings?.address || ''),
             distance_from_landmark: r.distance_km !== undefined && r.distance_km !== null ? `${r.distance_km} km` : undefined,
             allow_pet: (r.buildings?.allow_pet === 'yes' || r.buildings?.allow_pet === 'small_only') ? 'Có' : 'Không',
             detail_link: `/customer/properties/rooms/${r.id}`,
@@ -257,7 +283,9 @@ Quy tắc trình bày:
     const executeCompanyOverview = async () => {
       try {
         if (!companyId) return { error: 'Không tìm thấy ID công ty (companyId).' };
-        const stats = await getDashboardStats(companyId);
+        const stats = await getDashboardStats(companyId, undefined, 'current_month', supabaseAdmin);
+
+        const areaList = stats.areaPerformanceList || [];
 
         return {
           companyId,
@@ -268,13 +296,13 @@ Quy tắc trình bày:
           occupancyRate: `${stats.occupancyRate}%`,
           companyMonthlyRevenue: stats.companyRevenue,
           grossRevenueCollected: stats.totalCollectedAmount,
-          overdueInvoicesCount: stats.overdueInvoicesGrouped?.length || 0,
+          overdueInvoicesCount: stats.overdueInvoicesGrouped?.length || stats.overdueInvoices || 0,
           overdueInvoicesSummary: (stats.overdueInvoicesGrouped || []).slice(0, 5),
-          expiringContractsCount: stats.expiringContractsGrouped?.length || 0,
+          expiringContractsCount: stats.expiringContractsGrouped?.length || stats.expiringContractsCount || 0,
           expiringContractsSummary: (stats.expiringContractsGrouped || []).slice(0, 5),
           topPerformingEmployees: (stats.topEmployees || []).slice(0, 5),
-          hotZonesHighDemand: (stats.areaPerformanceList || []).filter((a: any) => a.occupancyRate >= 80),
-          potentialZonesNeedingSalesPush: (stats.areaPerformanceList || []).filter((a: any) => a.occupancyRate < 80),
+          hotZonesHighDemand: areaList.filter((a: any) => a.occupancyRate >= 80),
+          potentialZonesNeedingSalesPush: areaList.filter((a: any) => a.occupancyRate < 80),
           strategicAdvice: 'Gợi ý điều động nhân viên Sale tập trung chào phòng ở các khu vực có tỷ lệ lấp đầy < 80%, đồng thời thưởng nóng cho top nhân viên xuất sắc.',
         };
       } catch (err: any) {
@@ -288,7 +316,7 @@ Quy tắc trình bày:
       try {
         if (!companyId) return { error: 'Cần thông tin công ty để tra cứu.' };
         const lId = targetLandlordId || userLandlordId;
-        const stats = await getDashboardStats(companyId, lId);
+        const stats = await getDashboardStats(companyId, lId, 'current_month', supabaseAdmin);
 
         const highDemandAreas = (stats.areaPerformanceList || [])
           .filter((a: any) => a.occupancyRate >= 85)
@@ -311,6 +339,7 @@ Quy tắc trình bày:
           landlordMonthlyPayout: stats.landlordRevenue,
           expiringContractsCount: stats.expiringContractsGrouped?.length || 0,
           expiringContractsSummary: (stats.expiringContractsGrouped || []).slice(0, 5),
+          topCompanyPartners: stats.topCompanyPartners || [],
           expansionOpportunities: {
             recommendedAreasToLease: highDemandAreas.length > 0 ? highDemandAreas : ['Cầu Giấy', 'Đống Đa', 'Thanh Xuân', 'Tây Hồ'],
             marketInsight: 'Các khu vực trên đang ghi nhận nhu cầu thuê cao vượt trội (>85%). Chủ nhà nên cân nhắc mở rộng thầu thêm tòa nhà tại các quận này để tối ưu lợi nhuận.',
@@ -323,13 +352,64 @@ Quy tắc trình bày:
     };
 
     // === 5. Tool Sales KPI Overview ===
+    // === 5. Tool Sales KPI & Work Overview ===
     const executeSalesKpiOverview = async ({ saleId: targetSaleId }: { saleId?: string } = {}) => {
       try {
-        if (!companyId) return { error: 'Cần thông tin công ty để tra cứu.' };
         const sId = targetSaleId || userId;
         if (!sId) return { error: 'Không xác định được ID nhân viên Sale.' };
 
-        const stats = await getSalesDashboardStats(companyId, sId);
+        let stats: any = { employeeKpis: {}, availableRooms: [], expiringContracts: [] };
+        if (companyId) {
+          try {
+            stats = await getSalesDashboardStats(companyId, sId, supabaseAdmin);
+          } catch (sErr) {
+            console.warn('[AIChat] getSalesDashboardStats error fallback:', sErr);
+          }
+        }
+
+        const now = new Date();
+        const currentPeriod = now.toISOString().slice(0, 7); // 'YYYY-MM'
+        const todayStr = now.toISOString().slice(0, 10);
+
+        // Truy vấn chi tiết lịch hẹn của Sale này (bao gồm ca được phân công, ca tự tạo, hoặc ca chờ nhận)
+        let apptsQuery = supabaseAdmin
+          .from('appointments')
+          .select('id, status, checkin_status, customer_name, customer_phone, room_title, address, date, time, created_at, assigned_to, created_by')
+          .order('date', { ascending: false });
+
+        if (companyId) apptsQuery = apptsQuery.eq('company_id', companyId);
+        if (sId) {
+          apptsQuery = apptsQuery.or(`assigned_to.eq.${sId},created_by.eq.${sId},assigned_to.is.null`);
+        }
+
+        let leadsQuery = supabaseAdmin
+          .from('leads')
+          .select('id, status, full_name, phone, created_at, source')
+          .order('created_at', { ascending: false });
+
+        if (companyId) leadsQuery = leadsQuery.eq('company_id', companyId);
+        if (sId) leadsQuery = leadsQuery.or(`assigned_to.eq.${sId},assigned_to.is.null`);
+
+        const [apptsRes, leadsRes] = await Promise.all([apptsQuery, leadsQuery]);
+
+        const allAppts = apptsRes.data || [];
+        const monthAppts = allAppts.filter((a: any) => a.date && a.date.startsWith(currentPeriod));
+        const todayAppts = allAppts.filter((a: any) => a.date === todayStr);
+
+        const apptStatusBreakdown = {
+          confirmed: allAppts.filter((a: any) => ['Confirmed', 'confirmed', 'completed', 'Completed'].includes(a.status) || a.checkin_status).length,
+          pending: allAppts.filter((a: any) => ['Pending', 'pending'].includes(a.status) && !a.checkin_status).length,
+          cancelled: allAppts.filter((a: any) => ['Cancelled', 'cancelled'].includes(a.status)).length,
+        };
+
+        const allLeads = leadsRes.data || [];
+        const leadsClassification = {
+          hotLeadsCount: allLeads.filter((l: any) => ['hot', 'viewing', 'deposit_pending'].includes(l.status?.toLowerCase())).length,
+          warmLeadsCount: allLeads.filter((l: any) => ['warm', 'consulting', 'contacted'].includes(l.status?.toLowerCase())).length,
+          newLeadsCount: allLeads.filter((l: any) => ['new', 'unread'].includes(l.status?.toLowerCase())).length,
+          closedLeadsCount: allLeads.filter((l: any) => ['deposited', 'contracted', 'converted'].includes(l.status?.toLowerCase())).length,
+          totalLeads: allLeads.length,
+        };
 
         return {
           saleId: sId,
@@ -338,29 +418,96 @@ Quy tắc trình bày:
           successfulDealsThisMonth: stats.employeeKpis?.successful_deals || 0,
           revenueGeneratedThisMonth: stats.employeeKpis?.revenue_generated || 0,
           estimatedCommissionEarned: stats.employeeKpis?.commission_earned || 0,
-          myTotalLeads: stats.totalLeads,
-          todayAppointmentsCount: stats.todayAppointments?.length || 0,
+          appointmentsSummary: {
+            thisMonthTotal: monthAppts.length,
+            todayTotal: todayAppts.length,
+            allTimeTotal: allAppts.length,
+            statusBreakdown: apptStatusBreakdown,
+            recentAppointmentsList: allAppts.slice(0, 15).map((a: any) => ({
+              customer: a.customer_name,
+              phone: maskHouseNumberInBuildingName(a.customer_phone || ''),
+              room: maskHouseNumberInBuildingName(a.room_title || a.address || ''),
+              date: a.date,
+              time: a.time,
+              status: (a.checkin_status || a.status === 'completed') ? 'Đã Check-in (Thành công)' : a.status,
+              isAssignedToMe: a.assigned_to === sId,
+            })),
+          },
+          leadsClassification,
           expiringContractsToRenewCount: stats.expiringContracts?.length || 0,
           expiringContractsToRenew: (stats.expiringContracts || []).map((c: any) => ({
             contract_code: c.contract_code,
             tenant_name: c.party_b_name,
-            phone: c.party_b_phone,
+            phone: maskHouseNumberInBuildingName(c.party_b_phone || ''),
             end_date: c.end_date,
-            building_name: c.rooms?.buildings?.name,
+            building_name: maskHouseNumberInBuildingName(c.rooms?.buildings?.name || ''),
             room_code: c.rooms?.code,
           })),
           salesPushSuggestions: {
             hotAvailableRoomsToPush: (stats.availableRooms || []).slice(0, 5).map((r: any) => ({
               code: r.code,
-              building: r.buildings?.name,
+              building: maskHouseNumberInBuildingName(r.buildings?.name || ''),
               price: r.price,
             })),
-            strategyAdvice: 'Ưu tiên gọi điện chăm sóc lại các khách thuê cũ sắp hết hạn để gia hạn hợp đồng, đồng thời liên hệ ngay các Lead mới trong ngày.',
+            strategyAdvice: 'Ưu tiên gọi điện chăm sóc lại các khách hàng nóng và khách thuê cũ sắp hết hạn để gia hạn hợp đồng.',
           },
         };
       } catch (err: any) {
         console.error('executeSalesKpiOverview error:', err);
         return { error: 'Lỗi tra cứu KPI Sale.' };
+      }
+    };
+
+    // === 6. Tool Find Unassigned Appointments (Lịch hẹn công ty chờ Sale nhận) ===
+    const executeFindUnassignedAppointments = async ({ area, date }: { area?: string; date?: string }) => {
+      try {
+        let query = supabaseAdmin
+          .from('appointments')
+          .select(`
+            id, customer_name, customer_phone, room_title, address, date, time, status, lead_source, company_id, building_id, room_id,
+            buildings ( name, area, address )
+          `)
+          .is('assigned_to', null);
+
+        if (companyId) query = query.eq('company_id', companyId);
+        if (date) query = query.eq('date', date);
+
+        const { data: rows, error } = await query.order('date', { ascending: true }).limit(20);
+        if (error) {
+          console.error('executeFindUnassignedAppointments error:', error);
+          return { error: 'Lỗi truy xuất lịch hẹn chưa nhận.' };
+        }
+
+        let filtered = rows || [];
+        if (area && area.trim()) {
+          const cleanArea = area.trim().toLowerCase();
+          filtered = filtered.filter((a: any) => {
+            const bArea = (a.buildings?.area || '').toLowerCase();
+            const bAddr = (a.buildings?.address || '').toLowerCase();
+            const apptAddr = (a.address || '').toLowerCase();
+            const roomTitle = (a.room_title || '').toLowerCase();
+            return bArea.includes(cleanArea) || bAddr.includes(cleanArea) || apptAddr.includes(cleanArea) || roomTitle.includes(cleanArea);
+          });
+        }
+
+        return {
+          totalFound: filtered.length,
+          unassignedAppointments: filtered.map((a: any) => ({
+            id: a.id,
+            customer_name: a.customer_name,
+            customer_phone: maskHouseNumberInBuildingName(a.customer_phone || ''),
+            room_title: maskHouseNumberInBuildingName(a.room_title || a.buildings?.name || ''),
+            area: a.buildings?.area || 'Chưa rõ',
+            address: maskHouseNumberInBuildingName(a.buildings?.address || a.address || ''),
+            date: a.date,
+            time: a.time,
+            lead_source: a.lead_source || 'company_mkt',
+            action_hint: 'Sale có thể bấm "Nhận ngay" trên trang Lịch Hẹn Công Ty (/admin/customers/appointments) để nhận chăm sóc khách này.',
+          })),
+        };
+      } catch (err: any) {
+        console.error('executeFindUnassignedAppointments error:', err);
+        return { error: 'Lỗi tra cứu lịch hẹn chưa nhận.' };
       }
     };
 
@@ -396,11 +543,19 @@ Quy tắc trình bày:
         execute: executeLandlordOverview,
       }),
       getSalesKpiOverview: tool({
-        description: 'Dành cho Nhân viên Sale: Báo cáo KPI cá nhân, doanh số chốt deal, hoa hồng tạm tính, hợp đồng sắp hết hạn cần gọi chăm sóc tái ký, gợi ý phòng hot để đẩy hàng.',
+        description: 'Dành cho Nhân viên Sale: Báo cáo KPI cá nhân, doanh số chốt deal, tổng số và danh sách LỊCH HẸN THÁNG NÀY/HÔM NAY, PHÂN LOẠI KHÁCH HÀNG (khách nóng, tiềm năng, khách mới, đã cọc), hợp đồng sắp hết hạn.',
         parameters: z.object({
           saleId: z.string().optional().describe('ID nhân viên sale nếu có'),
         }),
         execute: executeSalesKpiOverview,
+      }),
+      findUnassignedAppointments: tool({
+        description: 'Dành cho Sale / Admin: Tra cứu các LỊCH HẸN CHƯA CÓ SALE NHẬN (lịch hẹn từ Marketing/Công ty) theo khu vực (Cầu Giấy, Đống Đa...) để Sale chọn nhận chăm sóc.',
+        parameters: z.object({
+          area: z.string().optional().describe('Khu vực quận/huyện cần tìm lịch hẹn chưa nhận (ví dụ: Cầu Giấy, Đống Đa...)'),
+          date: z.string().optional().describe('Ngày xem phòng (YYYY-MM-DD)'),
+        }),
+        execute: executeFindUnassignedAppointments,
       }),
     };
 
@@ -454,6 +609,12 @@ Quy tắc trình bày:
               }
               toolResult = await executeSalesKpiOverview(tc.args);
             }
+          } else if (toolName === 'findUnassignedAppointments') {
+            if (r !== 'sales_agent' && r !== 'company_admin' && r !== 'admin' && r !== 'super_admin' && r !== 'manager') {
+              toolResult = { error: 'TỪ CHỐI TRUY CẬP: Bạn không có quyền tra cứu lịch hẹn công ty.' };
+            } else {
+              toolResult = await executeFindUnassignedAppointments(tc.args);
+            }
           }
 
           return `[Kết quả dữ liệu hệ thống từ Tool ${toolName}]: ${JSON.stringify(toolResult)}`;
@@ -464,11 +625,11 @@ Quy tắc trình bày:
         ...messages,
         {
           role: 'user' as const,
-          content: `${toolResultTexts.join('\n\n')}\n\nDựa vào dữ liệu trên, hãy phân tích và trình bày câu trả lời thật đẹp mắt bằng Markdown (dùng Bảng biểu, In đậm, Gạch đầu dòng). Đưa ra các gợi ý đánh giá chiến lược phù hợp với vai trò của người dùng.`,
+          content: `${toolResultTexts.join('\n\n')}\n\nDựa vào dữ liệu thực tế trên, hãy trình bày danh sách phòng: BẮT BUỘC MỖI PHÒNG 1 DÒNG ĐỘC LẬP (dùng gạch đầu dòng '- ' hoặc emoji 📍 ở đầu mỗi dòng, bấm xuống dòng ở cuối mỗi phòng). Giữ nguyên địa chỉ/tên tòa nhà đã được mã hóa trong dữ liệu (ví dụ: x ngách 8x ngõ 678...). KHÔNG viết nối liền các phòng trên cùng một dòng.`,
         },
       ];
 
-      const { result: step2 } = await withFallback((modelId) =>
+      const { result: step2 } = await withFallback(async (modelId) =>
         streamText({
           model: google(modelId),
           system: systemPrompt,
@@ -480,7 +641,7 @@ Quy tắc trình bày:
       return step2.toDataStreamResponse();
     }
 
-    const { result: directStream } = await withFallback((modelId) =>
+    const { result: directStream } = await withFallback(async (modelId) =>
       streamText({
         model: google(modelId),
         system: systemPrompt,

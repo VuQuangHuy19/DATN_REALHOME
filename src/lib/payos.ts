@@ -74,3 +74,31 @@ export async function verifyPayOSWebhookData(webhookBody: any) {
     return null;
   }
 }
+
+/**
+ * Tạo PayOS Payment Link cho Hóa đơn tháng của Khách thuê.
+ */
+export async function createInvoicePayOSLink(params: {
+  invoiceId: string;
+  invoiceCode: string;
+  roomCode: string;
+  amount: number;
+  baseUrl: string;
+}) {
+  const numericOrderCode = Number(
+    String(Date.now()).slice(-6) + Math.floor(100 + Math.random() * 900)
+  );
+
+  const description = `TT HDon ${params.roomCode}`.slice(0, 25);
+  const returnUrl = `${params.baseUrl}/customer/invoices?payment_status=success&invoiceId=${params.invoiceId}`;
+  const cancelUrl = `${params.baseUrl}/customer/invoices?payment_status=cancelled&invoiceId=${params.invoiceId}`;
+
+  return await createPayOSPaymentLink({
+    orderCode: numericOrderCode,
+    amount: Math.round(params.amount),
+    description,
+    returnUrl,
+    cancelUrl,
+  });
+}
+

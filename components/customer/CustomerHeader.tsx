@@ -19,6 +19,7 @@ import { Menu, Home, Building2, Phone, Search, Heart, MessageSquare, LogIn, Layo
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { NotificationBell } from '@/components/ui/NotificationBell';
 
 export function CustomerHeader() {
   const router = useRouter();
@@ -69,9 +70,12 @@ export function CustomerHeader() {
   })();
 
   // Trang settings theo role
-  const settingsHref = role && (role as string) !== 'tenant'
-    ? '/admin/profile'
-    : '/customer/tenant-portal/settings';
+  const settingsHref = (() => {
+    const r = role as string | null | undefined;
+    if (r === 'landlord') return '/landlord/profile';
+    if (r === 'company_admin' || r === 'admin' || r === 'manager' || r === 'sales_agent' || r === 'super_admin' || r === 'accountant') return '/admin/profile';
+    return '/customer/tenant-portal/settings';
+  })();
 
   const navLinks = useMemo(() => {
     const base = [
@@ -81,7 +85,7 @@ export function CustomerHeader() {
       { href: '/customer/favorites', label: 'Yêu thích', icon: Heart },
     ];
     if (role === 'sales_agent') {
-      base.push({ href: '/broker', label: 'Bàn làm việc Sale', icon: LayoutDashboard });
+      base.push({ href: '/admin', label: 'CRM', icon: LayoutDashboard });
     }
     return base;
   }, [role]);
@@ -100,18 +104,20 @@ export function CustomerHeader() {
           <Logo className="text-[20px] md:text-[28px]" />
         </Link>
 
-        {/* Center: Search bar */}
-        <div className="hidden md:flex justify-center">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-amber-400 pointer-events-none" />
-            <Input
-              placeholder="Tìm bất động sản, địa chỉ, khu vực..."
-              value={searchValue}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-9 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-amber-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
-            />
+        {/* Center: Search bar (Hidden on /customer/properties as the page has its own search bar) */}
+        {pathname !== '/customer/properties' && (
+          <div className="hidden md:flex justify-center">
+            <div className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-amber-400 pointer-events-none" />
+              <Input
+                placeholder="Tìm bất động sản, địa chỉ, khu vực..."
+                value={searchValue}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-9 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-amber-300 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Right: Nav + Contact + Mobile toggle */}
         <div className="flex items-center gap-2 justify-end">
@@ -137,6 +143,9 @@ export function CustomerHeader() {
 
           <ThemeToggle />
 
+          {/* Realtime Notification Bell for logged in users */}
+          {user && <NotificationBell />}
+
           {!authLoading && !user && (
             <div className="flex items-center gap-1.5 sm:gap-2">
               <Button size="sm" variant="outline" className="hidden sm:inline-flex h-9 px-3 text-xs font-semibold border-slate-300 dark:border-slate-700" asChild>
@@ -161,31 +170,60 @@ export function CustomerHeader() {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[300px]">
-              <div className="flex flex-col gap-5 mt-8">
+            <SheetContent side="right" className="w-[300px] flex flex-col p-0">
+              {/* Sheet Header — User info or logo */}
+              <div className="px-4 py-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0">
+                {user && profile ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-extrabold shrink-0">
+                      {profile.full_name?.split(' ').slice(-2).map((w: string) => w[0]?.toUpperCase() ?? '').join('') || 'KH'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{profile.full_name ?? 'Khách hàng'}</p>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{user.email}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <Logo className="text-[22px]" />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1 p-4 flex-1 overflow-y-auto">
                 {/* Mobile search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  <Input
-                    placeholder="Tìm bất động sản..."
-                    value={searchValue}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 text-lg font-medium text-slate-600 hover:text-slate-900"
-                  >
-                    <link.icon className="h-5 w-5" />
-                    {link.label}
-                  </Link>
-                ))}
-                
-                <hr className="my-2 border-slate-100" />
+                {pathname !== '/customer/properties' && (
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                    <Input
+                      placeholder="Tìm bất động sản..."
+                      value={searchValue}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      className="pl-9 rounded-xl"
+                    />
+                  </div>
+                )}
+
+                {/* Nav links — improved */}
+                {navLinks.map((link) => {
+                  const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                        isActive
+                          ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <link.icon className={`h-4 w-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+
+                <hr className="my-2 border-slate-100 dark:border-slate-800" />
+
 
                 {!authLoading && (
                   <>
@@ -195,7 +233,7 @@ export function CustomerHeader() {
                         {role && (role as string) !== 'tenant' ? (
                           /* Admin / Landlord / Super Admin -> vào trang quản trị */
                           <Button variant="default" className="bg-accent text-white" asChild onClick={() => setIsOpen(false)}>
-                            <Link href={dashboardHref} prefetch={true}>
+                            <Link href={dashboardHref}>
                               <LayoutDashboard className="h-4 w-4 mr-2" />
                               {dashboardLabel}
                             </Link>
@@ -303,7 +341,7 @@ export function CustomerHeader() {
                   Chào <span className="text-amber-600 dark:text-amber-400">{userName}</span>
                 </div>
                 <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link href={dashboardHref} prefetch={true} className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-400 cursor-pointer">
+                  <Link href={dashboardHref} className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-400 cursor-pointer">
                     <LayoutDashboard className="h-4 w-4" />
                     {dashboardLabel}
                   </Link>

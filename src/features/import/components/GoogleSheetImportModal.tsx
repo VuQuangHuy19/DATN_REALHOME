@@ -13,8 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SheetImportPreviewDialog } from './SheetImportPreviewDialog';
 import { SheetImportResult } from '../services/googleSheetAiParser';
-import { QuickCreateLandlordModal } from '@/src/features/properties/components/QuickCreateLandlordModal';
-import { useLandlords } from '@/src/features/properties/hooks/useLandlords';
+import { QuickCreateLandlordModal } from '@/features/properties/components/QuickCreateLandlordModal';
+import { useLandlords } from '@/features/properties/hooks/useLandlords';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBLandlord } from '@/lib/supabase/types';
 import { Sparkles, FileSpreadsheet, Loader2, Link2, HelpCircle, Plus } from 'lucide-react';
@@ -35,14 +35,36 @@ export function GoogleSheetImportModal({
   landlordId,
   onSuccess,
 }: GoogleSheetImportModalProps) {
-  const { company } = useAuth();
+  const { company, role, profile } = useAuth();
   const effectiveCompanyId = companyId || company?.id;
   const { items: landlordList } = useLandlords(effectiveCompanyId);
 
+  const isCompanyAdmin = role === 'company_admin';
+
+  const currentLandlord = React.useMemo(() => {
+    const targetId = landlordId || profile?.landlord_id;
+    if (targetId) {
+      return landlordList.find((l) => l.id === targetId || l.code === targetId) || null;
+    }
+    return null;
+  }, [landlordList, landlordId, profile?.landlord_id]);
+
   const [sheetUrl, setSheetUrl] = useState('');
-  const [selectedLandlord, setSelectedLandlord] = useState<string>(landlordId || '');
+  const [selectedLandlord, setSelectedLandlord] = useState<string>(
+    landlordId || currentLandlord?.code || currentLandlord?.id || profile?.landlord_id || ''
+  );
   const [newLandlords, setNewLandlords] = useState<DBLandlord[]>([]);
   const displayLandlords = [...landlordList, ...newLandlords];
+
+  React.useEffect(() => {
+    if (!selectedLandlord) {
+      if (currentLandlord) {
+        setSelectedLandlord(currentLandlord.code || currentLandlord.id);
+      } else if (profile?.landlord_id) {
+        setSelectedLandlord(profile.landlord_id);
+      }
+    }
+  }, [currentLandlord, profile?.landlord_id, selectedLandlord]);
 
   const [isParsing, setIsParsing] = useState(false);
   const [parsedData, setParsedData] = useState<SheetImportResult | null>(null);
@@ -55,10 +77,7 @@ export function GoogleSheetImportModal({
       return;
     }
 
-    if (!selectedLandlord) {
-      toast.error('Vui lòng chọn Chủ nhà phụ trách trước khi phân tích Sheet.');
-      return;
-    }
+    const activeLandlord = selectedLandlord || currentLandlord?.code || currentLandlord?.id || profile?.landlord_id || 'auto';
 
     setIsParsing(true);
     try {
@@ -88,7 +107,7 @@ export function GoogleSheetImportModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg p-6 rounded-2xl border border-emerald-500/30 bg-slate-950 text-white shadow-2xl">
-          <DialogHeader className="space-y-2">
+          <DialogHeader className="space-y-2 bg-slate-950 border-b border-slate-800/80 pb-3">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
               <FileSpreadsheet className="w-4 h-4" />
               Tự Động Nhập Dữ Liệu Từ Google Sheet (AI)
@@ -102,35 +121,49 @@ export function GoogleSheetImportModal({
           </DialogHeader>
 
           <div className="space-y-4 py-3">
-            {/* Chọn chủ nhà phụ trách */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  CHỦ NHÀ PHỤ TRÁCH <span className="text-emerald-400">*</span>
-                </Label>
-                <button
-                  type="button"
-                  onClick={() => setShowQuickCreate(true)}
-                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1"
+            {/* Chọn chủ nhà phụ trách: Chỉ cho phép company_admin chọn, chủ nhà tự động nhận diện */}
+            {isCompanyAdmin ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    CHỦ NHÀ PHỤ TRÁCH <span className="text-emerald-400">*</span>
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickCreate(true)}
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Chưa có chủ nhà?
+                  </button>
+                </div>
+                <select
+                  value={selectedLandlord}
+                  onChange={(e) => setSelectedLandlord(e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400"
+                  required
                 >
-                  <Plus className="w-3.5 h-3.5" /> Chưa có chủ nhà?
-                </button>
+                  <option value="auto" className="bg-slate-900 text-emerald-400 font-semibold">✨ Tự động nhận diện Chủ nhà (theo cột Số dẫn trên Sheet)</option>
+                  <option value="" className="bg-slate-900 text-slate-400">-- Hoặc chọn 1 Chủ nhà cố định cho tất cả --</option>
+                  {displayLandlords.map((l) => (
+                    <option key={l.id} value={l.code || l.id} className="bg-slate-900 text-white py-1">
+                      {l.code ? `${l.code} - ` : ''}
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={selectedLandlord}
-                onChange={(e) => setSelectedLandlord(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400"
-                required
-              >
-                <option value="">-- Chọn Chủ nhà cho các tòa nhà này --</option>
-                {displayLandlords.map((l) => (
-                  <option key={l.id} value={l.code || l.id}>
-                    {l.code ? `${l.code} - ` : ''}
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            ) : (
+              (currentLandlord || profile?.landlord_id) && (
+                <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-900/80 border border-slate-800 rounded-xl text-xs">
+                  <span className="text-slate-400 font-medium">Chủ nhà phụ trách:</span>
+                  <span className="font-bold text-emerald-400">
+                    {currentLandlord
+                      ? `${currentLandlord.code ? currentLandlord.code + ' - ' : ''}${currentLandlord.name}`
+                      : profile?.full_name || 'Tài khoản Chủ nhà'}
+                  </span>
+                </div>
+              )
+            )}
 
             {/* Input đường dẫn Google Sheet */}
             <div className="space-y-2">
@@ -174,7 +207,7 @@ export function GoogleSheetImportModal({
             </Button>
             <Button
               onClick={handleStartParse}
-              disabled={isParsing || !sheetUrl.trim() || !selectedLandlord}
+              disabled={isParsing || !sheetUrl.trim() || (!selectedLandlord && !currentLandlord && !profile?.landlord_id)}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl gap-2 shadow-lg shadow-emerald-600/20"
             >
               {isParsing ? (
@@ -211,7 +244,7 @@ export function GoogleSheetImportModal({
         parsedData={parsedData}
         sheetUrl={sheetUrl}
         companyId={effectiveCompanyId}
-        landlordId={selectedLandlord}
+        landlordId={selectedLandlord || currentLandlord?.code || currentLandlord?.id || (profile?.landlord_id ?? undefined)}
         onSuccess={onSuccess}
       />
     </>

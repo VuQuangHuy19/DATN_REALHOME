@@ -22,19 +22,36 @@ export function QuickCreateManagerModal({ isOpen, onClose, landlordId, onCreated
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [managerType, setManagerType] = useState<'individual' | 'company'>('individual');
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
     
     const formData = new FormData(e.currentTarget);
+    const name = (formData.get('name') as string || '').trim();
+    const phone = (formData.get('phone') as string || '').trim();
+    const companyName = (formData.get('company_name') as string || '').trim();
+
+    const newErrors: Record<string, string> = {};
+    if (!name) newErrors.name = 'Không được để trống';
+    if (!phone) newErrors.phone = 'Không được để trống';
+    if (managerType === 'company' && !companyName) newErrors.companyName = 'Không được để trống';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+    setSaving(true);
+
     const payload = {
       company_id: company?.id ?? '',
-      name: formData.get('name') as string,
-      phone: formData.get('phone') as string || null,
+      name,
+      phone: phone || null,
       email: formData.get('email') as string || null,
       landlord_id: landlordId,
       manager_type: managerType,
-      company_name: managerType === 'company' ? formData.get('company_name') as string : null,
+      company_name: managerType === 'company' ? companyName : null,
       avatar_url: avatarUrl,
     };
     
@@ -87,7 +104,7 @@ export function QuickCreateManagerModal({ isOpen, onClose, landlordId, onCreated
             Tạo nhanh Quản lý tòa nhà
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSave} className="space-y-4 pt-4">
+        <form onSubmit={handleSave} noValidate className="space-y-4 pt-4">
           <div className="space-y-1.5">
             <Label className="text-ink font-semibold text-xs uppercase tracking-wider">Loại Quản lý</Label>
             <select
@@ -103,18 +120,23 @@ export function QuickCreateManagerModal({ isOpen, onClose, landlordId, onCreated
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="quick-name" className="text-ink font-semibold text-xs uppercase tracking-wider">Họ tên <span className="text-red-500">*</span></Label>
-              <Input id="quick-name" name="name" required className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
+              <Input
+                id="quick-name"
+                name="name"
+                onChange={() => errors.name && setErrors(prev => ({ ...prev, name: '' }))}
+                className={`rounded-lg border-border mt-1.5 focus-visible:ring-accent ${errors.name ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+              />
+              {errors.name && <p className="text-xs font-semibold text-red-500 mt-1">⚠️ {errors.name}</p>}
             </div>
             <div>
               <Label htmlFor="quick-phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại <span className="text-red-500">*</span></Label>
               <Input 
                 id="quick-phone" 
                 name="phone" 
-                required 
-                onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Không được để trống')}
-                onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
-                className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" 
+                onChange={() => errors.phone && setErrors(prev => ({ ...prev, phone: '' }))}
+                className={`rounded-lg border-border mt-1.5 focus-visible:ring-accent ${errors.phone ? 'border-red-500 ring-1 ring-red-500' : ''}`}
               />
+              {errors.phone && <p className="text-xs font-semibold text-red-500 mt-1">⚠️ {errors.phone}</p>}
             </div>
           </div>
           
@@ -133,7 +155,13 @@ export function QuickCreateManagerModal({ isOpen, onClose, landlordId, onCreated
           {managerType === 'company' && (
             <div>
               <Label htmlFor="quick-company" className="text-ink font-semibold text-xs uppercase tracking-wider">Tên công ty <span className="text-red-500">*</span></Label>
-              <Input id="quick-company" name="company_name" required className="rounded-lg border-border mt-1.5 focus-visible:ring-accent" />
+              <Input
+                id="quick-company"
+                name="company_name"
+                onChange={() => errors.companyName && setErrors(prev => ({ ...prev, companyName: '' }))}
+                className={`rounded-lg border-border mt-1.5 focus-visible:ring-accent ${errors.companyName ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+              />
+              {errors.companyName && <p className="text-xs font-semibold text-red-500 mt-1">⚠️ {errors.companyName}</p>}
             </div>
           )}
 

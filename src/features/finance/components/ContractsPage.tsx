@@ -13,10 +13,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Pencil, Trash2, Plus, Search, FileText, Loader2, AlertCircle, 
   Printer, CreditCard, Calendar, User, ShieldCheck, HelpCircle,
-  Building, Landmark, RefreshCw, ClipboardCheck, FileSignature
+  Building, Landmark, RefreshCw, ClipboardCheck, FileSignature, Sparkles, Eye,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Code
 } from 'lucide-react';
-import { useContractTemplates, useDepositContracts, useRentalContracts } from '@/src/features/finance/hooks/useContracts';
-import { useProfiles } from '@/src/features/staff/hooks/useStaff';;
+import { useContractTemplates, useDepositContracts, useRentalContracts } from '@/features/finance/hooks/useContracts';
+import { 
+  DEFAULT_DEPOSIT_TEMPLATE, 
+  DEFAULT_BUILDING_DEPOSIT_TEMPLATE, 
+  DEFAULT_DEPOSIT_NOTARY_TEMPLATE,
+  DEFAULT_DEPOSIT_HCM_TEMPLATE,
+  DEFAULT_RENTAL_TEMPLATE,
+  DEFAULT_RENTAL_OFFICIAL_2024_TEMPLATE,
+  DEFAULT_HANDOVER_TEMPLATE, 
+  DEFAULT_INVOICE_TEMPLATE, 
+  DEFAULT_MAINTENANCE_TEMPLATE,
+  getDefaultTemplateContent 
+} from '@/features/finance/services/contract_templates';
+import { useProfiles } from '@/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBContractTemplate } from '@/lib/supabase/types';
 import Link from 'next/link';
@@ -25,13 +38,17 @@ import { supabase } from '@/lib/supabase/client';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { HandoverReportDialog } from './HandoverReportDialog';
-import { getContractTermMonths, calculateCommissionAmount } from '@/src/features/finance/services/commission';
+import { getContractTermMonths, calculateCommissionAmount } from '@/features/finance/services/commission';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+import { DepositContractsTable } from './contracts/DepositContractsTable';
+import { RentalContractsTable } from './contracts/RentalContractsTable';
+import { ArchivedContractsTable } from './contracts/ArchivedContractsTable';
 
 const formatDateDisplay = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
@@ -107,6 +124,18 @@ export function ContractsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Template Designer States
+  const [templateContent, setTemplateContent] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [templateType, setTemplateType] = useState<DBContractTemplate['type']>('rental');
+  const [editorTab, setEditorTab] = useState<'edit' | 'preview'>('edit');
+  const [editorMode, setEditorMode] = useState<'visual' | 'code'>('visual');
+
+  const formatTemplateForPreview = (html: string) => {
+    if (!html) return '';
+    return html.replace(/\{[A-Z0-9_]+\}/g, '....................................');
+  };
 
   const [viewDeposit, setViewDeposit] = useState<any | null>(null);
   const [isViewDepositOpen, setIsViewDepositOpen] = useState(false);
@@ -244,26 +273,108 @@ export function ContractsPage() {
 
   const handleSaveTemplate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
-    const formData = new FormData(e.currentTarget);
-    const payload = {
-      company_id: company?.id ?? '',
-      name: formData.get('name') as string,
-      type: formData.get('type') as string,
-      content: formData.get('content') as string || null,
-    };
-    if (editItem) {
-      await updateTemplate(editItem.id, payload);
-    } else {
-      await addTemplate(payload);
+    if (!templateName.trim()) {
+      toast.error('Vui lòng nhập tên mẫu hợp đồng');
+      return;
     }
-    setSaving(false);
-    setIsDialogOpen(false);
-    setEditItem(null);
+    setSaving(true);
+    try {
+      const payload = {
+        company_id: company?.id ?? '',
+        name: templateName.trim(),
+        type: templateType,
+        content: templateContent || null,
+      };
+      if (editItem) {
+        await updateTemplate(editItem.id, payload);
+        toast.success('Cập nhật mẫu hợp đồng thành công!');
+      } else {
+        await addTemplate(payload);
+        toast.success('Thêm mẫu hợp đồng mới thành công!');
+      }
+      setIsDialogOpen(false);
+      setEditItem(null);
+    } catch (err: any) {
+      toast.error(err?.message || 'Lỗi khi lưu mẫu hợp đồng');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const openAddTemplate = () => { setEditItem(null); setIsDialogOpen(true); };
-  const openEditTemplate = (item: DBContractTemplate) => { setEditItem(item); setIsDialogOpen(true); };
+  const openAddTemplate = () => {
+    setEditItem(null);
+    setTemplateName('Mẫu hợp đồng mới');
+    setTemplateType('rental');
+    setTemplateContent(DEFAULT_RENTAL_TEMPLATE);
+    setEditorTab('edit');
+    setIsDialogOpen(true);
+  };
+
+  const openEditTemplate = (item: DBContractTemplate) => {
+    setEditItem(item);
+    setTemplateName(item.name);
+    setTemplateType(item.type as any);
+    setTemplateContent(item.content || getDefaultTemplateContent(item.type as any));
+    setEditorTab('edit');
+    setIsDialogOpen(true);
+  };
+
+  const insertVariableTag = (tag: string) => {
+    setTemplateContent((prev) => prev + ` ${tag} `);
+    toast.success(`Đã chèn ${tag}`);
+  };
+
+  const loadPreset = (presetType: 'deposit_room' | 'deposit_building' | 'deposit_notary' | 'deposit_hcm' | 'rental' | 'rental_official_2024' | 'handover' | 'invoice' | 'maintenance') => {
+    switch (presetType) {
+      case 'deposit_room':
+        setTemplateContent(DEFAULT_DEPOSIT_TEMPLATE);
+        setTemplateType('deposit');
+        setTemplateName('Mẫu hợp đồng đặt cọc phòng trọ (A4 chuẩn)');
+        break;
+      case 'deposit_building':
+        setTemplateContent(DEFAULT_BUILDING_DEPOSIT_TEMPLATE);
+        setTemplateType('deposit');
+        setTemplateName('Mẫu hợp đồng đặt cọc thuê cả nhà / căn hộ');
+        break;
+      case 'deposit_notary':
+        setTemplateContent(DEFAULT_DEPOSIT_NOTARY_TEMPLATE);
+        setTemplateType('deposit');
+        setTemplateName('Mẫu hợp đồng đặt cọc thuê nhà (Đền cọc x2 + Phí luật sư)');
+        break;
+      case 'deposit_hcm':
+        setTemplateContent(DEFAULT_DEPOSIT_HCM_TEMPLATE);
+        setTemplateType('deposit');
+        setTemplateName('Mẫu HĐ nhận tiền đặt cọc phòng trọ (Có số Sổ đỏ + Phạt cam kết)');
+        break;
+      case 'rental':
+        setTemplateContent(DEFAULT_RENTAL_TEMPLATE);
+        setTemplateType('rental');
+        setTemplateName('Mẫu hợp đồng thuê căn hộ chuẩn (A4)');
+        break;
+      case 'rental_official_2024':
+        setTemplateContent(DEFAULT_RENTAL_OFFICIAL_2024_TEMPLATE);
+        setTemplateType('rental');
+        setTemplateName('Mẫu HĐ thuê nhà ở (Luật BĐS 2023 - Mẫu chuẩn Nghị định)');
+        break;
+      case 'handover':
+        setTemplateContent(DEFAULT_HANDOVER_TEMPLATE);
+        setTemplateType('handover');
+        setTemplateName('Biên bản bàn giao phòng & thiết bị');
+        break;
+      case 'invoice':
+        setTemplateContent(DEFAULT_INVOICE_TEMPLATE);
+        setTemplateType('invoice');
+        setTemplateName('Mẫu bảng kê hóa đơn tiền nhà');
+        break;
+      case 'maintenance':
+        setTemplateContent(DEFAULT_MAINTENANCE_TEMPLATE);
+        setTemplateType('maintenance');
+        setTemplateName('Phiếu tiếp nhận & sửa chữa bảo trì');
+        break;
+    }
+    toast.success('Đã tải mẫu A4 chuẩn thành công!');
+  };
+
   const openViewTemplate = (item: DBContractTemplate) => { setViewItem(item); setIsViewOpen(true); };
 
   return (
@@ -298,28 +409,299 @@ export function ContractsPage() {
                   <Plus className="h-4 w-4 mr-2" /> Thêm mẫu hợp đồng
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl rounded-lg border border-border bg-white shadow-lg">
-                <DialogHeader>
-                  <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} mẫu hợp đồng</DialogTitle>
+              <DialogContent className="max-w-[90vw] w-[90vw] h-[88vh] max-h-[88vh] rounded-2xl border border-border bg-white shadow-2xl p-4 sm:p-6 flex flex-col">
+                <DialogHeader className="shrink-0 pb-3 border-b border-border flex flex-row items-center justify-between">
+                  <div>
+                    <DialogTitle className="font-heading text-lg sm:text-xl font-bold text-ink flex items-center gap-2">
+                      <FileSignature className="h-5 w-5 text-accent" />
+                      {editItem ? 'Chỉnh sửa' : 'Thiết kế'} mẫu hợp đồng A4
+                    </DialogTitle>
+                    <p className="text-xs text-ink-muted mt-0.5">Tùy biến nội dung văn bản và chèn thẻ biến tự động cho công ty/chủ nhà</p>
+                  </div>
+                  <div className="flex items-center gap-2 pr-6">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={editorTab === 'edit' ? 'default' : 'outline'}
+                      onClick={() => setEditorTab('edit')}
+                      className="h-8 text-xs font-semibold"
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" /> Soạn thảo
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={editorTab === 'preview' ? 'default' : 'outline'}
+                      onClick={() => setEditorTab('preview')}
+                      className="h-8 text-xs font-semibold"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Xem trước A4
+                    </Button>
+                  </div>
                 </DialogHeader>
-                <form onSubmit={handleSaveTemplate} className="space-y-4 pt-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="name" className="text-ink font-semibold text-xs uppercase tracking-wider">Tên mẫu</Label>
-                      <Input id="name" name="name" defaultValue={editItem?.name} required className="rounded-lg border-border focus-visible:ring-accent" />
+
+                <form onSubmit={handleSaveTemplate} className="flex-1 flex flex-col overflow-hidden pt-3 space-y-3">
+                  {/* Top settings bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pb-3 border-b border-border shrink-0">
+                    <div className="sm:col-span-5 space-y-1">
+                      <Label className="text-xs font-bold text-ink uppercase tracking-wider">Tên mẫu hợp đồng</Label>
+                      <Input 
+                        value={templateName} 
+                        onChange={(e) => setTemplateName(e.target.value)} 
+                        required 
+                        placeholder="VD: Hợp đồng đặt cọc phòng trọ chuẩn A4..."
+                        className="h-9 text-sm font-semibold rounded-lg border-border focus-visible:ring-accent" 
+                      />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại hợp đồng</Label>
-                      <Input id="type" name="type" defaultValue={editItem?.type} required className="rounded-lg border-border focus-visible:ring-accent" />
+                    <div className="sm:col-span-3 space-y-1">
+                      <Label className="text-xs font-bold text-ink uppercase tracking-wider">Loại hợp đồng</Label>
+                      <select 
+                        value={templateType} 
+                        onChange={(e) => setTemplateType(e.target.value as any)}
+                        className="w-full h-9 px-3 rounded-lg border border-border bg-white text-ink text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-accent"
+                      >
+                        <option value="deposit">Hợp đồng đặt cọc</option>
+                        <option value="rental">Hợp đồng thuê chính thức</option>
+                        <option value="handover">Biên bản bàn giao phòng</option>
+                        <option value="invoice">Bảng kê hóa đơn</option>
+                        <option value="maintenance">Phiếu sửa chữa bảo trì</option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-4 space-y-1">
+                      <Label className="text-xs font-bold text-ink uppercase tracking-wider">Mẫu chuẩn có sẵn</Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="outline" className="w-full h-9 text-xs font-semibold justify-between border-dashed border-accent text-accent hover:bg-accent/5">
+                            <Sparkles className="h-3.5 w-3.5 mr-1" /> Nạp mẫu chuẩn A4 ▾
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-80">
+                          <DropdownMenuItem onClick={() => loadPreset('deposit_room')}>📄 HĐ Cọc phòng trọ (Mẫu 1)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('deposit_building')}>🏠 HĐ Cọc thuê cả nhà (Mẫu 2)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('deposit_notary')}>🏛️ HĐ Cọc thuê nhà (Mẫu 3 - Đền cọc x2 + Phí luật sư)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('deposit_hcm')}>📋 HĐ Nhận cọc phòng trọ (Mẫu 4 PDF - Có Sổ đỏ + Phạt cam kết)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('rental')}>📜 HĐ Thuê căn hộ chuẩn A4 (Mẫu cơ bản)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('rental_official_2024')}>🏛️ HĐ Thuê nhà ở (Luật BĐS 2023 - Mẫu chuẩn Nghị định)</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('handover')}>📋 Biên bản bàn giao thiết bị</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('invoice')}>💳 Bảng kê hóa đơn tiền nhà</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => loadPreset('maintenance')}>🛠️ Phiếu sửa chữa bảo trì</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="content" className="text-ink font-semibold text-xs uppercase tracking-wider">Nội dung mẫu</Label>
-                    <Textarea id="content" name="content" defaultValue={editItem?.content ?? ''} rows={10} className="rounded-lg border-border focus-visible:ring-accent" />
+
+                  {/* Body Content */}
+                  {editorTab === 'edit' ? (
+                    <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden pt-1">
+                      {/* Main Editor */}
+                      <div className="lg:col-span-8 flex flex-col h-full overflow-hidden">
+                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-border bg-slate-100 p-2 rounded-xl gap-2 flex-wrap shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={editorMode === 'visual' ? 'default' : 'outline'}
+                              onClick={() => setEditorMode('visual')}
+                              className="h-7 text-xs font-semibold"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" /> Soạn thảo trực quan (WYSIWYG)
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={editorMode === 'code' ? 'default' : 'outline'}
+                              onClick={() => setEditorMode('code')}
+                              className="h-7 text-xs font-semibold"
+                            >
+                              <Code className="h-3.5 w-3.5 mr-1" /> Mã HTML (Dev)
+                            </Button>
+                          </div>
+                          {editorMode === 'visual' && (
+                            <div className="flex items-center gap-1">
+                              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-slate-200" onClick={() => document.execCommand('bold')} title="In đậm (Bold)">
+                                <Bold className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-slate-200" onClick={() => document.execCommand('italic')} title="In nghiêng (Italic)">
+                                <Italic className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-slate-200" onClick={() => document.execCommand('underline')} title="Gạch chân (Underline)">
+                                <Underline className="h-3.5 w-3.5" />
+                              </Button>
+                              <div className="h-4 w-px bg-slate-300 mx-1" />
+                              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-slate-200" onClick={() => document.execCommand('justifyLeft')} title="Căn trái">
+                                <AlignLeft className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-slate-200" onClick={() => document.execCommand('justifyCenter')} title="Căn giữa">
+                                <AlignCenter className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-slate-200" onClick={() => document.execCommand('justifyRight')} title="Căn phải">
+                                <AlignRight className="h-3.5 w-3.5" />
+                              </Button>
+                              <div className="h-4 w-px bg-slate-300 mx-1" />
+                              <Button type="button" size="sm" variant="outline" className="h-7 text-[11px] px-2 font-semibold bg-white hover:bg-slate-50" onClick={() => setTemplateContent(prev => prev + ' .................................... ')}>
+                                + Thêm dấu .....
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {editorMode === 'visual' ? (
+                          <div 
+                            contentEditable
+                            suppressContentEditableWarning
+                            onInput={(e) => setTemplateContent(e.currentTarget.innerHTML)}
+                            className="flex-1 w-full bg-white p-6 sm:p-8 rounded-xl border border-slate-300 shadow-sm overflow-y-auto prose max-w-none text-sm text-black leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent min-h-[300px]"
+                            dangerouslySetInnerHTML={{ __html: templateContent }}
+                          />
+                        ) : (
+                          <Textarea 
+                            value={templateContent} 
+                            onChange={(e) => setTemplateContent(e.target.value)} 
+                            placeholder="Nhập nội dung mã văn bản hợp đồng..."
+                            className="flex-1 w-full font-mono text-xs leading-relaxed p-3.5 rounded-xl border border-border focus-visible:ring-accent bg-slate-50/50 resize-none overflow-y-auto min-h-[300px]" 
+                          />
+                        )}
+                      </div>
+
+                      {/* Side panel variables */}
+                      <div className="lg:col-span-4 flex flex-col h-full overflow-hidden border border-border rounded-xl p-3 bg-slate-50">
+                        <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-2 shrink-0 flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-accent" /> Thẻ biến tự động (Click chèn)
+                        </h4>
+                        <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+                          {/* Bên A */}
+                          <div>
+                            <p className="text-[11px] font-bold text-accent uppercase tracking-wider mb-1">👤 Bên A (BQL / Chủ nhà)</p>
+                            <div className="flex flex-wrap gap-1">
+                              {[
+                                { tag: '{PARTY_A_NAME}', label: 'Tên Bên A' },
+                                { tag: '{PARTY_A_DOB}', label: 'Ngày sinh' },
+                                { tag: '{PARTY_A_ID_CARD}', label: 'CCCD' },
+                                { tag: '{PARTY_A_ID_DATE}', label: 'Ngày cấp' },
+                                { tag: '{PARTY_A_ID_PLACE}', label: 'Nơi cấp' },
+                                { tag: '{PARTY_A_PHONE}', label: 'SĐT' },
+                                { tag: '{PARTY_A_ADDRESS}', label: 'Địa chỉ' },
+                              ].map((v) => (
+                                <button
+                                  key={v.tag}
+                                  type="button"
+                                  onClick={() => insertVariableTag(v.tag)}
+                                  className="px-2 py-1 bg-white border border-border hover:border-accent hover:text-accent rounded text-[11px] font-medium text-ink transition-colors shadow-2xs"
+                                >
+                                  + {v.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Bên B */}
+                          <div>
+                            <p className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider mb-1">👤 Bên B (Khách thuê)</p>
+                            <div className="flex flex-wrap gap-1">
+                              {[
+                                { tag: '{PARTY_B_NAME}', label: 'Tên Bên B' },
+                                { tag: '{PARTY_B_DOB}', label: 'Ngày sinh' },
+                                { tag: '{PARTY_B_ID_CARD}', label: 'CCCD' },
+                                { tag: '{PARTY_B_ID_DATE}', label: 'Ngày cấp' },
+                                { tag: '{PARTY_B_ID_PLACE}', label: 'Nơi cấp' },
+                                { tag: '{PARTY_B_PHONE}', label: 'SĐT' },
+                                { tag: '{PARTY_B_ADDRESS}', label: 'Thường trú' },
+                                { tag: '{PARTY_B_TAX_CODE}', label: 'Mã số thuế' },
+                                { tag: '{PARTY_B_BANK_ACCOUNT}', label: 'STK Ngân hàng' },
+                              ].map((v) => (
+                                <button
+                                  key={v.tag}
+                                  type="button"
+                                  onClick={() => insertVariableTag(v.tag)}
+                                  className="px-2 py-1 bg-white border border-border hover:border-indigo-500 hover:text-indigo-600 rounded text-[11px] font-medium text-ink transition-colors shadow-2xs"
+                                >
+                                  + {v.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Phòng & Tòa nhà */}
+                          <div>
+                            <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider mb-1">🏠 Phòng & Tòa nhà</p>
+                            <div className="flex flex-wrap gap-1">
+                              {[
+                                { tag: '{ROOM_CODE}', label: 'Mã phòng' },
+                                { tag: '{BUILDING_NAME}', label: 'Tên tòa' },
+                                { tag: '{BUILDING_ADDRESS}', label: 'Địa chỉ tòa' },
+                                { tag: '{TOTAL_AREA}', label: 'Tổng diện tích' },
+                                { tag: '{BUILDING_AREA}', label: 'DT xây dựng' },
+                                { tag: '{TOTAL_ROOMS}', label: 'Số phòng' },
+                                { tag: '{TENANT_COUNT}', label: 'Số người ở' },
+                              ].map((v) => (
+                                <button
+                                  key={v.tag}
+                                  type="button"
+                                  onClick={() => insertVariableTag(v.tag)}
+                                  className="px-2 py-1 bg-white border border-border hover:border-emerald-500 hover:text-emerald-600 rounded text-[11px] font-medium text-ink transition-colors shadow-2xs"
+                                >
+                                  + {v.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tài chính */}
+                          <div>
+                            <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-1">💰 Giá cả & Cọc</p>
+                            <div className="flex flex-wrap gap-1">
+                              {[
+                                { tag: '{RENT_PRICE}', label: 'Giá thuê' },
+                                { tag: '{RENT_PRICE_WORDS}', label: 'Giá (chữ)' },
+                                { tag: '{DEPOSIT_AMOUNT}', label: 'Tiền cọc' },
+                                { tag: '{DEPOSIT_AMOUNT_WORDS}', label: 'Cọc (chữ)' },
+                                { tag: '{DEADLINE_SIGN_DATE}', label: 'Hạn ký HĐ' },
+                                { tag: '{START_DATE}', label: 'Ngày bắt đầu' },
+                                { tag: '{LEASE_DURATION_MONTHS}', label: 'Số tháng' },
+                              ].map((v) => (
+                                <button
+                                  key={v.tag}
+                                  type="button"
+                                  onClick={() => insertVariableTag(v.tag)}
+                                  className="px-2 py-1 bg-white border border-border hover:border-amber-500 hover:text-amber-600 rounded text-[11px] font-medium text-ink transition-colors shadow-2xs"
+                                >
+                                  + {v.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Live Preview Tab */
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/70 border border-border rounded-xl shadow-inner max-h-[600px]">
+                      <div className="max-w-4xl mx-auto bg-white p-6 sm:p-10 border border-slate-200 rounded-lg shadow-sm">
+                        <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-4 border-b border-border pb-2 flex items-center justify-between">
+                          <span>Xem trước trực quan văn bản (Khổ A4)</span>
+                          <Badge variant="outline" className="text-[10px] text-accent border-accent font-mono">LIVE PREVIEW</Badge>
+                        </h4>
+                        <div 
+                          className="prose max-w-none text-sm text-black leading-relaxed [overflow-wrap:anywhere] break-words"
+                          dangerouslySetInnerHTML={{ __html: formatTemplateForPreview(templateContent) || '<p class="text-ink-muted italic">Chưa có nội dung mẫu...</p>' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions Footer */}
+                  <div className="shrink-0 pt-3 border-t border-border flex items-center justify-between">
+                    <p className="text-xs text-ink-muted hidden sm:block">Các mẫu được lưu sẽ tự động được áp dụng khi xuất Hợp đồng & In PDF cho công ty.</p>
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-xl h-9 px-4 text-xs font-semibold">
+                        Hủy
+                      </Button>
+                      <Button type="submit" className="bg-accent hover:bg-accent-500 text-white rounded-xl h-9 px-5 text-xs font-semibold shadow-sm" disabled={saving}>
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />} 
+                        {editItem ? 'Cập nhật mẫu này' : 'Lưu mẫu mới'}
+                      </Button>
+                    </div>
                   </div>
-                  <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold" disabled={saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Lưu
-                  </Button>
                 </form>
               </DialogContent>
             </Dialog>
@@ -384,803 +766,53 @@ export function ContractsPage() {
       )}
 
       {activeTab === 'deposits' ? (
-        // TABLE HỢP ĐỒNG ĐẶT CỌC
-        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
-          <CardHeader className="p-4 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-              <Input 
-                placeholder="Tìm hợp đồng cọc theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
-                value={depositSearch} 
-                onChange={(e) => setDepositSearch(e.target.value)} 
-                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {depositsLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-accent" />
-              </div>
-            ) : (
-              <>
-                {/* Mobile Card List (Chỉ hiện trên di động < md) */}
-                <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
-                  {filteredDeposits.map((item) => {
-                    const statusInfo = statusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted border-border' };
-                    const agentId = item.sales_agent_id || item.created_by;
-                    const saleProfile = agentId ? profilesMap.get(agentId) : null;
-                    const isOverdueApproval = item.status === 'active' && item.created_at && (new Date().getTime() - new Date(item.created_at).getTime() > 20 * 60 * 1000);
-
-                    return (
-                      <div 
-                        key={item.id} 
-                        className="p-3.5 border border-slate-200 rounded-xl bg-white shadow-xs space-y-2.5 cursor-pointer active:bg-slate-50 transition-colors"
-                        onClick={() => {
-                          setViewDeposit(item);
-                          setIsViewDepositOpen(true);
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                          <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                            {item.contract_code}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                              {statusInfo.label}
-                            </Badge>
-                            {isOverdueApproval && (
-                              <span className="px-1.5 py-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full animate-pulse">
-                                🚨 Quá 20p
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 text-xs text-slate-600">
-                          <div className="flex justify-between items-start">
-                            <span className="text-slate-400 shrink-0">Phòng / Tòa:</span>
-                            <div className="text-right">
-                              <span className="font-bold text-accent block">Phòng {item.rooms?.code || '---'}</span>
-                              <span className="text-[11px] text-slate-500 font-medium">{item.rooms?.buildings?.name || 'Vị trí khác'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-400">Khách thuê (Bên B):</span>
-                            <span className="font-semibold text-slate-900">{item.party_b_name} • <span className="font-mono">{item.party_b_phone}</span></span>
-                          </div>
-
-                          {saleProfile && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-400">Sale phụ trách:</span>
-                              <span className="font-medium text-slate-800">{saleProfile.full_name || '—'}</span>
-                            </div>
-                          )}
-
-                          <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-                            <span className="text-slate-400 font-medium">Tiền đặt cọc:</span>
-                            <span className="font-mono font-extrabold text-accent text-sm">{Number(item.deposit_amount).toLocaleString('vi-VN')}đ</span>
-                          </div>
-
-                          {item.deadline_sign_contract && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-400">Hạn ký HĐ thuê:</span>
-                              <span className="font-mono font-bold text-rose-600">{formatDateDisplay(item.deadline_sign_contract)}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action buttons footer */}
-                        <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                          {(role === 'company_admin' || role === 'manager') && ['signed', 'active', 'draft'].includes(item.status) && (
-                            <Button variant="outline" size="sm" className="h-7 text-xs font-bold text-emerald-700 bg-emerald-50 border-emerald-200" asChild>
-                              <Link href={`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`}>
-                                <FileSignature className="h-3.5 w-3.5 mr-1" /> Lập HĐ thuê
-                              </Link>
-                            </Button>
-                          )}
-
-                          {role === 'landlord' && item.status === 'active' && (
-                            <Button variant="outline" size="sm" className="h-7 text-xs font-bold bg-green-50 text-green-700 border-green-200" onClick={() => handleLandlordConfirm(item.id, false)}>
-                              Nhận cọc
-                            </Button>
-                          )}
-
-                          {(role === 'company_admin' || role === 'manager') && item.status === 'active' && (
-                            <Button variant="outline" size="sm" className="h-7 text-xs font-bold bg-amber-50 text-amber-800 border-amber-300" onClick={() => handleLandlordConfirm(item.id, true)}>
-                              Duyệt đè
-                            </Button>
-                          )}
-
-                          {role !== 'sales_agent' && role !== 'landlord' && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600" asChild title="Chỉnh sửa">
-                              <Link href={`${pathPrefix}/contracts/${item.id}/edit`}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Link>
-                            </Button>
-                          )}
-
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600" asChild title="In">
-                            <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
-                              <Printer className="h-3.5 w-3.5" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Desktop Table (Chỉ hiện trên máy tính >= md) */}
-                <div className="hidden md:block overflow-x-auto w-full max-w-full touch-pan-x">
-                  <table className="w-full min-w-[850px] text-sm border-collapse">
-                    <thead className="bg-bg-subtle border-b border-border">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã hợp đồng</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Phòng / Tòa nhà</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách thuê (Bên B)</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nhân viên Sale</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Tiền đặt cọc</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Hạn ký HĐ thuê</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border text-ink">
-                      {filteredDeposits.map((item) => {
-                        const statusInfo = statusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted border-border' };
-                        return (
-                          <tr 
-                            key={item.id} 
-                            className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
-                            onClick={(e) => {
-                              if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
-                              setViewDeposit(item);
-                              setIsViewDepositOpen(true);
-                            }}
-                          >
-                            <td className="px-4 py-3 font-mono font-bold text-xs">{item.contract_code}</td>
-                            <td className="px-4 py-3">
-                              <span className="font-bold text-accent">Phòng {item.rooms?.code || '---'}</span>
-                              <p className="text-xs text-ink-muted truncate max-w-[180px] font-medium mt-0.5">
-                                {item.rooms?.buildings?.name || 'Vị trí khác'}
-                              </p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="font-semibold text-ink">{item.party_b_name}</span>
-                              <p className="text-xs text-ink-muted font-mono mt-0.5">{item.party_b_phone}</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              {(() => {
-                                const agentId = item.sales_agent_id || item.created_by;
-                                const saleProfile = agentId ? profilesMap.get(agentId) : null;
-                                if (!saleProfile) return <span className="font-semibold text-ink-muted text-xs">Hệ thống</span>;
-                                return (
-                                  <>
-                                    <span className="font-semibold text-ink text-xs">{saleProfile.full_name || '—'}</span>
-                                    <p className="text-xs text-ink-muted font-mono mt-0.5">{saleProfile.phone || '—'}</p>
-                                  </>
-                                );
-                              })()}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <span className="font-mono font-bold text-accent text-sm">
-                                {Number(item.deposit_amount).toLocaleString('vi-VN')}đ
-                              </span>
-                              {(item.commission_rate_raw || item.rooms?.rose) && (
-                                <p className="text-[10px] text-emerald-600 font-bold mt-0.5 whitespace-nowrap">
-                                  Hoa hồng: {(item.commission_amount !== undefined && item.commission_amount !== null && Number(item.commission_amount) > 0
-                                    ? Number(item.commission_amount)
-                                    : calculateCommissionAmount(item.rooms?.price || 0, item.rooms?.rose || '', item.lease_duration_months)
-                                  ).toLocaleString('vi-VN')}đ ({item.commission_rate_raw || item.rooms?.rose})
-                                </p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">
-                              {formatDateDisplay(item.deadline_sign_contract)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {(() => {
-                                const isOverdueApproval = item.status === 'active' && item.created_at && (new Date().getTime() - new Date(item.created_at).getTime() > 20 * 60 * 1000);
-                                return (
-                                  <div className="flex flex-col items-center gap-1">
-                                    <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                                      {statusInfo.label}
-                                    </Badge>
-                                    {isOverdueApproval && (
-                                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 text-[9px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-full animate-pulse">
-                                        🚨 Quá 20p chưa duyệt
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })()}
-                            </td>
-                            <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1">
-                                {(role === 'company_admin' || role === 'manager') && ['signed', 'active', 'draft'].includes(item.status) && (
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-emerald-600 hover:bg-bg-subtle" asChild title="Chuyển thành Hợp đồng thuê">
-                                    <Link href={`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`}>
-                                      <FileText className="h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                )}
-                                
-                                {/* Landlord Confirm Button */}
-                                {role === 'landlord' && item.status === 'active' && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 font-bold text-xs py-1 h-8 rounded-lg"
-                                    onClick={() => handleLandlordConfirm(item.id, false)}
-                                  >
-                                    Nhận cọc
-                                  </Button>
-                                )}
-
-                                {/* Admin / Manager Override Confirm Button */}
-                                {(role === 'company_admin' || role === 'manager') && item.status === 'active' && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800 font-bold text-xs py-1 h-8 rounded-lg shadow-none"
-                                    onClick={() => handleLandlordConfirm(item.id, true)}
-                                    title="Duyệt đè hợp đồng cọc thay Chủ nhà nếu xác nhận tiền cọc đã về"
-                                  >
-                                    Duyệt đè
-                                  </Button>
-                                )}
-                                
-                                {/* Edit contract (Admin / Manager only) */}
-                                {role !== 'sales_agent' && role !== 'landlord' && (
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Chỉnh sửa hợp đồng">
-                                    <Link href={`${pathPrefix}/contracts/${item.id}/edit`}>
-                                      <Pencil className="h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                )}
-
-                                {/* Change status (Admin / Manager only) */}
-                                {role !== 'sales_agent' && role !== 'landlord' && (
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" title="Thay đổi trạng thái">
-                                        <RefreshCw className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="bg-white border-border rounded-lg shadow-md text-ink text-xs font-semibold">
-                                      <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'active')}>
-                                        Chờ xác nhận (active)
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'signed')}>
-                                        Đã nhận cọc (signed)
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'cancelled')}>
-                                        Đã hủy cọc (cancelled)
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'forfeited')}>
-                                        Khách mất cọc (forfeited)
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleStatusChange(item.id, 'refunded')}>
-                                        Đã trả cọc (refunded)
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                )}
-
-                                {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active'].includes(item.status) && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="h-8 px-2.5 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 text-xs font-bold gap-1 rounded-lg shadow-none mr-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      router.push(`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`);
-                                    }}
-                                    title="Chuyển cọc này thành Hợp đồng thuê chính thức"
-                                  >
-                                    <FileSignature className="h-3.5 w-3.5" />
-                                    <span className="hidden sm:inline">Lập HĐ thuê</span>
-                                  </Button>
-                                )}
-
-                                {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(item.status) && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setHandoverSourceType('deposit');
-                                      setHandoverContract(item);
-                                      setIsHandoverOpen(true);
-                                    }}
-                                    title="Biên bản bàn giao phòng"
-                                  >
-                                    <ClipboardCheck className="h-4 w-4" />
-                                  </Button>
-                                )}
-
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="In hợp đồng">
-                                  <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
-                                    <Printer className="h-4 w-4" />
-                                  </Link>
-                                </Button>
-                                
-                                {role !== 'sales_agent' && role !== 'landlord' && (
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
-                                    onClick={() => {
-                                      if (confirm('Bạn có chắc muốn xóa hợp đồng cọc này?')) {
-                                        removeDeposit(item.id);
-                                      }
-                                    }} 
-                                    title="Xóa"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-            {!depositsLoading && filteredDeposits.length === 0 && (
-              <div className="text-center py-12 text-ink-muted bg-white">
-                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                <p className="text-sm font-semibold">Chưa có hợp đồng đặt cọc nào</p>
-                <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Soạn hợp đồng cọc&quot; để bắt đầu</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <DepositContractsTable
+          filteredDeposits={filteredDeposits}
+          depositsLoading={depositsLoading}
+          depositSearch={depositSearch}
+          setDepositSearch={setDepositSearch}
+          statusLabels={statusLabels}
+          profilesMap={profilesMap}
+          role={role}
+          pathPrefix={pathPrefix}
+          formatDateDisplay={formatDateDisplay}
+          handleLandlordConfirm={handleLandlordConfirm}
+          handleStatusChange={handleStatusChange}
+          removeDeposit={removeDeposit}
+          setViewDeposit={setViewDeposit}
+          setIsViewDepositOpen={setIsViewDepositOpen}
+          setHandoverContract={setHandoverContract}
+          setHandoverSourceType={setHandoverSourceType}
+          setIsHandoverOpen={setIsHandoverOpen}
+        />
       ) : activeTab === 'rentals' ? (
-        // TABLE HỢP ĐỒNG THUÊ CHÍNH THỨC
-        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
-          <CardHeader className="p-4 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-              <Input 
-                placeholder="Tìm hợp đồng thuê theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
-                value={rentalSearch} 
-                onChange={(e) => setRentalSearch(e.target.value)} 
-                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {rentalsLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-accent" />
-              </div>
-            ) : (
-              <>
-                {/* Mobile Card List Hợp Đồng Thuê (Hiện trên mobile < md) */}
-                <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
-                  {filteredRentals.map((item) => {
-                    const rentalStatusLabels: Record<string, { label: string; color: string }> = {
-                      draft: { label: 'Bản nháp', color: 'bg-bg-subtle text-ink-muted border-border' },
-                      active: { label: 'Hiệu lực', color: 'bg-green-50 text-green-700 border-green-250' },
-                      ended: { label: 'Đã hết hạn', color: 'bg-bg-subtle text-ink-muted border-border' },
-                      terminated: { label: 'Kết thúc sớm', color: 'bg-amber-50 text-amber-700 border-amber-250' },
-                      cancelled: { label: 'Đã hủy', color: 'bg-red-50 text-red-750 border-red-250' },
-                    };
-                    const statusInfo = rentalStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
-                    const agentId = item.sales_agent_id || item.created_by;
-                    const saleProfile = agentId ? profilesMap.get(agentId) : null;
-
-                    return (
-                      <div 
-                        key={item.id} 
-                        className="p-3.5 border border-slate-200 rounded-xl bg-white shadow-xs space-y-2.5 cursor-pointer active:bg-slate-50 transition-colors"
-                        onClick={() => {
-                          setViewRental(item);
-                          setIsViewRentalOpen(true);
-                        }}
-                      >
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                          <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                            {item.contract_code}
-                          </span>
-                          <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                            {statusInfo.label}
-                          </Badge>
-                        </div>
-
-                        <div className="space-y-1.5 text-xs text-slate-600">
-                          <div className="flex justify-between items-start">
-                            <span className="text-slate-400 shrink-0">Phòng / Tòa:</span>
-                            <div className="text-right">
-                              <span className="font-bold text-accent block">Phòng {item.rooms?.code || '---'}</span>
-                              <span className="text-[11px] text-slate-500 font-medium">{item.rooms?.buildings?.name || 'Vị trí khác'}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-400">Khách thuê (Bên B):</span>
-                            <span className="font-semibold text-slate-900">{item.party_b_name} • <span className="font-mono">{item.party_b_phone}</span></span>
-                          </div>
-
-                          {saleProfile && (
-                            <div className="flex justify-between items-center">
-                              <span className="text-slate-400">Sale phụ trách:</span>
-                              <span className="font-medium text-slate-800">{saleProfile.full_name || '—'}</span>
-                            </div>
-                          )}
-
-                          <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-                            <span className="text-slate-400 font-medium">Tiền thuê:</span>
-                            <span className="font-mono font-extrabold text-accent text-sm">{Number(item.rent_price).toLocaleString('vi-VN')}đ/tháng</span>
-                          </div>
-
-                          <div className="flex justify-between items-center">
-                            <span className="text-slate-400">Thời hạn:</span>
-                            <span className="font-mono font-semibold text-slate-800">{formatDateDisplay(item.start_date)} - {formatDateDisplay(item.end_date)}</span>
-                          </div>
-                        </div>
-
-                        {/* Action buttons footer */}
-                        <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                          {role !== 'sales_agent' && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 text-indigo-600"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setHandoverSourceType('rental');
-                                setHandoverContract(item);
-                                setIsHandoverOpen(true);
-                              }}
-                              title="Biên bản bàn giao phòng"
-                            >
-                              <ClipboardCheck className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-
-                          {role !== 'sales_agent' && role !== 'landlord' && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600" asChild title="Gia hạn">
-                              <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
-                                <RefreshCw className="h-3.5 w-3.5" />
-                              </Link>
-                            </Button>
-                          )}
-
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600" asChild title="In">
-                            <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
-                              <Printer className="h-3.5 w-3.5" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Desktop Table (Chỉ hiện trên máy tính >= md) */}
-                <div className="hidden md:block overflow-x-auto w-full max-w-full touch-pan-x">
-                  <table className="w-full min-w-[850px] text-sm border-collapse">
-                  <thead className="bg-bg-subtle border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã hợp đồng</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Phòng / Tòa nhà</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách thuê (Bên B)</th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Nhân viên Sale</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Tiền thuê</th>
-                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Thời hạn</th>
-                      <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border text-ink">
-                    {filteredRentals.map((item) => {
-                      const rentalStatusLabels: Record<string, { label: string; color: string }> = {
-                        draft: { label: 'Bản nháp', color: 'bg-bg-subtle text-ink-muted border-border' },
-                        active: { label: 'Hiệu lực', color: 'bg-green-50 text-green-700 border-green-250' },
-                        ended: { label: 'Đã hết hạn', color: 'bg-bg-subtle text-ink-muted border-border' },
-                        terminated: { label: 'Kết thúc sớm', color: 'bg-amber-50 text-amber-700 border-amber-250' },
-                        cancelled: { label: 'Đã hủy', color: 'bg-red-50 text-red-750 border-red-250' },
-                      };
-                      const statusInfo = rentalStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
-                      return (
-                        <tr 
-                          key={item.id} 
-                          className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
-                          onClick={(e) => {
-                            if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
-                            setViewRental(item);
-                            setIsViewRentalOpen(true);
-                          }}
-                        >
-                          <td className="px-4 py-3 font-mono font-bold text-xs">{item.contract_code}</td>
-                          <td className="px-4 py-3">
-                            <span className="font-bold text-accent">Phòng {item.rooms?.code || '---'}</span>
-                            <p className="text-xs text-ink-muted truncate max-w-[180px] font-medium mt-0.5">
-                              {item.rooms?.buildings?.name || 'Vị trí khác'}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="font-semibold text-ink">{item.party_b_name}</span>
-                            <p className="text-xs text-ink-muted font-mono mt-0.5">{item.party_b_phone}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            {(() => {
-                              const agentId = item.sales_agent_id || item.created_by;
-                              const saleProfile = agentId ? profilesMap.get(agentId) : null;
-                              if (!saleProfile) return <span className="font-semibold text-ink-muted text-xs">Hệ thống</span>;
-                              return (
-                                <>
-                                  <span className="font-semibold text-ink text-xs">{saleProfile.full_name || '—'}</span>
-                                  <p className="text-xs text-ink-muted font-mono mt-0.5">{saleProfile.phone || '—'}</p>
-                                </>
-                              );
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-mono font-bold text-accent text-sm">
-                              {Number(item.rent_price).toLocaleString('vi-VN')}đ/th
-                            </span>
-                            {(item.commission_rate_raw || item.rooms?.rose) && (
-                              <p className="text-[10px] text-emerald-600 font-bold mt-0.5 whitespace-nowrap">
-                                Hoa hồng: {(item.commission_amount !== undefined && item.commission_amount !== null && Number(item.commission_amount) > 0
-                                  ? Number(item.commission_amount)
-                                  : calculateCommissionAmount(item.rooms?.price || 0, item.rooms?.rose || '', getContractTermMonths(item.start_date, item.end_date))
-                                ).toLocaleString('vi-VN')}đ ({item.commission_rate_raw || item.rooms?.rose})
-                              </p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">
-                            <div>{formatDateDisplay(item.start_date)} - {formatDateDisplay(item.end_date)}</div>
-                            <span className="inline-flex items-center gap-0.5 text-[9px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-sans font-semibold mt-0.5" title="Tự động gia hạn theo điều khoản nếu không báo hủy trước 30 ngày">
-                              🔄 Tự động gia hạn (30d)
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                              {statusInfo.label}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
-                              {role !== 'sales_agent' && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setHandoverSourceType('rental');
-                                    setHandoverContract(item);
-                                    setIsHandoverOpen(true);
-                                  }}
-                                  title="Biên bản bàn giao phòng"
-                                >
-                                  <ClipboardCheck className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {role !== 'sales_agent' && role !== 'landlord' && (
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Gia hạn hợp đồng">
-                                  <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
-                                    <RefreshCw className="h-4 w-4" />
-                                  </Link>
-                                </Button>
-                              )}
-                              {role !== 'sales_agent' && role !== 'landlord' && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
-                               onClick={async () => {
-                                    if (confirm('Bạn có chắc muốn xóa hợp đồng thuê này và giải phóng phòng về trạng thái trống?')) {
-                                      try {
-                                        await removeRental(item.id);
-                                        if (item.room_id) {
-                                          await supabase
-                                            .from('rooms')
-                                            .update({ status: 'available' })
-                                            .eq('id', item.room_id);
-                                        }
-                                        toast.success('Xóa hợp đồng và giải phóng phòng thành công!');
-                                      } catch (err: any) {
-                                        toast.error('Lỗi khi xóa hợp đồng: ' + err.message);
-                                      }
-                                    }
-                                  }} 
-                                  title="Xóa"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-            {!rentalsLoading && filteredRentals.length === 0 && (
-              <div className="text-center py-12 text-ink-muted bg-white">
-                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                <p className="text-sm font-semibold">Chưa có hợp đồng thuê chính thức nào</p>
-                <p className="text-xs text-ink-muted mt-1">Bấm nút &quot;Soạn hợp đồng thuê&quot; hoặc chuyển đổi từ Hợp đồng cọc để bắt đầu</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <RentalContractsTable
+          filteredRentals={filteredRentals}
+          rentalsLoading={rentalsLoading}
+          rentalSearch={rentalSearch}
+          setRentalSearch={setRentalSearch}
+          profilesMap={profilesMap}
+          role={role}
+          pathPrefix={pathPrefix}
+          formatDateDisplay={formatDateDisplay}
+          removeRental={removeRental}
+          setViewRental={setViewRental}
+          setIsViewRentalOpen={setIsViewRentalOpen}
+          setHandoverContract={setHandoverContract}
+          setHandoverSourceType={setHandoverSourceType}
+          setIsHandoverOpen={setIsHandoverOpen}
+        />
       ) : activeTab === 'archived' ? (
-        // TABLE HỢP ĐỒNG ĐÃ THANH LÝ / HẾT HẠN / HỦY
-        <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
-          <CardHeader className="p-4 border-b border-border">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-              <Input 
-                placeholder="Tìm hợp đồng đã thanh lý/hết hạn theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
-                value={archivedSearch} 
-                onChange={(e) => setArchivedSearch(e.target.value)} 
-                className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {/* Mobile Card List Hợp Đồng Thanh Lý (Hiện trên mobile < md) */}
-            <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
-              {filteredArchived.map((item: any) => {
-                const archivedStatusLabels: Record<string, { label: string; color: string }> = {
-                  ended: { label: 'Đã hết hạn', color: 'bg-slate-100 text-slate-700 border-slate-300' },
-                  terminated: { label: 'Kết thúc sớm', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-                  cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800 border-red-300' },
-                  forfeited: { label: 'Mất cọc', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-                  refunded: { label: 'Đã trả cọc', color: 'bg-teal-100 text-teal-800 border-teal-300' },
-                };
-                const statusInfo = archivedStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
-
-                return (
-                  <div 
-                    key={item.id} 
-                    className="p-3.5 border border-slate-200 rounded-xl bg-white shadow-xs space-y-2.5 cursor-pointer active:bg-slate-50 transition-colors"
-                    onClick={() => {
-                      if (item.contract_category === 'thuê') {
-                        setViewRental(item);
-                        setIsViewRentalOpen(true);
-                      } else {
-                        setViewDeposit(item);
-                        setIsViewDepositOpen(true);
-                      }
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                      <span className="font-mono font-bold text-xs text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                        {item.contract_code} ({item.contract_category})
-                      </span>
-                      <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                        {statusInfo.label}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-1.5 text-xs text-slate-600">
-                      <div className="flex justify-between items-start">
-                        <span className="text-slate-400 shrink-0">Phòng / Tòa:</span>
-                        <div className="text-right">
-                          <span className="font-bold text-accent block">Phòng {item.rooms?.code || '---'}</span>
-                          <span className="text-[11px] text-slate-500 font-medium">{item.rooms?.buildings?.name || 'Vị trí khác'}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Khách thuê (Bên B):</span>
-                        <span className="font-semibold text-slate-900">{item.party_b_name} • <span className="font-mono">{item.party_b_phone}</span></span>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-                        <span className="text-slate-400 font-medium">Giá tiền / Cọc:</span>
-                        <span className="font-mono font-extrabold text-accent text-sm">{Number(item.rent_price || item.deposit_amount).toLocaleString('vi-VN')}đ</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-1.5 pt-2 border-t border-slate-100" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-600" asChild title="In">
-                        <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
-                          <Printer className="h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Desktop Table (Chỉ hiện trên máy tính >= md) */}
-            <div className="hidden md:block overflow-x-auto w-full max-w-full touch-pan-x">
-              <table className="w-full min-w-[850px] text-sm border-collapse">
-                <thead className="bg-bg-subtle border-b border-border">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Mã hợp đồng</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Loại HĐ</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Phòng / Tòa nhà</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">Khách thuê (Bên B)</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Giá tiền / Cọc</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border text-ink">
-                  {filteredArchived.map((item: any) => {
-                    const archivedStatusLabels: Record<string, { label: string; color: string }> = {
-                      ended: { label: 'Đã hết hạn', color: 'bg-slate-100 text-slate-700 border-slate-300' },
-                      terminated: { label: 'Kết thúc sớm', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-                      cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800 border-red-300' },
-                      forfeited: { label: 'Mất cọc', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-                      refunded: { label: 'Đã trả cọc', color: 'bg-teal-100 text-teal-800 border-teal-300' },
-                    };
-                    const statusInfo = archivedStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
-                    return (
-                      <tr 
-                        key={item.id} 
-                        className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
-                        onClick={() => {
-                          if (item.contract_category === 'thuê') {
-                            setViewRental(item);
-                            setIsViewRentalOpen(true);
-                          } else {
-                            setViewDeposit(item);
-                            setIsViewDepositOpen(true);
-                          }
-                        }}
-                      >
-                        <td className="px-4 py-3 font-mono font-bold text-xs">{item.contract_code}</td>
-                        <td className="px-4 py-3 font-bold text-xs uppercase text-ink-muted">
-                          HĐ {item.contract_category}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-bold text-accent">Phòng {item.rooms?.code || '---'}</span>
-                          <p className="text-xs text-ink-muted truncate max-w-[180px] font-medium mt-0.5">
-                            {item.rooms?.buildings?.name || 'Vị trí khác'}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-ink">{item.party_b_name}</span>
-                          <p className="text-xs text-ink-muted font-mono mt-0.5">{item.party_b_phone}</p>
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono font-bold text-accent text-sm">
-                          {Number(item.rent_price || item.deposit_amount).toLocaleString('vi-VN')}đ
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge className={`${statusInfo.color} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant="outline">
-                            {statusInfo.label}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Xem / In hợp đồng">
-                            <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
-                              <Printer className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {filteredArchived.length === 0 && (
-              <div className="text-center py-12 text-ink-muted bg-white">
-                <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
-                <p className="text-sm font-semibold">Không có hợp đồng thanh lý hoặc hết hạn nào</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ArchivedContractsTable
+          filteredArchived={filteredArchived}
+          archivedSearch={archivedSearch}
+          setArchivedSearch={setArchivedSearch}
+          pathPrefix={pathPrefix}
+          setViewDeposit={setViewDeposit}
+          setIsViewDepositOpen={setIsViewDepositOpen}
+          setViewRental={setViewRental}
+          setIsViewRentalOpen={setIsViewRentalOpen}
+        />
       ) : (
         // TABLE MẪU HỢP ĐỒNG
         <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
@@ -1858,23 +1490,26 @@ export function ContractsPage() {
 
       {/* Dialog chi tiết mẫu hợp đồng */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-2xl rounded-lg border border-border bg-white shadow-lg p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-ink font-heading font-bold text-lg">
-              <FileText className="h-5 w-5 text-accent" />Chi tiết mẫu hợp đồng
+        <DialogContent className="max-w-4xl w-[92vw] sm:w-full rounded-2xl border border-border bg-white shadow-2xl p-5 sm:p-7 max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0 pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 text-ink font-heading font-bold text-lg sm:text-xl">
+              <FileText className="h-5.5 w-5.5 text-accent" />Chi tiết mẫu hợp đồng
             </DialogTitle>
           </DialogHeader>
           {viewItem && (
-            <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-4 text-sm bg-bg-subtle p-3 rounded-lg border border-border">
-                <div><span className="text-ink-muted font-semibold text-xs">Tên mẫu:</span> <span className="font-semibold text-ink block mt-0.5">{viewItem.name}</span></div>
-                <div><span className="text-ink-muted font-semibold text-xs">Loại:</span> <span className="font-semibold text-ink block mt-0.5">{viewItem.type}</span></div>
-                <div><span className="text-ink-muted font-semibold text-xs">Ngày tạo:</span> <span className="font-mono text-ink block mt-0.5">{viewItem.created_at.split('T')[0]}</span></div>
-                <div><span className="text-ink-muted font-semibold text-xs">Cập nhật:</span> <span className="font-mono text-ink block mt-0.5">{viewItem.updated_at.split('T')[0]}</span></div>
+            <div className="flex-1 overflow-y-auto space-y-4 pt-3 pr-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-slate-50 p-3.5 rounded-xl border border-border">
+                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Tên mẫu:</span> <span className="font-semibold text-ink text-xs sm:text-sm block mt-0.5">{viewItem.name}</span></div>
+                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Loại hợp đồng:</span> <span className="font-bold text-accent uppercase font-mono text-xs sm:text-sm block mt-0.5">{viewItem.type}</span></div>
+                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Ngày tạo:</span> <span className="font-mono text-ink text-xs sm:text-sm block mt-0.5">{viewItem.created_at.split('T')[0]}</span></div>
+                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Cập nhật:</span> <span className="font-mono text-ink text-xs sm:text-sm block mt-0.5">{viewItem.updated_at.split('T')[0]}</span></div>
               </div>
-              <div className="border border-border rounded-lg p-4 bg-white max-h-[350px] overflow-auto">
-                <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-2 border-b border-border pb-1">Nội dung mẫu</h4>
-                <p className="text-xs text-ink-muted whitespace-pre-wrap leading-relaxed">{viewItem.content}</p>
+              <div className="border border-border rounded-xl p-6 sm:p-8 bg-white shadow-xs">
+                <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-4 border-b border-border pb-2">Xem trước nội dung mẫu văn bản (Định dạng A4 chuẩn)</h4>
+                <div 
+                  className="prose max-w-none text-sm text-black leading-relaxed [overflow-wrap:anywhere] break-words"
+                  dangerouslySetInnerHTML={{ __html: formatTemplateForPreview(viewItem.content || '') }}
+                />
               </div>
             </div>
           )}

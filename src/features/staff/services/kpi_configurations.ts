@@ -20,58 +20,85 @@ export const DEFAULT_KPI_CONFIGURATION = {
   ],
 };
 
-export async function getKPIConfiguration(companyId: string): Promise<any> {
-  const [kpiRes, commRes] = await Promise.all([
-    supabase
-      .from('kpi_configurations')
-      .select('*')
-      .eq('company_id', companyId)
-      .maybeSingle(),
-    supabase
-      .from('contract_templates')
-      .select('content')
-      .eq('type', 'system_sales_commission')
-      .or(`company_id.eq.${companyId},company_id.is.null`)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+export async function getKPIConfiguration(companyId: string, customClient?: any): Promise<any> {
+  const client = customClient || (typeof window !== 'undefined' ? supabase : null);
 
-  let commConfig: any = {};
-  if (commRes.data?.content) {
-    try {
-      commConfig = JSON.parse(commRes.data.content);
-    } catch (e) {
-      console.error('Error parsing comm config from DB:', e);
-    }
+  if (!client || typeof client.from !== 'function') {
+    return {
+      id: '',
+      company_id: companyId,
+      ...DEFAULT_KPI_CONFIGURATION,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: null,
+      updated_by: null,
+    };
   }
 
-  // LocalStorage fallback for client offline responsiveness
-  if (typeof window !== 'undefined' && (!commConfig || !commConfig.sale_commission_mode)) {
-    try {
-      const raw = localStorage.getItem(`sale_comm_config_${companyId}`);
-      if (raw) commConfig = JSON.parse(raw);
-    } catch (e) {
-      console.error('Error loading local comm config:', e);
+  try {
+    const [kpiRes, commRes] = await Promise.all([
+      client
+        .from('kpi_configurations')
+        .select('*')
+        .eq('company_id', companyId)
+        .maybeSingle(),
+      client
+        .from('contract_templates')
+        .select('content')
+        .eq('type', 'system_sales_commission')
+        .or(`company_id.eq.${companyId},company_id.is.null`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    let commConfig: any = {};
+    if (commRes.data?.content) {
+      try {
+        commConfig = JSON.parse(commRes.data.content);
+      } catch (e) {
+        console.error('Error parsing comm config from DB:', e);
+      }
     }
+
+    // LocalStorage fallback for client offline responsiveness
+    if (typeof window !== 'undefined' && (!commConfig || !commConfig.sale_commission_mode)) {
+      try {
+        const raw = localStorage.getItem(`sale_comm_config_${companyId}`);
+        if (raw) commConfig = JSON.parse(raw);
+      } catch (e) {
+        console.error('Error loading local comm config:', e);
+      }
+    }
+
+    const baseConfig = kpiRes.data || {
+      id: '',
+      company_id: companyId,
+      ...DEFAULT_KPI_CONFIGURATION,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: null,
+      updated_by: null,
+    };
+
+    return {
+      ...baseConfig,
+      sale_commission_mode: commConfig.sale_commission_mode || (baseConfig as any).sale_commission_mode || DEFAULT_KPI_CONFIGURATION.sale_commission_mode,
+      sale_commission_fixed_rate: commConfig.sale_commission_fixed_rate ?? (baseConfig as any).sale_commission_fixed_rate ?? DEFAULT_KPI_CONFIGURATION.sale_commission_fixed_rate,
+      sale_commission_tiers: commConfig.sale_commission_tiers || (baseConfig as any).sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
+    };
+  } catch (err) {
+    console.warn('[kpi_configurations] getKPIConfiguration error fallback:', err);
+    return {
+      id: '',
+      company_id: companyId,
+      ...DEFAULT_KPI_CONFIGURATION,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      created_by: null,
+      updated_by: null,
+    };
   }
-
-  const baseConfig = kpiRes.data || {
-    id: '',
-    company_id: companyId,
-    ...DEFAULT_KPI_CONFIGURATION,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    created_by: null,
-    updated_by: null,
-  };
-
-  return {
-    ...baseConfig,
-    sale_commission_mode: commConfig.sale_commission_mode || (baseConfig as any).sale_commission_mode || DEFAULT_KPI_CONFIGURATION.sale_commission_mode,
-    sale_commission_fixed_rate: commConfig.sale_commission_fixed_rate ?? (baseConfig as any).sale_commission_fixed_rate ?? DEFAULT_KPI_CONFIGURATION.sale_commission_fixed_rate,
-    sale_commission_tiers: commConfig.sale_commission_tiers || (baseConfig as any).sale_commission_tiers || DEFAULT_KPI_CONFIGURATION.sale_commission_tiers,
-  };
 }
 
 export async function saveKPIConfiguration(

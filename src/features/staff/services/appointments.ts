@@ -24,12 +24,15 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
   if (roomsError) throw roomsError;
 
   // 3. Fetch buildings
-  const { data: buildings, error: buildingsError } = await supabase.from('buildings').select('id, code, address, landlord_id');
+  const { data: buildings, error: buildingsError } = await supabase.from('buildings').select('id, code, address, landlord_id, manager_ids');
   if (buildingsError) throw buildingsError;
 
   // 4. Fetch landlords
-  const { data: landlords, error: landlordsError } = await supabase.from('landlords').select('id, code, name');
+  const { data: landlords, error: landlordsError } = await supabase.from('landlords').select('id, code, name, phone');
   if (landlordsError) throw landlordsError;
+
+  // 4.5. Fetch building managers
+  const { data: managers } = await supabase.from('managers').select('id, name, phone');
 
   // 5. Fetch profiles
   const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, full_name, phone, email');
@@ -53,15 +56,22 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
   // Map client-side
   const roomsMap = new Map<string, string | null>((rooms ?? []).map((r: { id: string; building_id: string | null }) => [r.id, r.building_id]));
   
-  const buildingsMap = new Map<string, { address: string | null; landlord_id: string | null }>();
+  const buildingsMap = new Map<string, { address: string | null; landlord_id: string | null; manager_ids: string[] | null }>();
   (buildings ?? []).forEach((b: any) => {
-    const val = { address: b.address, landlord_id: b.landlord_id };
+    const val = { address: b.address, landlord_id: b.landlord_id, manager_ids: b.manager_ids };
     if (b.code) buildingsMap.set(b.code, val);
     if (b.id) buildingsMap.set(b.id, val);
   });
 
-  const landlordsMap = new Map<string, { code: string | null; name: string | null }>(
-    (landlords ?? []).map((l: { id: string; code: string | null; name: string | null }) => [l.id, { code: l.code, name: l.name }])
+  const landlordsMap = new Map<string, { code: string | null; name: string | null; phone: string | null }>(
+    (landlords ?? []).map((l: { id: string; code: string | null; name: string | null; phone: string | null }) => [
+      l.id,
+      { code: l.code, name: l.name, phone: l.phone },
+    ])
+  );
+
+  const managersMap = new Map<string, { name: string; phone: string | null }>(
+    (managers ?? []).map((m: any) => [m.id, { name: m.name, phone: m.phone }])
   );
 
   const profilesMap = new Map<string, { name: string; phone: string | null }>(
@@ -89,6 +99,11 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
     const building = buildingKey ? buildingsMap.get(buildingKey) : null;
     const landlordIdVal = building?.landlord_id ?? null;
     const landlord = landlordIdVal ? landlordsMap.get(landlordIdVal) : null;
+
+    // Check manager assigned directly to this building (e.g. Bảo Chấn, Kiên)
+    const primaryManagerId = building?.manager_ids?.[0];
+    const buildingManager = primaryManagerId ? managersMap.get(primaryManagerId) : null;
+    const buildingManagerPhone = buildingManager?.phone || null;
 
     // Sale Info
     const saleInfo = row.assigned_to ? profilesMap.get(row.assigned_to) : null;
@@ -120,11 +135,15 @@ export async function getAppointments(companyId?: string, landlordId?: string): 
     const isDealed = !!matchedContract;
     const finalStatus = isDealed ? 'Dealed' : row.status;
 
+    // Effective contact phone: Building Manager > Landlord > Company
+    const effectiveLandlordPhone = buildingManagerPhone || landlord?.phone || null;
+
     return {
       ...row,
       status: finalStatus,
       landlord_code: row.landlord_id || landlord?.code || null,
-      landlord_name: landlord?.name || null,
+      landlord_name: buildingManager?.name ? `${buildingManager.name} (Quản lý - ${landlord?.name || 'TH03'})` : (landlord?.name || null),
+      landlord_phone: effectiveLandlordPhone,
       building_address: building?.address || null,
       // sale info mapped
       sale_name: saleName,

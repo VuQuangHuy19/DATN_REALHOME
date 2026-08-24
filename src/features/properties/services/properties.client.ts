@@ -3,7 +3,7 @@ import {
   createBuilding,
   updateBuilding,
   deleteBuilding,
-} from '@/src/features/properties/services/buildings';
+} from '@/features/properties/services/buildings';
 import type { DBBuilding } from '@/lib/supabase/types';
 
 export async function getBuildingsClient(companyId?: string, landlordId?: string): Promise<DBBuilding[]> {
@@ -20,11 +20,5 @@ export async function updateBuildingClient(id: string, payload: Partial<DBBuildi
 
 export async function deleteBuildingClient(id: string, companyId?: string): Promise<void> {
   void companyId;
-  const res = await fetch(`/api/buildings/${id}`, {
-    method: 'DELETE',
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Lỗi khi xóa tòa nhà');
-  }
+  return deleteBuilding(id);
 }

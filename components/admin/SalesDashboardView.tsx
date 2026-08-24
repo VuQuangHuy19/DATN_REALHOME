@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import { KYCPromptBanner } from '@/components/kyc/KYCPromptBanner';
 
 type SalesStats = {
   totalLeads: number;
@@ -130,6 +131,9 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
 
   return (
     <div className="space-y-6">
+      {/* Banner khuyến khích KYC nhận đặc quyền & CRM lead */}
+      <KYCPromptBanner />
+
       {/* Header Banner - High Energy */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-emerald-600 to-teal-700 p-6 sm:p-8 text-white shadow-lg space-y-4">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">

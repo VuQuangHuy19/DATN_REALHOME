@@ -5,7 +5,7 @@ import type { CustomerListing } from '@/lib/customer/types';
 import {
   useSmartSizeBrackets,
   type SizeBracket,
-} from '@/src/hooks/useSmartSizeBrackets';
+} from '@/hooks/useSmartSizeBrackets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface SizeRangeItem {

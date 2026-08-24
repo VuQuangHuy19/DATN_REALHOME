@@ -2,7 +2,7 @@
 
 import { Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFavorites } from '@/src/lib/hooks/useFavorites';
+import { useFavorites } from '@/hooks/useFavorites';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 

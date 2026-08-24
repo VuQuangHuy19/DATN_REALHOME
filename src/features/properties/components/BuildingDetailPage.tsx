@@ -29,6 +29,7 @@ import { useBuildingServices } from '../hooks/useBuildingServices';
 import { getBuilding } from '../services/buildings';
 
 import { BuildingPhotoAssignModal } from './BuildingPhotoAssignModal';
+import { BuildingRoomDialog } from './building/BuildingRoomDialog';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -527,233 +528,30 @@ export function BuildingDetailPage() {
               <LucideImage className="h-4 w-4 text-indigo-600" />
               Quản lý &amp; Phân loại Ảnh (AI)
             </Button>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
-            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col rounded-lg border border-border bg-white shadow-lg">
-              <DialogHeader className="flex-shrink-0 px-6 pt-6">
-                <DialogTitle className="font-heading text-lg font-bold text-ink">{editItem ? 'Chỉnh sửa' : 'Thêm'} phòng</DialogTitle>
-              </DialogHeader>
-              <div className="overflow-y-auto flex-1 px-6 pb-6">
-                <form onSubmit={handleSave} className="space-y-4 py-1">
-                  {/* 1. Thông tin cơ bản */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã phòng</Label>
-                      <Input id="code" name="code" defaultValue={editItem?.code} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="floor" className="text-ink font-semibold text-xs uppercase tracking-wider">Tầng</Label>
-                      <Input id="floor" name="floor" type="number" defaultValue={editItem?.floor} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng</Label>
-                      <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent" required>
-                        <option value="">Chọn loại</option>
-                        {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái</Label>
-                      <select
-                        id="status"
-                        name="status"
-                        value={selectedStatus}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                        className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent"
-                        required
-                      >
-                        <option value="available">Còn trống</option>
-                        <option value="soon_available">Sắp trống</option>
-                        <option value="rented">Đã cho thuê</option>
-                        <option value="maintenance">Bảo trì</option>
-                        <option value="reserved">Đặt trước</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {selectedStatus === 'soon_available' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5 col-span-2">
-                        <Label htmlFor="soon_date" className="text-ink font-semibold text-xs uppercase tracking-wider">Ngày trống dự kiến</Label>
-                        <Input
-                          id="soon_date"
-                          name="soon_date"
-                          type="date"
-                          value={soonDate}
-                          onChange={(e) => setSoonDate(e.target.value)}
-                          required
-                          className="rounded-lg border-border focus-visible:ring-accent"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="size" className="text-ink font-semibold text-xs uppercase tracking-wider">Diện tích (m²)</Label>
-                      <Input id="size" name="size" type="number" defaultValue={editItem?.size ?? ''} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="bedrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng ngủ</Label>
-                      <Input id="bedrooms" name="bedrooms" type="number" defaultValue={editItem?.bedrooms ?? 0} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="bathrooms" className="text-ink font-semibold text-xs uppercase tracking-wider">Phòng tắm</Label>
-                      <Input id="bathrooms" name="bathrooms" type="number" defaultValue={editItem?.bathrooms ?? 0} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="price" className="text-ink font-semibold text-xs uppercase tracking-wider">Giá thuê (VND/tháng)</Label>
-                    <Input id="price" name="price" type="text" value={displayPrice} onChange={handlePriceChange} placeholder="Nhập giá thuê" required className="rounded-lg border-border focus-visible:ring-accent" />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="has_private_balcony" className="text-ink font-semibold text-xs uppercase tracking-wider">Ban công riêng</Label>
-                      <select id="has_private_balcony" name="has_private_balcony" defaultValue={editItem ? String(editItem.has_private_balcony) : 'false'} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent">
-                        <option value="false">Không có</option>
-                        <option value="true">Có ban công riêng</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="min_contract_months" className="text-ink font-semibold text-xs uppercase tracking-wider">Thời hạn hợp đồng tối thiểu (tháng)</Label>
-                      <Input id="min_contract_months" name="min_contract_months" type="number" defaultValue={editItem?.min_contract_months ?? 12} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="max_occupants" className="text-ink font-semibold text-xs uppercase tracking-wider">Số người tối đa</Label>
-                      <Input id="max_occupants" name="max_occupants" type="number" defaultValue={editItem?.max_occupants ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="max_vehicles_per_room" className="text-ink font-semibold text-xs uppercase tracking-wider">Số xe tối đa</Label>
-                      <Input id="max_vehicles_per_room" name="max_vehicles_per_room" type="number" defaultValue={editItem?.max_vehicles_per_room ?? 2} required className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="description" className="text-ink font-semibold text-xs uppercase tracking-wider">Mô tả</Label>
-                      <Input id="description" name="description" defaultValue={editItem?.description ?? ''} className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="rose" className="text-ink font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới</Label>
-                      <Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." className="rounded-lg border-border focus-visible:ring-accent" />
-                    </div>
-                  </div>
-
-                  {/* Quản lý ảnh phòng trực tiếp trong Dialog */}
-                  <div className="border-t border-border pt-4 space-y-3">
-                    <Label className="text-ink font-semibold text-xs uppercase tracking-wider flex items-center gap-2">
-                      <LucideImage className="h-4 w-4 text-accent" />
-                      Hình ảnh phòng ({(editItem ? images : tempImages).length})
-                    </Label>
-
-                    {(editItem ? images : tempImages).length === 0 ? (
-                      <div className="text-center py-6 border border-dashed border-border rounded-lg text-ink-muted bg-bg-base/30">
-                        <LucideImage className="h-5 w-5 mx-auto mb-1 opacity-45" />
-                        <p className="text-xs">Chưa có hình ảnh nào cho phòng này</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto p-1 border border-border rounded-lg bg-bg-subtle/20">
-                        {(editItem ? images : tempImages).map((img) => (
-                          <div
-                            key={img.id}
-                            className={`flex items-center gap-3 p-2 rounded-lg border bg-white shadow-sm transition-all ${img.is_thumbnail ? 'border-amber-400 bg-amber-50/10' : 'border-border'
-                              }`}
-                          >
-                            <Image
-                              src={img.thumbnail_url || img.url}
-                              alt="Room preview"
-                              width={56}
-                              height={40}
-                              className="object-cover rounded border border-border shrink-0"
-                            />
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-ink select-none">
-                                  <input
-                                    type="radio"
-                                    name="dialog_list_thumbnail_radio"
-                                    checked={img.is_thumbnail}
-                                    onChange={() => {
-                                      if (editItem) {
-                                        makeThumbnail(img.id);
-                                      } else {
-                                        setTempImages(prev => prev.map(item => ({
-                                          ...item,
-                                          is_thumbnail: item.id === img.id
-                                        })));
-                                      }
-                                    }}
-                                    className="w-3.5 h-3.5 text-amber-500 border-border focus:ring-amber-450 focus:ring-offset-0 cursor-pointer"
-                                  />
-                                  Ảnh chính
-                                </label>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5 text-danger hover:text-danger hover:bg-danger/10"
-                                  onClick={() => {
-                                    if (editItem) {
-                                      handleRemoveImage(img.id, img.url);
-                                    } else {
-                                      handleRemoveTempImage(img.id, img.url);
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
-                                <span className="font-semibold text-[10px] uppercase">Ưu tiên:</span>
-                                <input
-                                  type="number"
-                                  value={img.priority}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    if (editItem) {
-                                      updatePriority(img.id, val);
-                                    } else {
-                                      setTempImages(prev => prev.map(item =>
-                                        item.id === img.id ? { ...item, priority: val } : item
-                                      ).sort((a, b) => a.priority - b.priority));
-                                    }
-                                  }}
-                                  className="w-10 h-5 border border-border rounded text-center font-mono text-[10px] text-ink bg-white"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="pt-1">
-                      <ImageUpload
-                        allowVideo={true}
-                        value={null}
-                        onChange={handleImageUploaded}
-                        bucket="room_images"
-                        multiple={true}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-4 border-t border-border">
-                    <Button type="button" variant="ghost" className="text-ink hover:bg-bg-subtle rounded-lg" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
-                    <Button type="submit" className="bg-accent hover:bg-accent-500 text-white rounded-lg" disabled={saving}>
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Lưu
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </DialogContent>
-          </Dialog>
+            <Button onClick={openAdd} className="bg-accent hover:bg-accent-500 text-white rounded-lg"><Plus className="h-4 w-4 mr-2" />Thêm phòng</Button>
+            <BuildingRoomDialog
+              isDialogOpen={isDialogOpen}
+              setIsDialogOpen={setIsDialogOpen}
+              editItem={editItem}
+              handleSave={handleSave}
+              roomTypes={roomTypes}
+              selectedStatus={selectedStatus}
+              setSelectedStatus={setSelectedStatus}
+              soonDate={soonDate}
+              setSoonDate={setSoonDate}
+              displayPrice={displayPrice}
+              handlePriceChange={handlePriceChange}
+              images={images}
+              tempImages={tempImages}
+              setTempImages={setTempImages}
+              makeThumbnail={makeThumbnail}
+              updatePriority={updatePriority}
+              handleRemoveImage={handleRemoveImage}
+              handleRemoveTempImage={handleRemoveTempImage}
+              handleImageUploaded={handleImageUploaded}
+              building={building}
+              saving={saving}
+            />
         </div>
       </PermissionGate>
       </div>
@@ -876,7 +674,7 @@ export function BuildingDetailPage() {
                     <td className="p-2 text-accent font-bold font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</td>
                   </tr>
                   <tr className="hover:bg-bg-subtle/50 transition-colors">
-                    <td className="p-2 font-ink font-semibold">Phí dịch vụ chung</td>
+                    <td className="p-2 text-ink font-semibold">Phí dịch vụ chung</td>
                     <td className="p-2 text-accent font-bold font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/{(building as any).common_service_unit || 'người'}</td>
                   </tr>
                   <tr className="hover:bg-bg-subtle/50 transition-colors">
@@ -926,6 +724,81 @@ export function BuildingDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ➕ Hộp thoại Thêm dịch vụ bổ sung tòa nhà */}
+        <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
+          <DialogContent className="max-w-md p-6 rounded-2xl">
+            <DialogHeader className="border-b border-border pb-3">
+              <DialogTitle className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-amber-600" />
+                Thêm dịch vụ bổ sung cho Tòa nhà
+              </DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleAddServiceSubmit} className="space-y-4 pt-2">
+              <div>
+                <Label className="text-xs font-bold text-ink-muted mb-1 block">Tên dịch vụ *</Label>
+                <Input
+                  placeholder="VD: Dọn dẹp phòng theo giờ, Giặt đồ..."
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  required
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn giá (VNĐ) *</Label>
+                  <Input
+                    placeholder="VD: 50000"
+                    value={servicePrice}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setServicePrice(val ? Number(val).toLocaleString('vi-VN') : '');
+                    }}
+                    required
+                    className="rounded-xl font-mono"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn tính *</Label>
+                  <select
+                    value={serviceUnit}
+                    onChange={(e) => setServiceUnit(e.target.value)}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm font-semibold"
+                  >
+                    <option value="lần">lần</option>
+                    <option value="tháng">tháng</option>
+                    <option value="phòng">phòng</option>
+                    <option value="người">người</option>
+                    <option value="xe">xe</option>
+                    <option value="can">can</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold text-ink-muted mb-1 block">Mô tả dịch vụ</Label>
+                <Input
+                  placeholder="VD: Dọn vệ sinh, lau nhà, thay ga giường..."
+                  value={serviceDesc}
+                  onChange={(e) => setServiceDesc(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                <Button type="button" variant="ghost" onClick={() => setServiceDialogOpen(false)} className="rounded-xl font-bold">
+                  Hủy
+                </Button>
+                <Button type="submit" disabled={isSavingService} className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl shadow-md">
+                  {isSavingService ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Đang lưu...</> : 'Lưu dịch vụ'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Configuration for company management fee */}
         <PermissionGate roles={['company_admin', 'manager']}>

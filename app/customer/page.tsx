@@ -196,20 +196,20 @@ export default function CustomerHomePage() {
               : 'Trải nghiệm tìm kiếm bất động sản cho thuê thông minh, xem phòng 24/7 & hỗ trợ đặt cọc trực tuyến an toàn.'}
           </p>
 
-          {/* Form Lọc Tìm Kiếm Đa Tiêu Chí Trôi (Floating Search Bar) */}
+          {/* Form Tìm Kiếm */}
           <form
             onSubmit={handleSearchSubmit}
-            className="w-full max-w-4xl bg-white/95 dark:bg-card/95 backdrop-blur-xl p-3 sm:p-4 rounded-2xl sm:rounded-full border border-white/40 dark:border-border-subtle shadow-2xl shadow-black/30 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2.5 items-center text-ink"
+            className="w-full max-w-4xl bg-white/95 dark:bg-card/95 backdrop-blur-xl p-2.5 sm:p-4 rounded-2xl sm:rounded-full border border-white/40 dark:border-border-subtle shadow-2xl shadow-black/30 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2 sm:gap-2.5 items-center text-ink"
           >
-            {/* Input Từ khóa */}
+            {/* Input Từ khóa — lớn hơn trên mobile */}
             <div className="relative flex items-center">
-              <Search className="absolute left-4 h-4 w-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-4 h-5 w-5 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Nhập tên tòa nhà, địa chỉ, ngõ, đường..."
                 value={quickSearch}
                 onChange={(e) => setQuickSearch(e.target.value)}
-                className="pl-11 pr-4 h-12 w-full rounded-full border-none bg-slate-100/80 dark:bg-slate-900/60 text-sm text-ink placeholder:text-ink-muted/60 focus:outline-none focus:ring-2 focus:ring-accent transition-all font-medium"
+                className="pl-12 pr-4 h-13 sm:h-12 w-full rounded-full border-none bg-slate-100/80 dark:bg-slate-900/60 text-sm sm:text-base text-ink placeholder:text-ink-muted/60 focus:outline-none focus:ring-2 focus:ring-accent transition-all font-medium"
               />
             </div>
 
@@ -218,9 +218,9 @@ export default function CustomerHomePage() {
               <select
                 value={selectedDistrictFilter}
                 onChange={(e) => setSelectedDistrictFilter(e.target.value)}
-                className="h-12 px-4 rounded-full bg-slate-100/80 dark:bg-slate-900/60 text-xs sm:text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-accent border-none transition cursor-pointer w-full sm:w-auto"
+                className="h-11 sm:h-12 px-4 rounded-full bg-slate-100/80 dark:bg-slate-900/60 text-xs sm:text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-accent border-none transition cursor-pointer w-full sm:w-auto"
               >
-                <option value="">Tất cả Quận/Huyện</option>
+                <option value="">📍 Tất cả Quận/Huyện</option>
                 {districtStats.map((d) => (
                   <option key={d.name} value={d.name}>
                     {d.name} ({d.count} phòng)
@@ -234,12 +234,12 @@ export default function CustomerHomePage() {
               <select
                 value={selectedPriceFilter}
                 onChange={(e) => setSelectedPriceFilter(e.target.value)}
-                className="h-12 px-4 rounded-full bg-slate-100/80 dark:bg-slate-900/60 text-xs sm:text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-accent border-none transition cursor-pointer w-full sm:w-auto"
+                className="h-11 sm:h-12 px-4 rounded-full bg-slate-100/80 dark:bg-slate-900/60 text-xs sm:text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-accent border-none transition cursor-pointer w-full sm:w-auto"
               >
-                <option value="">Mọi khoảng giá</option>
+                <option value="">💰 Mọi khoảng giá</option>
                 <option value="under_3m">Dưới 3 triệu</option>
-                <option value="3m_5m">3 - 5 triệu</option>
-                <option value="5m_8m">5 - 8 triệu</option>
+                <option value="3m_5m">3 – 5 triệu</option>
+                <option value="5m_8m">5 – 8 triệu</option>
                 <option value="over_8m">Trên 8 triệu</option>
               </select>
             </div>
@@ -248,90 +248,92 @@ export default function CustomerHomePage() {
             <Button
               type="submit"
               size="lg"
-              className="h-12 px-7 rounded-full bg-accent hover:bg-accent-500 text-white font-bold shadow-lg shadow-accent/30 transition-all duration-300 hover:scale-[1.02] w-full sm:w-auto flex items-center justify-center gap-2"
+              className="h-11 sm:h-12 px-6 sm:px-7 rounded-full bg-accent hover:bg-accent-500 text-white font-bold shadow-lg shadow-accent/30 transition-all duration-300 hover:scale-[1.02] w-full sm:w-auto flex items-center justify-center gap-2"
             >
               <Search className="h-4 w-4" />
               <span>Tìm Kiếm</span>
             </Button>
           </form>
 
-          {/* Quick Search Chips (Từ khóa HOT - Chỉnh rõ chữ, nổi bật) */}
-          <div className="mt-5 flex flex-wrap justify-center items-center gap-2 text-xs font-semibold text-white">
+          {/* Quick Search Chips */}
+          <div className="mt-4 flex flex-wrap justify-center items-center gap-2 text-xs font-semibold text-white">
             <span className="text-amber-300 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/30">
               <Zap className="h-3.5 w-3.5 text-amber-400 fill-amber-400" /> Tìm nhanh:
             </span>
-            <button
-              onClick={() => handleTagClick('Cầu Giấy')}
-              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
-            >
+            <button onClick={() => handleTagClick('Cầu Giấy')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
               🔥 Cầu Giấy
             </button>
-            <button
-              onClick={() => handleTagClick('Đống Đa')}
-              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
-            >
+            <button onClick={() => handleTagClick('Đống Đa')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
               📍 Đống Đa
             </button>
-            <button
-              onClick={() => handleTagClick('nuôi thú cưng')}
-              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
-            >
+            <button onClick={() => handleTagClick('nuôi thú cưng')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
               🐾 Cho nuôi mèo
             </button>
-            <button
-              onClick={() => handleTagClick('Đại học Ngoại Thương')}
-              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer"
-            >
+            <button onClick={() => handleTagClick('Đại học Ngoại Thương')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
               🎓 Quanh ĐH Ngoại Thương
             </button>
-            <button
-              onClick={() => handleTagClick('thang máy')}
-              className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer hidden sm:inline-block"
-            >
+            <button onClick={() => handleTagClick('thang máy')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer hidden sm:inline-block">
               ⚡ Có Thang máy
             </button>
           </div>
+
+          {/* ✨ Stats Ribbon — hiện ngay trong hero, không cần scroll */}
+          {!loading && (
+            <div className="mt-6 grid grid-cols-4 gap-2 sm:gap-3 w-full max-w-xl">
+              {[
+                { value: stats.totalRooms, label: 'Tổng phòng', color: 'text-emerald-300', bg: 'bg-emerald-500/20 border-emerald-400/20' },
+                { value: stats.availableRooms, label: 'Sẵn sàng', color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-400/20' },
+                { value: stats.totalBuildings, label: 'Tòa nhà', color: 'text-sky-300', bg: 'bg-sky-500/20 border-sky-400/20' },
+                { value: stats.totalDistricts, label: 'Quận/KV', color: 'text-purple-300', bg: 'bg-purple-500/20 border-purple-400/20' },
+              ].map(({ value, label, color, bg }) => (
+                <div key={label} className={`flex flex-col items-center py-2.5 px-1 rounded-2xl border backdrop-blur-md ${bg}`}>
+                  <span className={`text-xl sm:text-2xl font-extrabold font-mono leading-none ${color}`}>
+                    {value ?? '—'}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-white/70 font-semibold mt-1 text-center leading-tight">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* ═════════════════════════════════════════════════════════════════════ */}
-      {/* 2. DYNAMIC LIVE SYSTEM STATS (THỐNG KÊ THỰC TỪ SUPABASE DB)          */}
-      {/* ═════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-20 -mt-8 container mx-auto px-4">
-        <div className="bg-card border border-border-subtle rounded-2xl shadow-xl p-6 md:p-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center divide-x-0 md:divide-x divide-border-subtle">
-          <div className="flex flex-col items-center">
-            <div className="h-10 w-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-2">
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* 2. STATS CARD GRID (expanded below hero)                               */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      <section className="relative z-20 -mt-6 container mx-auto px-4">
+        <div className="bg-card border border-border-subtle rounded-2xl shadow-xl p-5 md:p-7 grid grid-cols-2 md:grid-cols-4 gap-5 text-center">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="h-10 w-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
               <Building2 className="h-5 w-5" />
             </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono">{stats.totalRooms || '—'}</div>
-            <div className="text-xs md:text-sm text-ink-muted mt-0.5 font-medium">Tổng nguồn phòng</div>
+            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono leading-none">{stats.totalRooms || '—'}</div>
+            <div className="text-xs text-ink-muted font-semibold">Tổng nguồn phòng</div>
           </div>
-
-          <div className="flex flex-col items-center">
-            <div className="h-10 w-10 rounded-full bg-accent-soft text-accent flex items-center justify-center mb-2">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="h-10 w-10 rounded-full bg-accent-soft text-accent flex items-center justify-center">
               <CheckCircle2 className="h-5 w-5" />
             </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-emerald-600 font-mono">{stats.availableRooms || '—'}</div>
-            <div className="text-xs md:text-sm text-ink-muted mt-0.5 font-medium">Phòng sẵn sàng ở ngay</div>
+            <div className="text-2xl md:text-3xl font-extrabold text-emerald-600 font-mono leading-none">{stats.availableRooms || '—'}</div>
+            <div className="text-xs text-ink-muted font-semibold">Phòng sẵn sàng ngay</div>
           </div>
-
-          <div className="flex flex-col items-center">
-            <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mb-2">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
               <MapPin className="h-5 w-5" />
             </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono">{stats.totalBuildings || '—'}</div>
-            <div className="text-xs md:text-sm text-ink-muted mt-0.5 font-medium">Tòa nhà thuộc hệ thống</div>
+            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono leading-none">{stats.totalBuildings || '—'}</div>
+            <div className="text-xs text-ink-muted font-semibold">Tòa nhà hệ thống</div>
           </div>
-
-          <div className="flex flex-col items-center">
-            <div className="h-10 w-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center mb-2">
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="h-10 w-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
               <Bot className="h-5 w-5" />
             </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono">24/7</div>
-            <div className="text-xs md:text-sm text-ink-muted mt-0.5 font-medium">Trợ lý AI Tìm phòng</div>
+            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono leading-none">24/7</div>
+            <div className="text-xs text-ink-muted font-semibold">Trợ lý AI Tìm phòng</div>
           </div>
         </div>
       </section>
+
 
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {/* 3. HOT DISTRICTS GRID (KHU VỰC NỔI BẬT TỪ DATABASE)                  */}

@@ -145,12 +145,12 @@ export function ExcelImportModal({ isOpen, onClose, landlords, onSuccess }: Exce
             <select
               value={selectedLandlord}
               onChange={(e) => setSelectedLandlord(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
               required
             >
-              <option value="">-- Chọn Chủ nhà cho các tòa nhà này --</option>
+              <option value="" className="bg-white text-slate-400">-- Chọn Chủ nhà cho các tòa nhà này --</option>
               {displayLandlords.map(l => (
-                <option key={l.id} value={l.code || ''}>
+                <option key={l.id} value={l.code || ''} className="bg-white text-slate-900">
                   {l.code ? `${l.code} - ` : ''}{l.name}
                 </option>
               ))}

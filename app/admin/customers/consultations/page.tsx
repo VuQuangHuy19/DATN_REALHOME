@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Plus, Search, MessageSquare, Phone, Mail, Edit, Trash2, Eye, Loader2, AlertCircle } from 'lucide-react';
-import { useConsultations } from '@/lib/hooks/useConsultations';
-import { useEmployees } from '@/src/features/staff/hooks/useStaff';;
+import { useConsultations } from '@/hooks/useConsultations';
+import { useEmployees } from '@/features/staff/hooks/useStaff';;
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBConsultation } from '@/lib/supabase/types';
 

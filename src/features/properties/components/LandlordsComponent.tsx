@@ -12,8 +12,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Plus, Search, Phone, User, Building2, MapPin, Layers, Loader2, AlertCircle, Mail, CreditCard, ShieldCheck, Clock, XCircle } from 'lucide-react';
-import { useLandlords } from '@/src/features/properties/hooks/useLandlords';
-import { useBuildings } from '@/src/features/properties/hooks/useBuildings';
+import { useLandlords } from '@/features/properties/hooks/useLandlords';
+import { useBuildings } from '@/features/properties/hooks/useBuildings';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import KYCBadge from '@/components/kyc/KYCBadge';

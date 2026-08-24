@@ -50,7 +50,10 @@ import { ExcelImportModal } from './ExcelImportModal';
 import { GoogleSheetImportModal } from '@/features/import/components/GoogleSheetImportModal';
 import { QuickCreateManagerModal } from './QuickCreateManagerModal';
 import { toast } from 'sonner';
-import { getProvinces, getDistricts, getWards, type VnProvince, type VnDistrict, type VnWard } from '@/src/lib/supabase/repositories/vn_locations';
+
+type VnProvince = { id: string; name: string };
+type VnDistrict = { id: string; name: string; province_id: string };
+type VnWard = { id: string; name: string; district_id: string };
 
 function BuildingThumbnail({ src, alt, size = 48 }: { src?: string | null; alt: string; size?: number }) {
   const [hasError, setHasError] = useState(false);
@@ -86,8 +89,8 @@ export function BuildingListPage() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const { items: buildingList, loading, error, add, update, remove, refetch } = usePropertiesFeature(company?.id);
-  const { items: roomList } = useRooms(company?.id);
+  const { items: buildingList, loading, error, refetch: refetchBuildings, add, update, remove } = usePropertiesFeature(company?.id);
+  const { items: roomList, refetch: refetchRooms } = useRooms(company?.id);
   const { items: contracts } = useRentalContracts(company?.id);
   const { items: landlordList } = useLandlords(company?.id);
   const { items: managerList } = useManagers(company?.id);
@@ -100,9 +103,6 @@ export function BuildingListPage() {
   const [filterArea, setFilterArea] = useState('');
   const [filterLandlord, setFilterLandlord] = useState('');
   const [activeTab, setActiveTab] = useState<'matrix' | 'map' | 'action_needed'>('matrix');
-
-  const [selectedBuildingIds, setSelectedBuildingIds] = useState<string[]>([]);
-  const [deletingBatch, setDeletingBatch] = useState(false);
 
   const [editItem, setEditItem] = useState<DBBuilding | null>(null);
   const [formLandlordCode, setFormLandlordCode] = useState<string>('');
@@ -128,6 +128,38 @@ export function BuildingListPage() {
   const [isPetAllowed, setIsPetAllowed] = useState(false);
   const [allowPetText, setAllowPetText] = useState('');
 
+  const [selectedBuildingIds, setSelectedBuildingIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
+
+  const toggleSelectBuilding = (id: string) => {
+    setSelectedBuildingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedBuildingIds.size === 0) return;
+    setIsBulkDeleting(true);
+    toast.loading(`Đang xóa ${selectedBuildingIds.size} tòa nhà...`, { id: 'bulk-delete-buildings' });
+    try {
+      const idsArray = Array.from(selectedBuildingIds);
+      for (const id of idsArray) {
+        await remove(id);
+      }
+      setSelectedBuildingIds(new Set());
+      setIsConfirmBulkDeleteOpen(false);
+      toast.success(`Đã xóa thành công ${idsArray.length} tòa nhà!`, { id: 'bulk-delete-buildings' });
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa tòa nhà: ' + (err.message || ''), { id: 'bulk-delete-buildings' });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Location cascade state
   const [provinces, setProvinces] = useState<VnProvince[]>([]);
   const [districts, setDistricts] = useState<VnDistrict[]>([]);
@@ -136,9 +168,12 @@ export function BuildingListPage() {
   const [selectedDistrictId, setSelectedDistrictId] = useState<string>('');
   const [selectedWardId, setSelectedWardId] = useState<string>('');
 
-  // Load provinces (static data — không query DB)
+  // Load provinces
   useEffect(() => {
-    getProvinces().then(setProvinces);
+    (async () => {
+      const { data } = await supabase.from('vn_provinces').select('*').order('name');
+      setProvinces((data as VnProvince[] | null) ?? []);
+    })();
   }, []);
 
   // Load districts
@@ -150,7 +185,10 @@ export function BuildingListPage() {
       setSelectedWardId('');
       return;
     }
-    getDistricts(selectedProvinceId).then(setDistricts);
+    (async () => {
+      const res = await supabase.from('vn_districts').select('*').eq('province_id', selectedProvinceId).order('name');
+      setDistricts((res.data as VnDistrict[] | null) ?? []);
+    })();
   }, [selectedProvinceId]);
 
   // Load wards
@@ -160,7 +198,10 @@ export function BuildingListPage() {
       setSelectedWardId('');
       return;
     }
-    getWards(selectedDistrictId).then(setWards);
+    (async () => {
+      const { data } = await supabase.from('vn_wards').select('*').eq('district_id', selectedDistrictId).order('name');
+      setWards((data as VnWard[] | null) ?? []);
+    })();
   }, [selectedDistrictId]);
 
   const composedArea = useMemo(() => {
@@ -185,26 +226,18 @@ export function BuildingListPage() {
   };
 
   // Distinct areas for filter dropdown
-  const areas = useMemo(() => Array.from(new Set(buildingList.map((b) => b.area).filter(Boolean))), [buildingList]);
+  const areas = useMemo(
+    () => Array.from(new Set(buildingList.map((b) => (b.area || '').normalize('NFC')).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi')),
+    [buildingList]
+  );
 
   // Calculate building stats (total rooms, vacant, soon available, occupancy)
   const buildingStatsMap = useMemo(() => {
     const map = new Map<string, { totalRooms: number; rentedRooms: number; vacantRooms: number; soonAvailableRooms: number; occupancyRate: number }>();
 
     buildingList.forEach((b) => {
-      const bRooms = roomList.filter((r) => {
-        if (!r.building_id) return false;
-        const rB = String(r.building_id).trim().toLowerCase();
-        const bCode = (b.code || '').trim().toLowerCase();
-        const bId = (b.id || '').trim().toLowerCase();
-        const rBldCode = ((r as any).buildings?.code || '').trim().toLowerCase();
-        const rBldId = ((r as any).buildings?.id || '').trim().toLowerCase();
-        return (
-          (bCode && (rB === bCode || rBldCode === bCode)) ||
-          (bId && (rB === bId || rBldId === bId))
-        );
-      });
-
+      const bRooms = roomList.filter((r) => r.building_id === b.code || r.building_id === b.id);
+      // Đảm bảo tổng số phòng luôn lấy theo số phòng thực tế trong CSDL (hoặc b.total_rooms nếu lớn hơn)
       const totalRooms = Math.max(b.total_rooms || 0, bRooms.length);
 
       let vacantCount = 0;
@@ -215,18 +248,12 @@ export function BuildingListPage() {
         const ds = getRoomDisplayStatus(r, contracts);
         if (ds.isSoonAvailable) {
           soonCount++;
-        } else if (r.status === 'rented' || ds.status === 'rented') {
-          rentedCount++;
-        } else {
+        } else if (r.status === 'available') {
           vacantCount++;
+        } else if (r.status === 'rented') {
+          rentedCount++;
         }
       });
-
-      // Break down unlisted rooms as vacant if total_rooms > bRooms.length
-      if (bRooms.length < (b.total_rooms || 0)) {
-        const missingRooms = (b.total_rooms || 0) - bRooms.length;
-        vacantCount += missingRooms;
-      }
 
       const effectiveRented = rentedCount + soonCount;
       const pct = totalRooms > 0 ? Math.min(100, Math.round((effectiveRented / totalRooms) * 100)) : 0;
@@ -253,67 +280,24 @@ export function BuildingListPage() {
         (b.address || '').toLowerCase().includes(q) ||
         (b.area || '').toLowerCase().includes(q);
 
-      const matchesArea = !filterArea || b.area === filterArea;
+      const bArea = (b.area || '').normalize('NFC');
+      const matchesArea = !filterArea || bArea === filterArea.normalize('NFC');
       const matchesLandlord = !filterLandlord || b.landlord_id === filterLandlord;
 
       return matchesSearch && matchesArea && matchesLandlord;
     });
   }, [buildingList, searchQuery, filterArea, filterLandlord]);
 
-  const toggleSelectBuilding = (id: string) => {
-    setSelectedBuildingIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const isAllSelected = useMemo(() => {
+    if (filteredBuildings.length === 0) return false;
+    return filteredBuildings.every((b) => selectedBuildingIds.has(b.id));
+  }, [filteredBuildings, selectedBuildingIds]);
 
-  const isAllBuildingsSelected =
-    filteredBuildings.length > 0 &&
-    filteredBuildings.every((b) => selectedBuildingIds.includes(b.id));
-
-  const handleSelectAllBuildings = () => {
-    if (isAllBuildingsSelected) {
-      const filteredSet = new Set(filteredBuildings.map((b) => b.id));
-      setSelectedBuildingIds((prev) => prev.filter((id) => !filteredSet.has(id)));
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedBuildingIds(new Set());
     } else {
-      const allFilteredIds = filteredBuildings.map((b) => b.id);
-      setSelectedBuildingIds((prev) => Array.from(new Set([...prev, ...allFilteredIds])));
-    }
-  };
-
-  const handleBatchDeleteBuildings = async () => {
-    if (selectedBuildingIds.length === 0) return;
-    const count = selectedBuildingIds.length;
-    if (
-      !window.confirm(
-        `Bạn có chắc chắn muốn xóa ${count} tòa nhà đã chọn? Tất cả các phòng và hợp đồng liên quan đến tòa nhà này cũng sẽ bị xóa vĩnh viễn!`
-      )
-    ) {
-      return;
-    }
-
-    setDeletingBatch(true);
-    toast.loading(`Đang xóa ${count} tòa nhà...`, { id: 'batch-delete-bld' });
-    try {
-      const res = await fetch('/api/buildings/batch-delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: selectedBuildingIds }),
-      });
-
-      const resData = await res.json();
-      if (!res.ok) {
-        throw new Error(resData.error || 'Lỗi khi xóa các tòa nhà');
-      }
-
-      setSelectedBuildingIds([]);
-      toast.success(`Đã xóa thành công ${resData.count || count} tòa nhà!`, { id: 'batch-delete-bld' });
-      await refetch();
-    } catch (err: any) {
-      toast.error('Lỗi khi xóa các tòa nhà: ' + (err.message || 'Không xác định'), {
-        id: 'batch-delete-bld',
-      });
-    } finally {
-      setDeletingBatch(false);
+      setSelectedBuildingIds(new Set(filteredBuildings.map((b) => b.id)));
     }
   };
 
@@ -464,6 +448,7 @@ export function BuildingListPage() {
 
   // Render individual building matrix card
   const renderBuildingCard = (b: DBBuilding) => {
+    const isSelected = selectedBuildingIds.has(b.id);
     const st = buildingStatsMap.get(b.id) || {
       totalRooms: b.total_rooms || 0,
       rentedRooms: 0,
@@ -472,53 +457,26 @@ export function BuildingListPage() {
       occupancyRate: 0,
     };
 
-    const bRooms = roomList.filter((r) => {
-      if (!r.building_id) return false;
-      const rB = String(r.building_id).trim().toLowerCase();
-      const bCode = (b.code || '').trim().toLowerCase();
-      const bId = (b.id || '').trim().toLowerCase();
-      return (bCode && rB === bCode) || (bId && rB === bId);
-    });
-    const maxFloorInRooms = bRooms.length > 0 ? Math.max(...bRooms.map((r) => r.floor || 1)) : 1;
-    const displayFloors = Math.max(b.total_floors || 0, maxFloorInRooms);
-
-    const firstRoomImg = bRooms.find((r: any) => r.thumbnail_url || r.image_url) as any;
-    const buildingImg = b.thumbnail_url || b.image_url || firstRoomImg?.thumbnail_url || firstRoomImg?.image_url;
-
     const targetPrefix = pathname.startsWith('/landlord') ? '/landlord/buildings' : '/admin/realhome/buildings';
     const barColor = st.occupancyRate >= 80 ? 'bg-emerald-500' : st.occupancyRate >= 50 ? 'bg-amber-500' : 'bg-rose-500';
-    const isSelected = selectedBuildingIds.includes(b.id);
 
     return (
       <div
         key={b.id}
         onClick={() => router.push(`${targetPrefix}/${b.id}`)}
-        className={`group relative border rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 ${
-          isSelected
-            ? 'bg-rose-50/30 border-rose-400 ring-2 ring-rose-400/40'
-            : 'bg-white border-slate-200 hover:border-emerald-400'
-        }`}
+        className={`group relative bg-white border ${isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10' : 'border-slate-200 hover:border-emerald-400'} rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4`}
       >
         {/* Card Header: Checkbox + Thumbnail + Name + Code */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <PermissionGate roles={['company_admin']}>
-              <div
-                className="shrink-0 cursor-pointer p-0.5"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleSelectBuilding(b.id);
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => {}}
-                  className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                />
-              </div>
-            </PermissionGate>
-            <BuildingThumbnail src={buildingImg} alt={b.name} size={48} />
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => toggleSelectBuilding(b.id)}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0 mt-0.5"
+            />
+            <BuildingThumbnail src={b.thumbnail_url || b.image_url} alt={b.name} size={48} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm sm:text-base text-slate-900 truncate group-hover:text-emerald-700 transition-colors">
@@ -568,7 +526,7 @@ export function BuildingListPage() {
         {/* Facilities & Specs Pills */}
         <div className="flex flex-wrap items-center gap-1.5 text-[10.5px]">
           <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 font-medium">
-            {displayFloors} tầng • {st.totalRooms} phòng
+            {b.total_floors || 1} tầng • {st.totalRooms} phòng
           </span>
 
           {b.has_elevator && (
@@ -641,15 +599,11 @@ export function BuildingListPage() {
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-wider mb-1">
-            <Building2 className="w-4 h-4" />
-            Quản Lý Bất Động Sản RealHome
-          </div>
           <h1 className="text-2xl font-extrabold font-heading text-slate-900 tracking-tight">
             Quản Lý Danh Sách Tòa Nhà
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-            Sơ đồ ma trận tòa nhà trực quan &amp; bản đồ phân bố vị trí BĐS
+            Sơ đồ tòa nhà &amp; bản đồ vị trí BĐS
           </p>
         </div>
 
@@ -672,9 +626,12 @@ export function BuildingListPage() {
                   } else {
                     toast.success('Đã đồng bộ lại số phòng thực tế', { id: 'sync-rooms' });
                   }
-                  setTimeout(() => window.location.reload(), 1200);
+                  refetchBuildings();
+                  refetchRooms();
                 } catch {
                   toast.error('Lỗi kết nối đồng bộ', { id: 'sync-rooms' });
+                } finally {
+                  setSyncing(false);
                 }
               }}
               variant="outline"
@@ -815,47 +772,49 @@ export function BuildingListPage() {
             </div>
           </div>
 
-          {/* Batch Actions & Select All Toolbar */}
-          <PermissionGate roles={['company_admin']}>
-            {activeTab !== 'map' && filteredBuildings.length > 0 && (
-              <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200/80 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 transition-all select-none shadow-2xs">
-                    <input
-                      type="checkbox"
-                      checked={isAllBuildingsSelected}
-                      onChange={handleSelectAllBuildings}
-                      className="w-4 h-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer accent-rose-600"
-                    />
-                    <span>Chọn tất cả ({filteredBuildings.length})</span>
-                  </label>
+          {/* Inline Bulk Action Bar - Ngay dưới Matrix tòa nhà, Bản đồ BĐS, Tòa cần đẩy lấp đầy */}
+          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 flex-wrap bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span>{isAllSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}</span>
+              </label>
 
-                  {selectedBuildingIds.length > 0 && (
-                    <span className="text-xs font-semibold text-slate-600 bg-rose-50 text-rose-700 px-2.5 py-1 rounded-lg border border-rose-200">
-                      Đã chọn <strong className="font-bold font-mono text-rose-800">{selectedBuildingIds.length}</strong> / {filteredBuildings.length} tòa nhà
-                    </span>
-                  )}
-                </div>
+              <span className="text-xs text-slate-500 font-medium">
+                • Đã chọn <strong className="text-emerald-700 font-extrabold">{selectedBuildingIds.size}</strong> / {filteredBuildings.length} tòa nhà
+              </span>
+            </div>
 
-                {selectedBuildingIds.length > 0 && (
+            {selectedBuildingIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <PermissionGate roles={['company_admin']}>
                   <Button
-                    onClick={handleBatchDeleteBuildings}
-                    disabled={deletingBatch}
-                    variant="destructive"
                     size="sm"
-                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold h-8 px-3.5 text-xs rounded-xl gap-1.5 shadow-sm shadow-rose-600/20 animate-in fade-in zoom-in-95 duration-150 cursor-pointer"
+                    variant="destructive"
+                    onClick={() => setIsConfirmBulkDeleteOpen(true)}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
                   >
-                    {deletingBatch ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
-                    )}
-                    Xóa {selectedBuildingIds.length} tòa nhà
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    Xóa đã chọn ({selectedBuildingIds.size})
                   </Button>
-                )}
+                </PermissionGate>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedBuildingIds(new Set())}
+                  className="bg-white hover:bg-slate-100 text-slate-700 border-slate-200 h-8 text-xs font-bold rounded-xl"
+                >
+                  Hủy chọn
+                </Button>
               </div>
             )}
-          </PermissionGate>
+          </div>
         </CardHeader>
 
         {/* Content Area */}
@@ -880,6 +839,7 @@ export function BuildingListPage() {
                   </div>
                 )
               )}
+
 
               {/* TAB 2: BẢN ĐỒ TÒA NHÀ (MAP VIEW) */}
               {activeTab === 'map' && (
@@ -940,12 +900,18 @@ export function BuildingListPage() {
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}
         landlords={landlordList}
-        onSuccess={() => window.location.reload()}
+        onSuccess={() => {
+          refetchBuildings();
+          refetchRooms();
+        }}
       />
       <GoogleSheetImportModal
         open={isSheetModalOpen}
         onOpenChange={setIsSheetModalOpen}
-        onSuccess={() => window.location.reload()}
+        onSuccess={() => {
+          refetchBuildings();
+          refetchRooms();
+        }}
       />
       <QuickCreateManagerModal
         isOpen={isManagerModalOpen}
@@ -953,7 +919,7 @@ export function BuildingListPage() {
         landlordId={role === 'landlord' ? (currentLandlord?.id || '') : (landlordList.find((l) => l.code === formLandlordCode)?.id || '')}
         onCreated={(newManager) => {
           setSelectedManagers((prev) => [...prev, newManager.id]);
-          window.location.reload();
+          refetchBuildings();
         }}
       />
 
@@ -1139,6 +1105,9 @@ export function BuildingListPage() {
                 <ImageUpload
                   allowVideo={true}
                   value={imageUrl}
+                  buildingId={editItem?.id}
+                  buildingCode={editItem?.code}
+                  buildingName={editItem?.name}
                   onChange={(url, thumbUrl) => { setImageUrl(url); setThumbnailUrl(thumbUrl); }}
                 />
               </div>
@@ -1150,6 +1119,35 @@ export function BuildingListPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog xác nhận Xóa Hàng Loạt Tòa Nhà */}
+      <Dialog open={isConfirmBulkDeleteOpen} onOpenChange={setIsConfirmBulkDeleteOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600 font-bold">
+              <AlertCircle className="h-5 w-5" /> Xác nhận xóa {selectedBuildingIds.size} tòa nhà
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-xs text-slate-600">
+            <p>
+              Bạn có chắc chắn muốn xóa <strong>{selectedBuildingIds.size} tòa nhà</strong> đã chọn?
+            </p>
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-1 font-medium">
+              <p className="font-bold">⚠️ Cảnh báo xóa liên hoàn (Cascade Delete):</p>
+              <p>Tất cả các phòng trọ, hình ảnh phòng và hợp đồng thuộc về các tòa nhà này cũng sẽ bị xóa khỏi hệ thống.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setIsConfirmBulkDeleteOpen(false)} disabled={isBulkDeleting}>
+              Hủy bỏ
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={isBulkDeleting}>
+              {isBulkDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+              Đồng ý xóa ({selectedBuildingIds.size})
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

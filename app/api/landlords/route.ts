@@ -4,6 +4,7 @@ import { verifyJWT } from '@/lib/auth-utils';
 import crypto from 'crypto';
 import { generateOnboardingToken } from '@/lib/auth/onboarding-token';
 import { sendEmail } from '@/lib/mail';
+import { normalizeStringForMatching } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 
@@ -39,10 +40,40 @@ export async function GET(request: Request) {
 
     if (companyId) query = query.eq('company_id', companyId);
 
-    const { data, error } = await query;
+    const { data: landlordsData, error } = await query;
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-    return NextResponse.json({ data: data ?? [] });
+    // Enriched with KYC verification statuses
+    let kycMap = new Map<string, string>();
+    try {
+      const { data: kycData } = await supabaseAdmin
+        .from('kyc_verifications')
+        .select('landlord_id, user_id, status');
+
+      if (kycData) {
+        kycData.forEach((k: any) => {
+          if (k.landlord_id) {
+            kycMap.set(k.landlord_id, k.status);
+          }
+        });
+      }
+    } catch (kycErr) {
+      console.warn('KYC verifications table not queried or empty:', kycErr);
+    }
+
+    const enrichedLandlords = (landlordsData ?? []).map((l: any) => {
+      const kycStatusFromTable = kycMap.get(l.id);
+      const finalKycStatus = kycStatusFromTable || l.kyc_status || 'unverified';
+      const isVerified = finalKycStatus === 'approved' || finalKycStatus === 'verified' || l.is_kyc_verified === true;
+
+      return {
+        ...l,
+        kyc_status: finalKycStatus === 'approved' ? 'verified' : finalKycStatus,
+        is_kyc_verified: isVerified,
+      };
+    });
+
+    return NextResponse.json({ data: enrichedLandlords });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
@@ -57,14 +88,57 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { created_by, updated_by, ...insertData } = body;
 
-    // 1. Chèn bản ghi chủ nhà vào database
-    const { data: landlord, error: landlordError } = await supabaseAdmin
-      .from('landlords')
-      .insert(insertData)
-      .select()
-      .single();
+    // Check trùng chủ nhà trong cùng công ty trước khi tạo mới
+    const companyId = insertData.company_id;
+    let existingL = null;
+
+    if (companyId) {
+      const { data: existingList } = await supabaseAdmin
+        .from('landlords')
+        .select('*')
+        .eq('company_id', companyId);
+
+      const cleanCode = insertData.code ? String(insertData.code).trim().toLowerCase() : '';
+      const normCode = insertData.code ? normalizeStringForMatching(insertData.code) : '';
+      const normName = insertData.name ? normalizeStringForMatching(insertData.name) : '';
+      const cleanPhone = insertData.phone ? String(insertData.phone).replace(/[^\d]/g, '') : '';
+      const cleanEmail = insertData.email ? String(insertData.email).trim().toLowerCase() : '';
+
+      existingL = (existingList || []).find((l: any) => {
+        if (cleanCode && l.code && String(l.code).trim().toLowerCase() === cleanCode) return true;
+        if (normCode && l.code && normalizeStringForMatching(l.code) === normCode) return true;
+        if (cleanPhone && cleanPhone.length >= 8 && l.phone && String(l.phone).replace(/[^\d]/g, '') === cleanPhone) return true;
+        if (cleanEmail && l.email && String(l.email).trim().toLowerCase() === cleanEmail) return true;
+        if (normName && normName.length >= 2 && l.name && normalizeStringForMatching(l.name) === normName) return true;
+        return false;
+      });
+    }
+
+    let landlord = existingL;
+    let landlordError = null;
+
+    if (existingL) {
+      // Update existing landlord instead of inserting duplicate
+      const { data: updated, error: uErr } = await supabaseAdmin
+        .from('landlords')
+        .update({ ...insertData, updated_at: new Date().toISOString() })
+        .eq('id', existingL.id)
+        .select()
+        .single();
+      landlord = updated;
+      landlordError = uErr;
+    } else {
+      const { data: inserted, error: iErr } = await supabaseAdmin
+        .from('landlords')
+        .insert(insertData)
+        .select()
+        .single();
+      landlord = inserted;
+      landlordError = iErr;
+    }
 
     if (landlordError) return NextResponse.json({ error: landlordError.message }, { status: 400 });
+
 
     let inviteLink = null;
     let emailSent = false;

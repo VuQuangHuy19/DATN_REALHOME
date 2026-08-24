@@ -1,20 +1,32 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { CustomerListing } from '@/lib/customer/types';
-import { usePublicListings } from '@/lib/hooks/usePublicListings';
+import { usePublicListings } from '@/hooks/usePublicListings';
 import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { getRoomDisplayStatus } from '@/lib/room-status';
 import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, UserCheck, MapPin } from 'lucide-react';
-import ImageGallery from '@/src/features/properties/components/ImageGallery';
-import { haversineDistanceKm } from '@/src/lib/geocoding';
+import { Button } from '@/components/ui/button';
+import { Loader2, UserCheck, ChevronLeft, ChevronRight, Cat, Calendar, Phone } from 'lucide-react';
+import ImageGallery from '@/features/properties/components/ImageGallery';
+import { getDiverseRooms } from '@/lib/recommendation-utils';
+import { maskHouseNumberInBuildingName } from '@/lib/utils';
+import { formatArea } from '@/components/customer/BuildingCard';
+import { getAreaColorClass } from '@/lib/utils/colors';
+import KYCBadge from '@/components/kyc/KYCBadge';
+import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useCustomerCompany } from '@/components/customer/CustomerCompanyProvider';
 
 export function SameLandlordRoomsWidget({ currentRoom }: { currentRoom: CustomerListing }) {
-  // Pass showAll=false to only get available or soon_available rooms
   const { listings, loading } = usePublicListings(currentRoom.companyId, false);
+  const { company } = useCustomerCompany();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const [selectedViewingRoom, setSelectedViewingRoom] = useState<CustomerListing | null>(null);
+  const [isContactOpen, setIsContactOpen] = useState(false);
 
   const sameLandlordRooms = useMemo(() => {
     if (!listings || listings.length === 0) return [];
@@ -22,79 +34,40 @@ export function SameLandlordRoomsWidget({ currentRoom }: { currentRoom: Customer
     // Filter out current room
     const filtered = listings.filter((r) => r.id !== currentRoom.id);
 
-    // If current room has a landlordId, filter by same landlordId
-    let landlordMatches = currentRoom.landlordId
+    // 1. Primary: Match rooms with same landlordId
+    let candidatePool = currentRoom.landlordId
       ? filtered.filter((r) => r.landlordId === currentRoom.landlordId)
       : [];
 
-    // Fallback: If no landlordId or no matching rooms with same landlordId, fallback to same building
-    if (landlordMatches.length === 0 && currentRoom.buildingId) {
-      landlordMatches = filtered.filter((r) => r.buildingId === currentRoom.buildingId);
+    // 2. Fallback: If no landlordId match, match rooms in same area or building
+    if (candidatePool.length === 0 && currentRoom.buildingId) {
+      candidatePool = filtered.filter(
+        (r) => r.buildingId === currentRoom.buildingId || r.area === currentRoom.area || r.districtId === currentRoom.districtId
+      );
     }
 
-    if (landlordMatches.length === 0) return [];
+    if (candidatePool.length === 0) return [];
 
-    // Calculate score and sort
-    const scored = landlordMatches.map((room) => {
-      // 1. Price difference percentage: abs(price - currentPrice) / currentPrice
-      const priceDiffRatio = Math.abs(room.price - currentRoom.price) / currentRoom.price;
-      const isWithin2Percent = priceDiffRatio <= 0.02; // ±2%
-
-      // 2. Distance in KM if coordinates are available
-      let distanceKm: number | null = null;
-      if (
-        room.latitude &&
-        room.longitude &&
-        currentRoom.latitude &&
-        currentRoom.longitude
-      ) {
-        distanceKm = haversineDistanceKm(
-          currentRoom.latitude,
-          currentRoom.longitude,
-          room.latitude,
-          room.longitude
-        );
-      }
-
-      // 3. Location proximity score
-      const sameBuilding = room.buildingId === currentRoom.buildingId;
-      const sameArea = room.area === currentRoom.area || room.districtId === currentRoom.districtId;
-
-      let score = 0;
-      // High score for ±2% price diff
-      if (isWithin2Percent) score += 50;
-      // Score for proximity
-      if (sameBuilding) score += 30;
-      else if (distanceKm !== null && distanceKm <= 1.0) score += 25;
-      else if (distanceKm !== null && distanceKm <= 3.0) score += 15;
-      else if (sameArea) score += 10;
-
-      // Deduct score for price difference
-      score -= priceDiffRatio * 20;
-
-      const diffPctFormatted = ((room.price - currentRoom.price) / currentRoom.price) * 100;
-
-      return {
-        room,
-        score,
-        priceDiffRatio,
-        isWithin2Percent,
-        distanceKm,
-        diffPctFormatted: diffPctFormatted > 0 ? `+${diffPctFormatted.toFixed(1)}%` : `${diffPctFormatted.toFixed(1)}%`,
-      };
-    });
-
-    // Sort by score desc, then by distanceKm asc, then by priceDiffRatio asc
-    scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (a.distanceKm !== null && b.distanceKm !== null && a.distanceKm !== b.distanceKm) {
-        return a.distanceKm - b.distanceKm;
-      }
-      return a.priceDiffRatio - b.priceDiffRatio;
-    });
-
-    return scored.slice(0, 4);
+    // Apply diversity algorithm: pick up to 10 rooms across multiple buildings (max 2 per building)
+    return getDiverseRooms(candidatePool, currentRoom.id, 10, 2);
   }, [listings, currentRoom]);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === 'left' ? -320 : 320;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const getMaskedTitle = (room: CustomerListing): string => {
+    const rawName = room.buildingName || room.address || '';
+    const maskedAddr = maskHouseNumberInBuildingName(rawName);
+    const roomCode = room.title.split('—')[1]?.trim() || room.buildingCode || '';
+    if (roomCode) {
+      return `Phòng ${roomCode} - ${maskedAddr}`;
+    }
+    return maskHouseNumberInBuildingName(room.title);
+  };
 
   if (loading) {
     return (
@@ -106,125 +79,239 @@ export function SameLandlordRoomsWidget({ currentRoom }: { currentRoom: Customer
 
   if (sameLandlordRooms.length === 0) return null;
 
+  const hotline = company?.phone || '(028) 1234-5678';
+  const hotlineHref = company?.phone ? `tel:${company.phone.replace(/\D/g, '')}` : 'tel:02812345678';
+
   return (
     <div className="mt-12 pt-8 border-t border-border-subtle">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-accent" />
-            <h2 className="text-xl font-bold font-heading text-ink">Cùng nguồn chủ nhà</h2>
+            <h2 className="text-xl font-bold font-heading text-ink">Nguồn cùng chủ nhà</h2>
+            <Badge variant="secondary" className="text-xs bg-accent/10 text-accent font-semibold border-none px-2 py-0.5">
+              {sameLandlordRooms.length} phòng khả dụng
+            </Badge>
           </div>
           <p className="text-xs text-ink-muted mt-1">
-            Các căn phòng thuộc cùng chủ sở hữu, vị trí gần và chênh lệch giá khoảng ±2%
+            Gợi ý các căn phòng khác thuộc cùng chủ nhà, phân bổ đa dạng qua nhiều tòa nhà (kéo ngang để xem thêm)
           </p>
         </div>
+
+        {/* Carousel controls */}
+        {sameLandlordRooms.length > 3 && (
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              onClick={() => handleScroll('left')}
+              className="w-8 h-8 rounded-full border border-border-subtle bg-card hover:bg-accent hover:text-white text-ink transition-colors flex items-center justify-center shadow-none"
+              aria-label="Cuộn sang trái"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleScroll('right')}
+              className="w-8 h-8 rounded-full border border-border-subtle bg-card hover:bg-accent hover:text-white text-ink transition-colors flex items-center justify-center shadow-none"
+              aria-label="Cuộn sang phải"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {sameLandlordRooms.map(({ room, isWithin2Percent, diffPctFormatted, distanceKm }) => {
-          const ds = getRoomDisplayStatus({
-            id: room.id,
-            status: room.status === 'soon_available' ? 'rented' : room.status,
-            description: room.description,
-          } as any);
+      {/* Horizontal Scroll Carousel */}
+      <div className="relative group/carousel">
+        <button
+          onClick={() => handleScroll('left')}
+          className="hidden md:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-white/95 dark:bg-card/95 shadow-md border border-border-subtle text-ink hover:bg-accent hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100"
+          aria-label="Cuộn sang trái"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
 
-          return (
-            <Link
-              key={room.id}
-              href={`/customer/properties/rooms/${room.id}`}
-              className="group border border-border-subtle rounded-lg overflow-hidden bg-card hover:border-accent transition-all flex flex-col relative"
-            >
-              <div
-                className="relative w-full border-b border-border-subtle"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                <ImageGallery
-                  items={Array.from(
-                    new Set(
-                      (room.thumbnailUrls ?? [])
-                        .concat(room.imageUrls ?? [])
-                        .concat([room.thumbnailUrl, room.imageUrl])
-                        .filter(Boolean)
-                    )
-                  )}
-                  alt={room.title}
-                  aspectRatio="card"
-                />
+        <div
+          ref={scrollRef}
+          className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory scroll-smooth touch-pan-x"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {sameLandlordRooms.map((room) => {
+            const ds = getRoomDisplayStatus({
+              id: room.id,
+              status: room.status === 'soon_available' ? 'rented' : room.status,
+              description: room.description,
+            } as any);
 
-                <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1 pointer-events-none">
-                  <Badge className="bg-blue-600/90 hover:bg-blue-600 text-white text-[9px] font-bold px-2 py-0.5 border-none rounded-full backdrop-blur-sm shadow-sm">
-                    Cùng chủ nhà
-                  </Badge>
-                  {isWithin2Percent && (
-                    <Badge className="bg-emerald-600/90 hover:bg-emerald-600 text-white text-[9px] font-bold px-2 py-0.5 border-none rounded-full backdrop-blur-sm shadow-sm">
-                      Chênh giá {diffPctFormatted}
-                    </Badge>
-                  )}
-                </div>
+            const isVerified = Boolean(
+              room.isVerifiedProperty ||
+              (room as any).is_kyc_verified ||
+              (room as any).kycStatus === 'verified' ||
+              (room as any).kycStatus === 'approved'
+            );
 
-                <div className="absolute top-2.5 right-2.5 z-10 flex flex-col items-end gap-1 pointer-events-none">
-                  <Badge
-                    className={`${ds.colorClass} text-[9px] font-bold px-2 py-0.5 border rounded-full shadow-none pointer-events-auto`}
-                  >
-                    {LISTING_STATUS_LABELS[room.status] || ds.label}
-                  </Badge>
-                </div>
-              </div>
+            const priceDiffRatio = Math.abs(room.price - currentRoom.price) / currentRoom.price;
+            const isWithin2Percent = priceDiffRatio <= 0.02;
+            const diffPct = ((room.price - currentRoom.price) / currentRoom.price) * 100;
+            const diffPctFormatted = diffPct > 0 ? `+${diffPct.toFixed(1)}%` : `${diffPct.toFixed(1)}%`;
 
-              <div className="p-3 flex-1 flex flex-col justify-between">
-                <div className="space-y-1.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-xs font-bold text-ink line-clamp-2 leading-snug">
-                      <span className="font-mono text-accent font-extrabold">
-                        Phòng {room.title.split('—')[1]?.trim() || room.id}
-                      </span>
-                      <span className="text-ink-muted font-normal mx-1">-</span>
-                      <span className="text-ink font-semibold">{room.address}</span>
-                    </h3>
-                    <div
-                      className="flex items-center gap-1 flex-shrink-0"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      <span className="text-[10px] text-ink-muted font-medium bg-bg-subtle px-1.5 py-0.5 rounded border border-border-subtle">
-                        Tầng {room.floor}
-                      </span>
-                      <FavoriteButton roomId={room.id} className="h-6 w-6 [&>svg]:w-3.5 [&>svg]:h-3.5" />
+            const displayTitle = getMaskedTitle(room);
+            const roomCode = room.title.split('—')[1]?.trim() || room.buildingCode || room.id.slice(0, 4);
+
+            return (
+              <div key={room.id} className="flex-none w-[280px] sm:w-[300px] md:w-[320px] snap-start">
+                <div className="rounded-2xl overflow-hidden bg-card border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-amber-400/60 hover:shadow-xl transition-all duration-300 flex flex-col h-full group relative">
+                  
+                  {/* Image container */}
+                  <div className="relative w-full border-b border-slate-200/60" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                    <ImageGallery
+                      items={Array.from(
+                        new Set(
+                          (room.thumbnailUrls ?? [])
+                            .concat(room.imageUrls ?? [])
+                            .concat([room.thumbnailUrl, room.imageUrl])
+                            .filter(Boolean)
+                        )
+                      )}
+                      alt={room.title}
+                      aspectRatio="card"
+                    />
+
+                    {/* Top Left: KYC Badge (Như ảnh 2) */}
+                    <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 pointer-events-none">
+                      <KYCBadge
+                        type="property"
+                        isVerified={isVerified}
+                        size="sm"
+                        systemName={room.landlordSystemName}
+                        name={room.landlordName}
+                      />
+                      {isWithin2Percent && (
+                        <Badge className="bg-emerald-600/95 text-white text-[9px] font-bold px-2 py-0.5 border-none rounded-full shadow-sm pointer-events-auto">
+                          Chênh giá {diffPctFormatted}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Top Right: Status / Pet Badge */}
+                    <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1 pointer-events-none">
+                      <Badge className={`${ds.colorClass} text-[10px] font-bold px-2.5 py-0.5 border rounded-full shadow-sm pointer-events-auto`}>
+                        {LISTING_STATUS_LABELS[room.status] || ds.label}
+                      </Badge>
+                      {room.allowPet && (
+                        <Badge className="bg-emerald-600/90 text-white text-[9px] font-bold px-2 py-0.5 border-none rounded-full shadow-sm flex items-center gap-1 pointer-events-auto">
+                          <Cat className="h-3 w-3" /> Cho nuôi pet
+                        </Badge>
+                      )}
                     </div>
                   </div>
 
-                  <div className="text-[10px] text-ink-muted flex items-center justify-between pt-0.5">
-                    <span>{room.size}m² • {room.roomType}</span>
-                    {distanceKm !== null && (
-                      <span className="text-accent font-semibold flex items-center gap-0.5">
-                        <MapPin className="h-3 w-3 text-accent" />
-                        Cách {distanceKm}km
+                  {/* Body Content */}
+                  <div className="p-4 flex flex-col gap-2.5 flex-1 justify-between">
+                    {/* Title with Masked Address */}
+                    <Link href={`/customer/properties/rooms/${room.id}`} className="block group-hover:text-blue-600 transition-colors">
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-snug line-clamp-2 font-heading">
+                        {displayTitle}
+                      </h3>
+                    </Link>
+
+                    {/* Area & Favorite Button */}
+                    <div className="flex items-center justify-between gap-1 text-xs">
+                      <Badge variant="outline" className={`line-clamp-1 font-semibold text-[11px] ${getAreaColorClass(room.area)}`}>
+                        {formatArea(room.area)}
+                      </Badge>
+                      <FavoriteButton roomId={room.id} className="h-7 w-7 [&>svg]:w-3.5 [&>svg]:h-3.5" />
+                    </div>
+
+                    {/* Available Room status bar */}
+                    <div className="text-xs py-1.5 px-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-medium truncate">
+                        🟢 Phòng trống: <span className="font-semibold text-slate-900 dark:text-slate-100 font-mono">{roomCode}</span>
                       </span>
-                    )}
+                      <span className="text-[10px] text-slate-500 font-medium shrink-0 ml-1">
+                        Tầng {room.floor} • {room.size}m²
+                      </span>
+                    </div>
+
+                    {/* Price */}
+                    <div className="flex items-baseline justify-between pt-1">
+                      <p className="text-base sm:text-lg font-extrabold text-amber-500 dark:text-amber-400 font-mono">
+                        {room.price.toLocaleString('vi-VN')}đ
+                        <span className="text-xs font-normal text-slate-400"> / tháng</span>
+                      </p>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 mt-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-8 text-xs rounded-xl border-slate-300 text-slate-700 hover:border-blue-600 hover:text-blue-600"
+                        onClick={() => setSelectedViewingRoom(room)}
+                      >
+                        <Calendar className="h-3.5 w-3.5 mr-1" />
+                        Hẹn xem
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                        onClick={() => setIsContactOpen(true)}
+                      >
+                        <Phone className="h-3.5 w-3.5 mr-1" />
+                        Liên hệ
+                      </Button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="mt-3 pt-2 border-t border-border-subtle font-mono font-bold text-accent text-sm flex items-center justify-between">
-                  <span>
-                    {room.price.toLocaleString('vi-VN')}đ
-                    <span className="text-[9px] font-normal text-ink-muted">/tháng</span>
-                  </span>
-                  {!isWithin2Percent && (
-                    <span className="text-[10px] text-ink-muted font-normal">
-                      ({diffPctFormatted})
-                    </span>
-                  )}
-                </div>
               </div>
-            </Link>
-          );
-        })}
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => handleScroll('right')}
+          className="hidden md:flex absolute -right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 items-center justify-center rounded-full bg-white/95 dark:bg-card/95 shadow-md border border-border-subtle text-ink hover:bg-accent hover:text-white transition-all opacity-0 group-hover/carousel:opacity-100"
+          aria-label="Cuộn sang phải"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
+
+      {/* Dialog Liên hệ */}
+      <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Liên Hệ Môi Giới</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-4 text-center">
+            <div className="flex items-center justify-center gap-3">
+              <Phone className="h-5 w-5 text-accent" />
+              <span className="text-lg font-bold text-ink font-mono">{hotline}</span>
+            </div>
+            <Button className="w-full bg-accent hover:bg-accent-500 text-white font-semibold" size="lg" asChild>
+              <a href={hotlineHref}>
+                <Phone className="h-4 w-4 mr-2" />
+                Gọi ngay
+              </a>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Hẹn xem */}
+      {selectedViewingRoom && (
+        <ViewingRequestDialog
+          open={!!selectedViewingRoom}
+          onOpenChange={(open) => {
+            if (!open) setSelectedViewingRoom(null);
+          }}
+          companyId={selectedViewingRoom.companyId}
+          property={{
+            id: selectedViewingRoom.id,
+            title: selectedViewingRoom.title,
+            address: selectedViewingRoom.address,
+            area: selectedViewingRoom.area,
+          }}
+        />
+      )}
     </div>
   );
 }

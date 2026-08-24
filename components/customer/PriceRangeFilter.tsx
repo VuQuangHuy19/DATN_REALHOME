@@ -5,7 +5,7 @@ import type { CustomerListing } from '@/lib/customer/types';
 import {
   useSmartPriceBrackets,
   type PriceBracket,
-} from '@/src/hooks/useSmartPriceBrackets';
+} from '@/hooks/useSmartPriceBrackets';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface PriceRangeItem {

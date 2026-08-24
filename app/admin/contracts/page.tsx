@@ -1,7 +1,7 @@
 'use client';
 
-import { ContractsPage } from '@/src/features/finance/components/ContractsPage';
+import { UnifiedSalesMasterPage } from '@/features/sales/components/UnifiedSalesMasterPage';
 
 export default function Page() {
-  return <ContractsPage />;
+  return <UnifiedSalesMasterPage defaultTab="contracts" />;
 }

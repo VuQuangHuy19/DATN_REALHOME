@@ -1,0 +1,720 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { getInvoices, updateInvoice, batchGenerateInvoices, deleteInvoice } from '@/features/finance/services/invoices';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { useSearchParams } from 'next/navigation';
+import { 
+  Loader2, Search, PlusCircle, CheckCircle, XCircle, FileText, 
+  RefreshCw, Building2, ChevronLeft, ChevronRight, X, Mail
+} from 'lucide-react';
+import type { InvoiceWithRoomAndContract } from '@/features/finance/services/invoices';
+import { supabase } from '@/lib/supabase/client';
+
+interface BuildingItem {
+  id: string;
+  name: string;
+  code?: string | null;
+  landlord_id?: string | null;
+}
+
+interface LandlordItem {
+  id: string;
+  code?: string | null;
+  name: string;
+  phone?: string | null;
+}
+
+export function InvoicesPage() {
+  const { company, role, profile } = useAuth();
+  const searchParams = useSearchParams();
+  
+  const initialPeriod = searchParams?.get('period');
+  const initialSearch = searchParams?.get('search');
+  
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
+    if (initialPeriod && /^\d{4}-\d{2}$/.test(initialPeriod)) return initialPeriod;
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const handlePeriodChange = (deltaMonths: number) => {
+    const [yearStr, monthStr] = selectedPeriod.split('-');
+    const date = new Date(Number(yearStr), Number(monthStr) - 1 + deltaMonths, 1);
+    const newPeriod = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedPeriod(newPeriod);
+  };
+  
+  const [invoices, setInvoices] = useState<InvoiceWithRoomAndContract[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState(initialSearch || '');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Lọc Tòa nhà & Chủ nhà
+  const [buildings, setBuildings] = useState<BuildingItem[]>([]);
+  const [landlordList, setLandlordList] = useState<LandlordItem[]>([]);
+  const [buildingsLoading, setBuildingsLoading] = useState(false);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
+  const [buildingSearchTerm, setBuildingSearchTerm] = useState<string>('');
+  
+  // Dialog State
+  const [viewInvoice, setViewInvoice] = useState<InvoiceWithRoomAndContract | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState<string>('transfer');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Tải danh sách Tòa nhà & Chủ nhà
+  useEffect(() => {
+    if (!company?.id) return;
+    async function fetchBuildingsAndLandlords() {
+      setBuildingsLoading(true);
+      try {
+        let bQuery = supabase
+          .from('buildings')
+          .select('id, name, code, landlord_id')
+          .eq('company_id', company!.id);
+
+        if (role === 'landlord' && profile?.landlord_id) {
+          const lId = profile.landlord_id;
+          let filterCode = lId;
+          if (lId.includes('-')) {
+            const { data: landlord } = await supabase.from('landlords').select('code').eq('id', lId).maybeSingle();
+            filterCode = landlord?.code || lId;
+          }
+          bQuery = bQuery.or(`landlord_id.eq.${filterCode},landlord_id.eq.${lId}`);
+        }
+
+        const { data: bData } = await bQuery;
+        setBuildings(bData || []);
+
+        const { data: lData } = await supabase
+          .from('landlords')
+          .select('id, code, name, phone')
+          .eq('company_id', company!.id);
+        setLandlordList(lData || []);
+      } catch (err) {
+        console.error('Error fetching buildings/landlords:', err);
+      } finally {
+        setBuildingsLoading(false);
+      }
+    }
+    fetchBuildingsAndLandlords();
+  }, [company?.id, role, profile?.landlord_id]);
+
+  const [autoCreated, setAutoCreated] = useState(false);
+
+  const loadInvoices = useCallback(async () => {
+    if (!company?.id) return;
+    setLoading(true);
+    try {
+      const landlordId = role === 'landlord' ? (profile?.landlord_id || undefined) : undefined;
+      let data = await getInvoices(company.id, selectedPeriod, landlordId);
+      
+      const autoCreateParam = searchParams?.get('autoCreate');
+      if (autoCreateParam === 'true' && !autoCreated && data.length === 0) {
+        setAutoCreated(true);
+        toast.loading(`⚡ Đang tự động lập Hóa đơn Kỳ ${selectedPeriod}...`, { id: 'auto-create-inv' });
+        const res = await batchGenerateInvoices(company.id, selectedPeriod, landlordId);
+        toast.dismiss('auto-create-inv');
+        if (res.successCount > 0) {
+          toast.success(`✨ Đã tự động lập ${res.successCount} Hóa đơn Kỳ ${selectedPeriod}!`);
+          data = await getInvoices(company.id, selectedPeriod, landlordId);
+        }
+      }
+      setInvoices(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error('Lỗi khi tải hóa đơn: ' + msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [company?.id, selectedPeriod, role, profile?.landlord_id, searchParams, autoCreated]);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices]);
+
+  // Lọc danh sách Tòa nhà theo từ khóa gõ
+  const filteredBuildings = useMemo(() => {
+    if (!buildingSearchTerm.trim()) return buildings;
+    const term = buildingSearchTerm.toLowerCase().trim();
+    return buildings.filter((b) => {
+      const bName = b.name?.toLowerCase() || '';
+      const bCode = b.code?.toLowerCase() || '';
+      const landlord = landlordList.find((l) => l.code === b.landlord_id || l.id === b.landlord_id);
+      const lName = landlord?.name?.toLowerCase() || '';
+      const lCode = landlord?.code?.toLowerCase() || '';
+      const lPhone = landlord?.phone?.toLowerCase() || '';
+      return bName.includes(term) || bCode.includes(term) || lName.includes(term) || lCode.includes(term) || lPhone.includes(term);
+    });
+  }, [buildings, landlordList, buildingSearchTerm]);
+
+  // Lọc Hóa đơn
+  const filtered = invoices.filter((item) => {
+    const matchesBuilding = 
+      selectedBuildingId === 'all' || 
+      !selectedBuildingId || 
+      item.rooms?.building_id === selectedBuildingId || 
+      item.rooms?.buildings?.id === selectedBuildingId;
+
+    const matchesSearch = 
+      (item.rooms?.code && item.rooms.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.rental_contracts?.party_b_name && item.rental_contracts.party_b_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.rental_contracts?.party_b_phone && item.rental_contracts.party_b_phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      item.invoice_code.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+    return matchesBuilding && matchesSearch && matchesStatus;
+  });
+
+  const handleBatchGenerate = async () => {
+    if (!company?.id || !selectedPeriod) return;
+    
+    if (!confirm(`Bạn muốn tự động lập hóa đơn cho tất cả phòng có hợp đồng thuê trong kỳ ${selectedPeriod}?`)) {
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const landlordId = role === 'landlord' ? (profile?.landlord_id || undefined) : undefined;
+      const result = await batchGenerateInvoices(company.id, selectedPeriod, landlordId);
+      toast.success(`Lập hóa đơn thành công! Đã tạo: ${result.successCount}, Bỏ qua: ${result.skipCount} (đã tạo hoặc không có phòng thuê).`);
+      loadInvoices();
+    } catch (err: any) {
+      toast.error('Lỗi khi lập hóa đơn hàng loạt: ' + err.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSendEmail = async (invoiceId: string) => {
+    setSendingEmailId(invoiceId);
+    toast.loading('Đang gửi Email qua Mailjet...', { id: 'mailjet-toast' });
+    try {
+      const res = await fetch('/api/invoices/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId }),
+      });
+      const data = await res.json();
+      toast.dismiss('mailjet-toast');
+      if (data.success) {
+        toast.success(`📧 ${data.message || 'Đã gửi Email hóa đơn qua Mailjet thành công!'}`);
+      } else {
+        toast.error(`❌ Lỗi gửi Mailjet: ${data.error}`);
+      }
+    } catch (err: any) {
+      toast.dismiss('mailjet-toast');
+      toast.error('Lỗi khi kết nối Mailjet API: ' + err.message);
+    } finally {
+      setSendingEmailId(null);
+    }
+  };
+
+  const handleMarkAsPaid = async (invoiceId: string) => {
+    setUpdatingStatus(true);
+    try {
+      await updateInvoice(invoiceId, {
+        status: 'paid',
+        payment_date: new Date().toISOString(),
+        payment_method: payMethod,
+      });
+      toast.success('Đã đánh dấu hóa đơn đã thanh toán thành công!');
+      setIsViewOpen(false);
+      loadInvoices();
+    } catch (err: any) {
+      toast.error('Lỗi cập nhật hóa đơn: ' + err.message);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleCancelInvoice = async (invoiceId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn hủy hóa đơn này?')) return;
+    setUpdatingStatus(true);
+    try {
+      await updateInvoice(invoiceId, { status: 'cancelled' });
+      toast.success('Đã hủy hóa đơn.');
+      setIsViewOpen(false);
+      loadInvoices();
+    } catch (err: any) {
+      toast.error('Lỗi hủy hóa đơn: ' + err.message);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filtered.map(item => item.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} hóa đơn đã chọn không? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => deleteInvoice(id)));
+      toast.success(`Đã xóa ${selectedIds.length} hóa đơn.`);
+      setSelectedIds([]);
+      loadInvoices();
+    } catch (err: any) {
+      toast.error('Lỗi khi xóa hóa đơn: ' + err.message);
+    }
+  };
+
+  const statusBadges: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+    unpaid: { label: 'Chưa thanh toán', variant: 'outline' },
+    paid: { label: 'Đã thanh toán', variant: 'default' },
+    partially_paid: { label: 'Thanh toán một phần', variant: 'secondary' },
+    overdue: { label: 'Quá hạn', variant: 'destructive' },
+    cancelled: { label: 'Đã hủy', variant: 'secondary' },
+  };
+
+  return (
+    <div className="space-y-6 w-full">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">Quản Lý Hóa Đơn Tháng</h1>
+          <p className="text-ink-muted text-sm mt-0.5">Quản lý thanh toán hóa đơn tiền phòng và dịch vụ hàng tháng</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {selectedIds.length > 0 && (
+            <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10 shadow-none">
+              <XCircle className="h-4 w-4 mr-2" /> Xóa {selectedIds.length} mục
+            </Button>
+          )}
+          <Button onClick={loadInvoices} variant="outline" size="icon" disabled={loading} title="Tải lại" className="border-border hover:bg-bg-subtle text-ink rounded-lg h-10 w-10">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={handleBatchGenerate} disabled={generating || loading} className="bg-accent hover:bg-accent-500 text-white rounded-lg font-semibold shadow-none h-10">
+            {generating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Đang lập...
+              </>
+            ) : (
+              <>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Lập hóa đơn hàng loạt
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Bộ lọc Thông minh */}
+      <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          {/* Ô 1: Chọn Tòa nhà */}
+          <div className="md:col-span-5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+                <Building2 className="h-4 w-4 text-accent" /> Chọn tòa nhà ({filteredBuildings.length}/{buildings.length})
+              </Label>
+              {selectedBuildingId !== 'all' && (
+                <button
+                  onClick={() => setSelectedBuildingId('all')}
+                  className="text-[11px] text-accent font-bold hover:underline flex items-center gap-0.5"
+                >
+                  <X className="h-3 w-3" /> Tất cả tòa
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted" />
+                <Input
+                  placeholder="Gõ Tên/Mã tòa nhà..."
+                  value={buildingSearchTerm}
+                  onChange={(e) => setBuildingSearchTerm(e.target.value)}
+                  className="pl-9 h-9 text-xs rounded-lg border-border focus-visible:ring-accent font-semibold"
+                />
+              </div>
+
+              {buildingsLoading ? (
+                <div className="h-10 border border-border rounded-lg flex items-center px-3 text-ink-muted bg-bg-subtle/50 text-sm"><Loader2 className="h-4 w-4 animate-spin mr-2 text-accent" /> Đang tải tòa nhà...</div>
+              ) : (
+                <select
+                  value={selectedBuildingId}
+                  onChange={(e) => setSelectedBuildingId(e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="all">🏢 -- Tất cả Tòa nhà --</option>
+                  {filteredBuildings.map((b) => {
+                    const landlord = landlordList.find((l) => l.code === b.landlord_id || l.id === b.landlord_id);
+                    const landlordLabel = landlord ? ` — Chủ: ${landlord.name} (${landlord.code || ''})` : (b.landlord_id ? ` — Chủ: ${b.landlord_id}` : '');
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {b.code ? `[${b.code}]` : ''}{landlordLabel}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {/* Ô 2: Tìm nhanh */}
+          <div className="md:col-span-3 space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+              <Search className="h-4 w-4 text-accent" /> Tìm Mã HĐ / Phòng / Khách / SĐT
+            </Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input
+                placeholder="Mã HĐ (HDD-...), Phòng (302), SĐT..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-8 h-10 text-sm rounded-lg border-border font-semibold focus-visible:ring-accent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Ô 3: Kỳ Hóa đơn */}
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+              Kỳ Hóa Đơn
+            </Label>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => handlePeriodChange(-1)}
+                title="Tháng trước"
+                className="h-10 w-8 shrink-0 rounded-lg border-border hover:bg-accent/10 hover:text-accent"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Input
+                type="month"
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="rounded-lg border-border h-10 font-black text-xs text-center focus-visible:ring-accent bg-amber-50/30 px-1 cursor-pointer"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => handlePeriodChange(1)}
+                title="Tháng sau"
+                className="h-10 w-8 shrink-0 rounded-lg border-border hover:bg-accent/10 hover:text-accent"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Ô 4: Trạng thái Thanh toán */}
+          <div className="md:col-span-2 space-y-1.5">
+            <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+              Trạng thái
+            </Label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="unpaid">🟡 Chưa thanh toán</option>
+              <option value="paid">🟢 Đã thanh toán</option>
+              <option value="overdue">🔴 Quá hạn</option>
+              <option value="cancelled">⚪ Đã hủy</option>
+            </select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bảng hóa đơn */}
+      <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            </div>
+          ) : (
+            <div className="overflow-hidden">
+              <table className="w-full text-sm hidden md:table border-collapse">
+                <thead className="bg-bg-subtle border-b border-border text-ink-muted">
+                  <tr>
+                    <th className="px-4 py-3 text-left w-12">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border text-accent focus:ring-accent h-4 w-4"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length > 0 && selectedIds.length === filtered.length}
+                      />
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Mã hóa đơn</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Phòng</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider">Khách thuê</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider">Kỳ đóng</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider">Tổng tiền thanh toán</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider">Hạn thanh toán</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-ink">
+                  {filtered.map((item) => {
+                    const badge = statusBadges[item.status] || { label: item.status, variant: 'outline' };
+                    let statusColor = 'bg-bg-subtle text-ink-muted border-border';
+                    if (item.status === 'paid') statusColor = 'bg-green-50 text-green-700 border-green-250';
+                    if (item.status === 'unpaid') statusColor = 'bg-amber-50 text-amber-700 border-amber-250';
+                    if (item.status === 'overdue') statusColor = 'bg-red-50 text-red-750 border-red-250';
+                    
+                    return (
+                      <tr key={item.id} className="hover:bg-bg-subtle/50 transition-colors cursor-pointer" onClick={(e) => {
+                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input')) return;
+                        setViewInvoice(item); setIsViewOpen(true); 
+                      }}>
+                        <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-border text-accent focus:ring-accent h-4 w-4 cursor-pointer"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={(e) => handleSelect(item.id, e.target.checked)}
+                          />
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-xs">{item.invoice_code}</td>
+                        <td className="px-6 py-4 font-bold text-accent">Phòng {item.rooms?.code || '—'}</td>
+                        <td className="px-6 py-4 font-semibold">{item.rental_contracts?.party_b_name || 'Khách thuê lẻ'}</td>
+                        <td className="px-6 py-4 text-center text-xs font-mono font-medium text-ink-muted">{item.period}</td>
+                        <td className="px-6 py-4 text-right font-mono font-bold text-accent text-sm">
+                          {Number(item.total_amount).toLocaleString('vi-VN')}đ
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs font-mono text-ink-muted">{new Date(item.due_date).toLocaleDateString('vi-VN')}</td>
+                        <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <Badge className={`${statusColor} border font-bold text-[10px] rounded-full uppercase tracking-wider`} variant={badge.variant}>
+                            {badge.label}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleSendEmail(item.id)}
+                              disabled={sendingEmailId === item.id}
+                              title="Gửi Email Hóa Đơn qua Mailjet"
+                              className="text-amber-600 border-amber-300 hover:bg-amber-50 rounded-lg font-semibold text-xs h-8 px-2"
+                            >
+                              {sendingEmailId === item.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5 mr-1" />
+                              )}
+                              Gửi Mailjet
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => { setViewInvoice(item); setIsViewOpen(true); }}
+                              className="text-accent hover:text-accent-500 hover:bg-bg-subtle rounded-lg font-semibold text-xs h-8"
+                            >
+                              Chi tiết
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center text-ink-muted bg-white">
+                        <FileText className="h-10 w-10 mx-auto mb-2 opacity-35" />
+                        <p className="text-sm font-semibold">Chưa có hóa đơn nào trong kỳ {selectedPeriod}.</p>
+                        <p className="text-xs text-ink-muted mt-1 mb-4">Bấm nút bên dưới để tự động tính toán tiền phòng & chỉ số điện nước đã chốt.</p>
+                        <Button 
+                          onClick={handleBatchGenerate} 
+                          disabled={generating || loading} 
+                          className="bg-accent hover:bg-accent-500 text-white rounded-lg font-bold shadow-md px-4 py-2"
+                        >
+                          {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />}
+                          ⚡ Tạo ngay Hóa đơn Kỳ {selectedPeriod}
+                        </Button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* View Detail Receipt Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="max-w-md bg-white border border-border rounded-lg shadow-lg p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-ink text-lg font-bold font-heading">
+              <FileText className="h-5 w-5 text-accent" /> Hóa Đơn Thu Tiền Nhà
+            </DialogTitle>
+            <DialogDescription className="text-xs text-ink-muted font-mono">Mã: {viewInvoice?.invoice_code} (Kỳ {viewInvoice?.period})</DialogDescription>
+          </DialogHeader>
+          
+          {viewInvoice && (
+            <div className="space-y-4 pt-4 text-sm text-ink-muted">
+              {/* Thông tin phòng & khách */}
+              <div className="border rounded-lg p-3 bg-bg-subtle border-border space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-ink-muted text-xs font-semibold">Phòng thuê:</span>
+                  <span className="font-bold text-accent">Phòng {viewInvoice.rooms?.code}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-muted text-xs font-semibold">Khách thuê:</span>
+                  <span className="font-semibold text-ink">{viewInvoice.rental_contracts?.party_b_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-muted text-xs font-semibold">Hạn nộp tiền:</span>
+                  <span className="font-medium text-ink font-mono">{new Date(viewInvoice.due_date).toLocaleDateString('vi-VN')}</span>
+                </div>
+              </div>
+
+              {/* Chi tiết tiền dịch vụ */}
+              <div className="space-y-2">
+                <h4 className="font-bold font-heading text-ink text-xs uppercase tracking-wider border-b border-border pb-1.5">Chi tiết hóa đơn</h4>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="text-ink-muted font-semibold text-xs">Tiền phòng:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.rent_amount).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-ink-muted font-semibold text-xs">Tiền điện:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.electricity_amount).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-ink-muted font-semibold text-xs">Tiền nước:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.water_amount || 0).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-ink-muted font-semibold text-xs">Dịch vụ chung:</span>
+                    <span className="font-mono font-semibold text-ink">{Number(viewInvoice.service_amount || 0).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  {Boolean(viewInvoice.other_amount) && (
+                    <div className="flex justify-between bg-amber-50 p-2 rounded-md border border-amber-200">
+                      <span className="text-amber-900 font-bold text-xs">Phát sinh / Phụ phí ({viewInvoice.other_details || 'Bổ sung'}):</span>
+                      <span className="font-mono font-bold text-amber-800">+{Number(viewInvoice.other_amount).toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  )}
+                  <hr className="border-dashed border-border" />
+                  <div className="flex justify-between text-base font-bold text-ink pt-1 font-heading">
+                    <span>Tổng tiền thu:</span>
+                    <span className="text-accent font-mono">{Number(viewInvoice.total_amount).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form cập nhật chi phí phát sinh thủ công */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <Label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Cập nhật Chi phí phát sinh / Phạt / Giảm trừ</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-5">
+                    <Input
+                      type="number"
+                      placeholder="Số tiền phát sinh..."
+                      defaultValue={viewInvoice.other_amount || 0}
+                      id="input_other_amount"
+                      className="h-8 text-xs font-semibold rounded-md border-slate-300"
+                    />
+                  </div>
+                  <div className="sm:col-span-7">
+                    <Input
+                      type="text"
+                      placeholder="Diễn giải / Lý do (ví dụ: Sửa vòi nước)..."
+                      defaultValue={viewInvoice.other_details || ''}
+                      id="input_other_details"
+                      className="h-8 text-xs rounded-md border-slate-300"
+                    />
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-8 text-xs font-bold text-slate-700 bg-white border-slate-300 hover:bg-slate-100"
+                  onClick={async () => {
+                    const amountInput = document.getElementById('input_other_amount') as HTMLInputElement;
+                    const detailsInput = document.getElementById('input_other_details') as HTMLInputElement;
+                    const newOtherAmount = Number(amountInput?.value) || 0;
+                    const newOtherDetails = detailsInput?.value || '';
+
+                    const baseTotal = Number(viewInvoice.rent_amount || 0) + Number(viewInvoice.electricity_amount || 0) + Number(viewInvoice.water_amount || 0) + Number(viewInvoice.service_amount || 0);
+                    const newTotalAmount = baseTotal + newOtherAmount;
+
+                    try {
+                      setUpdatingStatus(true);
+                      await updateInvoice(viewInvoice.id, {
+                        other_amount: newOtherAmount,
+                        other_details: newOtherDetails,
+                        total_amount: newTotalAmount,
+                      });
+                      toast.success('Đã cập nhật chi phí phát sinh và tính lại tổng tiền!');
+                      setViewInvoice({
+                        ...viewInvoice,
+                        other_amount: newOtherAmount,
+                        other_details: newOtherDetails,
+                        total_amount: newTotalAmount,
+                      });
+                      loadInvoices();
+                    } catch (err: any) {
+                      toast.error('Lỗi khi cập nhật chi phí phát sinh: ' + err.message);
+                    } finally {
+                      setUpdatingStatus(false);
+                    }
+                  }}
+                >
+                  💾 Lưu Chi phí phát sinh & Tính lại tổng
+                </Button>
+              </div>
+
+              <div className="pt-2 flex flex-col gap-2">
+                <Button 
+                  onClick={() => handleMarkAsPaid(viewInvoice.id)} 
+                  disabled={updatingStatus}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg"
+                >
+                  {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Đánh dấu ĐÃ THANH TOÁN
+                </Button>
+                <Button variant="ghost" onClick={() => setIsViewOpen(false)} className="w-full text-ink-muted hover:bg-bg-subtle rounded-lg font-semibold">
+                  Đóng cửa sổ
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

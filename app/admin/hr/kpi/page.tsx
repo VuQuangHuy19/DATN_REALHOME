@@ -1,7 +1,7 @@
 'use client';
 
-import { KpiPage } from '@/src/features/staff/components/KpiPage';
+import { UnifiedGovernanceMasterPage } from '@/features/staff/components/UnifiedGovernanceMasterPage';
 
 export default function Page() {
-  return <KpiPage />;
+  return <UnifiedGovernanceMasterPage defaultTab="kpi" />;
 }
