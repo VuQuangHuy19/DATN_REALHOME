@@ -66,7 +66,7 @@ export default function AdminSettingsPage() {
                   <RadioGroupItem value="light" id="light" className="peer sr-only" />
                   <Label
                     htmlFor="light"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-border-subtle bg-transparent p-4 hover:bg-bg-subtle hover:text-ink peer-data-[state=checked]:border-accent peer-data-[state=checked]:text-accent cursor-pointer"
+                    className="flex flex-col items-center justify-between rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-4 hover:bg-slate-100 dark:hover:bg-slate-800/80 peer-data-[state=checked]:border-blue-600 dark:peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50/60 dark:peer-data-[state=checked]:bg-blue-950/50 peer-data-[state=checked]:text-blue-600 dark:peer-data-[state=checked]:text-blue-400 font-bold cursor-pointer transition-all"
                   >
                     <Sun className="mb-3 h-6 w-6" />
                     {language === 'vi' ? 'Sáng' : 'Light'}
@@ -76,7 +76,7 @@ export default function AdminSettingsPage() {
                   <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
                   <Label
                     htmlFor="dark"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-border-subtle bg-transparent p-4 hover:bg-bg-subtle hover:text-ink peer-data-[state=checked]:border-accent peer-data-[state=checked]:text-accent cursor-pointer"
+                    className="flex flex-col items-center justify-between rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-4 hover:bg-slate-100 dark:hover:bg-slate-800/80 peer-data-[state=checked]:border-blue-600 dark:peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50/60 dark:peer-data-[state=checked]:bg-blue-950/50 peer-data-[state=checked]:text-blue-600 dark:peer-data-[state=checked]:text-blue-400 font-bold cursor-pointer transition-all"
                   >
                     <Moon className="mb-3 h-6 w-6" />
                     {language === 'vi' ? 'Tối' : 'Dark'}
@@ -86,7 +86,7 @@ export default function AdminSettingsPage() {
                   <RadioGroupItem value="system" id="system" className="peer sr-only" />
                   <Label
                     htmlFor="system"
-                    className="flex flex-col items-center justify-between rounded-md border-2 border-border-subtle bg-transparent p-4 hover:bg-bg-subtle hover:text-ink peer-data-[state=checked]:border-accent peer-data-[state=checked]:text-accent cursor-pointer text-center"
+                    className="flex flex-col items-center justify-between rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-4 hover:bg-slate-100 dark:hover:bg-slate-800/80 peer-data-[state=checked]:border-blue-600 dark:peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50/60 dark:peer-data-[state=checked]:bg-blue-950/50 peer-data-[state=checked]:text-blue-600 dark:peer-data-[state=checked]:text-blue-400 font-bold cursor-pointer text-center transition-all"
                   >
                     <Laptop className="mb-3 h-6 w-6" />
                     {language === 'vi' ? 'Hệ thống' : 'System'}
@@ -100,7 +100,7 @@ export default function AdminSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                <Palette className="h-5 w-5 text-accent" />
+                <Palette className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 {language === 'vi' ? 'Màu chủ đạo' : 'Accent Color'}
               </CardTitle>
               <CardDescription>
@@ -111,17 +111,17 @@ export default function AdminSettingsPage() {
               <RadioGroup
                 value={accentColor}
                 onValueChange={(val) => setAccentColor(val as AccentColor)}
-                className="flex flex-wrap gap-4"
+                className="flex flex-wrap gap-3"
               >
                 {COLORS.map((c) => (
                   <div key={c.value}>
                     <RadioGroupItem value={c.value} id={`color-${c.value}`} className="peer sr-only" />
                     <Label
                       htmlFor={`color-${c.value}`}
-                      className="flex items-center gap-2 rounded-full border-2 border-border-subtle bg-transparent px-4 py-2 hover:bg-bg-subtle hover:text-ink peer-data-[state=checked]:border-accent peer-data-[state=checked]:text-accent cursor-pointer"
+                      className="flex items-center gap-2 rounded-full border-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800/80 peer-data-[state=checked]:border-blue-600 dark:peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50/60 dark:peer-data-[state=checked]:bg-blue-950/50 peer-data-[state=checked]:text-blue-600 dark:peer-data-[state=checked]:text-blue-400 font-bold cursor-pointer transition-all"
                     >
                       <div className={`h-4 w-4 rounded-full ${c.tailwind}`}></div>
-                      <span className="text-sm font-medium">{c.label}</span>
+                      <span className="text-sm font-semibold">{c.label}</span>
                     </Label>
                   </div>
                 ))}
@@ -193,26 +193,6 @@ export default function AdminSettingsPage() {
                 </div>
                 <Switch />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Cấu hình Cơ chế Hoa hồng & Lương thưởng True Home */}
-          <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/20 to-slate-900">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg text-emerald-400">
-                <Sliders className="h-5 w-5 text-emerald-400" />
-                Cơ chế & Chính sách Hoa hồng
-              </CardTitle>
-              <CardDescription>
-                Tùy biến thuật toán nội suy hoa hồng chủ nhà, tỷ lệ chia Sale và công cụ tính toán preview thực tế
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium">
-                <a href="/admin/settings/commission-policies">
-                  Truy cập Cấu hình Hoa hồng & Lương thưởng
-                </a>
-              </Button>
             </CardContent>
           </Card>
 

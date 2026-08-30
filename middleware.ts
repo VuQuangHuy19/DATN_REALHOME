@@ -43,9 +43,9 @@ export async function middleware(request: NextRequest) {
     const role = user.user_role || user.role;
     const destination =
       role === 'super_admin' ? '/super-admin' :
-      role === 'landlord' ? '/landlord' :
-      role === 'sales_agent' ? '/broker' :
-      '/admin';
+        role === 'landlord' ? '/landlord' :
+          role === 'sales_agent' ? '/broker' :
+            '/admin';
     return NextResponse.redirect(new URL(destination, request.url));
   }
 
@@ -74,9 +74,9 @@ export async function middleware(request: NextRequest) {
     const role = user.user_role || user.role;
     const destination =
       role === 'super_admin' ? '/super-admin' :
-      role === 'landlord' ? '/landlord' :
-      role === 'sales_agent' ? '/broker' :
-      '/admin';
+        role === 'landlord' ? '/landlord' :
+          role === 'sales_agent' ? '/broker' :
+            '/admin';
     return NextResponse.redirect(new URL(destination, request.url));
   }
 

@@ -21,14 +21,16 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Tính mã Checksum SHA-256 của file buffer để khử trùng lặp 100%
+    const crypto = await import('crypto');
+    const checksum = crypto.createHash('sha256').update(new Uint8Array(arrayBuffer)).digest('hex').slice(0, 24);
+
     const fileExt = file.name.split('.').pop() || 'jpg';
-    const randomName = Math.random().toString(36).substring(2, 15);
-    const timestamp = Date.now();
-    const key = `${pathPrefix}/${randomName}-${timestamp}.${fileExt}`;
+    const key = `${pathPrefix}/${checksum}.${fileExt}`;
 
     const url = await uploadToR2(buffer, key, file.type || 'image/jpeg');
 
-    return NextResponse.json({ success: true, url, key });
+    return NextResponse.json({ success: true, url, key, checksum });
   } catch (err: any) {
     console.error('[Upload API R2 Error]:', err);
     return NextResponse.json({ error: err.message || 'Upload failed' }, { status: 500 });

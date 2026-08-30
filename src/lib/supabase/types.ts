@@ -556,12 +556,16 @@ export interface Database {
         Row: {
           id: string;
           company_id: string | null;
-          name: string;
+          profile_id: string | null;
+          employee_code: string | null;
+          full_name: string;
+          name?: string;
           email: string | null;
           phone: string | null;
-          department: string | null;
-          position: string | null;
-          join_date: string | null;
+          department?: string | null;
+          position?: string | null;
+          join_date?: string | null;
+          role: string | null;
           status: 'active' | 'inactive';
           created_at: string;
           updated_at: string;
@@ -621,6 +625,8 @@ export interface Database {
           commission_rate_raw?: string | null;
           commission_amount?: number;
           sales_agent_id?: string | null;
+          lead_view_image_url?: string | null;
+          transfer_proof_url?: string | null;
         };
         Insert: Omit<Database['public']['Tables']['deposit_contracts']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string };
         Update: Partial<Database['public']['Tables']['deposit_contracts']['Insert']>;

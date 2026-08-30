@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Logo } from '@/components/Logo';
+import { Logo, LogoIcon } from '@/components/Logo';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
@@ -144,12 +144,11 @@ const getLandlordNavItems = (isEn: boolean): NavItem[] => [
 
 const getSalesNavItems = (isEn: boolean): NavItem[] => [
   { label: isEn ? 'Dashboard' : 'Tổng quan', href: '/broker', icon: LayoutDashboard },
-  { label: isEn ? 'Identity Verification (KYC)' : 'Xác thực KYC', href: '/broker/kyc', icon: ShieldCheck },
-  { label: isEn ? 'Commission & Policies' : 'Cơ chế & Hoa hồng', href: '/broker/commission-policies', icon: Sliders },
-  { label: isEn ? 'My Customers' : 'Khách hàng CRM & Lead', href: '/broker/leads', icon: UserSearch, permission: 'leads.read' },
-  { label: isEn ? 'Appointments' : 'Lịch hẹn dẫn xem phòng', href: '/broker/appointments', icon: CalendarDays, permission: 'appointments.read' },
   { label: isEn ? 'Available Rooms' : 'Tra cứu phòng trống', href: '/broker/rooms', icon: DoorOpen, permission: 'rooms.read' },
+  { label: isEn ? 'Appointments' : 'Lịch hẹn dẫn xem phòng', href: '/broker/appointments', icon: CalendarDays, permission: 'appointments.read' },
+  { label: isEn ? 'My Customers' : 'Khách hàng CRM & Lead', href: '/broker/leads', icon: UserSearch, permission: 'leads.read' },
   { label: isEn ? 'Contracts' : 'Hợp đồng & Giữ cọc', href: '/broker/contracts', icon: FileText, permission: 'contracts.read' },
+  { label: isEn ? 'Identity Verification (KYC)' : 'Xác thực KYC', href: '/broker/kyc', icon: ShieldCheck },
 ];
 
 // Role display config
@@ -184,8 +183,8 @@ export function AdminSidebar() {
     return role === 'landlord'
       ? getLandlordNavItems(isEn)
       : role === 'sales_agent'
-      ? getSalesNavItems(isEn)
-      : getNavItems(isEn);
+        ? getSalesNavItems(isEn)
+        : getNavItems(isEn);
   }, [role, isEn]);
 
   const roleConfig = ROLE_DISPLAY[role ?? ''] ?? { label: role ?? 'User', color: 'text-slate-700', bg: 'bg-slate-100' };
@@ -235,6 +234,7 @@ export function AdminSidebar() {
   };
 
   const canViewItem = (item: NavItem) => {
+    if (role === 'sales_agent') return true;
     if (item.children) {
       return item.children.some((child) => !child.permission || hasPermission(child.permission));
     }
@@ -254,12 +254,14 @@ export function AdminSidebar() {
       supply: [
         'Quản lý nguồn hàng', 'Properties & Buildings',
         'Bất động sản', 'Chủ sở hữu & Quản lý',
-        'Properties', 'Landlords & Managers', 'Available Rooms'
+        'Properties', 'Landlords & Managers', 'Available Rooms',
+        'Tra cứu phòng trống'
       ],
       sales: [
         'Bán hàng & CRM', 'Sales & CRM',
         'Khách hàng', 'Hợp đồng',
-        'Customers', 'Contracts', 'My Customers', 'Appointments'
+        'Customers', 'Contracts', 'My Customers', 'Appointments',
+        'Khách hàng & CSKH', 'Lịch hẹn dẫn xem phòng', 'Hợp đồng & Giữ cọc'
       ],
       finance: [
         'Tài chính & Hoa hồng', 'Finance & Commission',
@@ -319,8 +321,7 @@ export function AdminSidebar() {
             title="Mở thanh bên"
             className="p-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer group flex items-center justify-center"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="RealHome Icon" className="h-7 w-7 object-contain group-hover:scale-110 transition-transform" />
+            <LogoIcon className="group-hover:scale-110 transition-transform" />
           </button>
         )}
       </div>

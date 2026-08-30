@@ -162,10 +162,10 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
     : 0;
 
   return (
-    <div className="flex min-h-screen bg-bg-base w-full max-w-full overflow-x-hidden">
+    <div className="flex min-h-screen bg-bg-base w-full max-w-full">
       <AdminSidebar />
       <div className={cn(
-        "flex-1 flex flex-col ml-0 transition-all duration-300 w-full max-w-full min-w-0 overflow-x-hidden",
+        "flex-1 flex flex-col ml-0 transition-all duration-300 w-full max-w-full min-w-0 min-h-screen",
         isSidebarCollapsed ? "md:ml-16" : "md:ml-64"
       )}>
         <AdminHeader />
@@ -180,7 +180,7 @@ function AdminContent({ pathname, children }: { pathname: string; children: Reac
             </a>
           </div>
         )}
-        <main className="flex-1 p-3 sm:p-4 md:p-6 pb-24 md:pb-6 w-full max-w-full min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 pb-24 md:pb-6 w-full max-w-full min-w-0">
           {pathname !== '/admin' && (
             <div className="mb-4 flex items-center justify-between">
               <button

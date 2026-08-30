@@ -16,7 +16,7 @@ import {
   Building2, Home, DollarSign, CalendarDays, Percent, FileText,
   CheckCircle, ShieldAlert, ShieldCheck, Clock, User, Phone, MapPin,
   ExternalLink, ArrowRight, Activity, Calendar, TrendingUp, Sparkles, AlertCircle, HelpCircle, Info, X,
-  Layers, Search, Plus, Wrench
+  Layers, Search, Plus, Wrench, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -25,7 +25,7 @@ import {
 } from 'recharts';
 import { KYCPromptBanner } from '@/components/kyc/KYCPromptBanner';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
-import { getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
+import { getRoomDisplayStatus, formatDateDisplay, formatRoomCode } from '@/lib/room-status';
 
 interface LandlordDashboardProps {
   stats: {
@@ -174,7 +174,13 @@ export function LandlordDashboardView({
   const [matrixStatusFilter, setMatrixStatusFilter] = useState<string>('all');
   const [matrixAreaFilter, setMatrixAreaFilter] = useState<string>('all');
   const [matrixBuildingFilter, setMatrixBuildingFilter] = useState<string>('all');
+  const [matrixPage, setMatrixPage] = useState<number>(1);
+  const BUILDINGS_PER_PAGE = 3;
   const { toggles } = useFeatureToggles();
+
+  useEffect(() => {
+    setMatrixPage(1);
+  }, [matrixSearch, matrixStatusFilter, matrixAreaFilter, matrixBuildingFilter]);
 
   useEffect(() => {
     // Tự động gọi API giải phóng các phòng hết hạn khóa tạm 15 phút nếu có
@@ -303,6 +309,15 @@ export function LandlordDashboardView({
 
     return Array.from(map.values()).filter((item) => item.rooms.length > 0);
   }, [stats.buildingsList, filteredMatrixRooms, matrixAreaFilter, matrixBuildingFilter]);
+
+  const totalBuildingGroups = groupedMatrixRoomsByBuilding.length;
+  const totalMatrixPages = Math.max(1, Math.ceil(totalBuildingGroups / BUILDINGS_PER_PAGE));
+  const safeMatrixPage = Math.min(matrixPage, totalMatrixPages);
+
+  const paginatedMatrixBuildings = useMemo(() => {
+    const startIdx = (safeMatrixPage - 1) * BUILDINGS_PER_PAGE;
+    return groupedMatrixRoomsByBuilding.slice(startIdx, startIdx + BUILDINGS_PER_PAGE);
+  }, [groupedMatrixRoomsByBuilding, safeMatrixPage]);
 
   const grossMoney = stats.grossRevenue || 0;
   const netMoney = stats.netRentRevenue || 0;
@@ -870,8 +885,12 @@ export function LandlordDashboardView({
         <CardContent className="p-4 sm:p-5 min-w-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 min-w-0">
             {filteredBuildingsList.map((building: any) => {
+              const bRooms = (stats.roomsList || []).filter((r: any) => r.building_id === building.id || r.building_id === building.code);
+              const soonCount = bRooms.filter((r: any) => getRoomDisplayStatus(r, stats.contractsList || []).isSoonAvailable).length;
+              const vacantCount = bRooms.filter((r: any) => getEffectiveRoomStatus(r, stats.contractsList) === 'available').length;
               const pct = building.totalRooms > 0 ? Math.round((building.rentedRooms / building.totalRooms) * 100) : 0;
               const barColor = pct >= 80 ? 'bg-emerald-600' : pct >= 50 ? 'bg-accent' : 'bg-amber-500';
+
               return (
                 <div key={building.id} className="p-3.5 sm:p-4 border border-border rounded-xl space-y-2.5 bg-bg-base/30 min-w-0">
                   <div className="flex items-start justify-between gap-2 min-w-0">
@@ -883,13 +902,27 @@ export function LandlordDashboardView({
                     </div>
                     <Badge variant="outline" className="text-[9px] font-bold shrink-0">{building.rentedRooms}/{building.totalRooms} phòng</Badge>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-ink">
+                      <span>Tỷ lệ lấp đầy:</span>
+                      <span className="font-mono text-emerald-700">{pct}% ({building.rentedRooms}/{building.totalRooms} phòng)</span>
+                    </div>
                     <div className="h-2 bg-bg-subtle rounded-full overflow-hidden border border-border">
                       <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${pct}%` }} />
                     </div>
-                    <div className="flex justify-between text-[10.5px] text-ink-muted">
-                      <span>Lấp đầy: <strong className="text-ink">{pct}%</strong></span>
-                      <span>Trống: <strong className="text-amber-600">{building.totalRooms - building.rentedRooms} phòng</strong></span>
+                    <div className="flex items-center justify-between text-[11px] pt-0.5 min-w-0">
+                      <span className="text-ink-muted font-medium">
+                        {vacantCount > 0 ? (
+                          <span className="text-amber-600 font-bold">Trống {vacantCount} phòng</span>
+                        ) : (
+                          <span className="text-emerald-700 font-bold">Full {pct}%</span>
+                        )}
+                      </span>
+                      {soonCount > 0 && (
+                        <Badge className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-[10px] px-2 py-0.5 rounded-md shrink-0 shadow-2xs">
+                          Sắp trống {soonCount} phòng
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -983,8 +1016,8 @@ export function LandlordDashboardView({
               </div>
             </div>
 
-            {/* Quick Status Filter Pills */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
+            {/* Quick Status Filter Pills & Compact Pagination Controls */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pt-2 border-t border-border/50">
               <div className="flex flex-wrap items-center gap-1.5">
                 {[
                   { id: 'all', label: 'Tất cả' },
@@ -1010,20 +1043,50 @@ export function LandlordDashboardView({
                     {filter.label}
                   </button>
                 ))}
+
+                {(matrixAreaFilter !== 'all' || matrixBuildingFilter !== 'all' || matrixSearch || matrixStatusFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setMatrixSearch('');
+                      setMatrixStatusFilter('all');
+                      setMatrixAreaFilter('all');
+                      setMatrixBuildingFilter('all');
+                    }}
+                    className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer ml-1"
+                  >
+                    🔄 Xóa bộ lọc
+                  </button>
+                )}
               </div>
 
-              {(matrixAreaFilter !== 'all' || matrixBuildingFilter !== 'all' || matrixSearch || matrixStatusFilter !== 'all') && (
-                <button
-                  onClick={() => {
-                    setMatrixSearch('');
-                    setMatrixStatusFilter('all');
-                    setMatrixAreaFilter('all');
-                    setMatrixBuildingFilter('all');
-                  }}
-                  className="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer"
-                >
-                  🔄 Xóa bộ lọc
-                </button>
+              {/* Compact Pagination Controls on the right side */}
+              {matrixTab === 'matrix' && totalBuildingGroups > 0 && (
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <span className="text-xs text-ink-muted font-medium">
+                    Hiển thị <strong className="text-ink">{paginatedMatrixBuildings.length}</strong>/{totalBuildingGroups} tòa
+                  </span>
+                  <div className="flex items-center gap-1 bg-bg-subtle p-1 rounded-xl border border-border/60">
+                    <button
+                      disabled={safeMatrixPage <= 1}
+                      onClick={() => setMatrixPage((prev) => Math.max(1, prev - 1))}
+                      className="p-1 rounded-lg hover:bg-white text-ink disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer disabled:cursor-not-allowed"
+                      title="Trang trước"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs font-extrabold px-1.5 text-emerald-800 font-mono">
+                      Trang {safeMatrixPage} / {totalMatrixPages}
+                    </span>
+                    <button
+                      disabled={safeMatrixPage >= totalMatrixPages}
+                      onClick={() => setMatrixPage((prev) => Math.min(totalMatrixPages, prev + 1))}
+                      className="p-1 rounded-lg hover:bg-white text-ink disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer disabled:cursor-not-allowed"
+                      title="Trang sau"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1032,7 +1095,7 @@ export function LandlordDashboardView({
           {matrixTab === 'matrix' && (
             groupedMatrixRoomsByBuilding.length > 0 ? (
               <div className="space-y-6 max-h-[600px] overflow-y-auto pr-1">
-                {groupedMatrixRoomsByBuilding.map(({ building, rooms }) => {
+                {paginatedMatrixBuildings.map(({ building, rooms }) => {
                   const rentedCount = rooms.filter((r) => {
                     const ds = getRoomDisplayStatus(r, stats.contractsList || []);
                     return r.status === 'rented' && !ds.isSoonAvailable;
@@ -1119,7 +1182,7 @@ export function LandlordDashboardView({
                               <div className="flex items-start justify-between gap-1.5">
                                 <div>
                                   <span className="font-extrabold text-sm font-mono text-ink group-hover:text-emerald-700 transition-colors block">
-                                    P.{room.code}
+                                    {formatRoomCode(room.code)}
                                   </span>
                                   <span className="text-[11px] font-semibold text-ink-muted mt-0.5 block">
                                     Tầng {room.floor}
@@ -1219,9 +1282,9 @@ export function LandlordDashboardView({
                                         key={room.id}
                                         onClick={() => handleRoomClick({ ...room, status: effectiveStatus })}
                                         className={`px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all duration-150 active:scale-95 cursor-pointer shrink-0 border ${roomStatusSafe(effectiveStatus).btn}`}
-                                        title={`Phòng ${room.code} – ${statusLabels[effectiveStatus] || statusLabels.available}`}
+                                        title={`Phòng ${formatRoomCode(room.code)} – ${statusLabels[effectiveStatus] || statusLabels.available}`}
                                       >
-                                        <span className="font-mono">{room.code}</span>
+                                        <span className="font-mono">{formatRoomCode(room.code)}</span>
                                         <span className="text-[10px] opacity-80 font-normal">
                                           {(room.price / 1000000).toFixed(1)}M
                                         </span>

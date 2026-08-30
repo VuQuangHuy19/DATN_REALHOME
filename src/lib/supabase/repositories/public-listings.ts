@@ -15,7 +15,8 @@ const buildingFields = `
   pccc_certified, common_drying_area, allow_pet, allow_foreigners,
   allow_vinfast_electric, has_air_conditioner, has_water_heater, has_bed,
   has_wardrobe, has_kitchen_cabinet, has_refrigerator, has_hood,
-  has_dressing_table, latitude, longitude
+  has_dressing_table, latitude, longitude,
+  electricity_price, water_price, internet_price, common_service_price, electric_vehicle_fee
 `.trim();
 
 const roomFields = `

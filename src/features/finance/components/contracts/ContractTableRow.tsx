@@ -3,13 +3,17 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Printer, RefreshCw, FileSignature, ClipboardCheck, Trash2, FileText } from 'lucide-react';
+import { Pencil, Printer, RefreshCw, FileSignature, ClipboardCheck, Trash2, FileText, Eye, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { calculateCommissionAmount } from '@/features/finance/services/commission';
 
@@ -118,94 +122,46 @@ export function ContractTableRow({
       </td>
       <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
-          {(role === 'company_admin' || role === 'manager') && ['signed', 'active', 'draft'].includes(item.status) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-ink hover:text-emerald-600 hover:bg-bg-subtle"
-              asChild
-              title="Chuyển thành Hợp đồng thuê"
-            >
-              <Link href={`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`}>
-                <FileText className="h-4 w-4" />
-              </Link>
-            </Button>
-          )}
+          {/* 👁️ 1. Xem chi tiết hợp đồng */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" 
+            onClick={() => onViewDeposit(item)}
+            title="Xem chi tiết hợp đồng"
+          >
+            <Eye className="h-4 w-4 text-slate-600" />
+          </Button>
 
+          {/* 🟢 2. Duyệt cọc / Nhận cọc / Lập HĐ thuê */}
           {role === 'landlord' && item.status === 'active' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 font-bold text-xs py-1 h-8 rounded-lg"
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-700 font-bold text-xs py-1 h-8 rounded-lg"
               onClick={() => onLandlordConfirm(item.id, false)}
             >
               Nhận cọc
             </Button>
           )}
 
-          {(role === 'company_admin' || role === 'manager') && item.status === 'active' && (
-            <Button
-              variant="outline"
-              size="sm"
+          {(role === 'company_admin' || role === 'manager' || role === 'super_admin' || !role) && item.status === 'active' && (
+            <Button 
+              variant="outline" 
+              size="sm" 
               className="bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800 font-bold text-xs py-1 h-8 rounded-lg shadow-none"
               onClick={() => onLandlordConfirm(item.id, true)}
-              title="Duyệt đè hợp đồng cọc thay Chủ nhà nếu xác nhận tiền cọc đã về"
+              title="Duyệt đè hợp đồng cọc thay Chủ nhà"
             >
               Duyệt đè
             </Button>
           )}
 
-          {role !== 'sales_agent' && role !== 'landlord' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
-              asChild
-              title="Chỉnh sửa hợp đồng"
-            >
-              <Link href={`${pathPrefix}/contracts/${item.id}/edit`}>
-                <Pencil className="h-4 w-4" />
-              </Link>
-            </Button>
-          )}
-
-          {role !== 'sales_agent' && role !== 'landlord' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle"
-                  title="Thay đổi trạng thái"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border-border rounded-lg shadow-md text-ink text-xs font-semibold">
-                <DropdownMenuItem onClick={() => onStatusChange(item.id, 'active')}>
-                  Chờ xác nhận (active)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(item.id, 'signed')}>
-                  Đã nhận cọc (signed)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(item.id, 'cancelled')}>
-                  Đã hủy cọc (cancelled)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(item.id, 'forfeited')}>
-                  Khách mất cọc (forfeited)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onStatusChange(item.id, 'refunded')}>
-                  Đã trả cọc (refunded)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active'].includes(item.status) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2.5 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 text-xs font-bold gap-1 rounded-lg shadow-none mr-1"
+          {role !== 'sales_agent' && item.status !== 'active' && ['confirmed', 'signed', 'deposited', 'draft'].includes(item.status) && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2.5 bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800 text-xs font-bold gap-1 rounded-lg shadow-none"
               onClick={(e) => {
                 e.stopPropagation();
                 routerPush(`${pathPrefix}/contracts/create-rental?deposit_id=${item.id}`);
@@ -213,44 +169,80 @@ export function ContractTableRow({
               title="Chuyển cọc này thành Hợp đồng thuê chính thức"
             >
               <FileSignature className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Lập HĐ thuê</span>
+              <span className="inline">Lập HĐ thuê</span>
             </Button>
           )}
 
-          {role !== 'sales_agent' && ['confirmed', 'signed', 'deposited', 'active', 'converted', 'refunded'].includes(item.status) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenHandover(item);
-              }}
-              title="Biên bản bàn giao phòng"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-            </Button>
-          )}
+          {/* 🔄 3. Đổi trạng thái hợp đồng (Chờ duyệt, Đã cọc, Hủy cọc, Mất cọc, Trả cọc) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50" title="Đổi trạng thái hợp đồng">
+                <RefreshCw className="h-4 w-4 text-blue-600" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white border-border rounded-xl shadow-lg w-52 text-xs font-semibold p-1.5 space-y-1">
+              <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+                Đổi trạng thái HĐ
+              </div>
+              <DropdownMenuItem 
+                className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-amber-700 hover:bg-amber-50"
+                onClick={() => onStatusChange(item.id, 'active')}
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span>Chờ duyệt (active)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-emerald-700 hover:bg-emerald-50"
+                onClick={() => onStatusChange(item.id, 'signed')}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Đã cọc (signed)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-rose-700 hover:bg-rose-50"
+                onClick={() => onStatusChange(item.id, 'cancelled')}
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span>Hủy cọc (cancelled)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-orange-700 hover:bg-orange-50"
+                onClick={() => onStatusChange(item.id, 'forfeited')}
+              >
+                <span className="w-2 h-2 rounded-full bg-orange-500" />
+                <span>Mất cọc (forfeited)</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                className="cursor-pointer py-1.5 px-2.5 rounded-lg flex items-center gap-2 text-sky-700 hover:bg-sky-50"
+                onClick={() => onStatusChange(item.id, 'refunded')}
+              >
+                <span className="w-2 h-2 rounded-full bg-sky-500" />
+                <span>Trả cọc (refunded)</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="In hợp đồng">
+          {/* 🖨️ 4. In hợp đồng */}
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" asChild title="In hợp đồng">
             <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
               <Printer className="h-4 w-4" />
             </Link>
           </Button>
 
+          {/* 🗑️ 5. Xóa hợp đồng (màu đỏ) */}
           {role !== 'sales_agent' && role !== 'landlord' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
               onClick={() => {
                 if (confirm('Bạn có chắc muốn xóa hợp đồng cọc này?')) {
                   onRemoveDeposit(item.id);
                 }
               }}
-              title="Xóa"
+              title="Xóa hợp đồng"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 text-rose-600" />
             </Button>
           )}
         </div>

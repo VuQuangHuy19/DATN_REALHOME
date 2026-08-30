@@ -233,18 +233,20 @@ export default function LoginPage() {
 
             {/* Remember me + Forgot password */}
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer group select-none">
+              <label 
+                onClick={() => setRememberMe(prev => !prev)}
+                className="flex items-center gap-2 cursor-pointer group select-none py-1"
+              >
                 <div
                   role="checkbox"
                   aria-checked={rememberMe}
-                  onClick={() => setRememberMe(!rememberMe)}
-                  className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                    rememberMe ? 'bg-amber-500 border-amber-500' : 'bg-white/20 border-white/40 group-hover:border-white/70'
+                  className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
+                    rememberMe ? 'bg-amber-500 border-amber-500 shadow-sm' : 'bg-white/20 border-white/40 group-hover:border-white/70'
                   }`}
                 >
-                  {rememberMe && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3.5} />}
+                  {rememberMe && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
                 </div>
-                <span className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Nhớ đăng nhập</span>
+                <span className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Nhớ tôi</span>
               </label>
 
               <button

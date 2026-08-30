@@ -19,10 +19,14 @@ const DEFAULT_CENTER: [number, number] = [21.0285, 105.8542]; // Hanoi center
 function MapBoundsUpdater({ markers }: { markers: [number, number][] }) {
   const map = useMap();
   useEffect(() => {
-    if (markers.length > 0) {
-      const bounds = L.latLngBounds(markers);
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    }
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      if (markers.length > 0) {
+        const bounds = L.latLngBounds(markers);
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [markers, map]);
   return null;
 }
@@ -46,8 +50,8 @@ export default function BuildingsMultiMap({ buildings, onSelectBuilding }: Build
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
         />
 
         {markers.length > 0 && <MapBoundsUpdater markers={markers} />}

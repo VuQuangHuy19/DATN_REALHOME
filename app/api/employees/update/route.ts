@@ -38,11 +38,14 @@ export async function POST(request: Request) {
 
     // Cập nhật bảng employees
     const employeePatch: Record<string, any> = { updated_at: new Date().toISOString() };
-    if (name !== undefined) employeePatch.name = name;
+    if (name !== undefined) employeePatch.full_name = name;
     if (phone !== undefined) employeePatch.phone = phone || null;
     if (email !== undefined) employeePatch.email = email;
-    if (department !== undefined) employeePatch.department = department;
-    if (position !== undefined) employeePatch.position = position;
+    if (department !== undefined) employeePatch.department = department || null;
+    if (position !== undefined) {
+      employeePatch.position = position || null;
+      employeePatch.role = position || null;
+    }
     if (join_date !== undefined) employeePatch.join_date = join_date || null;
     if (status !== undefined) employeePatch.status = status;
 

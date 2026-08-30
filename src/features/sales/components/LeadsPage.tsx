@@ -20,6 +20,11 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBLead, DBLeadActivity } from '@/lib/supabase/types';
 import { toast } from 'sonner';
 
+import { LeadTimelineView } from './LeadTimelineView';
+import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
+import { usePublicListings } from '@/lib/hooks/usePublicListings';
+import type { CustomerListing } from '@/lib/customer/types';
+
 const statusConfig: Record<string, { label: string; color: string }> = {
   new:         { label: 'Mới',          color: 'bg-slate-100 text-slate-700' },
   consulting:  { label: 'Đang tư vấn',  color: 'bg-blue-100 text-blue-700' },
@@ -204,6 +209,7 @@ function LeadDetail({ leadId, onClose, currentUserId, currentUserName }: {
 export function LeadsPage() {
   const { company, user, role, profile } = useAuth();
   const { leads: leadList, loading, error, add, update, remove } = useLeads(company?.id);
+  const [viewTab, setViewTab] = useState<'timeline' | 'table'>('timeline');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -211,6 +217,7 @@ export function LeadsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<DBLead | null>(null);
   const [saving, setSaving] = useState(false);
+  const [appointmentTarget, setAppointmentTarget] = useState<{ lead: DBLead; room?: CustomerListing } | null>(null);
   const { items: profiles } = useProfiles(company?.id);
 
   const isSale = role === 'sales_agent';
@@ -297,14 +304,46 @@ export function LeadsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Khách hàng tiềm năng</h1>
-          <p className="text-slate-500">Quản lý và theo dõi leads bán hàng</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Chăm sóc Khách hàng (CRM)</h1>
+          <p className="text-slate-500 text-xs sm:text-sm font-medium">Quản lý, chăm sóc và theo dõi lộ trình chốt phòng cho khách hàng</p>
         </div>
-        <Button onClick={() => { setEditItem(null); setIsFormOpen(true); }}>
-          <Plus className="h-4 w-4 mr-2" />Thêm lead
-        </Button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <button
+              onClick={() => setViewTab('timeline')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewTab === 'timeline'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="h-3.5 w-3.5 text-amber-400" />
+              <span>Lịch trình Chăm khách</span>
+            </button>
+            <button
+              onClick={() => setViewTab('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewTab === 'table'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Danh sách Chi tiết</span>
+            </button>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={() => { setEditItem(null); setIsFormOpen(true); }}
+            className="h-9 px-3.5 font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs"
+          >
+            <Plus className="h-4 w-4 mr-1" />Thêm lead
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -313,34 +352,44 @@ export function LeadsPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      {viewTab === 'timeline' ? (
+        <LeadTimelineView
+          leads={visibleLeads}
+          onOpenDetail={(id) => {
+            setSelectedLeadId(id);
+            setIsDetailOpen(true);
+          }}
+          onCreateAppointment={(lead, room) => setAppointmentTarget({ lead, room })}
+        />
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${
+                statusFilter === 'all'
+                  ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 border-amber-400 shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-amber-400'
+              }`}
+            >
+              Tất cả ({visibleLeads.length})
+            </button>
+            {statusOrder.filter((s) => counts[s] > 0 || s === 'new').map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all border ${
+                  statusFilter === s
+                    ? 'bg-gradient-to-r from-amber-400 to-orange-400 text-slate-950 border-amber-400 shadow-xs'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-amber-400'
+                }`}
+              >
+                {statusConfig[s]?.label} ({counts[s] || 0})
+              </button>
+            ))}
+          </div>
 
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all border ${
-            statusFilter === 'all'
-              ? 'bg-accent text-white border-accent'
-              : 'bg-bg-subtle text-ink-muted border-border-subtle hover:bg-bg-subtle/80 hover:text-ink'
-          }`}
-        >
-          Tất cả ({visibleLeads.length})
-        </button>
-        {statusOrder.filter((s) => counts[s] > 0 || s === 'new').map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all border ${
-              statusFilter === s
-                ? 'bg-accent text-white border-accent'
-                : 'bg-bg-subtle text-ink-muted border-border-subtle hover:bg-bg-subtle/80 hover:text-ink'
-            }`}
-          >
-            {statusConfig[s]?.label} ({counts[s] || 0})
-          </button>
-        ))}
-      </div>
-
-      <Card>
+          <Card>
         <CardHeader>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -529,6 +578,27 @@ export function LeadsPage() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
+
+      {appointmentTarget && (
+        <ViewingRequestDialog
+          open={Boolean(appointmentTarget)}
+          onOpenChange={(open) => !open && setAppointmentTarget(null)}
+          companyId={company?.id || ''}
+          property={
+            appointmentTarget.room
+              ? {
+                  id: appointmentTarget.room.id,
+                  title: appointmentTarget.room.title,
+                  address: appointmentTarget.room.address || '',
+                  area: appointmentTarget.room.area || '',
+                }
+              : null
+          }
+          referralSaleId={user?.id || profile?.id}
+        />
+      )}
 
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

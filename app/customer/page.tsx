@@ -14,6 +14,7 @@ import { LISTING_STATUS_LABELS } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
 import { ViewingRequestDialog } from '@/components/customer/ViewingRequestDialog';
 import { BuildingCard, type BuildingGroup, formatArea } from '@/components/customer/BuildingCard';
+import { useAuth } from '@/lib/auth/AuthContext';
 import type { CustomerListing } from '@/lib/customer/types';
 import {
   ArrowRight, MapPin, Bed, Bath, Square, Phone, Building2, Loader2, Search,
@@ -40,8 +41,11 @@ const DEFAULT_DISTRICT_IMAGE = 'https://images.pexels.com/photos/323780/pexels-p
 export default function CustomerHomePage() {
   const router = useRouter();
   const { company, companies, loading: companyLoading } = useCustomerCompany();
+  const { role } = useAuth();
+  const isStaffOrBroker = !!role && ['company_admin', 'manager', 'sales_agent', 'super_admin', 'landlord'].includes(role);
   const { listings, loading: listingsLoading } = usePublicListings(
-    useMemo(() => companies.map((c) => c.id), [companies])
+    useMemo(() => companies.map((c) => c.id), [companies]),
+    isStaffOrBroker
   );
 
   // States
@@ -103,16 +107,24 @@ export default function CustomerHomePage() {
   const districtStats = useMemo(() => {
     const map = new Map<string, { count: number; minPrice: number; sampleImage: string }>();
 
+    // Đảm bảo các quận hệ thống TH Homes (Cầu Giấy, Đống Đa, Tây Hồ) luôn có sẵn
+    const systemDistricts = ['Cầu Giấy', 'Đống Đa', 'Tây Hồ'];
+    for (const d of systemDistricts) {
+      map.set(d, { count: 0, minPrice: 0, sampleImage: DISTRICT_IMAGES[d] || DEFAULT_DISTRICT_IMAGE });
+    }
+
     for (const group of buildingGroups) {
-      // Bóc tách tên Quận từ chuỗi area (ví dụ: "Phường Láng Hạ, Quận Đống Đa" -> "Đống Đa")
       const parts = group.area.split(',').map((p) => p.trim());
       let districtName = parts.length >= 2 ? parts[1].replace(/^(quận|quận|huyện|huyện)\s+/i, '').trim() : group.area;
       if (!districtName) districtName = group.area;
 
-      const current = map.get(districtName) || { count: 0, minPrice: Infinity, sampleImage: '' };
+      const current = map.get(districtName) || { count: 0, minPrice: 0, sampleImage: '' };
+      const availableRoomsCount = group.rooms.filter((r) => r.status === 'available' || r.status === 'soon_available').length;
+      const countToAdd = isStaffOrBroker ? group.rooms.length : (availableRoomsCount > 0 ? availableRoomsCount : group.rooms.length);
+
       map.set(districtName, {
-        count: current.count + group.rooms.length,
-        minPrice: Math.min(current.minPrice, group.minPrice || Infinity),
+        count: current.count + countToAdd,
+        minPrice: Math.min(current.minPrice > 0 ? current.minPrice : Infinity, group.minPrice || Infinity),
         sampleImage: DISTRICT_IMAGES[districtName] || group.allImages[0] || DEFAULT_DISTRICT_IMAGE,
       });
     }
@@ -125,7 +137,7 @@ export default function CustomerHomePage() {
         image: DISTRICT_IMAGES[name] || data.sampleImage || DEFAULT_DISTRICT_IMAGE,
       }))
       .sort((a, b) => b.count - a.count);
-  }, [buildingGroups]);
+  }, [buildingGroups, isStaffOrBroker]);
 
   // Danh sách Tòa nhà nổi bật (tối đa 6 tòa)
   const featuredBuildingGroups = useMemo(() => buildingGroups.slice(0, 6), [buildingGroups]);
@@ -183,7 +195,7 @@ export default function CustomerHomePage() {
           {/* Badge AI Spotlight */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 dark:bg-slate-900/60 backdrop-blur-md border border-amber-400/40 text-amber-300 text-xs sm:text-sm font-medium mb-6 shadow-lg shadow-amber-500/10 animate-fade-in">
             <Sparkles className="h-4 w-4 text-amber-400 animate-spin-slow" />
-            <span>RealHome AI Copilot — Tìm phòng thông minh 24/7</span>
+            <span>RealHome AI — Tìm phòng thông minh 24/7</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold font-heading tracking-tight mb-4 text-white leading-tight max-w-4xl drop-shadow-md">
@@ -255,84 +267,96 @@ export default function CustomerHomePage() {
             </Button>
           </form>
 
-          {/* Quick Search Chips */}
-          <div className="mt-4 flex flex-wrap justify-center items-center gap-2 text-xs font-semibold text-white">
-            <span className="text-amber-300 font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/30">
-              <Zap className="h-3.5 w-3.5 text-amber-400 fill-amber-400" /> Tìm nhanh:
+          {/* Quick Search Chips — High Contrast & Super Clear */}
+          <div className="mt-5 flex flex-wrap justify-center items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black shadow-md border border-amber-300">
+              <Zap className="h-4 w-4 fill-slate-950 text-slate-950 shrink-0" />
+              <span>Tìm nhanh:</span>
             </span>
-            <button onClick={() => handleTagClick('Cầu Giấy')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
+            <button
+              onClick={() => handleTagClick('Cầu Giấy')}
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-slate-100 hover:bg-amber-400 hover:text-slate-950 border border-slate-700/90 hover:border-amber-400 shadow-md transition-all duration-200 cursor-pointer font-semibold"
+            >
               🔥 Cầu Giấy
             </button>
-            <button onClick={() => handleTagClick('Đống Đa')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
+            <button
+              onClick={() => handleTagClick('Đống Đa')}
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-slate-100 hover:bg-amber-400 hover:text-slate-950 border border-slate-700/90 hover:border-amber-400 shadow-md transition-all duration-200 cursor-pointer font-semibold"
+            >
               📍 Đống Đa
             </button>
-            <button onClick={() => handleTagClick('nuôi thú cưng')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
-              🐾 Cho nuôi mèo
+            <button
+              onClick={() => handleTagClick('nuôi thú cưng')}
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-slate-100 hover:bg-amber-400 hover:text-slate-950 border border-slate-700/90 hover:border-amber-400 shadow-md transition-all duration-200 cursor-pointer font-semibold"
+            >
+              🐶 Cho nuôi pet
             </button>
-            <button onClick={() => handleTagClick('Đại học Ngoại Thương')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer">
+            <button
+              onClick={() => handleTagClick('Đại học Ngoại Thương')}
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-slate-100 hover:bg-amber-400 hover:text-slate-950 border border-slate-700/90 hover:border-amber-400 shadow-md transition-all duration-200 cursor-pointer font-semibold"
+            >
               🎓 Quanh ĐH Ngoại Thương
             </button>
-            <button onClick={() => handleTagClick('thang máy')} className="px-3.5 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md text-white hover:bg-amber-400 hover:text-slate-950 border border-white/30 hover:border-amber-400 shadow-sm transition-all duration-200 cursor-pointer hidden sm:inline-block">
+            <button
+              onClick={() => handleTagClick('thang máy')}
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/90 text-slate-100 hover:bg-amber-400 hover:text-slate-950 border border-slate-700/90 hover:border-amber-400 shadow-md transition-all duration-200 cursor-pointer font-semibold hidden sm:inline-block"
+            >
               ⚡ Có Thang máy
             </button>
           </div>
+        </div>
+      </section>
 
-          {/* ✨ Stats Ribbon — hiện ngay trong hero, không cần scroll */}
-          {!loading && (
-            <div className="mt-6 grid grid-cols-4 gap-2 sm:gap-3 w-full max-w-xl">
-              {[
-                { value: stats.totalRooms, label: 'Tổng phòng', color: 'text-emerald-300', bg: 'bg-emerald-500/20 border-emerald-400/20' },
-                { value: stats.availableRooms, label: 'Sẵn sàng', color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-400/20' },
-                { value: stats.totalBuildings, label: 'Tòa nhà', color: 'text-sky-300', bg: 'bg-sky-500/20 border-sky-400/20' },
-                { value: stats.totalDistricts, label: 'Quận/KV', color: 'text-purple-300', bg: 'bg-purple-500/20 border-purple-400/20' },
-              ].map(({ value, label, color, bg }) => (
-                <div key={label} className={`flex flex-col items-center py-2.5 px-1 rounded-2xl border backdrop-blur-md ${bg}`}>
-                  <span className={`text-xl sm:text-2xl font-extrabold font-mono leading-none ${color}`}>
-                    {value ?? '—'}
-                  </span>
-                  <span className="text-[10px] sm:text-xs text-white/70 font-semibold mt-1 text-center leading-tight">{label}</span>
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* 2. STATS FLOATING CARD GRID — MÀU SẮC RỰC RỠ, TO NỔI BẬT & ĐẲNG CẤP     */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {!loading && (
+        <section className="relative z-20 -mt-10 sm:-mt-14 container mx-auto px-4 max-w-6xl">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {[
+              {
+                value: stats.totalRooms,
+                label: 'Tổng nguồn phòng',
+                icon: Building2,
+                cardBg: 'bg-gradient-to-br from-teal-600 via-teal-600 to-emerald-700 border-teal-400/50 shadow-xl shadow-teal-950/30 hover:border-teal-300',
+              },
+              {
+                value: stats.availableRooms,
+                label: 'Phòng sẵn sàng ngay',
+                icon: CheckCircle2,
+                cardBg: 'bg-gradient-to-br from-amber-600 via-amber-600 to-yellow-700 border-amber-400/50 shadow-xl shadow-amber-950/30 hover:border-amber-300',
+              },
+              {
+                value: stats.totalBuildings,
+                label: 'Tòa nhà hệ thống',
+                icon: MapPin,
+                cardBg: 'bg-gradient-to-br from-sky-600 via-sky-600 to-blue-700 border-sky-400/50 shadow-xl shadow-sky-950/30 hover:border-sky-300',
+              },
+              {
+                value: stats.totalDistricts,
+                label: 'Quận / Khu vực',
+                icon: Compass,
+                cardBg: 'bg-gradient-to-br from-purple-600 via-purple-600 to-indigo-700 border-purple-400/50 shadow-xl shadow-purple-950/30 hover:border-purple-300',
+              },
+            ].map(({ value, label, icon: Icon, cardBg }) => (
+              <div
+                key={label}
+                className={`flex flex-col items-center justify-center p-5 sm:p-6 md:p-7 rounded-2xl md:rounded-3xl border backdrop-blur-xl transition-all duration-300 hover:-translate-y-2 hover:scale-[1.03] shadow-2xl cursor-default group ${cardBg}`}
+              >
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 text-white flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <Icon className="h-6 w-6 sm:h-7 sm:w-7" />
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      {/* 2. STATS CARD GRID (expanded below hero)                               */}
-      {/* ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative z-20 -mt-6 container mx-auto px-4">
-        <div className="bg-card border border-border-subtle rounded-2xl shadow-xl p-5 md:p-7 grid grid-cols-2 md:grid-cols-4 gap-5 text-center">
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="h-10 w-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono leading-none">{stats.totalRooms || '—'}</div>
-            <div className="text-xs text-ink-muted font-semibold">Tổng nguồn phòng</div>
+                <div className="text-3xl sm:text-4xl md:text-5xl font-black font-mono leading-none tracking-tight text-white drop-shadow-md mb-2">
+                  {value ?? '—'}
+                </div>
+                <div className="text-xs sm:text-sm font-bold text-white tracking-wide text-center drop-shadow-sm opacity-95">
+                  {label}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="h-10 w-10 rounded-full bg-accent-soft text-accent flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-emerald-600 font-mono leading-none">{stats.availableRooms || '—'}</div>
-            <div className="text-xs text-ink-muted font-semibold">Phòng sẵn sàng ngay</div>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono leading-none">{stats.totalBuildings || '—'}</div>
-            <div className="text-xs text-ink-muted font-semibold">Tòa nhà hệ thống</div>
-          </div>
-          <div className="flex flex-col items-center gap-1.5">
-            <div className="h-10 w-10 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center">
-              <Bot className="h-5 w-5" />
-            </div>
-            <div className="text-2xl md:text-3xl font-extrabold text-ink font-mono leading-none">24/7</div>
-            <div className="text-xs text-ink-muted font-semibold">Trợ lý AI Tìm phòng</div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
 
       {/* ═════════════════════════════════════════════════════════════════════ */}

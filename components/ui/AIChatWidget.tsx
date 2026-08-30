@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   'Cách đặt lịch xem phòng như thế nào?',
 ];
 
-export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' }) {
+export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' | 'landlord' }) {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile, company, role: userRole } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,7 +40,9 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
         role: 'assistant',
         content: role === 'manager'
           ? 'Xin chào Quản lý! Tôi là **AI Copilot** của RealHome. Bạn cần tìm kiếm phòng trống hay kiểm tra thông tin gì?'
-          : 'Xin chào! Tôi là **Trợ lý AI RealHome** 🤖. Bạn cần tìm phòng trọ/căn hộ dịch vụ theo tiêu chí nào (giá thuê, khu vực, nuôi mèo...)?',
+          : role === 'landlord'
+            ? 'Xin chào Chủ nhà! Tôi là **Trợ lý AI RealHome** 🤖. Tôi có thể hỗ trợ bạn tra cứu phòng trống, hợp đồng, cư dân & dữ liệu vận hành.'
+            : 'Xin chào! Tôi là **Trợ lý AI RealHome** 🤖. Bạn cần tìm phòng trọ/căn hộ dịch vụ theo tiêu chí nào (giá thuê, khu vực, nuôi mèo...)?',
       },
     ],
   });
@@ -257,7 +259,7 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
                 </div>
                 <div>
                   <h3 className="font-bold font-heading text-sm leading-snug flex items-center gap-1.5">
-                    {role === 'manager' ? 'RealHome AI Copilot' : 'Trợ lý AI RealHome'}
+                    {role === 'manager' ? 'RealHome AI' : 'Trợ lý AI RealHome'}
                     <Sparkles className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
                   </h3>
                   <p className="text-[11px] text-white/80">Tìm phòng thông minh • Gemini AI</p>

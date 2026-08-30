@@ -47,6 +47,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useAdminModule } from '@/features/admin/context/admin-module-context';
 import { getDashboardStats } from '@/lib/supabase/repositories/dashboard';
+import { formatRoomCode } from '@/lib/room-status';
 
 import { getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 
@@ -670,9 +671,9 @@ export function SupplyOperationsHub() {
                                         key={room.id}
                                         onClick={() => setSelectedRoomModal({ room, building, landlord })}
                                         className={`px-2.5 py-1.5 rounded-lg border text-xs font-extrabold transition-all transform hover:scale-105 flex items-center gap-1.5 cursor-pointer ${btnBg}`}
-                                        title={`Click xem chi tiết P.${room.code} (${statusText})`}
+                                        title={`Click xem chi tiết ${formatRoomCode(room.code)} (${statusText})`}
                                       >
-                                        <span>P.{room.code}</span>
+                                        <span>{formatRoomCode(room.code)}</span>
                                         {cat === 'soon_vacant' && shortDate && (
                                           <span className="text-[10px] font-extrabold bg-amber-200/90 dark:bg-amber-900/90 text-amber-900 dark:text-amber-100 px-1 py-0.2 rounded border border-amber-400/50 font-mono">
                                             [{shortDate}]

@@ -291,7 +291,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
         <Card className="border-border shadow-none rounded-lg bg-white">
           <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
             <div>
-              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tỷ lệ Chốt / Tổng Lead</p>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tỷ lệ Chốt / Tổng KH</p>
               <p className="text-3xl font-extrabold font-heading text-blue-600 mt-1 tracking-tight">{leadToClosedRate}%</p>
               <p className="text-xs text-ink-muted mt-1 font-medium">{successfulDeals} chốt / {stats.totalLeads} khách hàng</p>
             </div>
@@ -307,7 +307,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
         <Card className="border-border shadow-none rounded-lg bg-white">
           <CardContent className="p-5 flex flex-col justify-between h-full min-h-[105px]">
             <div>
-              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tiến độ Chỉ tiêu Target</p>
+              <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">Tiến độ Chỉ tiêu</p>
               <p className="text-3xl font-extrabold font-heading text-amber-600 mt-1 tracking-tight">{targetPercentage}%</p>
               <div className="h-2 bg-bg-subtle rounded-full overflow-hidden border border-border mt-2">
                 <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${targetPercentage}%` }} />
@@ -329,7 +329,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
           <CardHeader className="pb-3 border-b border-border">
             <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
               <BarChart3 className="h-4.5 w-4.5 text-accent" />
-              Phễu chuyển đổi bán hàng (Funnel Analytics)
+              Phễu chuyển đổi bán hàng
             </CardTitle>
           </CardHeader>
           <CardContent className="p-5">
@@ -356,7 +356,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
                 <Users className="h-4.5 w-4.5 text-accent" />
-                Quy trình Lead CRM ({stats.totalLeads})
+                Quy trình CSKH ({stats.totalLeads})
               </CardTitle>
               <Link href="/admin/customers/leads" className="text-xs text-accent hover:underline flex items-center font-medium">
                 Chi tiết <ArrowRight className="ml-1 h-3.5 w-3.5" />
@@ -436,7 +436,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
               <div className="flex items-center gap-2">
                 <Clock className="h-4.5 w-4.5 text-rose-500 animate-pulse" />
                 <CardTitle className="text-base font-bold font-heading text-ink">
-                  Lead cần liên hệ lại
+                  Khách hàng cần liên hệ lại
                 </CardTitle>
               </div>
               <span className="px-2 py-0.5 bg-rose-50 text-rose-700 text-xs rounded-full font-bold">
@@ -531,7 +531,7 @@ export function SalesDashboardView({ stats, saleName }: { stats: SalesStats; sal
           <div className="flex items-center gap-2">
             <Home className="h-4.5 w-4.5 text-accent" />
             <CardTitle className="text-base font-bold font-heading text-ink">
-              Phòng trống có sẵn để giới thiệu cho khách
+              Phòng trống có sẵn
             </CardTitle>
           </div>
           <Link href="/admin/realhome/rooms" className="text-xs text-accent hover:underline flex items-center font-medium">

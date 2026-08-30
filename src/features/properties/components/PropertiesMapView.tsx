@@ -56,8 +56,32 @@ const formatShortPrice = (price: number) => {
 function MapUpdater({ center, zoom }: { center: [number, number]; zoom?: number }) {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, zoom || map.getZoom());
+    // Invalidate map size to force Leaflet to recalculate container dimensions and fetch tile grid
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      if (center) {
+        map.flyTo(center, zoom || map.getZoom());
+      }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [center, zoom, map]);
+  return null;
+}
+
+function MapResizeInvalidator() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    const timer2 = setTimeout(() => {
+      map.invalidateSize();
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [map]);
   return null;
 }
 
@@ -216,6 +240,7 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
     <div className={`relative w-full h-[600px] rounded-lg overflow-hidden border border-border-subtle z-0 ${isSelectingLocation ? 'cursor-crosshair' : ''}`}>
       <style dangerouslySetInnerHTML={{
         __html: `
+        .leaflet-container { width: 100% !important; height: 100% !important; z-index: 0; }
         .custom-leaflet-popup .leaflet-popup-content { margin: 0; width: 100% !important; min-width: 250px; }
         .custom-leaflet-popup .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 0.5rem; }
         .leaflet-popup-content-wrapper div a { color: #fff !important; }
@@ -228,10 +253,11 @@ export default function PropertiesMapView({ groups, onBook, onContact }: Propert
         zoomControl={false}
         style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
+        <MapResizeInvalidator />
         <ZoomControl position="bottomright" />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
         />
         <MapUpdater center={mapCenter} zoom={mapZoom} />
         <MapEventsHandler isSelecting={isSelectingLocation} onLocationSelected={handleMapClick} />

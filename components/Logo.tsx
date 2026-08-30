@@ -48,3 +48,22 @@ export function Logo({ className, showSlogan = false, align = 'center', variant 
     </div>
   );
 }
+
+export function LogoIcon({ className }: { className?: string }) {
+  const { logo_url, name } = useTenant();
+
+  if (logo_url) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src={logo_url} alt={name || 'Logo'} className={cn("h-7 w-7 object-contain", className)} />
+    );
+  }
+
+  return (
+    <div className={cn("flex items-center font-black text-2xl leading-none tracking-tighter select-none font-heading", className)}>
+      <span className="text-blue-600">R</span>
+      <span className="text-amber-500">H</span>
+    </div>
+  );
+}
+

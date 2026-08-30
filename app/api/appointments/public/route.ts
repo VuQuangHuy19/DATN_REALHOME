@@ -72,9 +72,21 @@ export async function POST(request: Request) {
     const landlordId = roomData?.landlord_id ?? null;
     const buildingId = roomData?.building_id ?? null;
 
-    const finalAssignedTo = assignedToUserId || createdByUserId || null;
-    const finalAssignedToName = assignedToName || null;
-    const finalLeadSource = leadSource || (finalAssignedTo ? 'self_sourced' : 'company_mkt');
+    let finalAssignedTo = assignedToUserId || createdByUserId || null;
+    let finalAssignedToName = assignedToName || null;
+
+    if (finalAssignedTo && !finalAssignedToName) {
+      const { data: staffProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', finalAssignedTo)
+        .maybeSingle();
+      if (staffProfile) {
+        finalAssignedToName = staffProfile.full_name || staffProfile.email || null;
+      }
+    }
+
+    const finalLeadSource = leadSource || (finalAssignedTo ? 'sale_referral_link' : 'company_mkt');
 
     // 2. Tạo lịch hẹn (appointments) bằng admin client (bypass RLS)
     const { data: appointment, error: aptError } = await supabaseAdmin

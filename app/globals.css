@@ -32,21 +32,21 @@
 
 /* Dark mode: override all custom hex tokens */
 .dark {
-  --foreground-rgb: 226, 232, 240;
-  --background-start-rgb: 11, 18, 32;
+  --foreground-rgb: 248, 250, 252;
+  --background-start-rgb: 11, 15, 25;
   --background-end-rgb: 15, 23, 42;
 
-  --bg-base: #0B1220;
-  --bg-subtle: #131B2C;
-  --ink: #E7ECF3;
-  --ink-muted: #93A2B8;
-  --border-subtle: #24304A;
-  --accent-900: #E4EEFA;
-  --accent: #2563EB;
-  --accent-500: #3B82F6;
-  --accent-soft: #16233A;
-  --warn: #F0B429;
-  --danger: #F26D6D;
+  --bg-base: #0B0F19;
+  --bg-subtle: #0F172A;
+  --ink: #F8FAFC;
+  --ink-muted: #94A3B8;
+  --border-subtle: #1E293B;
+  --accent-900: #E2E8F0;
+  --accent: #3B82F6;
+  --accent-500: #60A5FA;
+  --accent-soft: #1E3A8A;
+  --warn: #F59E0B;
+  --danger: #EF4444;
 }
 
 @layer base {
@@ -73,25 +73,25 @@
     --radius: 0.5rem;
   }
   .dark {
-    --background: 222 47% 9%;        /* #0B1220 */
-    --foreground: 213 30% 92%;       /* #E7ECF3 */
-    --card: 222 42% 12%;             /* #131B2C */
-    --card-foreground: 213 30% 92%;
+    --background: 222 47% 7%;        /* #0B0F19 */
+    --foreground: 210 40% 98%;       /* #F8FAFC */
+    --card: 222 42% 12%;             /* #0F172A */
+    --card-foreground: 210 40% 98%;
     --popover: 222 42% 12%;
-    --popover-foreground: 213 30% 92%;
-    --primary: 213 58% 60%;          /* #5B9BD9 */
-    --primary-foreground: 222 47% 9%;
-    --secondary: 222 38% 18%;        /* slightly lighter than card */
-    --secondary-foreground: 213 30% 92%;
-    --muted: 222 38% 18%;
-    --muted-foreground: 213 20% 65%; /* #93A2B8 */
-    --accent: 221 83% 53%;           /* #2563EB */
-    --accent-foreground: 0 0% 100%;  /* White text on dark blue background */
-    --destructive: 0 85% 70%;        /* #F26D6D */
-    --destructive-foreground: 222 47% 9%;
-    --border: 222 32% 22%;           /* #24304A */
-    --input: 222 32% 22%;
-    --ring: 213 58% 60%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;          /* #3B82F6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;        /* #1E293B */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%; /* #94A3B8 */
+    --accent: 217 91% 60%;           /* #3B82F6 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;        /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 18%;           /* #1E293B */
+    --input: 217 33% 18%;
+    --ring: 217 91% 60%;
   }
 }
 

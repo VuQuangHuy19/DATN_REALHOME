@@ -186,7 +186,7 @@ export default function PropertiesPage() {
   const contractsBasePath = role === 'landlord' ? '/landlord' : role === 'sales_agent' || pathname.startsWith('/broker') ? '/broker' : '/admin';
   const { listings, loading: listingsLoading, error } = usePublicListings(
     useMemo(() => companies.map((c) => c.id), [companies]),
-    isSale
+    false
   );
 
   const [searchValue, setSearchValue] = useState(searchQuery);
@@ -290,7 +290,7 @@ export default function PropertiesPage() {
   );
 
   const areaOptions = useMemo(
-    () => Array.from(new Set(listings.map((p) => p.area).filter(Boolean))).sort(),
+    () => Array.from(new Set(['Cầu Giấy', 'Đống Đa', 'Tây Hồ', ...listings.map((p) => p.area).filter(Boolean)])).sort(),
     [listings]
   );
 
@@ -341,7 +341,13 @@ export default function PropertiesPage() {
         });
 
       const prices = rooms.map((r) => r.price).filter((p) => p > 0);
-      const allImages = Array.from(
+      const isVidCheck = (url: string) => {
+        if (!url) return false;
+        const clean = url.toLowerCase().split('?')[0];
+        return clean.endsWith('.mp4') || clean.endsWith('.mov') || clean.endsWith('.webm');
+      };
+
+      const rawAllImages = Array.from(
         new Set(
           rooms.flatMap((r) => {
             const highResImgs = (r.imageUrls && r.imageUrls.length > 0)
@@ -351,6 +357,14 @@ export default function PropertiesPage() {
           })
         )
       );
+
+      const allImages = [...rawAllImages].sort((a, b) => {
+        const isVidA = isVidCheck(a);
+        const isVidB = isVidCheck(b);
+        if (isVidA && !isVidB) return 1;
+        if (!isVidA && isVidB) return -1;
+        return 0;
+      });
 
       return {
         buildingId,
@@ -375,7 +389,7 @@ export default function PropertiesPage() {
     });
 
     return groups.filter(
-      (g) => isStaffOrBroker ? g.rooms.length > 0 : (g.availableRoomCodes.length > 0 || (g.soonAvailableRooms && g.soonAvailableRooms.length > 0))
+      (g) => g.availableRoomCodes.length > 0 || (g.soonAvailableRooms && g.soonAvailableRooms.length > 0)
     );
   }, [listings]);
 
@@ -401,7 +415,11 @@ export default function PropertiesPage() {
         (!g.representativeRoom.wardId && g.address.toLowerCase().includes(wardNameClean))
       );
 
-      const matchArea = selectedAreas.length === 0 || selectedAreas.includes(g.area);
+      const matchArea = selectedAreas.length === 0 || selectedAreas.some((a) => {
+        const cleanA = a.replace(/^(Quận|Huyện|Thị xã)\s+/i, '').trim().toLowerCase();
+        const cleanG = g.area.replace(/^(Quận|Huyện|Thị xã)\s+/i, '').trim().toLowerCase();
+        return cleanG.includes(cleanA) || cleanA.includes(cleanG) || g.address.toLowerCase().includes(cleanA);
+      });
       const matchPrice = !priceFilter || (
         priceFilter.selectedKeys.length === 0 && !priceFilter.manual
       ) || g.rooms.some((r) => {

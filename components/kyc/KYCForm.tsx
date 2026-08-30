@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { compressImage } from '@/lib/image-utils';
 import { createClient } from '@supabase/supabase-js';
+import { FormattedDateInput } from '@/components/ui/formatted-date-input';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -233,6 +234,7 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
     const newErrors: Record<string, string> = {};
     if (!fullName.trim()) newErrors.fullName = 'Không được để trống';
     if (!idCardNumber.trim()) newErrors.idCardNumber = 'Không được để trống';
+    if (!idCardIssueDate.trim()) newErrors.idCardIssueDate = 'Không được để trống';
     if (!frontCardUrl) newErrors.frontCardUrl = 'Không được để trống';
     if (!backCardUrl) newErrors.backCardUrl = 'Không được để trống';
     if (!selfieUrl) newErrors.selfieUrl = 'Không được để trống';
@@ -349,51 +351,51 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
 
       {/* Main KYC Form */}
       {kycStatus !== 'verified' && (
-        <form onSubmit={handleSubmit} noValidate className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
+        <form onSubmit={handleSubmit} noValidate className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm space-y-8">
           {/* Header */}
-          <div className="border-b border-slate-100 pb-5">
+          <div className="border-b border-slate-100 dark:border-slate-800 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-xl">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Đăng ký Xác thực Danh tính (KYC)</h2>
-                <p className="text-sm text-slate-500">Đảm bảo minh bạch nguồn hàng sạch và uy tín môi giới trên RealHome</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Đăng ký Xác thực Danh tính (KYC)</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Đảm bảo minh bạch nguồn hàng sạch và uy tín môi giới trên RealHome</p>
               </div>
             </div>
           </div>
 
           {errorMsg && (
-            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-sm flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded-xl text-sm flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-sm flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
 
           {/* Target Type Display or Selector */}
           {fixedTarget ? (
-            <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {targetType === 'landlord' ? (
-                  <Building2 className="w-6 h-6 text-blue-600 shrink-0" />
+                  <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
                 ) : (
-                  <UserCheck className="w-6 h-6 text-blue-600 shrink-0" />
+                  <UserCheck className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
                 )}
                 <div>
-                  <div className="font-bold text-sm text-blue-950 flex items-center gap-2">
+                  <div className="font-bold text-sm text-blue-950 dark:text-blue-200 flex items-center gap-2">
                     {targetType === 'landlord' ? '🏠 Xác thực KYC Chủ nhà (Landlord)' : '💼 Xác thực KYC Môi giới / Sale'}
                     <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-blue-600 text-white">
                       Tự động nhận diện
                     </span>
                   </div>
-                  <div className="text-xs text-blue-700 font-medium">
+                  <div className="text-xs text-blue-700 dark:text-blue-300 font-medium">
                     {targetType === 'landlord'
                       ? 'Bảo chứng nguồn hàng sạch 100% & Kích hoạt gói đẩy tin 10 ngày miễn phí'
                       : 'Cấp Badge Môi giới chính thức RealHome & Ưu tiên nhận Lead CRM'}
@@ -403,21 +405,21 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-800">Đối tượng đăng ký KYC</label>
+              <label className="text-sm font-semibold text-slate-800 dark:text-slate-200">Đối tượng đăng ký KYC</label>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => setTargetType('landlord')}
                   className={`p-4 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${
                     targetType === 'landlord'
-                      ? 'border-blue-600 bg-blue-50/50 text-blue-900'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
                   }`}
                 >
-                  <Building2 className={`w-6 h-6 ${targetType === 'landlord' ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <Building2 className={`w-6 h-6 ${targetType === 'landlord' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
                   <div>
                     <div className="font-bold text-sm">Chủ nhà (Landlord)</div>
-                    <div className="text-xs text-slate-500">Đáng tin cậy, gắn nhãn Nguồn hàng sạch</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Đáng tin cậy, gắn nhãn Nguồn hàng sạch</div>
                   </div>
                 </button>
 
@@ -426,14 +428,14 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                   onClick={() => setTargetType('sale')}
                   className={`p-4 rounded-xl border-2 text-left transition-all flex items-center gap-3 ${
                     targetType === 'sale'
-                      ? 'border-blue-600 bg-blue-50/50 text-blue-900'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                      ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
                   }`}
                 >
-                  <UserCheck className={`w-6 h-6 ${targetType === 'sale' ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <UserCheck className={`w-6 h-6 ${targetType === 'sale' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
                   <div>
                     <div className="font-bold text-sm">Sale / Môi giới</div>
-                    <div className="text-xs text-slate-500">Môi giới chính thức RealHome</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">Môi giới chính thức RealHome</div>
                   </div>
                 </button>
               </div>
@@ -442,9 +444,9 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
 
           {/* Section 1: Information */}
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-2 gap-2">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" /> 1. Thông tin cá nhân trên CCCD
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b dark:border-slate-800 pb-2 gap-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" /> 1. Thông tin cá nhân trên CCCD
               </h3>
               <button
                 type="button"
@@ -459,21 +461,21 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Quét tự động từ ảnh CCCD (AI OCR)
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Quét tự động
                   </>
                 )}
               </button>
             </div>
 
             {scanningOcr && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-2 text-xs text-blue-900 animate-pulse font-medium">
-                <Wand2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-2 text-xs text-blue-900 dark:text-blue-200 animate-pulse font-medium">
+                <Wand2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                 <span>AI đang phân tích hình ảnh và tự động nhận diện Họ tên, Số CCCD, Ngày cấp...</span>
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
                   Họ và tên <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -484,8 +486,8 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                     if (e.target.value.trim()) setFieldErrors(prev => ({ ...prev, fullName: '' }));
                   }}
                   placeholder="Ví dụ: NGUYỄN VĂN A"
-                  className={`w-full px-3.5 py-2.5 text-sm border rounded-lg focus:ring-2 outline-none uppercase ${
-                    fieldErrors.fullName ? 'border-rose-500 focus:ring-rose-500 bg-rose-50/30' : 'border-slate-300 focus:ring-blue-500'
+                  className={`w-full px-3.5 py-2.5 text-sm border rounded-lg focus:ring-2 outline-none uppercase bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
+                    fieldErrors.fullName ? 'border-rose-500 focus:ring-rose-500 bg-rose-50/30' : 'border-slate-300 dark:border-slate-700 focus:ring-blue-500'
                   }`}
                 />
                 {fieldErrors.fullName && (
@@ -496,7 +498,7 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
                   Số CCCD / CMND <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -507,8 +509,8 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                     if (e.target.value.trim()) setFieldErrors(prev => ({ ...prev, idCardNumber: '' }));
                   }}
                   placeholder="Nhập 12 số CCCD"
-                  className={`w-full px-3.5 py-2.5 text-sm border rounded-lg focus:ring-2 outline-none ${
-                    fieldErrors.idCardNumber ? 'border-rose-500 focus:ring-rose-500 bg-rose-50/30' : 'border-slate-300 focus:ring-blue-500'
+                  className={`w-full px-3.5 py-2.5 text-sm border rounded-lg focus:ring-2 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
+                    fieldErrors.idCardNumber ? 'border-rose-500 focus:ring-rose-500 bg-rose-50/30' : 'border-slate-300 dark:border-slate-700 focus:ring-blue-500'
                   }`}
                 />
                 {fieldErrors.idCardNumber && (
@@ -519,23 +521,35 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Ngày cấp</label>
-                <input
-                  type="date"
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                  Ngày cấp <span className="text-rose-500">*</span>
+                </label>
+                <FormattedDateInput
                   value={idCardIssueDate}
-                  onChange={(e) => setIdCardIssueDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  onChange={(val) => {
+                    setIdCardIssueDate(val);
+                    if (val) setFieldErrors(prev => ({ ...prev, idCardIssueDate: '' }));
+                  }}
+                  placeholder="DD/MM/YYYY"
+                  className={`w-full px-3.5 py-2.5 text-sm border rounded-lg focus:ring-2 outline-none cursor-pointer bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
+                    fieldErrors.idCardIssueDate ? 'border-rose-500 focus:ring-rose-500 bg-rose-50/30' : 'border-slate-300 dark:border-slate-700 focus:ring-blue-500'
+                  }`}
                 />
+                {fieldErrors.idCardIssueDate && (
+                  <p className="text-xs font-bold text-rose-500 mt-1 flex items-center gap-1">
+                    ⚠️ Không được để trống
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Nơi cấp</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Nơi cấp</label>
                 <input
                   type="text"
                   value={idCardIssuePlace}
                   onChange={(e) => setIdCardIssuePlace(e.target.value)}
                   placeholder="Cục Cảnh sát QLHC về trật tự xã hội"
-                  className="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full px-3.5 py-2.5 text-sm border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
             </div>
@@ -543,11 +557,11 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
 
           {/* Section 2: Required 3 Verification Images */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-blue-600" /> 2. Upload 3 ảnh xác thực sinh trắc học
+            <div className="flex items-center justify-between border-b dark:border-slate-800 pb-2">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" /> 2. Upload 3 ảnh xác thực sinh trắc học
               </h3>
-              <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-full">
+              <span className="text-xs bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-bold px-2.5 py-1 rounded-full">
                 Bắt buộc 3 ảnh đối chiếu
               </span>
             </div>
@@ -555,23 +569,23 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Front Card */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                   1. CCCD Mặt trước <span className="text-rose-500">*</span>
                 </label>
                 <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors relative group ${
-                  fieldErrors.frontCardUrl ? 'border-rose-500 bg-rose-50/20' : 'border-slate-300 hover:border-blue-500 bg-slate-50'
+                  fieldErrors.frontCardUrl ? 'border-rose-500 bg-rose-50/20' : 'border-slate-300 dark:border-slate-700 hover:border-blue-500 bg-slate-50 dark:bg-slate-800/50'
                 }`}>
                   {frontCardUrl ? (
                     <div className="space-y-2">
                       <img src={frontCardUrl} alt="Mặt trước CCCD" className="h-32 mx-auto object-cover rounded-lg shadow-sm" />
-                      <span className="text-xs text-emerald-600 font-semibold flex items-center justify-center gap-1">
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn mặt trước
                       </span>
                     </div>
                   ) : (
                     <div className="py-4 space-y-2">
                       <Upload className="w-8 h-8 text-slate-400 mx-auto" />
-                      <div className="text-xs text-slate-500">Kéo thả hoặc chọn ảnh mặt trước CCCD</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Kéo thả hoặc chọn ảnh mặt trước CCCD</div>
                     </div>
                   )}
                   <input
@@ -582,7 +596,7 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                     disabled={uploadingFront}
                   />
                   {uploadingFront && (
-                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                    <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 flex items-center justify-center rounded-xl">
                       <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                     </div>
                   )}
@@ -596,23 +610,23 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
 
               {/* Back Card */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                   2. CCCD Mặt sau <span className="text-rose-500">*</span>
                 </label>
                 <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors relative group ${
-                  fieldErrors.backCardUrl ? 'border-rose-500 bg-rose-50/20' : 'border-slate-300 hover:border-blue-500 bg-slate-50'
+                  fieldErrors.backCardUrl ? 'border-rose-500 bg-rose-50/20' : 'border-slate-300 dark:border-slate-700 hover:border-blue-500 bg-slate-50 dark:bg-slate-800/50'
                 }`}>
                   {backCardUrl ? (
                     <div className="space-y-2">
                       <img src={backCardUrl} alt="Mặt sau CCCD" className="h-32 mx-auto object-cover rounded-lg shadow-sm" />
-                      <span className="text-xs text-emerald-600 font-semibold flex items-center justify-center gap-1">
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Đã chọn mặt sau
                       </span>
                     </div>
                   ) : (
                     <div className="py-4 space-y-2">
                       <Upload className="w-8 h-8 text-slate-400 mx-auto" />
-                      <div className="text-xs text-slate-500">Kéo thả hoặc chọn ảnh mặt sau CCCD</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">Kéo thả hoặc chọn ảnh mặt sau CCCD</div>
                     </div>
                   )}
                   <input
@@ -623,7 +637,7 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                     disabled={uploadingBack}
                   />
                   {uploadingBack && (
-                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                    <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 flex items-center justify-center rounded-xl">
                       <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                     </div>
                   )}
@@ -637,24 +651,24 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
 
               {/* 3D Selfie / Real Person */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-slate-700">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
                   3. Ảnh Chân dung 3D Người thực <span className="text-rose-500">*</span>
                 </label>
                 <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors relative group ${
-                  fieldErrors.selfieUrl ? 'border-rose-500 bg-rose-50/20' : 'border-blue-300 hover:border-blue-500 bg-blue-50/30'
+                  fieldErrors.selfieUrl ? 'border-rose-500 bg-rose-50/20' : 'border-blue-300 dark:border-blue-800 hover:border-blue-500 bg-blue-50/30 dark:bg-blue-950/40'
                 }`}>
                   {selfieUrl ? (
                     <div className="space-y-2">
-                      <img src={selfieUrl} alt="Chân dung người thực" className="h-32 mx-auto object-cover rounded-lg shadow-sm border border-blue-200" />
-                      <span className="text-xs text-blue-700 font-semibold flex items-center justify-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> Đã chọn ảnh chân dung 3D
+                      <img src={selfieUrl} alt="Chân dung người thực" className="h-32 mx-auto object-cover rounded-lg shadow-sm border border-blue-200 dark:border-blue-800" />
+                      <span className="text-xs text-blue-700 dark:text-blue-300 font-semibold flex items-center justify-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Đã chọn ảnh chân dung 3D
                       </span>
                     </div>
                   ) : (
                     <div className="py-4 space-y-2">
-                      <Camera className="w-8 h-8 text-blue-500 mx-auto" />
-                      <div className="text-xs text-blue-900 font-medium">Chụp/Kéo thả ảnh chân dung cầm CCCD rõ mặt</div>
-                      <div className="text-[10px] text-slate-500">Xác thực người thực chống mạo danh</div>
+                      <Camera className="w-8 h-8 text-blue-500 dark:text-blue-400 mx-auto" />
+                      <div className="text-xs text-blue-900 dark:text-blue-200 font-medium">Chụp/Kéo thả ảnh chân dung cầm CCCD rõ mặt</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Xác thực người thực chống mạo danh</div>
                     </div>
                   )}
                   <input
@@ -665,7 +679,7 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
                     disabled={uploadingSelfie}
                   />
                   {uploadingSelfie && (
-                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl">
+                    <div className="absolute inset-0 bg-white/80 dark:bg-slate-900/80 flex items-center justify-center rounded-xl">
                       <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                     </div>
                   )}
@@ -682,23 +696,23 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
           {/* Section 3: Ownership Document (For Landlord) */}
           {targetType === 'landlord' && (
             <div className="space-y-3 pt-2">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2 border-b pb-2">
-                <Building2 className="w-5 h-5 text-blue-600" /> 3. Giấy tờ pháp lý Bất động sản (Chủ nhà) <span className="text-rose-500">*</span>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b dark:border-slate-800 pb-2">
+                <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" /> 3. Giấy tờ pháp lý Bất động sản (Chủ nhà) <span className="text-rose-500">*</span>
               </h3>
               <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${
-                fieldErrors.ownershipDocumentUrl ? 'border-rose-500 bg-rose-50/20' : 'bg-slate-50 border-slate-200'
+                fieldErrors.ownershipDocumentUrl ? 'border-rose-500 bg-rose-50/20' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
               }`}>
                 <div className="space-y-1">
-                  <div className="text-sm font-semibold text-slate-800">Giấy chứng nhận quyền sở hữu / Hợp đồng ủy quyền BDS</div>
-                  <div className="text-xs text-slate-500">Tải lên sổ hồng, sổ đỏ hoặc hợp đồng giao quản lý bất động sản để chứng minh Nguồn hàng sạch.</div>
+                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Giấy chứng nhận quyền sở hữu / Hợp đồng ủy quyền BDS</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">Tải lên sổ hồng, sổ đỏ hoặc hợp đồng giao quản lý bất động sản để chứng minh Nguồn hàng sạch.</div>
                 </div>
 
                 <div className="relative shrink-0">
                   <button
                     type="button"
-                    className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-2"
+                    className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"
                   >
-                    <Upload className="w-4 h-4 text-slate-500" />
+                    <Upload className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                     {ownershipDocumentUrl ? 'Thay đổi tài liệu' : 'Tải lên giấy tờ BDS'}
                   </button>
                   <input
@@ -717,8 +731,8 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
               )}
 
               {ownershipDocumentUrl && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-xs text-emerald-800">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-200">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Đã tải lên giấy chứng nhận sở hữu BDS thành công!</span>
                 </div>
               )}
@@ -726,7 +740,7 @@ export default function KYCForm({ userId, userRole = 'sale', landlordId, company
           )}
 
           {/* Submit Button */}
-          <div className="border-t border-slate-100 pt-6 flex items-center justify-end gap-4">
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-6 flex items-center justify-end gap-4">
             <button
               type="submit"
               disabled={submitting || uploadingFront || uploadingBack || uploadingSelfie || uploadingDoc}

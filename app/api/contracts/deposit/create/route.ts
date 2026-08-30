@@ -111,57 +111,72 @@ export async function POST(request: Request) {
     const landlordCodeOrId = roomData.buildings?.landlord_id;
 
     // 3. Tiến hành chèn hợp đồng đặt cọc
-    const { data: contract, error: contractErr } = await supabaseAdmin
+    const insertData: Record<string, any> = {
+      company_id,
+      room_id,
+      contract_code,
+      status: 'active',
+      agreement_date,
+      sign_location,
+      party_a_name,
+      party_a_dob,
+      party_a_address,
+      party_a_id_card,
+      party_a_id_date,
+      party_a_id_place,
+      party_a_phone,
+      party_b_name,
+      party_b_phone,
+      party_b_email: party_b_email || null,
+      party_b_dob,
+      party_b_id_card,
+      party_b_id_date,
+      party_b_id_place,
+      party_b_address,
+      rent_price,
+      electricity_price,
+      water_price,
+      service_price,
+      other_services,
+      tenant_count,
+      payment_method,
+      lease_duration_months,
+      termination_notice_days,
+      room_repair_support_date,
+      deposit_amount,
+      deadline_sign_contract,
+      deposit_payment_type,
+      bank_name,
+      bank_account_number,
+      bank_account_owner,
+      transfer_content_template,
+      note,
+      lead_view_image_url: lead_view_image_url || null,
+      transfer_proof_url: transfer_proof_url || null,
+      commission_rate_raw: commission_rate_raw || null,
+      commission_amount: commission_amount || 0,
+      sales_agent_id: finalSalesAgentId,
+      created_by: auth.userId,
+    };
+
+    let { data: contract, error: contractErr } = await supabaseAdmin
       .from('deposit_contracts')
-      .insert({
-        company_id,
-        room_id,
-        contract_code,
-        status: 'active',
-        agreement_date,
-        sign_location,
-        party_a_name,
-        party_a_dob,
-        party_a_address,
-        party_a_id_card,
-        party_a_id_date,
-        party_a_id_place,
-        party_a_phone,
-        party_b_name,
-        party_b_phone,
-        party_b_email: party_b_email || null,
-        party_b_dob,
-        party_b_id_card,
-        party_b_id_date,
-        party_b_id_place,
-        party_b_address,
-        rent_price,
-        electricity_price,
-        water_price,
-        service_price,
-        other_services,
-        tenant_count,
-        payment_method,
-        lease_duration_months,
-        termination_notice_days,
-        room_repair_support_date,
-        deposit_amount,
-        deadline_sign_contract,
-        deposit_payment_type,
-        bank_name,
-        bank_account_number,
-        bank_account_owner,
-        transfer_content_template,
-        note,
-        lead_view_image_url,
-        transfer_proof_url,
-        commission_rate_raw: commission_rate_raw || null,
-        commission_amount: commission_amount || 0,
-        sales_agent_id: finalSalesAgentId,
-        created_by: auth.userId,
-      })
+      .insert(insertData)
       .select()
       .single();
+
+    // Nếu DB chưa chạy migration thêm cột lead_view_image_url / transfer_proof_url, tự động fallback bỏ 2 cột này
+    if (contractErr && contractErr.message?.includes('schema cache')) {
+      delete insertData.lead_view_image_url;
+      delete insertData.transfer_proof_url;
+      const retry = await supabaseAdmin
+        .from('deposit_contracts')
+        .insert(insertData)
+        .select()
+        .single();
+      contract = retry.data;
+      contractErr = retry.error;
+    }
 
     if (contractErr || !contract) {
       return NextResponse.json({ error: 'Lỗi ghi hợp đồng cọc: ' + contractErr?.message }, { status: 400 });

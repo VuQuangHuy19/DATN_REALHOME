@@ -91,15 +91,25 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     const currentRoomUrls = sorted.map((img) => img.url);
     const currentRoomThumbs = sorted.map((img) => img.thumbnail_url || img.url);
 
-    imageUrls = Array.from(new Set([
+    const sortImagesFirst = (urls: string[]) => {
+      return [...urls].sort((a, b) => {
+        const isVidA = isVideoStr(a);
+        const isVidB = isVideoStr(b);
+        if (isVidA && !isVidB) return 1;
+        if (!isVidA && isVidB) return -1;
+        return 0;
+      });
+    };
+
+    imageUrls = sortImagesFirst(Array.from(new Set([
       ...currentRoomUrls,
       ...(buildingImage ? [buildingImage] : []),
-    ])).filter(url => url && url !== PLACEHOLDER_LISTING_IMAGE);
+    ])).filter(url => url && url !== PLACEHOLDER_LISTING_IMAGE));
 
-    thumbnailUrls = Array.from(new Set([
+    thumbnailUrls = sortImagesFirst(Array.from(new Set([
       ...currentRoomThumbs,
       ...(buildingThumbnail ? [buildingThumbnail] : []),
-    ])).filter(url => url && url !== PLACEHOLDER_LISTING_IMAGE);
+    ])).filter(url => url && url !== PLACEHOLDER_LISTING_IMAGE));
     
     let coverImg = sorted.find((img) => img.is_thumbnail && img.media_type !== 'video' && !isVideoStr(img.url));
     if (!coverImg) {
@@ -185,6 +195,11 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     wardId: building?.ward_id ?? null,
     latitude: building?.latitude ?? null,
     longitude: building?.longitude ?? null,
+    electricityPrice: (building as any)?.electricity_price ?? 4000,
+    waterPrice: (building as any)?.water_price ?? 35000,
+    internetPrice: (building as any)?.internet_price ?? 100000,
+    commonServicePrice: (building as any)?.common_service_price ?? 200000,
+    electricVehicleFee: (building as any)?.electric_vehicle_fee ?? 100000,
     createdAt: room.created_at || null,
     availableDate: null,
   };

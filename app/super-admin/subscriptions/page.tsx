@@ -113,6 +113,30 @@ export default function SubscriptionsPage() {
         .update({ plan, status, seats, price_per_month: pricePerMonth, ends_at: endsAt })
         .eq('id', editItem.id);
       if (updateError) throw updateError;
+
+      // Đồng bộ trạng thái công ty tương ứng
+      if (status === 'active') {
+        await supabase
+          .from('companies')
+          .update({ status: 'active', plan, updated_at: new Date().toISOString() })
+          .eq('id', editItem.companyId);
+      } else if (status === 'expired' || status === 'cancelled') {
+        const { data: otherActive } = await supabase
+          .from('subscriptions')
+          .select('id')
+          .eq('company_id', editItem.companyId)
+          .eq('status', 'active')
+          .neq('id', editItem.id)
+          .maybeSingle();
+
+        if (!otherActive) {
+          await supabase
+            .from('companies')
+            .update({ status: 'suspended', updated_at: new Date().toISOString() })
+            .eq('id', editItem.companyId);
+        }
+      }
+
       await fetchSubscriptions();
       setIsFormOpen(false); setEditItem(null);
     } catch (e: any) {

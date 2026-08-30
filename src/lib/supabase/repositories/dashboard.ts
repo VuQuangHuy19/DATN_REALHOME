@@ -76,8 +76,9 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
       .or(`landlord_id.eq.${filterLandlordCode},landlord_id.eq.${landlordId}`);
 
     const buildingCodes = (landlordBuildings ?? []).map((b: any) => b.code).filter(Boolean);
+    const buildingIds = (landlordBuildings ?? []).map((b: any) => b.id).filter(Boolean);
 
-    if (buildingCodes.length === 0) {
+    if ((landlordBuildings ?? []).length === 0) {
       return {
         totalBuildings: 0,
         totalRooms: 0,
@@ -114,7 +115,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     const { data: landlordRooms } = await db.from('rooms')
       .select('id, building_id, status, code, floor, price, description, bedrooms, bathrooms, has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months, reserved_until')
       .eq('company_id', companyId)
-      .in('building_id', buildingCodes);
+      .in('building_id', buildingIds.length > 0 ? buildingIds : buildingCodes);
 
     const rawRoomRows = landlordRooms ?? [];
     const rawRoomIds = rawRoomRows.map((r: any) => r.id);
@@ -319,7 +320,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
       }
       const item = areaPerformanceMap.get(areaName)!;
       item.buildingsCount += 1;
-      const bRooms = roomRows.filter((r: any) => r.building_id === b.code);
+      const bRooms = roomRows.filter((r: any) => r.building_id === b.id || r.building_id === b.code);
       item.totalRooms += bRooms.length;
       item.rentedRooms += bRooms.filter((r: any) => r.status === 'rented').length;
     });
@@ -333,7 +334,7 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     // 8. Calculate building details with revenue & occupancy
     const buildingsList = [];
     for (const building of landlordBuildings ?? []) {
-      const bRooms = roomRows.filter((r: any) => r.building_id === building.code);
+      const bRooms = roomRows.filter((r: any) => r.building_id === building.id || r.building_id === building.code);
       const bRoomsCount = bRooms.length;
       const bRentedCount = bRooms.filter((r: any) => r.status === 'rented').length;
       const bRoomIds = bRooms.map((r: any) => r.id);

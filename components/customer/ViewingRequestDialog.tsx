@@ -69,9 +69,9 @@ export function ViewingRequestDialog({
   const [consentChecked, setConsentChecked] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<SelectableRoom | null>(null);
 
-  // Đọc sale_ref_id từ sessionStorage (ưu tiên prop được truyền vào, fallback sessionStorage)
+  // Đọc sale_ref_id từ sessionStorage / localStorage (ưu tiên prop được truyền vào, fallback storage)
   const effectiveSaleRefId = referralSaleId ?? (
-    typeof window !== 'undefined' ? sessionStorage.getItem('sale_ref_id') : null
+    typeof window !== 'undefined' ? (sessionStorage.getItem('sale_ref_id') || localStorage.getItem('sale_ref_id')) : null
   );
 
   const isRoomMode = !!property; // Đã biết phòng cụ thể

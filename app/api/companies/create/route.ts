@@ -69,6 +69,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: profileError.message }, { status: 400 });
     }
 
+    if (status === 'active') {
+      const seatsMap: Record<string, number> = {
+        starter: 5,
+        professional: 20,
+        enterprise: 999999,
+      };
+      await supabaseAdmin.from('subscriptions').insert({
+        company_id: companyData.id,
+        plan: plan || 'starter',
+        status: 'active',
+        seats: seatsMap[plan || 'starter'] || 5,
+        price_per_month: 0,
+        starts_at: new Date().toISOString(),
+        ends_at: null,
+      });
+    }
+
     return NextResponse.json(companyData, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

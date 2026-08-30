@@ -63,7 +63,7 @@ export default function ConsultationsPage() {
       status: fd.get('status') as DBConsultation['status'],
       source: fd.get('source') as DBConsultation['source'],
       assigned_to: assignedTo || undefined,
-      assigned_to_name: employees.find((e) => e.id === assignedTo)?.name || undefined,
+      assigned_to_name: (() => { const found = employees.find((e) => e.id === assignedTo); return found ? (found.full_name || (found as any).name) : undefined; })(),
     };
     if (editItem) {
       await update(editItem.id, payload);
@@ -326,7 +326,7 @@ export default function ConsultationsPage() {
                 <Label htmlFor="assignedTo">Phân công</Label>
                 <select id="assignedTo" name="assignedTo" defaultValue={editItem?.assigned_to ?? ''} className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">-- Chọn nhân viên --</option>
-                  {employees.filter((e) => e.status === 'active').map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  {employees.filter((e) => e.status === 'active').map((e) => <option key={e.id} value={e.id}>{e.full_name || (e as any).name}</option>)}
                 </select>
               </div>
             </div>

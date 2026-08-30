@@ -62,6 +62,8 @@ export default function ChangePasswordPage() {
       setTimeout(() => {
         if (role === 'landlord') {
           router.push('/landlord');
+        } else if (role === 'sales_agent') {
+          router.push('/broker');
         } else {
           router.push('/admin');
         }

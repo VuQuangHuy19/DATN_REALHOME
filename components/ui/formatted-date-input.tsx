@@ -96,6 +96,7 @@ export function FormattedDateInput({
         placeholder={placeholder}
         value={inputValue}
         onChange={handleDisplayChange}
+        onClick={triggerDatePicker}
         maxLength={10}
         className={className}
         {...props}

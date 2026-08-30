@@ -30,6 +30,14 @@ export function CustomerCompanyProvider({ children }: { children: React.ReactNod
 
   // Query param: ?company=<domain> — dùng cho local dev / testing
   const queryParam = searchParams?.get('company');
+  const refParam = searchParams?.get('ref');
+
+  useEffect(() => {
+    if (refParam && typeof window !== 'undefined') {
+      sessionStorage.setItem('sale_ref_id', refParam);
+      localStorage.setItem('sale_ref_id', refParam);
+    }
+  }, [refParam]);
 
   const [company, setCompany] = useState<PublicCompany | null>(null);
   const [companies, setCompanies] = useState<PublicCompany[]>([]);

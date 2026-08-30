@@ -295,8 +295,8 @@ export function AppointmentsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý Lịch hẹn</h1>
-          <p className="text-slate-500">Quản lý yêu cầu đặt lịch và lộ trình dẫn khách hàng</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Quản lý Lịch hẹn</h1>
+          <p className="text-slate-500 dark:text-slate-400">Quản lý yêu cầu đặt lịch và lộ trình dẫn khách hàng</p>
         </div>
 
         <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-2xs">
@@ -367,19 +367,6 @@ export function AppointmentsPage() {
               <option value="Viewed">Đã xem phòng</option>
               <option value="Dealed">Đã chốt thành công</option>
               <option value="Cancel">Đã hủy</option>
-            </select>
-            <select
-              value={filterAssignee}
-              onChange={(e) => setFilterAssignee(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
-            >
-              <option value="">Tất cả nhân viên</option>
-              <option value="unassigned">Chưa phân công</option>
-              {assignableProfiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name || p.email}
-                </option>
-              ))}
             </select>
             {selectedIds.length > 0 && (
               <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">

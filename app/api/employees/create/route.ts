@@ -84,42 +84,45 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id;
 
-    // 2. Tạo bản ghi nhân sự trong bảng employees
+    // 2. Tạo/Cập nhật profile liên kết với company nhưng ở trạng thái inactive
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: userId,
+        company_id,
+        role: position || 'sales_agent',
+        is_active: false, // Inactive cho đến khi hoàn thành đặt mật khẩu ở màn hình onboarding
+        full_name: name,
+        email,
+        phone: phone || null,
+      });
+
+    if (profileError) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json({ error: 'Lỗi đồng bộ phân quyền: ' + profileError.message }, { status: 400 });
+    }
+
+    // 3. Tạo bản ghi nhân sự trong bảng employees (profile_id liên kết đến profiles.id vừa tạo)
     const { error: employeeError } = await supabaseAdmin
       .from('employees')
       .insert({
         id: userId,
         company_id,
-        name,
+        profile_id: userId,
+        full_name: name,
         email,
-        phone,
-        department,
-        position,
+        phone: phone || null,
+        department: department || null,
+        position: position || null,
         join_date: join_date ? new Date(join_date).toISOString() : null,
+        role: position || 'sales_agent',
         status: status || 'active',
-      });
+      } as any);
 
     if (employeeError) {
+      await supabaseAdmin.from('profiles').delete().eq('id', userId);
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return NextResponse.json({ error: 'Lỗi lưu bảng nhân sự: ' + employeeError.message }, { status: 400 });
-    }
-
-    // 3. Cập nhật profile liên kết với company nhưng ở trạng thái inactive
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        company_id,
-        role: 'sales_agent',
-        is_active: false, // Inactive cho đến khi hoàn thành đặt mật khẩu ở màn hình onboarding
-        full_name: name,
-        phone: phone || null,
-      })
-      .eq('id', userId);
-
-    if (profileError) {
-      await supabaseAdmin.from('employees').delete().eq('id', userId);
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      return NextResponse.json({ error: 'Lỗi đồng bộ phân quyền: ' + profileError.message }, { status: 400 });
     }
 
     // 4. Tạo onboarding token (Hiệu lực 48 giờ)
@@ -130,8 +133,10 @@ export async function POST(request: Request) {
       .insert({
         email,
         company_id,
-        profile_id: userId,
-        token_hash: tokenPayload.tokenHash,
+        full_name: name,
+        token: tokenPayload.rawToken,
+        status: 'pending',
+        invited_by: auth.profile.id,
         expires_at: tokenPayload.expiresAt.toISOString(),
       });
 

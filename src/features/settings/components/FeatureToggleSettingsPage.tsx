@@ -165,7 +165,7 @@ export function FeatureToggleSettingsPage() {
           <CardHeader className="pb-3 border-b border-slate-100 dark:border-zinc-800">
             <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
               <Bot className="h-5 w-5 text-purple-600" />
-              Trợ Lý Trí Tuệ Nhân Tạo (RealHome AI Copilot)
+              Trợ Lý RealHome AI
             </CardTitle>
             <CardDescription className="text-xs">
               AI tra cứu phòng trống tự động cho Admin/Chủ nhà & Bot trả lời Wifi, quy định cho cư dân.
@@ -175,7 +175,7 @@ export function FeatureToggleSettingsPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                  <span>Trợ Lý AI Chatbot (Admin & Cư dân)</span>
+                  <span>Trợ Lý AI (Admin & Cư dân)</span>
                   <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-[10px]">
                     <Sparkles className="h-3 w-3 mr-1 text-purple-600" /> AI Powered
                   </Badge>

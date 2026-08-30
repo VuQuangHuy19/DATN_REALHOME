@@ -19,7 +19,7 @@ import WebPushManager from '@/features/notifications/components/WebPushManager';
 import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 
 import { Logo } from '@/components/Logo';
@@ -35,14 +35,20 @@ export function AdminHeader() {
   const { language } = useAppPreferences();
   const isEn = language === 'en';
   const router = useRouter();
-  const { activeModule, setActiveModule, badgeCounts, isSidebarCollapsed, toggleSidebar } = useAdminModule();
+  const pathname = usePathname();
+  const { activeModule, setActiveModule, isSidebarCollapsed, toggleSidebar } = useAdminModule();
 
-  const MODULES: { id: AdminModuleId; label: string; icon: React.ElementType; color: string; badge?: number }[] = [
+  const isBrokerPath = pathname?.startsWith('/broker') || role === 'sales_agent';
+  const profileUrl = isBrokerPath ? '/broker/profile' : '/admin/profile';
+  const settingsUrl = isBrokerPath ? '/broker/settings' : '/admin/settings';
+  const changePasswordUrl = isBrokerPath ? '/broker/change-password' : '/admin/change-password';
+
+  const MODULES: { id: AdminModuleId; label: string; icon: React.ElementType; color: string }[] = [
     { id: 'all', label: 'Tất cả', icon: LayoutGrid, color: 'text-slate-600 dark:text-slate-300' },
-    { id: 'supply', label: '1. Nguồn Hàng', icon: Building2, color: 'text-blue-600 dark:text-blue-400', badge: badgeCounts.supply },
-    { id: 'sales', label: '2. Bán Hàng', icon: Handshake, color: 'text-emerald-600 dark:text-emerald-400', badge: badgeCounts.sales },
-    { id: 'finance', label: '3. Tài Chính', icon: Wallet, color: 'text-amber-600 dark:text-amber-400', badge: badgeCounts.finance },
-    { id: 'governance', label: '4. Quản Trị', icon: SlidersHorizontal, color: 'text-purple-600 dark:text-purple-400', badge: badgeCounts.governance },
+    { id: 'supply', label: '1. Nguồn Hàng', icon: Building2, color: 'text-blue-600 dark:text-blue-400' },
+    { id: 'sales', label: '2. Bán Hàng', icon: Handshake, color: 'text-emerald-600 dark:text-emerald-400' },
+    { id: 'finance', label: '3. Tài Chính', icon: Wallet, color: 'text-amber-600 dark:text-amber-400' },
+    { id: 'governance', label: '4. Quản Trị', icon: SlidersHorizontal, color: 'text-purple-600 dark:text-purple-400' },
   ];
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,7 +137,7 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full h-16 bg-white/95 dark:bg-bg-subtle/95 backdrop-blur-md border-b border-border-subtle px-4 md:px-6 flex items-center justify-between shadow-xs">
+    <header className="sticky top-0 z-40 w-full h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-4 md:px-6 flex items-center justify-between shadow-xs">
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
 
 
@@ -166,16 +172,6 @@ export function AdminHeader() {
               >
                 <Icon className={cn('h-3.5 w-3.5 shrink-0', m.color)} />
                 <span>{m.label}</span>
-                {m.badge && m.badge > 0 ? (
-                  <span
-                    className={cn(
-                      'ml-0.5 px-1.5 py-0.2 text-[10px] font-extrabold rounded-full',
-                      isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                    )}
-                  >
-                    {m.badge}
-                  </span>
-                ) : null}
               </button>
             );
           })}
@@ -216,19 +212,19 @@ export function AdminHeader() {
               </DropdownMenuItem>
             )}
             <DropdownMenuItem asChild>
-              <Link href="/admin/profile" className="flex items-center gap-2">
+              <Link href={profileUrl} className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 {isEn ? 'Profile' : 'Hồ sơ'}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/admin/settings" className="flex items-center gap-2">
+              <Link href={settingsUrl} className="flex items-center gap-2">
                 <Settings className="h-4 w-4" />
                 {isEn ? 'Settings' : 'Cài đặt'}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/admin/change-password" className="flex items-center gap-2">
+              <Link href={changePasswordUrl} className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
                 {isEn ? 'Change Password' : 'Đổi mật khẩu'}
               </Link>

@@ -7,8 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
   Pencil, Trash2, Search, FileText, Loader2,
-  Printer, RefreshCw, ClipboardCheck
+  Printer, RefreshCw, ClipboardCheck, Eye, MoreHorizontal
 } from 'lucide-react';
 import { getContractTermMonths, calculateCommissionAmount } from '@/features/finance/services/commission';
 import { supabase } from '@/lib/supabase/client';
@@ -265,12 +272,13 @@ export function RentalContractsTable({
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* 1. Primary Action Button (Handover) */}
                             {role !== 'sales_agent' && (
                               <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-ink hover:text-indigo-600 hover:bg-bg-subtle"
+                                variant="outline" 
+                                size="sm" 
+                                className="h-8 px-2.5 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 hover:text-indigo-800 text-xs font-bold gap-1 rounded-lg shadow-none"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setHandoverSourceType('rental');
@@ -279,42 +287,78 @@ export function RentalContractsTable({
                                 }}
                                 title="Biên bản bàn giao phòng"
                               >
-                                <ClipboardCheck className="h-4 w-4" />
+                                <ClipboardCheck className="h-3.5 w-3.5" />
+                                <span className="inline">Bàn giao</span>
                               </Button>
                             )}
-                            {role !== 'sales_agent' && role !== 'landlord' && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" asChild title="Gia hạn hợp đồng">
-                                <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
-                                  <RefreshCw className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                            )}
-                            {role !== 'sales_agent' && role !== 'landlord' && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10"
-                                onClick={async () => {
-                                  if (confirm('Bạn có chắc muốn xóa hợp đồng thuê này và giải phóng phòng về trạng thái trống?')) {
-                                    try {
-                                      await removeRental(item.id);
-                                      if (item.room_id) {
-                                        await supabase
-                                          .from('rooms')
-                                          .update({ status: 'available' })
-                                          .eq('id', item.room_id);
-                                      }
-                                      toast.success('Xóa hợp đồng và giải phóng phòng thành công!');
-                                    } catch (err: any) {
-                                      toast.error('Lỗi khi xóa hợp đồng: ' + err.message);
-                                    }
-                                  }
-                                }} 
-                                title="Xóa"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
+
+                            {/* 2. Quick Print Button */}
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" asChild title="In hợp đồng">
+                              <Link href={`${pathPrefix}/contracts/${item.id}/print`}>
+                                <Printer className="h-4 w-4" />
+                              </Link>
+                            </Button>
+
+                            {/* 3. More Actions Dropdown Menu (3 Dots) */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" title="Thao tác khác">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-white border-border rounded-xl shadow-lg w-52 text-xs font-semibold p-1.5 space-y-0.5">
+                                <DropdownMenuItem 
+                                  className="cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:bg-slate-100"
+                                  onClick={() => {
+                                    setViewRental(item);
+                                    setIsViewRentalOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 text-slate-500" />
+                                  <span>Xem chi tiết hợp đồng</span>
+                                </DropdownMenuItem>
+
+                                {role !== 'sales_agent' && role !== 'landlord' && (
+                                  <DropdownMenuItem 
+                                    className="cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2 text-slate-700 hover:bg-slate-100"
+                                    asChild
+                                  >
+                                    <Link href={`${pathPrefix}/contracts/create-rental?renew_from_id=${item.id}`}>
+                                      <RefreshCw className="h-4 w-4 text-emerald-600" />
+                                      <span>Gia hạn hợp đồng</span>
+                                    </Link>
+                                  </DropdownMenuItem>
+                                )}
+
+                                {role !== 'sales_agent' && role !== 'landlord' && (
+                                  <>
+                                    <DropdownMenuSeparator className="my-1 border-slate-100" />
+                                    <DropdownMenuItem 
+                                      className="cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2 text-rose-600 hover:bg-rose-50 font-bold"
+                                      onClick={async () => {
+                                        if (confirm('Bạn có chắc muốn xóa hợp đồng thuê này và giải phóng phòng về trạng thái trống?')) {
+                                          try {
+                                            await removeRental(item.id);
+                                            if (item.room_id) {
+                                              await supabase
+                                                .from('rooms')
+                                                .update({ status: 'available' })
+                                                .eq('id', item.room_id);
+                                            }
+                                            toast.success('Xóa hợp đồng và giải phóng phòng thành công!');
+                                          } catch (err: any) {
+                                            toast.error('Lỗi khi xóa hợp đồng: ' + err.message);
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      <span>Xóa hợp đồng</span>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </td>
                       </tr>

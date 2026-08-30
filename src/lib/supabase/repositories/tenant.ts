@@ -31,7 +31,7 @@ export async function getFirstActiveCompany(): Promise<PublicCompany | null> {
     .from('companies')
     .select('id, name, code, phone, address, owner_email')
     .in('status', ['active', 'trial'])
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -62,7 +62,7 @@ export async function resolveCompanyFromSources(options: {
     if (company) return company;
   }
 
-  // Ultimate fallback: company đầu tiên trong DB
+  // Ultimate fallback: company mới nhất/hoạt động chính trong DB
   return getFirstActiveCompany();
 }
 
@@ -74,7 +74,7 @@ export async function getAllActiveCompanies(): Promise<PublicCompany[]> {
     .from('companies')
     .select('id, name, code, phone, address, owner_email')
     .in('status', ['active', 'trial'])
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false });
 
   if (error) throw error;
   return (data ?? []) as PublicCompany[];

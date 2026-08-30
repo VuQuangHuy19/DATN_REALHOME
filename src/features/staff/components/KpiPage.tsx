@@ -181,7 +181,7 @@ export function KpiPage() {
     const payload = {
       company_id: company?.id ?? '',
       employee_id: fd.get('employeeId') as string || null,
-      employee_name: emp?.name ?? '',
+      employee_name: (emp?.full_name || (emp as any)?.name || ''),
       period: fd.get('period') as string,
       total_leads: Number(fd.get('total_leads') || 0),
       total_appointments: Number(fd.get('total_appointments') || 0),
@@ -313,7 +313,7 @@ export function KpiPage() {
           id: existing?.id,
           company_id: company.id,
           employee_id: emp.id,
-          employee_name: emp.name,
+          employee_name: emp.full_name || (emp as any).name || '',
           period: previewPeriod,
           total_leads: leadsCount,
           total_appointments: apptsCount,
@@ -588,7 +588,7 @@ export function KpiPage() {
           <option value="">Tất cả nhân viên</option>
           {employees.map((emp) => (
             <option key={emp.id} value={emp.id}>
-              {emp.name}
+              {emp.full_name || (emp as any).name}
             </option>
           ))}
         </select>
@@ -790,7 +790,7 @@ export function KpiPage() {
                 <div className="text-center py-12 text-ink-muted">
                   <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-30 text-accent" />
                   <p className="font-bold text-ink">Không có dữ liệu KPI thỏa mãn bộ lọc</p>
-                  <p className="text-xs text-ink-muted mt-1">Hãy thử nới rộng khoảng ngày hoặc bấm "Xóa bộ lọc"</p>
+                  <p className="text-xs text-ink-muted mt-1">Hãy thử nới rộng khoảng ngày hoặc bấm &quot;Xóa bộ lọc&quot;</p>
                 </div>
               )}
             </div>
@@ -853,7 +853,7 @@ export function KpiPage() {
                 <select name="employeeId" defaultValue={editItem?.employee_id ?? ''} required className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">-- Chọn nhân viên --</option>
                   {employees.filter((e) => e.status === 'active').map((e) => (
-                    <option key={e.id} value={e.id}>{e.name}</option>
+                    <option key={e.id} value={e.id}>{e.full_name || (e as any).name}</option>
                   ))}
                 </select>
               </div>

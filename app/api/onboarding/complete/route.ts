@@ -27,11 +27,11 @@ export async function POST(request: Request) {
     // 1. Hash raw token
     const tokenHash = hashRawToken(token);
 
-    // 2. Tìm thông tin invitation
+    // 2. Tìm thông tin invitation (hỗ trợ cả column token và token_hash)
     const { data: invitation, error: inviteError } = await supabaseAdmin
       .from('tenant_invitations')
       .select('*')
-      .eq('token_hash', tokenHash)
+      .or(`token.eq.${token},token.eq.${tokenHash}`)
       .maybeSingle();
 
     if (inviteError || !invitation) {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     }
 
     // Kiểm tra xem đã được dùng chưa
-    if (invitation.used_at) {
+    if (invitation.status === 'used' || (invitation as any).used_at) {
       return NextResponse.json(
         { error: 'Liên kết kích hoạt này đã được sử dụng trước đó' },
         { status: 400 }
@@ -50,15 +50,34 @@ export async function POST(request: Request) {
     }
 
     // Kiểm tra hết hạn
-    const expiresAt = new Date(invitation.expires_at);
-    if (expiresAt < new Date()) {
+    if (invitation.expires_at) {
+      const expiresAt = new Date(invitation.expires_at);
+      if (expiresAt < new Date()) {
+        return NextResponse.json(
+          { error: 'Liên kết kích hoạt đã hết hạn sử dụng' },
+          { status: 400 }
+        );
+      }
+    }
+
+    let profile_id = (invitation as any).profile_id;
+    const company_id = invitation.company_id;
+
+    if (!profile_id && invitation.email) {
+      const { data: prof } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', invitation.email)
+        .maybeSingle();
+      if (prof) profile_id = prof.id;
+    }
+
+    if (!profile_id) {
       return NextResponse.json(
-        { error: 'Liên kết kích hoạt đã hết hạn sử dụng' },
+        { error: 'Không tìm thấy hồ sơ người dùng tương ứng với liên kết' },
         { status: 400 }
       );
     }
-
-    const { profile_id, company_id } = invitation;
 
     // Kiểm tra giới hạn seats trước khi kích hoạt
     try {
@@ -100,6 +119,15 @@ export async function POST(request: Request) {
       console.error('Lỗi kiểm tra giới hạn seats khi onboarding:', e);
     }
 
+    // Cập nhật mật khẩu trong Supabase Auth
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(profile_id, {
+        password: password,
+      });
+    } catch (authErr: any) {
+      console.error('Lỗi cập nhật mật khẩu Supabase Auth:', authErr);
+    }
+
     // 3. Thiết lập mật khẩu và kích hoạt tài khoản trong bảng profiles
     const passwordHash = await hashPassword(password);
     const { data: updatedProfile, error: profileError } = await supabaseAdmin
@@ -121,8 +149,7 @@ export async function POST(request: Request) {
     }
 
     // 5. Chỉ kích hoạt trạng thái Company khi người dùng là company_admin
-    // (Không kích hoạt khi landlord hoặc các role khác onboarding)
-    if (updatedProfile?.role === 'company_admin') {
+    if (updatedProfile?.role === 'company_admin' && company_id) {
       const { error: companyError } = await supabaseAdmin
         .from('companies')
         .update({ status: 'active' })
@@ -139,12 +166,11 @@ export async function POST(request: Request) {
     // 6. Đánh dấu token đã sử dụng
     const { error: updateInviteError } = await supabaseAdmin
       .from('tenant_invitations')
-      .update({ used_at: new Date().toISOString() })
+      .update({ status: 'used', used_at: new Date().toISOString() } as any)
       .eq('id', invitation.id);
 
     if (updateInviteError) {
-      // Ghi log lỗi nhưng không block việc onboarding thành công của user
-      console.error('Không thể đánh dấu sử dụng cho invitation:', updateInviteError);
+      console.error('Lỗi khi đánh dấu token đã sử dụng:', updateInviteError);
     }
 
     return NextResponse.json({

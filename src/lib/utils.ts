@@ -67,11 +67,11 @@ export function maskHouseNumberInBuildingName(name: string): string {
     return `${space}${prefix} ${maskValue(numStr)}${letter ? letter : ''}`;
   });
 
-  // 3. Khớp số ở đầu chuỗi (ví dụ: "3 ngách 83", "48 Võng Thị", "43/213 Giáp Nhất", "124 Khương Trung")
+  // 3. Khớp số ở đầu chuỗi kể cả dính liền chữ (ví dụ: "196TRẦN DUY HƯNG" -> "19x TRẦN DUY HƯNG", "48 Võng Thị" -> "4x Võng Thị")
   if (!/^(s[ốồộổỗo]|ngõ|ngách|hẻm|đường|phố)/i.test(masked)) {
-    masked = masked.replace(/^(\d+(?:[\/.]\d+)?)([a-zA-Z]?)\s+/i, (match, numStr, letter) => {
+    masked = masked.replace(/^(\d+(?:[\/.]\d+)?)([a-zA-Z]?)(?=\s|[^\d\s]|$)/i, (match, numStr, letter) => {
       if (letter && letter.toLowerCase() === 'x') return match;
-      return `${maskValue(numStr)}${letter ? letter : ''} `;
+      return `${maskValue(numStr)}${letter ? letter : ''}`;
     });
   }
 

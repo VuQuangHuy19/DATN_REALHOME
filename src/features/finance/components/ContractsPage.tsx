@@ -377,6 +377,85 @@ export function ContractsPage() {
 
   const openViewTemplate = (item: DBContractTemplate) => { setViewItem(item); setIsViewOpen(true); };
 
+  const handlePrintTemplate = (item: DBContractTemplate) => {
+    const rawContent = item.content || getDefaultTemplateContent(item.type as any);
+    const printableHtml = formatTemplateForPreview(rawContent);
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Vui lòng cho phép mở cửa sổ bật lên (popup) để in mẫu hợp đồng.');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="vi">
+        <head>
+          <meta charset="utf-8" />
+          <title>${item.name} - Mẫu in A4 RealHome</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 15mm 18mm 15mm 18mm;
+            }
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              font-size: 13pt;
+              line-height: 1.6;
+              color: #000;
+              margin: 0;
+              padding: 0;
+              background-color: #fff;
+            }
+            p { margin: 0 0 10px 0; }
+            h1, h2, h3, h4 { font-family: 'Times New Roman', Times, serif; text-align: center; }
+            table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+            th, td { border: 1px solid #000; padding: 6px 10px; font-size: 11pt; }
+            .no-print-bar {
+              position: fixed;
+              top: 15px;
+              right: 20px;
+              background: #2563eb;
+              color: #ffffff;
+              padding: 10px 20px;
+              border-radius: 10px;
+              font-family: system-ui, -apple-system, sans-serif;
+              font-weight: 700;
+              font-size: 14px;
+              cursor: pointer;
+              border: none;
+              box-shadow: 0 4px 14px rgba(37,99,235,0.4);
+              z-index: 99999;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .no-print-bar:hover {
+              background: #1d4ed8;
+            }
+            @media print {
+              .no-print-bar { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <button class="no-print-bar" onclick="window.print()">
+            🖨️ Nhấn vào đây để In / Tải file PDF (A4)
+          </button>
+          <div>
+            ${printableHtml}
+          </div>
+          <script>
+            setTimeout(() => {
+              window.print();
+            }, 400);
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-6 w-full">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -682,7 +761,7 @@ export function ContractsPage() {
                           <Badge variant="outline" className="text-[10px] text-accent border-accent font-mono">LIVE PREVIEW</Badge>
                         </h4>
                         <div 
-                          className="prose max-w-none text-sm text-black leading-relaxed [overflow-wrap:anywhere] break-words"
+                          className="prose max-w-none text-sm text-slate-900 leading-relaxed [overflow-wrap:anywhere] break-words [&_*]:!text-slate-900 [&_p]:!text-slate-900 [&_span]:!text-slate-900 [&_h1]:!text-slate-900 [&_h2]:!text-slate-900 [&_h3]:!text-slate-900 [&_h4]:!text-slate-900 [&_div]:!text-slate-900 [&_td]:!text-slate-900 [&_th]:!text-slate-900 [&_li]:!text-slate-900 [&_strong]:!text-slate-900 [&_b]:!text-slate-900"
                           dangerouslySetInnerHTML={{ __html: formatTemplateForPreview(templateContent) || '<p class="text-ink-muted italic">Chưa có nội dung mẫu...</p>' }}
                         />
                       </div>
@@ -859,13 +938,33 @@ export function ContractsPage() {
                         <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">{item.created_at.split('T')[0]}</td>
                         <td className="px-4 py-3 text-center text-xs font-mono font-medium text-ink-muted">{item.updated_at.split('T')[0]}</td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2.5 text-xs font-bold rounded-lg gap-1 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 shadow-2xs"
+                              onClick={() => handlePrintTemplate(item)}
+                              title="In / Export PDF mẫu hợp đồng A4"
+                            >
+                              <Printer className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                              <span>In mẫu A4</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              onClick={() => openViewTemplate(item)}
+                              title="Xem chi tiết mẫu"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              <span>Xem</span>
+                            </Button>
                             {role !== 'sales_agent' && (
                               <>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-ink hover:text-accent hover:bg-bg-subtle" onClick={() => openEditTemplate(item)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => openEditTemplate(item)} title="Chỉnh sửa">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-danger hover:text-danger hover:bg-danger/10" onClick={() => { if (confirm('Bạn có chắc muốn xóa mẫu này?')) removeTemplate(item.id); }}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/50" onClick={() => { if (confirm('Bạn có chắc muốn xóa mẫu này?')) removeTemplate(item.id); }} title="Xóa mẫu">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
@@ -1490,26 +1589,48 @@ export function ContractsPage() {
 
       {/* Dialog chi tiết mẫu hợp đồng */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="max-w-4xl w-[92vw] sm:w-full rounded-2xl border border-border bg-white shadow-2xl p-5 sm:p-7 max-h-[90vh] flex flex-col">
-          <DialogHeader className="shrink-0 pb-3 border-b border-border">
-            <DialogTitle className="flex items-center gap-2 text-ink font-heading font-bold text-lg sm:text-xl">
-              <FileText className="h-5.5 w-5.5 text-accent" />Chi tiết mẫu hợp đồng
+        <DialogContent className="max-w-4xl w-[92vw] sm:w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-5 sm:p-7 max-h-[90vh] flex flex-col text-slate-900 dark:text-slate-100">
+          <DialogHeader className="shrink-0 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2 pr-6">
+            <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-heading font-bold text-lg sm:text-xl">
+              <FileText className="h-5.5 w-5.5 text-indigo-600 dark:text-indigo-400" />Chi tiết mẫu hợp đồng
             </DialogTitle>
+            {viewItem && (
+              <Button
+                onClick={() => handlePrintTemplate(viewItem)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-9 px-4 text-xs rounded-xl flex items-center gap-1.5 shadow-sm"
+              >
+                <Printer className="h-4 w-4 text-amber-300" />
+                <span>In / Tải PDF mẫu A4 này</span>
+              </Button>
+            )}
           </DialogHeader>
           {viewItem && (
             <div className="flex-1 overflow-y-auto space-y-4 pt-3 pr-1">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-slate-50 p-3.5 rounded-xl border border-border">
-                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Tên mẫu:</span> <span className="font-semibold text-ink text-xs sm:text-sm block mt-0.5">{viewItem.name}</span></div>
-                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Loại hợp đồng:</span> <span className="font-bold text-accent uppercase font-mono text-xs sm:text-sm block mt-0.5">{viewItem.type}</span></div>
-                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Ngày tạo:</span> <span className="font-mono text-ink text-xs sm:text-sm block mt-0.5">{viewItem.created_at.split('T')[0]}</span></div>
-                <div><span className="text-ink-muted font-semibold text-[11px] uppercase tracking-wider block">Cập nhật:</span> <span className="font-mono text-ink text-xs sm:text-sm block mt-0.5">{viewItem.updated_at.split('T')[0]}</span></div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div><span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider block">Tên mẫu:</span> <span className="font-semibold text-slate-900 dark:text-slate-100 text-xs sm:text-sm block mt-0.5">{viewItem.name}</span></div>
+                <div><span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider block">Loại hợp đồng:</span> <span className="font-bold text-indigo-600 dark:text-indigo-400 uppercase font-mono text-xs sm:text-sm block mt-0.5">{viewItem.type}</span></div>
+                <div><span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider block">Ngày tạo:</span> <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm block mt-0.5">{viewItem.created_at.split('T')[0]}</span></div>
+                <div><span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px] uppercase tracking-wider block">Cập nhật:</span> <span className="font-mono text-slate-900 dark:text-slate-100 text-xs sm:text-sm block mt-0.5">{viewItem.updated_at.split('T')[0]}</span></div>
               </div>
-              <div className="border border-border rounded-xl p-6 sm:p-8 bg-white shadow-xs">
-                <h4 className="text-xs font-bold text-ink uppercase tracking-wider mb-4 border-b border-border pb-2">Xem trước nội dung mẫu văn bản (Định dạng A4 chuẩn)</h4>
-                <div 
-                  className="prose max-w-none text-sm text-black leading-relaxed [overflow-wrap:anywhere] break-words"
-                  dangerouslySetInnerHTML={{ __html: formatTemplateForPreview(viewItem.content || '') }}
-                />
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-6 bg-slate-100 dark:bg-slate-950 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap gap-2">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Xem trước nội dung mẫu văn bản (Định dạng A4 chuẩn)</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePrintTemplate(viewItem)}
+                    className="h-8 text-xs font-bold rounded-lg gap-1.5 border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+                  >
+                    <Printer className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>In mẫu ngay</span>
+                  </Button>
+                </div>
+                <div className="bg-white text-slate-900 shadow-xl rounded-lg p-6 sm:p-10 border border-slate-300 mx-auto max-w-3xl">
+                  <div 
+                    className="prose max-w-none text-sm text-slate-900 leading-relaxed [overflow-wrap:anywhere] break-words [&_*]:!text-slate-900 [&_p]:!text-slate-900 [&_span]:!text-slate-900 [&_h1]:!text-slate-900 [&_h2]:!text-slate-900 [&_h3]:!text-slate-900 [&_h4]:!text-slate-900 [&_div]:!text-slate-900 [&_td]:!text-slate-900 [&_th]:!text-slate-900 [&_li]:!text-slate-900 [&_strong]:!text-slate-900 [&_b]:!text-slate-900"
+                    dangerouslySetInnerHTML={{ __html: formatTemplateForPreview(viewItem.content || '') }}
+                  />
+                </div>
               </div>
             </div>
           )}

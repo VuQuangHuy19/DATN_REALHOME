@@ -3,12 +3,12 @@
 import { useAuth } from '@/lib/auth/AuthContext';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import Link from 'next/link';
-import { Logo } from '@/components/Logo';
+import { Logo, LogoIcon } from '@/components/Logo';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Building2, DoorOpen, FileText, Receipt,
-  ClipboardList, Bell, LogOut, User, Menu, X, ChevronDown, ChevronRight, Calendar, Wrench
+  ClipboardList, Bell, LogOut, User, Menu, X, ChevronDown, ChevronRight, Calendar, Wrench, SlidersHorizontal, PanelLeft
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,10 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useNotifications } from '@/lib/hooks/useNotifications';
+import { AIChatWidget } from '@/components/ui/AIChatWidget';
+import { useAdminModule, AdminModuleProvider } from '@/features/admin/context/admin-module-context';
 
-import { Grid, CalendarDays } from 'lucide-react';
+import { Grid } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -37,6 +39,7 @@ interface NavItem {
 
 const landlordNav: NavItem[] = [
   { label: 'Tổng quan', href: '/landlord', icon: LayoutDashboard },
+  { label: 'Hồ sơ cá nhân', href: '/landlord/profile', icon: User },
   {
     label: 'Bất động sản',
     href: '/landlord/buildings',
@@ -46,8 +49,8 @@ const landlordNav: NavItem[] = [
       { label: 'Phòng', href: '/landlord/rooms', icon: DoorOpen },
     ],
   },
-  { label: 'Hợp đồng', href: '/landlord/contracts', icon: FileText },
   { label: 'Lịch hẹn', href: '/landlord/appointments', icon: Calendar },
+  { label: 'Hợp đồng', href: '/landlord/contracts', icon: FileText },
   {
     label: 'Hóa đơn & Dịch vụ',
     href: '/landlord/invoices',
@@ -58,13 +61,32 @@ const landlordNav: NavItem[] = [
     ],
   },
   { label: 'Bảo trì & Sự cố', href: '/landlord/maintenance', icon: Wrench },
+  { label: 'Cấu hình & Bảo mật', href: '/landlord/settings', icon: SlidersHorizontal },
 ];
 
 function LandlordSidebar() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const { isSidebarCollapsed, toggleSidebar } = useAdminModule();
   const [expanded, setExpanded] = useState<string[]>(['Bất động sản', 'Hóa đơn & Dịch vụ']);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
+
+  const [useInvoices, setUseInvoices] = useState<boolean>(true);
+  const [useMaintenance, setUseMaintenance] = useState<boolean>(false);
+
+  useEffect(() => {
+    const readSettings = () => {
+      if (typeof window !== 'undefined') {
+        const inv = localStorage.getItem('landlord_settings_use_invoices');
+        if (inv !== null) setUseInvoices(JSON.parse(inv));
+        const main = localStorage.getItem('landlord_settings_use_maintenance');
+        if (main !== null) setUseMaintenance(JSON.parse(main));
+      }
+    };
+    readSettings();
+    window.addEventListener('landlord_settings_changed', readSettings);
+    return () => window.removeEventListener('landlord_settings_changed', readSettings);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -74,8 +96,12 @@ function LandlordSidebar() {
     return () => media.removeEventListener('change', updateMobile);
   }, []);
 
-  const toggle = (label: string) =>
+  const toggle = (label: string) => {
+    if (isSidebarCollapsed) {
+      toggleSidebar();
+    }
     setExpanded((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]));
+  };
 
   const isActive = (href: string) =>
     href === '/landlord' ? pathname === '/landlord' : pathname === href || pathname.startsWith(href + '/');
@@ -85,26 +111,78 @@ function LandlordSidebar() {
     ? profile.full_name.split(' ').slice(-2).map((w: string) => w[0]?.toUpperCase() ?? '').join('')
     : 'CH';
 
+  const visibleNavItems = landlordNav.filter((item) => {
+    if (item.label === 'Hóa đơn & Dịch vụ' && !useInvoices) return false;
+    if (item.label === 'Bảo trì & Sự cố' && !useMaintenance) return false;
+    return true;
+  });
+
   if (isMobile) return null;
 
   return (
-    <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-border-subtle bg-bg-subtle text-ink">
-      <div className="flex items-center gap-3 px-6 h-16 border-b border-border-subtle flex-shrink-0">
-        <Link href="/customer/properties" title="Về trang chủ RealHome" className="hover:opacity-90 transition-opacity flex items-center gap-2">
-          <Logo align="start" className="h-8" />
-        </Link>
-        <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Chủ nhà</span>
+    <aside
+      className={cn(
+        'hidden md:flex fixed inset-y-0 left-0 z-40 bg-bg-subtle text-ink border-r border-border-subtle flex-col transition-all duration-300 select-none overflow-x-hidden',
+        isSidebarCollapsed ? 'w-16' : 'w-64'
+      )}
+    >
+      {/* Sidebar Header: Logo & Toggle Button */}
+      <div className={cn('flex items-center h-16 border-b border-border-subtle shrink-0 px-3 overflow-hidden', isSidebarCollapsed ? 'justify-center' : 'justify-between px-4')}>
+        {!isSidebarCollapsed ? (
+          <>
+            <Link href="/customer/properties" title="Về trang chủ RealHome" className="hover:opacity-90 transition-opacity">
+              <Logo className="text-[22px]" />
+            </Link>
+            <button
+              onClick={toggleSidebar}
+              title="Thu gọn thanh bên"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+            >
+              <PanelLeft className="h-5 w-5" />
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={toggleSidebar}
+            title="Mở thanh bên"
+            className="p-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer group flex items-center justify-center"
+          >
+            <LogoIcon className="group-hover:scale-110 transition-transform" />
+          </button>
+        )}
       </div>
 
-      {/* Nav */}
-      <nav className="p-3 space-y-0.5 overflow-y-auto flex-1">
-        {landlordNav.map((item) => {
+      {/* Nav Menu */}
+      <nav className="p-2 space-y-0.5 overflow-y-auto overflow-x-hidden flex-1 scrollbar-none">
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const hasChildren = !!item.children?.length;
           const isExpand = expanded.includes(item.label);
           const groupActive = item.children
             ? item.children.some((c) => isActive(c.href))
             : isActive(item.href);
+
+          if (isSidebarCollapsed) {
+            return (
+              <div key={item.label} className="relative group/mini flex justify-center py-0.5">
+                <Link
+                  href={item.href}
+                  title={item.label}
+                  className={cn(
+                    'p-2.5 rounded-xl transition-all flex items-center justify-center',
+                    groupActive
+                      ? 'bg-blue-50 text-blue-700 font-bold dark:bg-blue-950/50'
+                      : 'text-ink-muted hover:bg-bg-subtle hover:text-ink'
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5 shrink-0', groupActive && 'text-blue-600')} />
+                </Link>
+                <div className="fixed left-16 ml-2 hidden group-hover/mini:flex items-center px-2.5 py-1 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-lg z-50 whitespace-nowrap pointer-events-none">
+                  {item.label}
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={item.label}>
@@ -171,24 +249,41 @@ function LandlordSidebar() {
       </nav>
 
       {/* Sticky User Footer */}
-      <div className="shrink-0 border-t border-border-subtle p-3 bg-bg-subtle">
-        <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm border border-border-subtle">
-          {/* Avatar */}
-          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-extrabold shrink-0">
-            {initials}
+      <div className={cn('shrink-0 border-t border-border-subtle bg-bg-subtle transition-all', isSidebarCollapsed ? 'p-2 flex flex-col items-center gap-2' : 'p-3')}>
+        {isSidebarCollapsed ? (
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-extrabold"
+              title={profile?.full_name ?? 'Chủ nhà'}
+            >
+              {initials}
+            </div>
+            <button
+              onClick={signOut}
+              title="Đăng xuất"
+              className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-ink truncate">{profile?.full_name ?? 'Chủ nhà'}</p>
-            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">Chủ nhà</span>
+        ) : (
+          <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl bg-white dark:bg-zinc-800 shadow-sm border border-border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-extrabold shrink-0">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-ink truncate">{profile?.full_name ?? 'Chủ nhà'}</p>
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">Chủ nhà</span>
+            </div>
+            <button
+              onClick={signOut}
+              title="Đăng xuất"
+              className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <button
-            onClick={signOut}
-            title="Đăng xuất"
-            className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        )}
       </div>
     </aside>
   );
@@ -199,7 +294,7 @@ function LandlordHeader() {
   const { unreadCount } = useNotifications(user?.id, company?.id);
 
   return (
-    <header className="h-16 bg-white border-b border-border-subtle px-3 sm:px-4 md:px-6 flex items-center justify-between shrink-0 max-w-full overflow-hidden">
+    <header className="sticky top-0 z-30 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-border-subtle px-3 sm:px-4 md:px-6 flex items-center justify-between shrink-0 max-w-full overflow-hidden shadow-2xs">
       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
         {/* Logo RealHome trên Mobile */}
         <Link href="/customer/properties" className="md:hidden flex items-center shrink-0 mr-0.5 hover:opacity-90 transition-opacity">
@@ -239,17 +334,23 @@ function LandlordHeader() {
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem asChild>
-              <Link href="/landlord/profile" className="flex items-center gap-2 cursor-pointer">
+              <Link href="/landlord/profile" className="flex items-center gap-2 cursor-pointer font-medium">
                 <User className="h-4 w-4 text-slate-500" />
                 Hồ sơ cá nhân
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/landlord/settings" className="flex items-center gap-2 cursor-pointer font-medium">
+                <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+                Cấu hình &amp; Bảo mật
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={signOut}
-              className="flex items-center gap-2 text-red-650 focus:text-red-650 focus:bg-red-50 cursor-pointer"
+              className="flex items-center gap-2 text-red-650 focus:text-red-650 focus:bg-red-50 cursor-pointer font-medium"
             >
               <LogOut className="h-4 w-4" />
               Đăng xuất
@@ -266,6 +367,23 @@ function LandlordBottomNav() {
   const { signOut, profile, company } = useAuth();
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
 
+  const [useInvoices, setUseInvoices] = useState<boolean>(true);
+  const [useMaintenance, setUseMaintenance] = useState<boolean>(false);
+
+  useEffect(() => {
+    const readSettings = () => {
+      if (typeof window !== 'undefined') {
+        const inv = localStorage.getItem('landlord_settings_use_invoices');
+        if (inv !== null) setUseInvoices(JSON.parse(inv));
+        const main = localStorage.getItem('landlord_settings_use_maintenance');
+        if (main !== null) setUseMaintenance(JSON.parse(main));
+      }
+    };
+    readSettings();
+    window.addEventListener('landlord_settings_changed', readSettings);
+    return () => window.removeEventListener('landlord_settings_changed', readSettings);
+  }, []);
+
   const isActive = (href: string) =>
     href === '/landlord' ? pathname === '/landlord' : pathname === href || pathname.startsWith(href + '/');
 
@@ -273,14 +391,14 @@ function LandlordBottomNav() {
     { label: 'Tổng quan', href: '/landlord', icon: LayoutDashboard },
     { label: 'Tòa nhà', href: '/landlord/buildings', icon: Building2 },
     { label: 'Hợp đồng', href: '/landlord/contracts', icon: FileText },
-    { label: 'Hóa đơn', href: '/landlord/invoices', icon: Receipt },
+    ...(useInvoices ? [{ label: 'Hóa đơn', href: '/landlord/invoices', icon: Receipt }] : []),
   ];
 
   const landlordMoreItems = [
     { label: 'Phòng trọ', href: '/landlord/rooms', icon: DoorOpen },
     { label: 'Lịch hẹn', href: '/landlord/appointments', icon: Calendar },
-    { label: 'Chỉ số dịch vụ', href: '/landlord/readings', icon: ClipboardList },
-    { label: 'Bảo trì & Sự cố', href: '/landlord/maintenance', icon: Wrench },
+    ...(useInvoices ? [{ label: 'Chỉ số dịch vụ', href: '/landlord/readings', icon: ClipboardList }] : []),
+    ...(useMaintenance ? [{ label: 'Bảo trì & Sự cố', href: '/landlord/maintenance', icon: Wrench }] : []),
     { label: 'Hồ sơ cá nhân', href: '/landlord/profile', icon: User },
   ];
 
@@ -369,15 +487,23 @@ function LandlordBottomNav() {
 }
 
 function LandlordContent({ children }: { children: React.ReactNode }) {
+  const { isSidebarCollapsed } = useAdminModule();
+
   return (
     <div className="flex min-h-screen bg-bg-base w-full max-w-full overflow-x-hidden">
       <LandlordSidebar />
-      <div className="flex-1 flex flex-col ml-0 md:ml-64 w-full max-w-full min-w-0 overflow-x-hidden">
+      <div
+        className={cn(
+          'flex-1 flex flex-col ml-0 transition-all duration-300 w-full max-w-full min-w-0 min-h-screen',
+          isSidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
+        )}
+      >
         <LandlordHeader />
         <main className="flex-1 p-3 sm:p-4 md:p-6 pb-24 md:pb-6 w-full max-w-full min-w-0 overflow-x-hidden">
           {children}
         </main>
         <LandlordBottomNav />
+        <AIChatWidget role="landlord" />
       </div>
     </div>
   );
@@ -386,7 +512,9 @@ function LandlordContent({ children }: { children: React.ReactNode }) {
 export default function LandlordLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard allowedRoles={['landlord']}>
-      <LandlordContent>{children}</LandlordContent>
+      <AdminModuleProvider>
+        <LandlordContent>{children}</LandlordContent>
+      </AdminModuleProvider>
     </AuthGuard>
   );
 }

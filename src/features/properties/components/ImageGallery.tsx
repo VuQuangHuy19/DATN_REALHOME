@@ -42,23 +42,38 @@ function isVideoUrl(url: string): boolean {
   );
 }
 
+function cleanDriveUrl(url: string): string {
+  if (!url) return url;
+  if (url.includes('drive.google.com/uc?export=download&id=')) {
+    const match = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match) return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  if (url.includes('drive.google.com/file/d/')) {
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match) return `https://lh3.googleusercontent.com/d/${match[1]}`;
+  }
+  return url;
+}
+
 /** Normalise mixed input to a consistent GalleryItem[] */
 function normaliseItems(raw: (GalleryItem | string)[]): GalleryItem[] {
   return raw
     .filter((item): item is GalleryItem | string => !!item)
     .map((item) => {
       if (typeof item === 'string') {
+        const cleaned = cleanDriveUrl(item);
         return {
-          url: item,
+          url: cleaned,
           thumbnailUrl: null,
-          type: isVideoUrl(item) ? 'video' : 'image',
+          type: isVideoUrl(cleaned) ? 'video' : 'image',
         } as GalleryItem;
       }
-      // If type isn't set, infer from URL
+      const cleanedUrl = cleanDriveUrl(item.url);
+      const cleanedThumb = item.thumbnailUrl ? cleanDriveUrl(item.thumbnailUrl) : item.thumbnailUrl;
       if (!item.type) {
-        return { ...item, type: isVideoUrl(item.url) ? 'video' : 'image' };
+        return { ...item, url: cleanedUrl, thumbnailUrl: cleanedThumb, type: isVideoUrl(cleanedUrl) ? 'video' : 'image' };
       }
-      return item;
+      return { ...item, url: cleanedUrl, thumbnailUrl: cleanedThumb };
     });
 }
 
@@ -449,12 +464,38 @@ export default function ImageGallery({
 
             {/* Media */}
             {items[idx]?.type === 'video' ? (
-              <video
-                src={items[idx].url}
-                controls
-                autoPlay
-                className="max-w-full max-h-[85vh] object-contain rounded"
-              />
+              <div className="relative max-w-full max-h-[85vh] flex flex-col items-center justify-center">
+                <video
+                  key={items[idx].url}
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="auto"
+                  className="max-w-full max-h-[75vh] object-contain rounded shadow-xl"
+                  onError={(e) => {
+                    console.warn('Video format playback error:', e);
+                  }}
+                >
+                  <source src={items[idx].url} type="video/mp4" />
+                  <source src={items[idx].url} type="video/quicktime" />
+                  <source src={items[idx].url} type="video/mov" />
+                  Trình duyệt không hỗ trợ phát trực tiếp định dạng video QuickTime MOV này.
+                </video>
+                {items[idx].url.endsWith('.mov') && (
+                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-300 bg-black/60 px-4 py-2 rounded-full border border-white/20">
+                    <span>* Video định dạng iPhone (.MOV / HEVC). Nếu màn hình màu đen trên Chrome:</span>
+                    <a
+                      href={items[idx].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                      download
+                    >
+                      Tải / Mở video gốc ↗
+                    </a>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="relative w-full h-[85vh] flex items-center justify-center p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

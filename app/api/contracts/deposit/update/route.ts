@@ -56,12 +56,25 @@ export async function POST(request: Request) {
       }
     });
 
-    const { data: updatedContract, error: updateErr } = await supabaseAdmin
+    let { data: updatedContract, error: updateErr } = await supabaseAdmin
       .from('deposit_contracts')
       .update(patch)
       .eq('id', id)
       .select()
       .single();
+
+    if (updateErr && updateErr.message?.includes('schema cache')) {
+      delete patch.lead_view_image_url;
+      delete patch.transfer_proof_url;
+      const retry = await supabaseAdmin
+        .from('deposit_contracts')
+        .update(patch)
+        .eq('id', id)
+        .select()
+        .single();
+      updatedContract = retry.data;
+      updateErr = retry.error;
+    }
 
     if (updateErr) {
       throw updateErr;

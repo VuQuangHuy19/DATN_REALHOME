@@ -49,11 +49,16 @@ export function EmployeesPage() {
     fetchRoles();
   }, [company?.id]);
 
-  const filtered = employeeList.filter((e) =>
-    e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (e.email ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (e.department ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = employeeList.filter((e) => {
+    const name = e.full_name || (e as any).name || '';
+    const email = e.email || '';
+    const roleOrDept = e.role || (e as any).department || '';
+    return (
+      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      roleOrDept.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const [empErrors, setEmpErrors] = useState<Record<string, string>>({});
 
@@ -146,7 +151,7 @@ export function EmployeesPage() {
                     <Input
                       id="name"
                       name="name"
-                      defaultValue={editItem?.name}
+                      defaultValue={editItem?.full_name || (editItem as any)?.name}
                       onChange={() => empErrors.name && setEmpErrors(prev => ({ ...prev, name: '' }))}
                       className={empErrors.name ? 'border-red-500 ring-1 ring-red-500' : ''}
                     />
@@ -167,7 +172,7 @@ export function EmployeesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><Label htmlFor="phone">Số điện thoại</Label><Input id="phone" name="phone" defaultValue={editItem?.phone ?? ''} /></div>
-                  <div><Label htmlFor="department">Phòng ban</Label><Input id="department" name="department" defaultValue={editItem?.department ?? ''} /></div>
+                  <div><Label htmlFor="department">Phòng ban</Label><Input id="department" name="department" defaultValue={(editItem as any)?.department ?? ''} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -175,19 +180,19 @@ export function EmployeesPage() {
                     <select
                       id="position"
                       name="position"
-                      defaultValue={editItem?.position ?? ''}
+                      defaultValue={editItem?.role || (editItem as any)?.position || ''}
                       className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
                       <option value="">-- Chọn chức vụ --</option>
                       {roles.map((r) => (
                         <option key={r.id} value={r.name}>{r.name}</option>
                       ))}
-                      {editItem?.position && !roles.some((r) => r.name === editItem.position) && (
-                        <option value={editItem.position}>{editItem.position}</option>
+                      {(editItem?.role || (editItem as any)?.position) && !roles.some((r) => r.name === (editItem?.role || (editItem as any)?.position)) && (
+                        <option value={editItem?.role || (editItem as any)?.position}>{editItem?.role || (editItem as any)?.position}</option>
                       )}
                     </select>
                   </div>
-                  <div><Label htmlFor="join_date">Ngày vào làm</Label><Input id="join_date" name="join_date" type="date" defaultValue={editItem?.join_date ?? ''} /></div>
+                  <div><Label htmlFor="join_date">Ngày vào làm</Label><Input id="join_date" name="join_date" type="date" defaultValue={(editItem as any)?.join_date ?? ''} /></div>
                 </div>
                 <div>
                   <Label htmlFor="status">Trạng thái</Label>
@@ -245,10 +250,10 @@ export function EmployeesPage() {
                         openView(item);
                       }}
                     >
-                      <td className="px-4 py-3 font-medium text-ink">{item.name}</td>
+                      <td className="px-4 py-3 font-medium text-ink">{item.full_name || (item as any).name || '—'}</td>
                       <td className="px-4 py-3 text-ink-muted">{item.email ?? '—'}</td>
-                      <td className="px-4 py-3 text-ink-muted">{item.department ?? '—'}</td>
-                      <td className="px-4 py-3 text-ink-muted">{item.position ?? '—'}</td>
+                      <td className="px-4 py-3 text-ink-muted">{(item as any).department ?? '—'}</td>
+                      <td className="px-4 py-3 text-ink-muted">{item.role || (item as any).position || '—'}</td>
                       <td className="px-4 py-3">
                         <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
                           {statusLabels[item.status]}
@@ -276,7 +281,7 @@ export function EmployeesPage() {
                     className="p-4 hover:bg-bg-subtle/30 cursor-pointer transition-colors space-y-3"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-ink text-sm">{item.name}</span>
+                      <span className="font-bold text-ink text-sm">{item.full_name || (item as any).name || '—'}</span>
                       <Badge variant={item.status === 'active' ? 'default' : 'secondary'}>
                         {statusLabels[item.status]}
                       </Badge>
@@ -285,11 +290,11 @@ export function EmployeesPage() {
                     <div className="grid grid-cols-2 gap-2 text-xs text-ink-muted">
                       <div>
                         <span className="font-medium text-ink-muted">Phòng ban:</span>{' '}
-                        <span className="text-ink font-semibold">{item.department ?? '—'}</span>
+                        <span className="text-ink font-semibold">{(item as any).department ?? '—'}</span>
                       </div>
                       <div>
                         <span className="font-medium text-ink-muted">Chức vụ:</span>{' '}
-                        <span className="text-ink font-semibold">{item.position ?? '—'}</span>
+                        <span className="text-ink font-semibold">{item.role || (item as any).position || '—'}</span>
                       </div>
                       <div>
                         <span className="font-medium text-ink-muted">SĐT:</span>{' '}
@@ -297,7 +302,7 @@ export function EmployeesPage() {
                       </div>
                       <div>
                         <span className="font-medium text-ink-muted">Ngày vào:</span>{' '}
-                        <span className="text-ink font-mono">{item.join_date ?? '—'}</span>
+                        <span className="text-ink font-mono">{(item as any).join_date ?? '—'}</span>
                       </div>
                     </div>
 
@@ -335,12 +340,12 @@ export function EmployeesPage() {
           {viewItem && (
             <div className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4 text-sm text-ink">
-                <div><span className="text-ink-muted">Họ tên:</span> <span className="font-medium">{viewItem.name}</span></div>
+                <div><span className="text-ink-muted">Họ tên:</span> <span className="font-medium">{viewItem.full_name || (viewItem as any).name || '—'}</span></div>
                 <div><span className="text-ink-muted">Email:</span> {viewItem.email ?? '—'}</div>
                 <div><span className="text-ink-muted">SĐT:</span> {viewItem.phone ?? '—'}</div>
-                <div><span className="text-ink-muted">Phòng ban:</span> {viewItem.department ?? '—'}</div>
-                <div><span className="text-ink-muted">Chức vụ:</span> {viewItem.position ?? '—'}</div>
-                <div><span className="text-ink-muted">Ngày vào làm:</span> {viewItem.join_date ?? '—'}</div>
+                <div><span className="text-ink-muted">Phòng ban:</span> {(viewItem as any).department ?? '—'}</div>
+                <div><span className="text-ink-muted">Chức vụ:</span> {viewItem.role || (viewItem as any).position || '—'}</div>
+                <div><span className="text-ink-muted">Ngày vào làm:</span> {(viewItem as any).join_date ?? '—'}</div>
                 <div><span className="text-ink-muted">Trạng thái:</span> <Badge variant={viewItem.status === 'active' ? 'default' : 'secondary'}>{statusLabels[viewItem.status]}</Badge></div>
               </div>
             </div>

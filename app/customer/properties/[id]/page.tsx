@@ -18,10 +18,13 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { useCompare } from '@/src/lib/customer/RoomCompareContext';
 import {
   MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2,
-  ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText
+  ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText,
+  Link as LinkIcon, CheckCheck, Wind, Flame, Shirt, Utensils, Sparkles, Box, RotateCw,
+  ShieldCheck, Droplets, Wifi, Sun, Lock
 } from 'lucide-react';
 import { maskHouseNumberInBuildingName } from '@/lib/utils';
 import { detectDryerFeature } from '@/lib/utils/dryer-parser';
+import { MonthlyCostEstimator } from '@/components/customer/MonthlyCostEstimator';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -35,22 +38,122 @@ import ImageGallery from '@/src/features/properties/components/ImageGallery';
 import { SameLandlordBuildingsWidget } from '@/src/features/properties/components/SameLandlordBuildingsWidget';
 import { SimilarBuildingsWidget } from '@/src/features/properties/components/SimilarBuildingsWidget';
 
+function DressingTableIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <ellipse cx="12" cy="5.5" rx="4" ry="4.5" />
+      <line x1="12" y1="10" x2="12" y2="12" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="4" y1="12" x2="4" y2="21" />
+      <line x1="20" y1="12" x2="20" y2="21" />
+      <line x1="13" y1="12" x2="13" y2="17" />
+      <line x1="13" y1="17" x2="20" y2="17" />
+      <line x1="13" y1="14.5" x2="20" y2="14.5" />
+      <path d="M7 16h4M7.5 16l-1 5M10.5 16l1 5" />
+    </svg>
+  );
+}
+
+function RangeHoodIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9 3h6v4H9z" />
+      <path d="M9 7L4 12h16L15 7" />
+      <rect x="2" y="12" width="20" height="3" rx="0.5" />
+      <path d="M6 18c.5.8.5 1.7 0 2.5" />
+      <path d="M10 18c.5.8.5 1.7 0 2.5" />
+      <path d="M14 18c.5.8.5 1.7 0 2.5" />
+      <path d="M18 18c.5.8.5 1.7 0 2.5" />
+    </svg>
+  );
+}
+
+function FurnitureBlueprintIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 3a1.5 1.5 0 0 0-1.5 1.5v15A1.5 1.5 0 0 0 4 21" />
+      <rect x="4" y="3" width="16" height="18" rx="1" />
+      <path d="M12 7.5L8.5 11h7L12 7.5z" />
+      <rect x="9" y="11" width="6" height="5" />
+      <line x1="7" y1="16" x2="17" y2="16" />
+      <path d="M14.5 4.5l4 4-5.5 5.5-3.5.5.5-3.5 4.5-4.5z" />
+      <path d="M14 20l6-6v6h-6z" />
+    </svg>
+  );
+}
+
 export default function BuildingDetailPage() {
   const params = useParams();
   const router = useRouter();
   const buildingId = params.id as string;
   const { company } = useCustomerCompany();
-  const { role } = useAuth();
+  const { role, user, profile } = useAuth();
+  const [copiedRoomId, setCopiedRoomId] = useState<string | null>(null);
+  const [copyBuildingDone, setCopyBuildingDone] = useState(false);
+
+  const handleCopyRoomLink = (e: React.MouseEvent, roomId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window === 'undefined') return;
+    const baseUrl = `${window.location.origin}/customer/properties/rooms/${roomId}`;
+    const saleId = user?.id || profile?.id;
+    const finalUrl = saleId ? `${baseUrl}?ref=${saleId}` : baseUrl;
+    navigator.clipboard.writeText(finalUrl).then(() => {
+      setCopiedRoomId(roomId);
+      setTimeout(() => setCopiedRoomId(null), 2000);
+    });
+  };
+
+  const handleCopyBuildingLink = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window === 'undefined') return;
+    const baseUrl = `${window.location.origin}/customer/properties/${buildingId}`;
+    const saleId = user?.id || profile?.id;
+    const finalUrl = saleId ? `${baseUrl}?ref=${saleId}` : baseUrl;
+    navigator.clipboard.writeText(finalUrl).then(() => {
+      setCopyBuildingDone(true);
+      setTimeout(() => setCopyBuildingDone(false), 2000);
+    });
+  };
   const { rooms: compareRooms, addRoom, removeRoom } = useCompare();
   
   // Logged-in users or sales agents can see all rooms (including rented/maintenance)
   const showAll = !!role;
   const canComposeDeposit = !!role && DEPOSIT_COMPOSER_ROLES.includes(role as any);
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isBrokerOrAdminRoute = pathname.startsWith('/broker') || pathname.startsWith('/admin') || pathname.startsWith('/landlord');
   const contractsBasePath = role === 'landlord' ? '/landlord' : role === 'sales_agent' || pathname.startsWith('/broker') ? '/broker' : '/admin';
 
   const { building, loading: buildingLoading, error: buildingError } = usePublicBuilding(buildingId);
-  const { listings: rooms, loading: roomsLoading, error: roomsError } = usePublicListingsByBuilding(buildingId, showAll);
+  const { listings: rooms, loading: roomsLoading, error: roomsError } = usePublicListingsByBuilding(buildingId, false);
 
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -69,17 +172,32 @@ export default function BuildingDetailPage() {
   const loading = buildingLoading || roomsLoading;
   const error = buildingError || roomsError;
 
-
-
   // Unique floors array for dropdown filter
   const floorOptions = useMemo(() => {
     const list = rooms.map((r) => r.floor).filter(Boolean);
     return Array.from(new Set(list)).sort((a, b) => a - b);
   }, [rooms]);
 
-  // Client-side filtering of rooms
+  // Client-side filtering of rooms: Only available or soon_available <= 30 days
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
+      if (room.status !== 'available' && room.status !== 'soon_available') {
+        return false;
+      }
+      if (room.status === 'soon_available') {
+        const targetDateStr = room.expectedAvailableDate || (room as any).availableDate;
+        if (targetDateStr) {
+          const end = new Date(targetDateStr);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          end.setHours(0, 0, 0, 0);
+          const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays < 0 || diffDays > 30) {
+            return false;
+          }
+        }
+      }
+
       const matchFloor = filterFloor === 'all' || String(room.floor) === filterFloor;
       const matchStatus = filterStatus === 'all' || room.status === filterStatus;
       return matchFloor && matchStatus;
@@ -146,12 +264,14 @@ export default function BuildingDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 pb-24 lg:pb-8 bg-bg-base">
-      {/* Back button */}
-      <div className="mb-4">
-        <Link href="/customer/properties" className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-hover transition-colors">
-          <ChevronLeft className="h-4 w-4" /> Quay lại danh sách
-        </Link>
-      </div>
+      {/* Back button — chỉ hiển thị khi ở trang customer (vì broker/admin/landlord layout đã có sẵn nút Quay lại ở top header) */}
+      {!isBrokerOrAdminRoute && (
+        <div className="mb-4">
+          <Link href="/customer/properties" className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:text-accent-hover transition-colors">
+            <ChevronLeft className="h-4 w-4" /> Quay lại danh sách
+          </Link>
+        </div>
+      )}
 
       {/* Image Gallery */}
       <div className="mb-8">
@@ -161,12 +281,60 @@ export default function BuildingDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           {/* Header & Title */}
-          <div>
-            <h1 className="text-3xl font-bold font-heading text-ink">{maskHouseNumberInBuildingName(building.name)}</h1>
-            <div className="flex items-center gap-2 mt-2 text-ink-muted">
-              <MapPin className="h-5 w-5 text-accent" />
-              {maskHouseNumberInBuildingName(building.address)}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold font-heading text-ink">{maskHouseNumberInBuildingName(building.name)}</h1>
+              <div className="flex items-center gap-2 mt-2 text-ink-muted">
+                <MapPin className="h-5 w-5 text-accent" />
+                {maskHouseNumberInBuildingName(building.address)}
+              </div>
+              
+              {/* Hero Key Highlights Banner */}
+              <div className="flex flex-wrap items-center gap-2 pt-4">
+                <Badge className="bg-emerald-500/15 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-emerald-500/25 transition-all">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>{building.pccc_certified !== false ? 'Đạt Chuẩn PCCC' : 'Chưa Hoàn Thiện PCCC'}</span>
+                </Badge>
+                {building.has_elevator !== false && (
+                  <Badge className="bg-blue-500/15 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-blue-500/25 transition-all">
+                    <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>Thang Máy Di Chuyển</span>
+                  </Badge>
+                )}
+                {building.allow_pet !== false && building.allow_pet !== 'Không' && building.allow_pet !== 'false' && (
+                  <Badge className="bg-amber-500/15 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-amber-500/25 transition-all">
+                    <PawPrint className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Cho Nuôi Thú Cưng</span>
+                  </Badge>
+                )}
+                {building.allow_vinfast_electric !== false && (
+                  <Badge className="bg-teal-500/15 text-teal-900 dark:text-teal-300 border-teal-300 dark:border-teal-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-teal-500/25 transition-all">
+                    <Zap className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <span>Sạc Xe Điện</span>
+                  </Badge>
+                )}
+                {building.allow_foreigners && (
+                  <Badge className="bg-indigo-500/15 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-indigo-500/25 transition-all">
+                    <Globe className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <span>Nhận Khách Nước Ngoài</span>
+                  </Badge>
+                )}
+              </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`gap-1.5 font-bold transition-all shrink-0 self-start ${
+                copyBuildingDone
+                  ? 'border-emerald-400 text-emerald-700 bg-emerald-50'
+                  : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'
+              }`}
+              onClick={handleCopyBuildingLink}
+              title="Copy link xem tòa nhà gửi cho khách"
+            >
+              {copyBuildingDone ? <CheckCheck className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
+              <span>{copyBuildingDone ? 'Đã copy Link Tòa nhà!' : 'Copy Link Tòa nhà'}</span>
+            </Button>
           </div>
 
           {/* Quick specs */}
@@ -204,6 +372,18 @@ export default function BuildingDetailPage() {
 
           {/* Nội thất */}
           {(() => {
+            const furnitureIconMap: Record<string, any> = {
+              has_air_conditioner: Wind,
+              has_water_heater: Flame,
+              has_bed: Bed,
+              has_wardrobe: Shirt,
+              has_kitchen_cabinet: Utensils,
+              has_refrigerator: Box,
+              has_hood: RangeHoodIcon,
+              has_dressing_table: DressingTableIcon,
+              has_dryer_dynamic: RotateCw,
+            };
+
             const baseFurniture = [
               { key: 'has_air_conditioner', label: 'Điều hòa' },
               { key: 'has_water_heater', label: 'Nóng lạnh' },
@@ -232,20 +412,27 @@ export default function BuildingDetailPage() {
             if (activeFurniture.length === 0) return null;
 
             return (
-              <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
-                <CardHeader className="pb-3 border-b border-border-subtle">
-                  <CardTitle className="text-base font-bold font-heading text-ink">Trang bị sẵn có của tòa nhà</CardTitle>
+              <Card className="border border-amber-200/80 dark:border-slate-800 rounded-xl bg-card shadow-sm overflow-hidden">
+                <CardHeader className="pb-3 border-b border-amber-100 dark:border-slate-800 bg-amber-500/5 dark:bg-amber-950/20">
+                  <CardTitle className="text-base font-bold font-heading text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <FurnitureBlueprintIcon className="h-4 w-4 text-amber-500" />
+                    Nội thất
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 text-sm pt-4">
+                <CardContent className="space-y-4 text-sm p-4 sm:p-5">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {activeFurniture.map((item) => (
-                      <div key={item.key} className="flex items-center justify-between p-2.5 border border-border-subtle rounded-lg bg-bg-base">
-                        <span className="text-ink text-xs font-semibold">{item.label}</span>
-                        <Badge variant="default" className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200 border flex items-center gap-0.5 text-[10px] py-0.5 font-bold shadow-none">
-                          <Check className="h-3 w-3" /> Có
-                        </Badge>
-                      </div>
-                    ))}
+                    {activeFurniture.map((item) => {
+                      const IconComp = furnitureIconMap[item.key] || Sparkles;
+                      return (
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-center gap-2 p-3 border border-amber-300/70 dark:border-amber-800/60 rounded-xl bg-amber-500/15 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 text-xs sm:text-sm font-extrabold shadow-xs hover:scale-[1.02] hover:bg-amber-500/25 hover:border-amber-400 transition-all duration-200 cursor-default"
+                        >
+                          <IconComp className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>{item.label}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -253,65 +440,66 @@ export default function BuildingDetailPage() {
           })()}
 
           {/* Tiện ích */}
-          <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
-            <CardHeader className="pb-3 border-b border-border-subtle">
-              <CardTitle className="text-base font-bold font-heading text-ink">Tiện ích tòa nhà</CardTitle>
+          <Card className="border border-blue-200/80 dark:border-slate-800 rounded-xl bg-card shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 border-b border-blue-100 dark:border-slate-800 bg-blue-500/5 dark:bg-blue-950/20">
+              <CardTitle className="text-base font-bold font-heading text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Tiện ích tòa nhà
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm pt-4">
+            <CardContent className="space-y-4 text-sm p-4 sm:p-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center justify-between p-2.5 border border-border-subtle rounded-lg bg-bg-base">
+                <div className="flex items-center justify-between p-3 border border-blue-200/70 dark:border-blue-900/50 rounded-xl bg-blue-500/10 dark:bg-blue-950/30">
                   <div className="flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-accent" />
-                    <span className="text-ink text-xs font-semibold">Thang máy</span>
+                    <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-slate-900 dark:text-slate-100 text-xs font-bold">Thang máy</span>
                   </div>
                   {building.has_elevator !== false ? (
-                    <Badge variant="default" className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200 border flex items-center gap-1 text-[10px] py-0.5 font-bold shadow-none">
-                      <Check className="h-3 w-3" /> Có thang máy
+                    <Badge variant="default" className="bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 flex items-center gap-1 text-[11px] py-0.5 font-bold shadow-none">
+                      <Check className="h-3.5 w-3.5 text-emerald-600" /> Có thang máy
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-bg-subtle text-ink-muted flex items-center gap-1 text-[10px] py-0.5 font-medium border-border-subtle border shadow-none">
-                      <X className="h-3 w-3" /> Không có
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-500 flex items-center gap-1 text-[11px] py-0.5 font-medium border-slate-200 shadow-none">
+                      <X className="h-3.5 w-3.5" /> Không có
                     </Badge>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between p-2.5 border border-border-subtle rounded-lg bg-bg-base">
+                <div className="flex items-center justify-between p-3 border border-emerald-200/70 dark:border-emerald-900/50 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/30">
                   <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-accent" />
-                    <span className="text-ink text-xs font-semibold">Hệ thống PCCC</span>
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-slate-900 dark:text-slate-100 text-xs font-bold">Hệ thống PCCC</span>
                   </div>
                   {building.pccc_certified !== false ? (
-                    <Badge variant="default" className="bg-green-50 text-green-700 hover:bg-green-50 border-green-200 border flex items-center gap-1 text-[10px] py-0.5 font-bold shadow-none">
-                      <Check className="h-3 w-3" /> Đạt chuẩn PCCC
+                    <Badge variant="default" className="bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 flex items-center gap-1 text-[11px] py-0.5 font-bold shadow-none">
+                      <Check className="h-3.5 w-3.5 text-emerald-600" /> Đạt chuẩn PCCC
                     </Badge>
                   ) : (
-                    <Badge variant="destructive" className="bg-red-50 text-red-750 hover:bg-red-50 border-red-200 border flex items-center gap-1 text-[10px] py-0.5 font-bold shadow-none">
-                      <X className="h-3 w-3" /> Chưa hoàn thiện
+                    <Badge variant="destructive" className="bg-red-500/20 text-red-800 dark:text-red-300 border-red-300 flex items-center gap-1 text-[11px] py-0.5 font-bold shadow-none">
+                      <X className="h-3.5 w-3.5 text-red-600" /> Chưa hoàn thiện
                     </Badge>
                   )}
                 </div>
               </div>
-              
-              {building.common_drying_area && (
-                <div className="p-3 bg-bg-subtle border border-border-subtle rounded-lg text-ink-muted text-xs">
-                  <span className="font-bold text-ink-muted uppercase block mb-1">Chỗ phơi đồ chung</span>
-                  <span className="font-medium text-ink">{building.common_drying_area}</span>
-                </div>
-              )}
             </CardContent>
           </Card>
 
           {/* Quy định */}
-          <Card className="border border-border-subtle rounded-lg bg-card shadow-none">
-            <CardHeader className="pb-3 border-b border-border-subtle">
-              <CardTitle className="text-base font-bold font-heading text-ink">Quy định thuê</CardTitle>
+          <Card className="border border-indigo-200/80 dark:border-slate-800 rounded-xl bg-card shadow-sm overflow-hidden">
+            <CardHeader className="pb-3 border-b border-indigo-100 dark:border-slate-800 bg-indigo-500/5 dark:bg-indigo-950/20">
+              <CardTitle className="text-base font-bold font-heading text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                Quy định thuê
+              </CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm pt-4">
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <PawPrint className="h-4.5 w-4.5 text-accent flex-shrink-0" />
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm p-4 sm:p-5">
+              <div className="flex items-center gap-3 p-3 bg-amber-500/10 dark:bg-amber-950/30 rounded-xl border border-amber-300/70 dark:border-amber-800/60">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+                  <PawPrint className="h-4 w-4" />
+                </div>
                 <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Nuôi thú cưng</div>
-                  <div className="font-semibold text-ink text-xs">
+                  <div className="text-[10px] text-amber-700 dark:text-amber-400 uppercase font-bold tracking-wider">Nuôi thú cưng</div>
+                  <div className="font-extrabold text-amber-950 dark:text-amber-100 text-xs sm:text-sm">
                     {(() => {
                       const petVal = building.allow_pet as any;
                       const isPetAllowed = petVal === true || petVal === 'true' || (typeof petVal === 'string' && petVal !== 'Không' && petVal !== 'false');
@@ -320,20 +508,42 @@ export default function BuildingDetailPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <Globe className="h-4.5 w-4.5 text-accent flex-shrink-0" />
+
+              <div className="flex items-center gap-3 p-3 bg-indigo-500/10 dark:bg-indigo-950/30 rounded-xl border border-indigo-300/70 dark:border-indigo-800/60">
+                <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Globe className="h-4 w-4" />
+                </div>
                 <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Người nước ngoài</div>
-                  <div className="font-semibold text-ink text-xs">{building.allow_foreigners ? 'Nhận nước ngoài' : 'Chỉ khách Việt'}</div>
+                  <div className="text-[10px] text-indigo-700 dark:text-indigo-400 uppercase font-bold tracking-wider">Khách nước ngoài</div>
+                  <div className="font-extrabold text-indigo-950 dark:text-indigo-100 text-xs sm:text-sm">
+                    {building.allow_foreigners ? 'Nhận khách nước ngoài' : 'Chỉ khách Việt Nam'}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 p-3 bg-bg-subtle rounded-lg border border-border-subtle">
-                <Zap className="h-4.5 w-4.5 text-accent flex-shrink-0" />
+
+              <div className="flex items-center gap-3 p-3 bg-teal-500/10 dark:bg-teal-950/30 rounded-xl border border-teal-300/70 dark:border-teal-800/60">
+                <div className="p-2 rounded-lg bg-teal-500/20 text-teal-700 dark:text-teal-300 shrink-0">
+                  <Zap className="h-4 w-4" />
+                </div>
                 <div>
-                  <div className="text-[10px] text-ink-muted uppercase font-medium">Xe điện VinFast</div>
-                  <div className="font-semibold text-ink text-xs">{building.allow_vinfast_electric !== false ? 'Nhận & sạc điện' : 'Không nhận xe điện'}</div>
+                  <div className="text-[10px] text-teal-700 dark:text-teal-400 uppercase font-bold tracking-wider">Xe điện VinFast</div>
+                  <div className="font-extrabold text-teal-950 dark:text-teal-100 text-xs sm:text-sm">
+                    {building.allow_vinfast_electric !== false ? 'Nhận & sạc điện' : 'Không nhận xe điện'}
+                  </div>
                 </div>
               </div>
+
+              {building.common_drying_area && (
+                <div className="flex items-center gap-3 p-3 bg-rose-500/10 dark:bg-rose-950/30 rounded-xl border border-rose-300/70 dark:border-rose-800/60">
+                  <div className="p-2 rounded-lg bg-rose-500/20 text-rose-700 dark:text-rose-300 shrink-0">
+                    <Sun className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-rose-700 dark:text-rose-400 uppercase font-bold tracking-wider">Chỗ phơi đồ chung</div>
+                    <div className="font-extrabold text-rose-950 dark:text-rose-100 text-xs sm:text-sm">{building.common_drying_area}</div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -450,6 +660,23 @@ export default function BuildingDetailPage() {
                             <Button
                               variant="outline"
                               size="sm"
+                              className={`h-7 px-2 text-[10px] font-bold rounded gap-1 transition-all ${
+                                copiedRoomId === room.id
+                                  ? 'border-emerald-400 text-emerald-700 bg-emerald-50'
+                                  : 'text-indigo-700 border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100'
+                              }`}
+                              onClick={(e) => handleCopyRoomLink(e, room.id)}
+                              title="Copy link phòng này gửi cho khách"
+                            >
+                              {copiedRoomId === room.id ? (
+                                <><CheckCheck className="h-3 w-3" /> Đã copy</>
+                              ) : (
+                                <><LinkIcon className="h-3 w-3" /> Link phòng</>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className={`h-7 px-2 text-[10px] font-bold rounded ${isComparing ? 'border-accent text-accent bg-accent/10' : 'text-ink border-border-subtle hover:bg-bg-subtle'}`}
                               onClick={(e) => {
                                 e.preventDefault();
@@ -494,28 +721,30 @@ export default function BuildingDetailPage() {
 
               {/* Cost specifications */}
               <div className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-3">
-                <span className="text-xs font-semibold text-slate-400 block uppercase tracking-wider">Chi phí & dịch vụ</span>
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-card text-xs">
-                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                    <span className="text-slate-500 font-medium">Giá điện:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</span>
+                <span className="text-xs font-bold text-slate-400 block uppercase tracking-wider">Chi phí & dịch vụ</span>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center p-2.5 rounded-xl bg-amber-500/10 border border-amber-300/70 text-amber-950 dark:text-amber-200">
+                    <span className="font-bold flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-amber-500" /> Giá điện:</span>
+                    <span className="font-extrabold font-mono text-amber-600 dark:text-amber-400">{Number(building.electricity_price ?? 4000).toLocaleString('vi-VN')}đ/kWh</span>
                   </div>
-                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-500 font-medium">Giá nước:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</span>
+                  <div className="flex justify-between items-center p-2.5 rounded-xl bg-sky-500/10 border border-sky-300/70 text-sky-950 dark:text-sky-200">
+                    <span className="font-bold flex items-center gap-1.5"><Droplets className="h-3.5 w-3.5 text-sky-500" /> Giá nước:</span>
+                    <span className="font-extrabold font-mono text-sky-600 dark:text-sky-400">{Number(building.water_price ?? 35000).toLocaleString('vi-VN')}đ/m³</span>
                   </div>
-                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                    <span className="text-slate-500 font-medium">Internet:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</span>
+                  <div className="flex justify-between items-center p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-300/70 text-indigo-950 dark:text-indigo-200">
+                    <span className="font-bold flex items-center gap-1.5"><Wifi className="h-3.5 w-3.5 text-indigo-500" /> Internet:</span>
+                    <span className="font-extrabold font-mono text-indigo-600 dark:text-indigo-400">{Number(building.internet_price ?? 100000).toLocaleString('vi-VN')}đ/phòng</span>
                   </div>
-                  <div className="flex justify-between p-2.5 border-b border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-500 font-medium">Dịch vụ chung:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</span>
+                  <div className="flex justify-between items-center p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-300/70 text-emerald-950 dark:text-emerald-200">
+                    <span className="font-bold flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-emerald-500" /> Dịch vụ chung:</span>
+                    <span className="font-extrabold font-mono text-emerald-600 dark:text-emerald-400">{Number(building.common_service_price ?? 200000).toLocaleString('vi-VN')}đ/người</span>
                   </div>
-                  <div className="flex justify-between p-2.5">
-                    <span className="text-slate-500 font-medium">Phí sạc xe điện:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100 font-mono">{Number(building.electric_vehicle_fee ?? 0).toLocaleString('vi-VN')}đ/xe</span>
-                  </div>
+                  {Number(building.electric_vehicle_fee ?? 0) > 0 && (
+                    <div className="flex justify-between items-center p-2.5 rounded-xl bg-teal-500/10 border border-teal-300/70 text-teal-950 dark:text-teal-200">
+                      <span className="font-bold flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-teal-500" /> Phí sạc xe điện:</span>
+                      <span className="font-extrabold font-mono text-teal-600 dark:text-teal-400">{Number(building.electric_vehicle_fee).toLocaleString('vi-VN')}đ/xe</span>
+                    </div>
+                  )}
                 </div>
                 {building.common_service_description && (
                   <p className="text-[10px] text-slate-400 leading-tight font-medium">
@@ -532,6 +761,26 @@ export default function BuildingDetailPage() {
                     * Quy định cọc: {building.deposit_terms}
                   </p>
                 )}
+              </div>
+
+              {/* Monthly Cost Estimator Calculator */}
+              <div className="pt-2">
+                <MonthlyCostEstimator
+                  basePrice={rooms && rooms.length > 0 ? Math.min(...rooms.map(r => r.price)) : 5000000}
+                  electricityPrice={Number(building.electricity_price ?? 4000)}
+                  waterPrice={Number(building.water_price ?? 35000)}
+                  internetPrice={Number(building.internet_price ?? 100000)}
+                  commonServicePrice={Number(building.common_service_price ?? 200000)}
+                  electricVehicleFee={Number(building.electric_vehicle_fee ?? 100000)}
+                  title="Ước tính chi phí"
+                  roomOptions={rooms ? rooms.map(r => ({
+                    id: r.id,
+                    code: r.title.includes('—') ? r.title.split('—')[1]?.trim() : r.title,
+                    price: r.price,
+                    floor: r.floor,
+                    roomType: r.roomType,
+                  })) : []}
+                />
               </div>
 
               {/* Contact Button */}
@@ -573,7 +822,7 @@ export default function BuildingDetailPage() {
                   </div>
                   <div className="px-3 py-2 bg-card flex items-center gap-1.5 text-xs text-ink-muted border-t border-border-subtle">
                     <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-accent" />
-                    <span className="truncate">{building.address}</span>
+                    <span className="truncate">{maskHouseNumberInBuildingName(building.address)}</span>
                   </div>
                 </div>
               </div>
@@ -586,7 +835,7 @@ export default function BuildingDetailPage() {
               <DialogHeader className="px-6 pt-5 pb-3">
                 <DialogTitle className="flex items-center gap-2 font-heading">
                   <MapPin className="h-5 w-5 text-accent" />
-                  Vị trí bất động sản
+                  {maskHouseNumberInBuildingName(building.address)}
                 </DialogTitle>
                 <p className="text-sm text-ink-muted mt-0.5">{building.address}</p>
               </DialogHeader>

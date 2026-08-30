@@ -8,9 +8,11 @@ import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { maskHouseNumberInBuildingName, formatVnPriceRange } from '@/lib/utils';
 import type { CustomerListing } from '@/lib/customer/types';
-import { Calendar, Phone, Cat, FileText, Eye } from 'lucide-react';
+import { Calendar, Phone, Cat, FileText, Eye, Link as LinkIcon, CheckCheck, ShieldCheck, Layers, Zap, Globe, Ban, Sparkles } from 'lucide-react';
 import KYCBadge from '@/components/kyc/KYCBadge';
 import { formatDateDisplay } from '@/lib/room-status';
+import { useState } from 'react';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export interface BuildingGroup {
   buildingId: string;
@@ -57,11 +59,37 @@ export function BuildingCard({
   canComposeDeposit,
   onComposeDeposit,
 }: BuildingCardProps) {
+  const [copyDone, setCopyDone] = useState(false);
+  const { user, profile } = useAuth();
+
+  const handleCopyBuildingLink = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window === 'undefined') return;
+    const baseUrl = `${window.location.origin}/customer/properties/${group.buildingId}`;
+    const saleId = user?.id || profile?.id;
+    const finalUrl = saleId ? `${baseUrl}?ref=${saleId}` : baseUrl;
+    navigator.clipboard.writeText(finalUrl).then(() => {
+      setCopyDone(true);
+      setTimeout(() => setCopyDone(false), 2000);
+    });
+  };
+
   const hasAvailable = group.availableRoomCodes.length > 0;
   const priceLabel = formatVnPriceRange(group.minPrice, group.maxPrice);
 
-  const allowPet = group.allowPet ?? group.rooms?.some((r) => r.allowPet);
+  const petVal = (group.allowPet ?? group.representativeRoom?.allowPet ?? group.rooms?.some((r) => r.allowPet)) as any;
+  const isPetAllowed = petVal === true || petVal === 'true' || (typeof petVal === 'string' && petVal !== 'Không' && petVal !== 'false');
+  const isPetDisallowed = petVal === false || petVal === 'false' || petVal === 'Không';
+
+  const evVal = group.representativeRoom?.allowVinfastElectric;
+  const isEvDisallowed = evVal === false;
+
   const isVerified = Boolean(group.isVerifiedProperty || group.representativeRoom?.isVerifiedProperty);
+
+  // Extract room types for Tag
+  const roomTypesList = Array.from(new Set(group.rooms?.map((r) => r.roomType).filter(Boolean))) as string[];
+  const roomTypeTagText = roomTypesList.length > 0 ? roomTypesList.slice(0, 2).join(' • ') : (group.representativeRoom?.roomType || 'Căn hộ');
 
   return (
     <Link
@@ -70,8 +98,8 @@ export function BuildingCard({
     >
       <div className="relative" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
         <ImageGallery items={group.allImages} alt={group.buildingName} />
-        
-        {/* KYC Badge & Pet Badge */}
+
+        {/* Top Badges: KYC Badge & Pet Badge */}
         <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-1 pointer-events-none">
           <KYCBadge
             type="property"
@@ -80,12 +108,13 @@ export function BuildingCard({
             systemName={group.landlordSystemName || group.representativeRoom?.landlordSystemName}
             name={group.landlordName || group.representativeRoom?.landlordName}
           />
+        </div>
 
-          {allowPet && (
-            <Badge className="bg-emerald-600 text-white font-medium text-[11px] gap-1 shadow-md">
-              <Cat className="h-3 w-3" /> Cho nuôi pet
-            </Badge>
-          )}
+        {/* Tag Loại phòng: Nền xám mờ + Chữ màu Cam RealHome */}
+        <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
+          <Badge className="bg-slate-900/85 backdrop-blur-md text-amber-400 border border-amber-500/40 text-[11px] font-extrabold px-2.5 py-1 rounded-xl shadow-lg flex items-center gap-1.5">
+            <span>🏠 {roomTypeTagText}</span>
+          </Badge>
         </div>
       </div>
 
@@ -135,6 +164,40 @@ export function BuildingCard({
           )}
         </div>
 
+        {/* Highlights Bar: Tiện ích, Nội thất & Quy định (đặc biệt là 🚫 Cấm pet, 🚫 Cấm xe điện) */}
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+          {group.representativeRoom?.pcccCertified !== false && (
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-emerald-600" /> PCCC
+            </span>
+          )}
+          {group.representativeRoom?.hasElevator !== false && (
+            <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
+              <Layers className="h-3 w-3 text-blue-600" /> Thang máy
+            </span>
+          )}
+          {isPetAllowed && (
+            <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+              <Cat className="h-3 w-3 text-emerald-600" /> Cho pet
+            </span>
+          )}
+          {isPetDisallowed && (
+            <span className="px-2 py-0.5 rounded-md bg-red-500/15 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-800 flex items-center gap-1">
+              <Ban className="h-3 w-3 text-red-600" /> Cấm nuôi pet
+            </span>
+          )}
+          {isEvDisallowed && (
+            <span className="px-2 py-0.5 rounded-md bg-red-500/15 text-red-800 dark:text-red-300 border border-red-300 dark:border-red-800 flex items-center gap-1">
+              <Ban className="h-3 w-3 text-red-600" /> Cấm xe điện
+            </span>
+          )}
+          {!isEvDisallowed && group.representativeRoom?.allowVinfastElectric !== false && (
+            <span className="px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
+              <Zap className="h-3 w-3 text-teal-600" /> Sạc xe điện
+            </span>
+          )}
+        </div>
+
         {/* Giá */}
         <div className="flex items-baseline justify-between pt-1">
           <p className="text-lg sm:text-xl font-extrabold text-amber-500 dark:text-amber-400 font-mono">
@@ -160,6 +223,20 @@ export function BuildingCard({
             </Button>
           )}
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={`h-9 px-2.5 text-xs rounded-xl font-bold transition-all ${copyDone
+                  ? 'border-emerald-400 text-emerald-700 bg-emerald-50'
+                  : 'border-indigo-200 text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 hover:border-indigo-300'
+                }`}
+              onClick={handleCopyBuildingLink}
+              title="Copy link xem tòa nhà gửi cho khách"
+            >
+              {copyDone ? <CheckCheck className="h-3.5 w-3.5 mr-1" /> : <LinkIcon className="h-3.5 w-3.5 mr-1" />}
+              <span>{copyDone ? 'Đã copy' : 'Copy Link'}</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"

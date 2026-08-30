@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     const { data: invitation, error } = await supabaseAdmin
       .from('tenant_invitations')
       .select('*')
-      .eq('token_hash', tokenHash)
+      .or(`token.eq.${token},token.eq.${tokenHash}`)
       .maybeSingle();
 
     if (error || !invitation) {
@@ -28,14 +28,16 @@ export async function GET(request: Request) {
     }
 
     // 3. Kiểm tra xem token đã được sử dụng chưa
-    if (invitation.used_at !== null) {
+    if (invitation.status === 'used' || (invitation as any).used_at) {
       return NextResponse.json({ error: 'Token này đã được sử dụng trước đó' }, { status: 400 });
     }
 
     // 4. Kiểm tra xem token đã hết hạn chưa
-    const expiresAt = new Date(invitation.expires_at);
-    if (expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Token đã hết hiệu lực (quá hạn 48 giờ)' }, { status: 400 });
+    if (invitation.expires_at) {
+      const expiresAt = new Date(invitation.expires_at);
+      if (expiresAt < new Date()) {
+        return NextResponse.json({ error: 'Token đã hết hiệu lực (quá hạn 48 giờ)' }, { status: 400 });
+      }
     }
 
     // 5. Trả về thông tin hợp lệ

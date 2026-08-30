@@ -46,6 +46,11 @@ export interface CustomerListing {
   latitude?: number | null;
   longitude?: number | null;
   createdAt?: string | null;
+  electricityPrice?: number;
+  waterPrice?: number;
+  internetPrice?: number;
+  commonServicePrice?: number;
+  electricVehicleFee?: number;
   availableDate?: string | null;
   isVerifiedProperty?: boolean;
   landlordSystemName?: string | null;

@@ -35,7 +35,13 @@ function LocationMarker({ position, setPosition }: { position: [number, number] 
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, map.getZoom());
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      if (center) {
+        map.setView(center, map.getZoom());
+      }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [center, map]);
   return null;
 }
@@ -120,8 +126,8 @@ export default function LocationPicker({ latitude, longitude, onChange }: Locati
           style={{ height: '100%', width: '100%', zIndex: 0 }}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
           />
           {position && <MapUpdater center={position} />}
           <LocationMarker position={position} setPosition={(pos) => onChange(pos[0], pos[1])} />

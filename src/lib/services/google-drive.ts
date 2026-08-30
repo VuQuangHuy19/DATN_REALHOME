@@ -345,7 +345,7 @@ export async function syncGoogleDriveImagesForProperty(
   // Các file chưa có trong DB -> chèn ngay làm link tạm thời
   const initialPayloads: any[] = [];
   filesToProcess.forEach((f, index) => {
-    const driveStreamUrl = `https://drive.google.com/uc?export=download&id=${f.id}`;
+    const driveStreamUrl = `https://lh3.googleusercontent.com/d/${f.id}`;
     if (!existingUrls.has(driveStreamUrl)) {
       initialPayloads.push({
         room_id: roomId,

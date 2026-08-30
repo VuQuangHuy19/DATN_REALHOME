@@ -79,6 +79,13 @@ export const formatDateDisplay = (dateStr: string | null): string => {
   return dateStr;
 };
 
+// Helper format room code cleanly (prevent P.P.202 -> P.202)
+export const formatRoomCode = (code?: string): string => {
+  if (!code) return 'P.—';
+  const clean = String(code).trim().replace(/^(P\.?)+/gi, '');
+  return `P.${clean}`;
+};
+
 export interface RoomDisplayStatus {
   status: string;
   label: string;
