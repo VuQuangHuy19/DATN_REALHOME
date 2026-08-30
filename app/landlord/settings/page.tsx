@@ -136,7 +136,7 @@ export default function LandlordSettingsPage() {
                     )}
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Tự động tính chỉ số điện nước &amp; lập hóa đơn thu tiền phòng hàng tháng. Bật/Tắt sẽ hiện/ẩn mục "Hóa đơn &amp; Dịch vụ" trên Sidebar.
+                    Tự động tính chỉ số điện nước &amp; lập hóa đơn thu tiền phòng hàng tháng. Bật/Tắt sẽ hiện/ẩn mục &quot;Hóa đơn &amp; Dịch vụ&quot; trên Sidebar.
                   </p>
                 </div>
                 <Switch
@@ -239,7 +239,7 @@ export default function LandlordSettingsPage() {
                   )}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Hiển thị phân hệ "Bảo trì &amp; Sự cố" trên thanh điều hướng Sidebar khi bạn có nhu cầu tiếp nhận ticket hỏng hóc từ cư dân.
+                  Hiển thị phân hệ &quot;Bảo trì &amp; Sự cố&quot; trên thanh điều hướng Sidebar khi bạn có nhu cầu tiếp nhận ticket hỏng hóc từ cư dân.
                 </p>
               </div>
               <Switch
