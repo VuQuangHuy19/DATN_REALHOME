@@ -579,8 +579,8 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
   const totalClosedDeals = activeStandaloneDeposits.length + validRentals.length;
   const totalApptsCount = allAppointmentsList.length;
 
-  const leadToClosedConversionRate = totalLeadsCount > 0 ? Math.round((totalClosedDeals / totalLeadsCount) * 100) : 0;
-  const apptToClosedConversionRate = totalApptsCount > 0 ? Math.round((totalClosedDeals / totalApptsCount) * 100) : 0;
+  const leadToClosedConversionRate = totalLeadsCount > 0 ? Math.min(100, Math.round((totalClosedDeals / totalLeadsCount) * 100)) : 0;
+  const apptToClosedConversionRate = totalApptsCount > 0 ? Math.min(100, Math.round((totalClosedDeals / totalApptsCount) * 100)) : 0;
 
   // Appointments filterable stats by day, week, month
   const todayApptsCount = allAppointmentsList.filter((a: any) => a.date === todayStr).length;
@@ -930,8 +930,8 @@ export async function getSalesDashboardStats(companyId: string, saleId: string, 
   const totalLeadsCount = leadsData.length;
   const totalApptsCount = appointmentsData.length;
 
-  const conversionRateApptToClosed = totalApptsCount > 0 ? Math.round((dynamicSuccessfulDeals / totalApptsCount) * 100) : 0;
-  const conversionRateLeadToClosed = totalLeadsCount > 0 ? Math.round((dynamicSuccessfulDeals / totalLeadsCount) * 100) : 0;
+  const conversionRateApptToClosed = totalApptsCount > 0 ? Math.min(100, Math.round((dynamicSuccessfulDeals / totalApptsCount) * 100)) : 0;
+  const conversionRateLeadToClosed = totalLeadsCount > 0 ? Math.min(100, Math.round((dynamicSuccessfulDeals / totalLeadsCount) * 100)) : 0;
 
   const funnelData = [
     { stage: 'Khách hàng (Leads)', count: totalLeadsCount, fill: '#3b82f6' },
