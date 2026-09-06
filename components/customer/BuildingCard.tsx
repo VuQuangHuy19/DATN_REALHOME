@@ -110,9 +110,9 @@ export function BuildingCard({
           />
         </div>
 
-        {/* Tag Loại phòng: Nền xám mờ + Chữ màu Cam RealHome */}
+        {/* Tag Loại phòng: Nền đen tối đậm + Chữ vàng Cam nổi bật */}
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-          <Badge className="bg-slate-900/85 backdrop-blur-md text-amber-400 border border-amber-500/40 text-[11px] font-extrabold px-2.5 py-1 rounded-xl shadow-lg flex items-center gap-1.5">
+          <Badge className="bg-slate-950/95 text-amber-300 border border-amber-400/80 text-xs font-black px-2.5 py-1 rounded-xl shadow-xl flex items-center gap-1.5">
             <span>🏠 {roomTypeTagText}</span>
           </Badge>
         </div>

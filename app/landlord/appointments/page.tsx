@@ -409,17 +409,17 @@ export default function LandlordAppointmentsPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted pointer-events-none" />
             <Input
               placeholder="Tìm tên khách hàng, SĐT, căn hộ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8.5 h-9 rounded-xl border-border text-xs focus:ring-emerald-500 bg-white"
+              className="pl-9 h-9 rounded-xl border-border text-xs focus:ring-emerald-500 bg-white"
             />
           </div>
 
           {/* Date Inputs (Từ ngày -> Đến ngày) */}
-          <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200 shrink-0">
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200 shrink-0">
             <span className="text-[10.5px] font-bold text-slate-500 uppercase px-1 shrink-0">Lịch:</span>
             <Input
               type="date"
@@ -428,7 +428,7 @@ export default function LandlordAppointmentsPage() {
                 setFromDate(e.target.value);
                 setDatePreset('custom');
               }}
-              className="h-7.5 text-xs bg-white border-border rounded-lg w-28 font-mono px-1.5"
+              className="h-8 text-xs bg-white border-border rounded-lg w-[138px] font-mono px-2 cursor-pointer shadow-2xs focus:ring-1 focus:ring-emerald-500"
             />
             <span className="text-xs font-bold text-slate-400">➔</span>
             <Input
@@ -438,7 +438,7 @@ export default function LandlordAppointmentsPage() {
                 setToDate(e.target.value);
                 setDatePreset('custom');
               }}
-              className="h-7.5 text-xs bg-white border-border rounded-lg w-28 font-mono px-1.5"
+              className="h-8 text-xs bg-white border-border rounded-lg w-[138px] font-mono px-2 cursor-pointer shadow-2xs focus:ring-1 focus:ring-emerald-500"
             />
             {(fromDate || toDate) && (
               <button

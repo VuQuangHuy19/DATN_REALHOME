@@ -49,6 +49,7 @@ import {
 import { DepositContractsTable } from './contracts/DepositContractsTable';
 import { RentalContractsTable } from './contracts/RentalContractsTable';
 import { ArchivedContractsTable } from './contracts/ArchivedContractsTable';
+import { UpdateCommissionDialog } from './contracts/UpdateCommissionDialog';
 
 const formatDateDisplay = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
@@ -144,6 +145,17 @@ export function ContractsPage() {
   const [isHandoverOpen, setIsHandoverOpen] = useState(false);
   const [handoverContract, setHandoverContract] = useState<any | null>(null);
   const [handoverSourceType, setHandoverSourceType] = useState<'deposit' | 'rental'>('deposit');
+
+  const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false);
+  const [commissionTargetType, setCommissionTargetType] = useState<'deposit' | 'rental'>('rental');
+  const [commissionTargetContract, setCommissionTargetContract] = useState<any | null>(null);
+
+  const handleOpenCommissionModal = (type: 'deposit' | 'rental', contract: any) => {
+    setCommissionTargetType(type);
+    setCommissionTargetContract(contract);
+    setIsCommissionModalOpen(true);
+  };
+
   const error = depositsError || rentalsError || templatesError;
 
   // Handlers
@@ -863,6 +875,7 @@ export function ContractsPage() {
           setHandoverContract={setHandoverContract}
           setHandoverSourceType={setHandoverSourceType}
           setIsHandoverOpen={setIsHandoverOpen}
+          onOpenCommissionModal={handleOpenCommissionModal}
         />
       ) : activeTab === 'rentals' ? (
         <RentalContractsTable
@@ -880,6 +893,7 @@ export function ContractsPage() {
           setHandoverContract={setHandoverContract}
           setHandoverSourceType={setHandoverSourceType}
           setIsHandoverOpen={setIsHandoverOpen}
+          onOpenCommissionModal={handleOpenCommissionModal}
         />
       ) : activeTab === 'archived' ? (
         <ArchivedContractsTable
@@ -1643,6 +1657,18 @@ export function ContractsPage() {
         sourceType={handoverSourceType}
         isOpen={isHandoverOpen}
         onOpenChange={setIsHandoverOpen}
+        onSuccess={() => {
+          refetchDeposits();
+          refetchRentals();
+        }}
+      />
+
+      {/* Dialog Cập nhật hoa hồng công ty */}
+      <UpdateCommissionDialog
+        isOpen={isCommissionModalOpen}
+        onClose={() => setIsCommissionModalOpen(false)}
+        type={commissionTargetType}
+        contract={commissionTargetContract}
         onSuccess={() => {
           refetchDeposits();
           refetchRentals();

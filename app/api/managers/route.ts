@@ -18,9 +18,46 @@ function parseCookie(cookieString: string, key: string): string | null {
 
 async function authenticate(request: Request) {
   const cookieHeader = request.headers.get('cookie') || '';
-  const token = parseCookie(cookieHeader, 'auth_token');
-  if (!token) return null;
-  return verifyJWT(token);
+  const tokenFromCookie = parseCookie(cookieHeader, 'auth_token');
+  if (tokenFromCookie) {
+    const user = await verifyJWT(tokenFromCookie);
+    if (user) return user;
+  }
+
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const bearerToken = authHeader.substring(7);
+    return verifyJWT(bearerToken);
+  }
+
+  return null;
+}
+
+/** GET /api/managers?companyId=xxx  — Lấy danh sách quản lý */
+export async function GET(request: Request) {
+  try {
+    const payload = await authenticate(request);
+    if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const companyId = searchParams.get('companyId');
+    const landlordId = searchParams.get('landlordId');
+
+    let query = supabaseAdmin
+      .from('managers')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (companyId) query = query.eq('company_id', companyId);
+    if (landlordId) query = query.eq('landlord_id', landlordId);
+
+    const { data: managersData, error } = await query;
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    return NextResponse.json({ data: managersData ?? [] });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
 }
 
 /** POST /api/managers  — Tạo quản lý mới và gửi email kích hoạt nếu có email */
@@ -30,7 +67,13 @@ export async function POST(request: Request) {
     if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { created_by, updated_by, ...insertData } = body;
+    const { created_by, updated_by, ...rawInsertData } = body;
+
+    const insertData = { ...rawInsertData };
+    if (!insertData.company_id || insertData.company_id === '') delete insertData.company_id;
+    if (!insertData.landlord_id || insertData.landlord_id === '') delete insertData.landlord_id;
+    if (!insertData.phone || insertData.phone === '') insertData.phone = null;
+    if (!insertData.email || insertData.email === '') insertData.email = null;
 
     // 0. Nếu có landlord_id, tạo mã code cho quản lý (landlord_code - x)
     if (insertData.landlord_id) {
@@ -185,9 +228,15 @@ export async function PUT(request: Request) {
     if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await request.json();
-    const { id, created_by, updated_by, ...updateData } = body;
+    const { id, created_by, updated_by, ...rawUpdateData } = body;
 
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+
+    const updateData = { ...rawUpdateData };
+    if (!updateData.company_id || updateData.company_id === '') delete updateData.company_id;
+    if (!updateData.landlord_id || updateData.landlord_id === '') delete updateData.landlord_id;
+    if (!updateData.phone || updateData.phone === '') updateData.phone = null;
+    if (!updateData.email || updateData.email === '') updateData.email = null;
 
     const { data: manager, error: managerError } = await supabaseAdmin
       .from('managers')
@@ -301,6 +350,47 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ data: manager, inviteLink, emailSent, emailError }, { status: 200 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}
+
+/** DELETE /api/managers?id=xxx  — Xóa quản lý */
+export async function DELETE(request: Request) {
+  try {
+    const payload = await authenticate(request);
+    if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) return NextResponse.json({ error: 'Missing manager ID' }, { status: 400 });
+
+    // 1. Xóa khỏi building_managers
+    await supabaseAdmin.from('building_managers').delete().eq('manager_id', id);
+
+    // 2. Cập nhật manager_ids trong các tòa nhà
+    const { data: affectedBuildings } = await supabaseAdmin
+      .from('buildings')
+      .select('id, manager_ids')
+      .contains('manager_ids', [id]);
+
+    if (affectedBuildings && affectedBuildings.length > 0) {
+      for (const b of affectedBuildings) {
+        const newManagerIds = (b.manager_ids || []).filter((mId: string) => mId !== id);
+        await supabaseAdmin.from('buildings').update({ manager_ids: newManagerIds }).eq('id', b.id);
+      }
+    }
+
+    // 3. Xóa manager record bằng supabaseAdmin (bỏ qua RLS client)
+    const { error } = await supabaseAdmin
+      .from('managers')
+      .delete()
+      .eq('id', id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

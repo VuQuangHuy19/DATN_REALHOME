@@ -5,6 +5,7 @@ import { extractGoogleSheetId, ParsedBuilding, detectHanoiDistrict } from '@/fea
 import { syncGoogleDriveImagesForProperty, syncGoogleDriveImagesForBuilding } from '@/lib/services/google-drive';
 import { parseRoomType } from '@/lib/constants/roomTypes';
 import { detectDryerFeature } from '@/lib/utils/dryer-parser';
+import { formatNotesWithSystemHeader } from '@/lib/utils/note-formatter';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -57,13 +58,18 @@ export async function POST(req: Request) {
 
     const matchedDbBuildingIds = new Set<string>();
 
-    // Lấy toàn bộ danh sách chủ nhà để map (ID / Code) -> Code chính xác (TH01, TH02...)
+    // Lấy toàn bộ danh sách chủ nhà để map (ID / Code) -> Code chính xác (TH01, TH02...) và UUID chính xác
     const { data: allLandlords } = await supabaseAdmin.from('landlords').select('id, code');
     const landlordKeyToCodeMap = new Map<string, string>();
+    const landlordKeyToUuidMap = new Map<string, string>();
     (allLandlords || []).forEach((l: any) => {
-      if (l.code) {
-        landlordKeyToCodeMap.set(l.code.toLowerCase(), l.code);
-        if (l.id) landlordKeyToCodeMap.set(l.id.toLowerCase(), l.code);
+      if (l.id) {
+        landlordKeyToUuidMap.set(l.id.toLowerCase(), l.id);
+        if (l.code) {
+          landlordKeyToCodeMap.set(l.code.toLowerCase(), l.code);
+          landlordKeyToCodeMap.set(l.id.toLowerCase(), l.code);
+          landlordKeyToUuidMap.set(l.code.toLowerCase(), l.id);
+        }
       }
     });
 
@@ -73,18 +79,40 @@ export async function POST(req: Request) {
       return landlordKeyToCodeMap.get(clean) || rawId;
     };
 
+    const resolveLandlordUuid = (rawId: string | null | undefined): string | null => {
+      if (!rawId) return null;
+      const clean = String(rawId).trim().toLowerCase();
+      return landlordKeyToUuidMap.get(clean) || (clean.length === 36 ? rawId : null);
+    };
+
+    const cleanPhoneNumber = (phoneStr: string | null | undefined): string | null => {
+      if (!phoneStr) return null;
+      let clean = String(phoneStr).replace(/[^\d]/g, '');
+      if (!clean) return null;
+      while (clean.startsWith('00')) {
+        clean = clean.slice(1);
+      }
+      if (clean.length === 9 && !clean.startsWith('0')) {
+        clean = '0' + clean;
+      }
+      return clean;
+    };
+
     // Trích xuất Code và ID của chủ nhà (nếu có landlord_id) để khớp tòa nhà chính xác
     const validLandlordKeys = new Set<string>();
-    let resolvedLandlordUuid: string | null = resolveLandlordId(landlord_id);
+    let resolvedLandlordCode: string | null = resolveLandlordId(landlord_id);
+    let resolvedLandlordUuid: string | null = resolveLandlordUuid(landlord_id);
     if (landlord_id) {
       const cleanLId = String(landlord_id).trim().toLowerCase();
       validLandlordKeys.add(cleanLId);
+      if (resolvedLandlordCode) validLandlordKeys.add(resolvedLandlordCode.toLowerCase());
       if (resolvedLandlordUuid) validLandlordKeys.add(resolvedLandlordUuid.toLowerCase());
       (allLandlords || []).forEach((l: any) => {
         if (
           (l.id && l.id.toLowerCase() === cleanLId) ||
           (l.code && l.code.toLowerCase() === cleanLId) ||
-          (resolvedLandlordUuid && l.code && l.code.toLowerCase() === resolvedLandlordUuid.toLowerCase())
+          (resolvedLandlordCode && l.code && l.code.toLowerCase() === resolvedLandlordCode.toLowerCase()) ||
+          (resolvedLandlordUuid && l.id && l.id.toLowerCase() === resolvedLandlordUuid.toLowerCase())
         ) {
           if (l.id) validLandlordKeys.add(l.id.toLowerCase());
           if (l.code) validLandlordKeys.add(l.code.toLowerCase());
@@ -150,7 +178,7 @@ export async function POST(req: Request) {
         const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         buildingCode = `${prefix}${rand}`;
 
-        let buildingDesc = bData.general_notes || null;
+        let buildingDesc = formatNotesWithSystemHeader(null, bData.general_notes);
         if (bData.drive_media_url) {
           buildingDesc = buildingDesc ? `${buildingDesc}\nLink ảnh: ${bData.drive_media_url}` : `Link ảnh: ${bData.drive_media_url}`;
         }
@@ -212,6 +240,7 @@ export async function POST(req: Request) {
         const bNotesCombined = [bData.general_notes, ...bData.rooms.map(r => r.description)].filter(Boolean).join(' | ');
         const detectedDryer = detectDryerFeature(bNotesCombined);
         const dryerTypeVal = detectedDryer.hasDryer ? (detectedDryer.label || 'có máy sấy') : undefined;
+        const updatedBuildingDesc = formatNotesWithSystemHeader(existingBuilding.description, bData.general_notes);
 
         // Cập nhật tòa nhà sẵn có (Không bao giờ ghi đè landlord_id của chủ nhà khác)
         await supabaseAdmin
@@ -221,7 +250,7 @@ export async function POST(req: Request) {
             address: address,
             area: area,
             total_rooms: bData.rooms.length,
-            description: bData.general_notes || undefined,
+            description: updatedBuildingDesc || undefined,
             external_sync_id: sheet_url,
             landlord_id: targetBuildingLandlordId,
             ...(dryerTypeVal ? { dryer_type: dryerTypeVal } : {}),
@@ -244,7 +273,7 @@ export async function POST(req: Request) {
         for (const entry of managerEntries) {
           const [mName, mPhoneRaw] = entry.split('|');
           const name = (mName || '').trim();
-          const phone = (mPhoneRaw || '').replace(/[^\d]/g, '').slice(0, 11);
+          const phone = cleanPhoneNumber(mPhoneRaw) || '';
           
           if (!name || name.length < 2) continue;
 
@@ -255,7 +284,7 @@ export async function POST(req: Request) {
               .select('phone')
               .or(`id.eq.${landlord_id},code.eq.${landlord_id}`)
               .maybeSingle();
-            const lPhone = targetL?.phone ? targetL.phone.replace(/[^\d]/g, '') : null;
+            const lPhone = cleanPhoneNumber(targetL?.phone);
             if (lPhone && phone === lPhone) {
               console.log(`[Import] SĐT ${phone} trùng với Chủ nhà ${landlord_id} -> Bỏ qua tạo Manager cho Chủ nhà.`);
               continue;
@@ -309,9 +338,9 @@ export async function POST(req: Request) {
           }
           
           let mId = existingMgr?.id;
-          
+          const targetLandlordIdVal = resolvedLandlordUuid || (landlord_id && landlord_id.length === 36 ? landlord_id : null);
+
           if (!mId) {
-            const targetLandlordIdVal = resolvedLandlordUuid || landlord_id || null;
             const mCode = `MGR-${actualName.toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9]/g, '').slice(0, 8)}-${(phone || '0000').slice(-4)}`;
             const { data: newMgr, error: mErr } = await supabaseAdmin
               .from('managers')
@@ -328,17 +357,19 @@ export async function POST(req: Request) {
             
             if (!mErr && newMgr) {
               mId = newMgr.id;
-              console.log(`[Import] Tạo Quản lý tòa: "${actualName}" (${phone}) → giám sát bởi landlord ${targetLandlordIdVal}`);
+              console.log(`[Import] Tạo Quản lý tòa: "${actualName}" (${phone}) → giám sát bởi landlord UUID ${targetLandlordIdVal}`);
             } else {
               console.warn(`[Import] Không thể tạo quản lý "${actualName}":`, mErr?.message);
             }
           } else {
-            // Manager đã có - nếu chưa có landlord_id thì gán vào
-            const targetLandlordIdVal = resolvedLandlordUuid || landlord_id || null;
-            if (!existingMgr.landlord_id && targetLandlordIdVal) {
+            // Manager đã có - nếu chưa có landlord_id hoặc phone bị trùng 00 thì cập nhật
+            if ((!existingMgr.landlord_id && targetLandlordIdVal) || (phone && existingMgr.phone !== phone)) {
               await supabaseAdmin
                 .from('managers')
-                .update({ landlord_id: targetLandlordIdVal, phone: existingMgr.phone || phone || null })
+                .update({ 
+                  ...(targetLandlordIdVal ? { landlord_id: targetLandlordIdVal } : {}),
+                  phone: phone || existingMgr.phone || null 
+                })
                 .eq('id', existingMgr.id);
             }
           }
@@ -431,9 +462,9 @@ export async function POST(req: Request) {
         const existingRoom = dbRooms.find((r: any) => normalizeRoomCode(r.code) === normCode);
 
         const roomDriveMediaUrl = rData.drive_media_url || null; // Chỉ lấy link riêng của phòng
-        let roomDesc = rData.description || bData.general_notes || null;
+        let baseRoomDesc = rData.description || null;
         if (roomDriveMediaUrl) {
-          roomDesc = roomDesc ? `${roomDesc}\nLink ảnh: ${roomDriveMediaUrl}` : `Link ảnh: ${roomDriveMediaUrl}`;
+          baseRoomDesc = baseRoomDesc ? `${baseRoomDesc}\nLink ảnh: ${roomDriveMediaUrl}` : `Link ảnh: ${roomDriveMediaUrl}`;
         }
 
         // Kiểm tra xem available_date có phải là ngày tương lai hay không (không lưu ngày trong quá khứ)
@@ -445,15 +476,17 @@ export async function POST(req: Request) {
 
         // Nhúng marker [Sắp trống: YYYY-MM-DD] vào description để getRoomDisplayStatus nhận diện
         if (validAvailableDate && status === 'rented') {
-          const cleanDesc = (roomDesc || '').replace(/\s*\[Sắp trống:\s*\d{4}-\d{2}-\d{2}\]/g, '').trim();
-          roomDesc = cleanDesc ? `${cleanDesc} [Sắp trống: ${validAvailableDate}]` : `[Sắp trống: ${validAvailableDate}]`;
-        } else if (roomDesc) {
+          const cleanDesc = (baseRoomDesc || '').replace(/\s*\[Sắp trống:\s*\d{4}-\d{2}-\d{2}\]/g, '').trim();
+          baseRoomDesc = cleanDesc ? `${cleanDesc} [Sắp trống: ${validAvailableDate}]` : `[Sắp trống: ${validAvailableDate}]`;
+        } else if (baseRoomDesc) {
           // Xóa marker cũ nếu không có ngày sắp trống ở tương lai
-          roomDesc = roomDesc.replace(/\s*\[Sắp trống:\s*\d{4}-\d{2}-\d{2}\]/g, '').trim() || null;
+          baseRoomDesc = baseRoomDesc.replace(/\s*\[Sắp trống:\s*\d{4}-\d{2}-\d{2}\]/g, '').trim() || null;
         }
 
+        // Đồng bộ & nhúng Ghi chú chung của tòa nhà (general_notes) vào từng phòng
         const finalPrice = price > 0 ? price : (existingRoom?.price || 0);
-        const finalDesc = roomDesc || existingRoom?.description || null;
+        const initialDesc = baseRoomDesc || existingRoom?.description || null;
+        const finalDesc = formatNotesWithSystemHeader(initialDesc, bData.general_notes);
 
         const targetRoomLandlordId =
           resolveLandlordId(existingRoom?.landlord_id) ||

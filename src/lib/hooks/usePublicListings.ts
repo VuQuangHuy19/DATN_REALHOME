@@ -7,6 +7,7 @@ import {
   getPublicBuilding,
 } from '@/lib/supabase/repositories/public-listings';
 import type { CustomerListing } from '@/lib/customer/types';
+import { supabase } from '@/lib/supabase/client';
 
 export function usePublicListings(companyId?: string | string[] | null, showAll: boolean = false) {
   const [listings, setListings] = useState<CustomerListing[]>([]);
@@ -20,21 +21,43 @@ export function usePublicListings(companyId?: string | string[] | null, showAll:
       return;
     }
 
-    setLoading(true);
-    setError(null);
     try {
-      setListings(await getPublicListings(companyId, showAll));
+      const data = await getPublicListings(companyId, showAll);
+      setListings(data);
     } catch (e: any) {
       setError(e.message);
       setListings([]);
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(companyId), showAll]);
 
   useEffect(() => {
     refetch();
+
+    const channel = supabase
+      .channel(`public-listings-realtime:${Math.random().toString(36).substring(2, 9)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rooms' },
+        () => {
+          console.log('[Realtime] Rooms updated, refetching public listings...');
+          refetch();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'buildings' },
+        () => {
+          console.log('[Realtime] Buildings updated, refetching public listings...');
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [refetch]);
 
   return { listings, loading, error, refetch };
@@ -135,8 +158,25 @@ export function usePublicListingsByBuilding(buildingId?: string, showAll: boolea
 
   useEffect(() => {
     refetch();
-  }, [refetch]);
+
+    if (!buildingId) return;
+
+    const channel = supabase
+      .channel(`public-building-rooms-${buildingId}:${Math.random().toString(36).substring(2, 9)}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rooms' },
+        () => {
+          console.log(`[Realtime] Rooms changed for building ${buildingId}, refetching...`);
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch, buildingId]);
 
   return { listings, loading, error, refetch };
 }
-

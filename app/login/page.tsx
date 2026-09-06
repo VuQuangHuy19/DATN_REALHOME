@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { translateErrorMessage } from '@/lib/utils/error-translator';
 
 const STORAGE_KEY = 'rh_remembered_username';
 
@@ -35,7 +36,7 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Load saved username on mount
+  // Load saved username & parse URL parameters for expiration/errors
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -44,6 +45,18 @@ export default function LoginPage() {
         setRememberMe(true);
       }
     } catch {}
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const expired = params.get('expired');
+      const err = params.get('error');
+
+      if (expired) {
+        setError(translateErrorMessage(expired.includes('unauthorized') ? 'expired-unauthorized' : expired));
+      } else if (err) {
+        setError(translateErrorMessage(err));
+      }
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,11 +78,8 @@ export default function LoginPage() {
     try {
       const { error: signInError } = await signIn(username, password);
       if (signInError) {
-        setError(
-          signInError.includes('Invalid login credentials')
-            ? 'Tên đăng nhập/email/SĐT hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.'
-            : signInError
-        );
+        const friendlyError = translateErrorMessage(signInError);
+        setError(friendlyError);
         toast.error('Đăng nhập không thành công, vui lòng kiểm tra lại thông tin.');
       } else {
         try {
@@ -81,9 +91,10 @@ export default function LoginPage() {
         } catch {}
         toast.success('Đăng nhập thành công!');
       }
-    } catch {
-      setError('Có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại.');
-      toast.error('Có lỗi hệ thống xảy ra.');
+    } catch (catchedErr: any) {
+      const friendlyError = translateErrorMessage(catchedErr);
+      setError(friendlyError);
+      toast.error(friendlyError);
     } finally {
       setLoading(false);
     }
@@ -233,19 +244,13 @@ export default function LoginPage() {
 
             {/* Remember me + Forgot password */}
             <div className="flex items-center justify-between">
-              <label 
-                onClick={() => setRememberMe(prev => !prev)}
-                className="flex items-center gap-2 cursor-pointer group select-none py-1"
-              >
-                <div
-                  role="checkbox"
-                  aria-checked={rememberMe}
-                  className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${
-                    rememberMe ? 'bg-amber-500 border-amber-500 shadow-sm' : 'bg-white/20 border-white/40 group-hover:border-white/70'
-                  }`}
-                >
-                  {rememberMe && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
-                </div>
+              <label className="flex items-center gap-2 cursor-pointer group select-none py-1">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-white/40 bg-white/20 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+                />
                 <span className="text-xs font-semibold text-slate-200 group-hover:text-white transition-colors">Nhớ tôi</span>
               </label>
 

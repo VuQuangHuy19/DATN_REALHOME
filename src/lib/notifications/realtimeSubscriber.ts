@@ -7,18 +7,20 @@ export function subscribeToUserNotifications(
   if (!userId) return () => {};
 
   const channel = supabase
-    .channel(`user_notifications_${userId}`)
+    .channel(`user_notifications_${userId}_${Math.random().toString(36).substring(2, 7)}`)
     .on(
       'postgres_changes',
       {
         event: 'INSERT',
         schema: 'public',
         table: 'notifications',
-        filter: `recipient_id=eq.${userId}`,
       },
       (payload: any) => {
-        if (payload.new) {
-          onNotificationReceived(payload.new);
+        const newRow = payload.new;
+        if (newRow) {
+          if (!newRow.recipient_id || newRow.recipient_id === userId) {
+            onNotificationReceived(newRow);
+          }
         }
       }
     )

@@ -149,16 +149,16 @@ export default function LandlordSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Card 2: Tự Động Nhắn Zalo ZNS & SMS */}
+        {/* Card 2: Thông Báo Hệ Thống & Nhắc Nhở */}
         <Card className="border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 shadow-sm overflow-hidden flex flex-col justify-between">
           <CardContent className="p-5 sm:p-6 space-y-5">
             <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="font-bold font-heading text-slate-900 dark:text-white text-base flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                Tự Động Nhắn Zalo ZNS &amp; SMS
+                Thông Báo Hệ Thống &amp; Nhắc Nhở
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Gửi tin nhắn tự động nhắc hóa đơn, báo xuất phát &amp; gia hạn hợp đồng.
+                Thông báo chuông nội bộ hệ thống &amp; hỗ trợ tạo mẫu tin nhắn gửi nhanh.
               </p>
             </div>
 
@@ -167,21 +167,21 @@ export default function LandlordSettingsPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
-                      Gửi Zalo ZNS Hóa đơn ngày 25
+                      Thông báo Hóa đơn hàng tháng
                     </span>
                     <Badge className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.2 rounded-md">
-                      Tự động
+                      Hệ thống
                     </Badge>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Gửi Zalo kèm mã VietQR tự động vào ngày 25 hàng tháng.
+                    Thông báo chuông hệ thống &amp; tự tạo mã VietQR động thu tiền nhà hàng tháng.
                   </p>
                 </div>
                 <Switch
                   checked={zaloInvoices}
                   onCheckedChange={(v) => {
                     setZaloInvoices(v);
-                    toast.success(`Đã ${v ? 'BẬT' : 'TẮT'} Gửi Zalo Hóa đơn!`);
+                    toast.success(`Đã ${v ? 'BẬT' : 'TẮT'} Thông báo Hóa đơn!`);
                   }}
                   className="mt-1"
                 />
@@ -190,17 +190,17 @@ export default function LandlordSettingsPage() {
               <div className="border-t border-slate-100 dark:border-slate-800/60 pt-4 flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 block">
-                    Báo Zalo khi Sale xuất phát dẫn khách
+                    Thông báo khi Sale xuất phát dẫn khách
                   </span>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Nhận Zalo ngay cho Chủ nhà khi Sale bấm xuất phát dẫn khách.
+                    Nhận thông báo chuông hệ thống ngay khi Sale bấm xuất phát dẫn khách.
                   </p>
                 </div>
                 <Switch
                   checked={zaloSaleAppointments}
                   onCheckedChange={(v) => {
                     setZaloSaleAppointments(v);
-                    toast.success(`Đã ${v ? 'BẬT' : 'TẮT'} Thông báo Zalo Sale dẫn khách!`);
+                    toast.success(`Đã ${v ? 'BẬT' : 'TẮT'} Thông báo Sale dẫn khách!`);
                   }}
                   className="mt-1"
                 />

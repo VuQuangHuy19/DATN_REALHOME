@@ -1,6 +1,4 @@
-'use client';
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,11 +13,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Pencil, Trash2, Search, FileText, Loader2,
-  Printer, RefreshCw, ClipboardCheck, Eye, MoreHorizontal
+  Printer, RefreshCw, ClipboardCheck, Eye, MoreHorizontal, Percent
 } from 'lucide-react';
 import { getContractTermMonths, calculateCommissionAmount } from '@/features/finance/services/commission';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import Pagination from '@/components/Pagination';
 
 interface RentalContractsTableProps {
   filteredRentals: any[];
@@ -36,6 +35,7 @@ interface RentalContractsTableProps {
   setHandoverContract: (item: any) => void;
   setHandoverSourceType: (type: 'deposit' | 'rental') => void;
   setIsHandoverOpen: (open: boolean) => void;
+  onOpenCommissionModal?: (type: 'deposit' | 'rental', contract: any) => void;
 }
 
 export function RentalContractsTable({
@@ -53,7 +53,19 @@ export function RentalContractsTable({
   setHandoverContract,
   setHandoverSourceType,
   setIsHandoverOpen,
+  onOpenCommissionModal,
 }: RentalContractsTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rentalSearch]);
+
+  const totalPages = Math.ceil(filteredRentals.length / pageSize);
+  const safePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const paginatedRentals = filteredRentals.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   const rentalStatusLabels: Record<string, { label: string; color: string }> = {
     draft: { label: 'Bản nháp', color: 'bg-bg-subtle text-ink-muted border-border' },
     active: { label: 'Hiệu lực', color: 'bg-green-50 text-green-700 border-green-250' },
@@ -65,14 +77,31 @@ export function RentalContractsTable({
   return (
     <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
       <CardHeader className="p-4 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-          <Input 
-            placeholder="Tìm hợp đồng thuê theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
-            value={rentalSearch} 
-            onChange={(e) => setRentalSearch(e.target.value)} 
-            className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
-          />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input 
+                placeholder="Tìm hợp đồng thuê theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
+                value={rentalSearch} 
+                onChange={(e) => setRentalSearch(e.target.value)} 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent text-xs" 
+              />
+            </div>
+            <div className="text-xs text-ink-muted font-medium hidden sm:block whitespace-nowrap">
+              Hiển thị <strong>{filteredRentals.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, filteredRentals.length)}</strong> / <strong>{filteredRentals.length}</strong> hợp đồng thuê
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="shrink-0 self-end md:self-auto">
+              <Pagination
+                currentPage={safePage}
+                totalPages={totalPages}
+                onPageChange={(p) => setCurrentPage(p)}
+              />
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -84,7 +113,7 @@ export function RentalContractsTable({
           <>
             {/* Mobile Card List Hợp Đồng Thuê (Hiện trên mobile < md) */}
             <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
-              {filteredRentals.map((item) => {
+              {paginatedRentals.map((item) => {
                 const statusInfo = rentalStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
                 const agentId = item.sales_agent_id || item.created_by;
                 const saleProfile = agentId ? profilesMap.get(agentId) : null;
@@ -193,7 +222,7 @@ export function RentalContractsTable({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-ink">
-                  {filteredRentals.map((item) => {
+                  {paginatedRentals.map((item) => {
                     const statusInfo = rentalStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
                     return (
                       <tr 
@@ -299,7 +328,23 @@ export function RentalContractsTable({
                               </Link>
                             </Button>
 
-                            {/* 3. More Actions Dropdown Menu (3 Dots) */}
+                            {/* 3. Quick Commission Update Button */}
+                            {onOpenCommissionModal && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenCommissionModal('rental', item);
+                                }}
+                                title="Cập nhật % hoa hồng công ty"
+                              >
+                                <Percent className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            )}
+
+                            {/* 4. More Actions Dropdown Menu (3 Dots) */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" title="Thao tác khác">
@@ -317,6 +362,16 @@ export function RentalContractsTable({
                                   <Eye className="h-4 w-4 text-slate-500" />
                                   <span>Xem chi tiết hợp đồng</span>
                                 </DropdownMenuItem>
+
+                                {onOpenCommissionModal && (
+                                  <DropdownMenuItem 
+                                    className="cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2 text-amber-700 hover:bg-amber-50"
+                                    onClick={() => onOpenCommissionModal('rental', item)}
+                                  >
+                                    <Percent className="h-4 w-4 text-amber-600" />
+                                    <span>Cập nhật % hoa hồng</span>
+                                  </DropdownMenuItem>
+                                )}
 
                                 {role !== 'sales_agent' && role !== 'landlord' && (
                                   <DropdownMenuItem 

@@ -30,12 +30,12 @@ export function FeatureToggleSettingsPage() {
             <span>Tùy Chỉnh Phân Hệ & Bảo Mật Quyền Riêng Tư</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            Cấu Hình Module & Privacy Shield
+            Cấu Hình Dịch Vụ
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
             {isLandlord
               ? 'Bảo vệ thông tin tài chính riêng tư của Chủ nhà. Chủ động bật/tắt các phân hệ ủy thác vận hành theo nhu cầu.'
-              : 'Quản lý tính năng hệ thống, bật/tắt tự động hóa Zalo ZNS và Trợ lý AI Copilot.'}
+              : 'Quản lý tính năng hệ thống, bật/tắt các phân hệ vận hành và thông báo hệ thống.'}
           </p>
         </div>
 
@@ -52,16 +52,6 @@ export function FeatureToggleSettingsPage() {
         </Button>
       </div>
 
-      {/* PRIVACY SHIELD NOTICE */}
-      <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-start gap-3">
-        <ShieldCheck className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-900 dark:text-amber-200 space-y-1">
-          <p className="font-bold text-sm">🛡️ Nguyên tắc Bảo mật Tài chính Chủ nhà (Privacy Shield)</p>
-          <p className="leading-relaxed opacity-90">
-            **Hóa đơn hàng tháng** và **Báo cáo Lợi nhuận P&L** mặc định **TẮT & ẨN HOÀN TOÀN**. Bạn chỉ bật khi có nhu cầu sử dụng ủy thác!
-          </p>
-        </div>
-      </div>
 
       {/* MODULE TOGGLE CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -82,8 +72,8 @@ export function FeatureToggleSettingsPage() {
                 <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <span>Quản lý Hóa đơn & Thu tiền phòng</span>
                   {!toggles.enableInvoices && (
-                    <Badge variant="outline" className="text-[10px] text-slate-500 border-slate-300">
-                      Ẩn khỏi Sàn
+                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50">
+                      Ẩn khỏi Sidebar
                     </Badge>
                   )}
                 </div>
@@ -100,8 +90,13 @@ export function FeatureToggleSettingsPage() {
             <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <div className="space-y-0.5">
                 <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span>Báo cáo Lợi nhuận ròng & Net Profit</span>
+                  <span>Báo cáo Lợi nhuận</span>
                   <Lock className="h-3 w-3 text-amber-500" />
+                  {!toggles.enableProfitReport && (
+                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50">
+                      Ẩn khỏi Sidebar
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Thống kê P&L tài chính riêng tư. Ẩn hoàn toàn với nhân viên Sàn.
@@ -115,78 +110,30 @@ export function FeatureToggleSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* AUTOMATION & ZALO GROUP */}
+        {/* AUTOMATION & NOTIFICATION GROUP */}
         <Card className="border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900">
           <CardHeader className="pb-3 border-b border-slate-100 dark:border-zinc-800">
             <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
               <MessageSquare className="h-5 w-5 text-blue-600" />
-              Tự Động Nhắn Zalo ZNS & SMS
+              Thông Báo Hệ Thống & Nhắc Nhở
             </CardTitle>
             <CardDescription className="text-xs">
-              Gửi tin nhắn tự động nhắc hóa đơn, báo xuất phát & gia hạn hợp đồng.
+              Thông báo chuông nội bộ hệ thống & mẫu nhắn Zalo dẫn khách.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-4 space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span>Gửi Zalo ZNS Hóa đơn ngày 25</span>
-                  <Badge className="bg-blue-600 text-white text-[10px]">Tự động</Badge>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Gửi Zalo kèm mã VietQR động tự động vào ngày 25 hàng tháng.
-                </p>
-              </div>
-              <Switch
-                checked={toggles.enableZaloZns}
-                onCheckedChange={(v) => handleToggle('enableZaloZns', v, 'Tự động Nhắn Zalo ZNS')}
-              />
-            </div>
-
             <div className="flex items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <div className="space-y-0.5">
                 <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span>Báo Zalo khi Sale xuất phát</span>
+                  <span>Thông báo khi Sale xuất phát dẫn khách</span>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Nhắn Zalo ngay cho Chủ nhà khi Sale bấm xuất phát dẫn khách.
+                  Hiển thị thông báo chuông hệ thống & tạo mẫu nhắn Zalo cho Chủ nhà khi Sale bấm xuất phát.
                 </p>
               </div>
               <Switch
                 checked={toggles.enableZaloZns}
-                onCheckedChange={(v) => handleToggle('enableZaloZns', v, 'Thông báo Zalo Dẫn khách')}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AI SMART ASSISTANT GROUP */}
-        <Card className="border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 md:col-span-2">
-          <CardHeader className="pb-3 border-b border-slate-100 dark:border-zinc-800">
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-white">
-              <Bot className="h-5 w-5 text-purple-600" />
-              Trợ Lý RealHome AI
-            </CardTitle>
-            <CardDescription className="text-xs">
-              AI tra cứu phòng trống tự động cho Admin/Chủ nhà & Bot trả lời Wifi, quy định cho cư dân.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                  <span>Trợ Lý AI (Admin & Cư dân)</span>
-                  <Badge variant="outline" className="border-purple-300 text-purple-700 bg-purple-50 text-[10px]">
-                    <Sparkles className="h-3 w-3 mr-1 text-purple-600" /> AI Powered
-                  </Badge>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xl">
-                  Chat tra cứu dữ liệu phòng trống theo khu vực/ngân sách, tự động trả lời thắc mắc cư dân về Wifi, quy định và tiếp nhận Ticket báo sự cố hỏng hóc.
-                </p>
-              </div>
-              <Switch
-                checked={toggles.enableAiCopilot}
-                onCheckedChange={(v) => handleToggle('enableAiCopilot', v, 'Trợ lý AI Copilot')}
+                onCheckedChange={(v) => handleToggle('enableZaloZns', v, 'Thông báo Sale dẫn khách')}
               />
             </div>
           </CardContent>

@@ -28,6 +28,15 @@ export interface ImageGalleryProps {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function getDriveFileId(url: string): string | null {
+  if (!url) return null;
+  const match1 = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match1) return match1[1];
+  const match2 = url.match(/id=([a-zA-Z0-9_-]+)/);
+  if (match2) return match2[1];
+  return null;
+}
+
 function isVideoUrl(url: string): boolean {
   if (!url) return false;
   const cleanUrl = url.toLowerCase().split('?')[0];
@@ -38,7 +47,9 @@ function isVideoUrl(url: string): boolean {
     cleanUrl.endsWith('.m4v') ||
     cleanUrl.endsWith('.mkv') ||
     cleanUrl.endsWith('.avi') ||
-    cleanUrl.endsWith('.3gp')
+    cleanUrl.endsWith('.3gp') ||
+    cleanUrl.endsWith('.hevc') ||
+    cleanUrl.includes('video/')
   );
 }
 
@@ -53,6 +64,105 @@ function cleanDriveUrl(url: string): string {
     if (match) return `https://lh3.googleusercontent.com/d/${match[1]}`;
   }
   return url;
+}
+
+function VideoPlayerItem({
+  url,
+  driveId,
+  videoMode,
+  setVideoMode,
+}: {
+  url: string;
+  driveId: string | null;
+  videoMode: 'html5' | 'drive';
+  setVideoMode: (mode: 'html5' | 'drive') => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  return (
+    <div className="relative max-w-4xl w-full max-h-[85vh] flex flex-col items-center justify-center gap-3">
+      {videoMode === 'drive' && driveId ? (
+        <div className="w-full h-[65vh] max-h-[600px] rounded-xl overflow-hidden border border-white/20 shadow-2xl bg-black">
+          <iframe
+            src={`https://drive.google.com/file/d/${driveId}/preview`}
+            className="w-full h-full border-0"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+          />
+        </div>
+      ) : (
+        <div className="relative max-w-full max-h-[70vh] flex items-center justify-center overflow-hidden rounded-xl group/video">
+          <video
+            ref={videoRef}
+            key={url}
+            controls
+            autoPlay
+            playsInline
+            preload="auto"
+            className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl"
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+            onError={(e) => {
+              console.warn('Video format playback error:', e);
+              if (driveId) setVideoMode('drive');
+            }}
+          >
+            <source src={url} type="video/mp4" />
+            <source src={url} type="video/quicktime" />
+            <source src={url} type="video/mov" />
+            Trình duyệt không hỗ trợ phát trực tiếp định dạng video này.
+          </video>
+
+          {/* Big Centered Amber Play Overlay Button when paused */}
+          {!isPlaying && (
+            <button
+              type="button"
+              onClick={() => {
+                if (videoRef.current) {
+                  videoRef.current.play().catch(() => {});
+                }
+              }}
+              className="absolute inset-0 flex items-center justify-center bg-black/35 hover:bg-black/45 transition-all group/play cursor-pointer z-20"
+              aria-label="Phát video"
+            >
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center shadow-2xl transition-all transform group-hover/play:scale-110 active:scale-95">
+                <Play className="h-8 w-8 sm:h-10 sm:w-10 fill-current ml-1" />
+              </div>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Controls & Mode Switcher */}
+      <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-200 bg-black/75 px-4 py-2 rounded-full border border-white/20 shadow-xl backdrop-blur-md z-20">
+        {driveId && (
+          <button
+            type="button"
+            onClick={() => setVideoMode(videoMode === 'drive' ? 'html5' : 'drive')}
+            className={`px-3 py-1 rounded-full font-extrabold transition-all flex items-center gap-1.5 ${
+              videoMode === 'drive'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}
+          >
+            🎬 {videoMode === 'drive' ? 'Đang phát qua Google Cloud Player' : 'Chuyển qua Google Cloud Player (Xem mượt Chrome)'}
+          </button>
+        )}
+
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-1 rounded-full font-bold bg-white/10 hover:bg-white/20 text-amber-300 hover:text-amber-200 transition-all flex items-center gap-1"
+          download
+        >
+          📥 Tải / Mở video gốc ↗
+        </a>
+      </div>
+    </div>
+  );
 }
 
 /** Normalise mixed input to a consistent GalleryItem[] */
@@ -122,6 +232,7 @@ export default function ImageGallery({
     [brokenUrls],
   );
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [videoMode, setVideoMode] = useState<'html5' | 'drive'>('html5');
 
   const closeLightbox = useCallback(() => {
     setIsLightboxOpen(false);
@@ -464,38 +575,12 @@ export default function ImageGallery({
 
             {/* Media */}
             {items[idx]?.type === 'video' ? (
-              <div className="relative max-w-full max-h-[85vh] flex flex-col items-center justify-center">
-                <video
-                  key={items[idx].url}
-                  controls
-                  autoPlay
-                  playsInline
-                  preload="auto"
-                  className="max-w-full max-h-[75vh] object-contain rounded shadow-xl"
-                  onError={(e) => {
-                    console.warn('Video format playback error:', e);
-                  }}
-                >
-                  <source src={items[idx].url} type="video/mp4" />
-                  <source src={items[idx].url} type="video/quicktime" />
-                  <source src={items[idx].url} type="video/mov" />
-                  Trình duyệt không hỗ trợ phát trực tiếp định dạng video QuickTime MOV này.
-                </video>
-                {items[idx].url.endsWith('.mov') && (
-                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-300 bg-black/60 px-4 py-2 rounded-full border border-white/20">
-                    <span>* Video định dạng iPhone (.MOV / HEVC). Nếu màn hình màu đen trên Chrome:</span>
-                    <a
-                      href={items[idx].url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                      download
-                    >
-                      Tải / Mở video gốc ↗
-                    </a>
-                  </div>
-                )}
-              </div>
+              <VideoPlayerItem
+                url={items[idx].url}
+                driveId={getDriveFileId(items[idx].url)}
+                videoMode={videoMode}
+                setVideoMode={setVideoMode}
+              />
             ) : (
               <div className="relative w-full h-[85vh] flex items-center justify-center p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

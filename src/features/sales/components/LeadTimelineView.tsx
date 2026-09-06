@@ -11,6 +11,7 @@ import {
   CheckCheck, ArrowRight, ChevronRight, Search
 } from 'lucide-react';
 import { usePublicListings } from '@/lib/hooks/usePublicListings';
+import { useAppointments } from '@/lib/hooks/useAppointments';
 import type { CustomerListing } from '@/lib/customer/types';
 import type { DBLead } from '@/lib/supabase/types';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -190,6 +191,7 @@ export function LeadTimelineView({
 }: LeadTimelineViewProps) {
   const { company } = useAuth();
   const { listings } = usePublicListings(company?.id || null, false);
+  const { items: aptList } = useAppointments(company?.id || undefined);
 
   const formatYMD = (d: Date) => {
     const offset = d.getTimezoneOffset();
@@ -197,24 +199,29 @@ export function LeadTimelineView({
   };
 
   const todayStr = useMemo(() => formatYMD(new Date()), []);
-  const default7DaysStr = useMemo(() => {
+  const past7DaysStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return formatYMD(d);
+  }, []);
+  const future7DaysStr = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
     return formatYMD(d);
   }, []);
-  const default30DaysStr = useMemo(() => {
+  const past30DaysStr = useMemo(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 30);
+    d.setDate(d.getDate() - 30);
     return formatYMD(d);
   }, []);
 
-  const [fromDate, setFromDate] = useState<string>(todayStr);
-  const [toDate, setToDate] = useState<string>(default7DaysStr);
+  const [fromDate, setFromDate] = useState<string>(past7DaysStr);
+  const [toDate, setToDate] = useState<string>(future7DaysStr);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const setPreset7Days = () => { setFromDate(todayStr); setToDate(default7DaysStr); };
+  const setPreset7Days = () => { setFromDate(past7DaysStr); setToDate(future7DaysStr); };
   const setPresetToday = () => { setFromDate(todayStr); setToDate(todayStr); };
-  const setPreset30Days = () => { setFromDate(todayStr); setToDate(default30DaysStr); };
+  const setPreset30Days = () => { setFromDate(past30DaysStr); setToDate(future7DaysStr); };
   const setPresetAll = () => { setFromDate(''); setToDate(''); };
 
   // Calculate task priority & date filtering
@@ -267,11 +274,11 @@ export function LeadTimelineView({
             {/* Quick Date Pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <Button
-                variant={fromDate === todayStr && toDate === default7DaysStr ? 'default' : 'outline'}
+                variant={fromDate === past7DaysStr && toDate === future7DaysStr ? 'default' : 'outline'}
                 size="sm"
                 onClick={setPreset7Days}
                 className={`h-8 text-xs font-semibold rounded-xl ${
-                  fromDate === todayStr && toDate === default7DaysStr
+                  fromDate === past7DaysStr && toDate === future7DaysStr
                     ? 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
@@ -291,11 +298,11 @@ export function LeadTimelineView({
                 Hôm nay
               </Button>
               <Button
-                variant={fromDate === todayStr && toDate === default30DaysStr ? 'default' : 'outline'}
+                variant={fromDate === past30DaysStr && toDate === future7DaysStr ? 'default' : 'outline'}
                 size="sm"
                 onClick={setPreset30Days}
                 className={`h-8 text-xs font-semibold rounded-xl ${
-                  fromDate === todayStr && toDate === default30DaysStr
+                  fromDate === past30DaysStr && toDate === future7DaysStr
                     ? 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold'
                     : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
@@ -378,6 +385,69 @@ export function LeadTimelineView({
             const sc = statusConfig[lead.status] || statusConfig.new;
             const phoneClean = cleanPhone(lead.phone);
 
+            // Find matching appointment to get exact Date, Time, and Room Address
+            const matchedApt = aptList.find(
+              (a) => a.lead_id === lead.id || (a.customer_phone && cleanPhone(a.customer_phone) === phoneClean)
+            );
+
+            // 1. Date
+            let displayDate = new Date(lead.created_at).toLocaleDateString('vi-VN');
+            if (matchedApt?.date) {
+              const parts = matchedApt.date.split('-');
+              if (parts.length === 3) {
+                displayDate = `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+              } else {
+                displayDate = matchedApt.date;
+              }
+            }
+
+            // 2. Time
+            let displayTime = matchedApt?.time || null;
+            if (!displayTime) {
+              const createdDate = new Date(lead.created_at);
+              displayTime = createdDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            // 3. Room & Building Address
+            let displayRoomAddress = matchedApt?.room_title || matchedApt?.building_address || lead.interest || null;
+            if (!displayRoomAddress && lead.preferred_area) {
+              displayRoomAddress = `Khu vực: ${lead.preferred_area}`;
+            }
+
+            // 4. Smart lookup for room type, budget & area from public listings if missing or mismatch on lead row
+            let matchedRoomInListings: CustomerListing | null = null;
+            if (listings && listings.length > 0) {
+              if (matchedApt?.room_id) {
+                matchedRoomInListings = listings.find((l) => l.id === matchedApt.room_id) || null;
+              }
+              if (!matchedRoomInListings) {
+                const rawQuery = (displayRoomAddress || lead.interest || lead.preferred_area || '').toLowerCase();
+                const normalizeStr = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9a-ăâáắấàằầảẳẩãẵẫạặậđèêéếềẻểẽễẹệìỉíịòôơóốớồờỏổởõỗỡọộợùưúứừủửũữụựỳỷỹỵ]/g, '');
+                const queryNorm = normalizeStr(rawQuery);
+
+                if (queryNorm) {
+                  matchedRoomInListings = listings.find((l) => {
+                    const bNameNorm = normalizeStr(l.buildingName || '');
+                    const addrNorm = normalizeStr(l.address || '');
+                    const titleNorm = normalizeStr(l.title || '');
+                    return (
+                      (bNameNorm && (queryNorm.includes(bNameNorm) || bNameNorm.includes(queryNorm))) ||
+                      (addrNorm && (queryNorm.includes(addrNorm) || addrNorm.includes(queryNorm))) ||
+                      (titleNorm && (queryNorm.includes(titleNorm) || titleNorm.includes(queryNorm)))
+                    );
+                  }) || null;
+                }
+              }
+            }
+
+            const rawQueryLow = (displayRoomAddress || lead.interest || '').toLowerCase();
+            const resolvedArea = matchedRoomInListings?.area || (
+              rawQueryLow.includes('trần duy hưng') || rawQueryLow.includes('tran duy hung') ? 'Cầu Giấy' : lead.preferred_area || null
+            );
+
+            const resolvedRoomType = lead.preferred_room_type || matchedRoomInListings?.roomType || null;
+            const resolvedBudget = lead.budget > 0 ? lead.budget : (matchedRoomInListings?.price || 0);
+
             return (
               <div key={lead.id} className="relative group">
                 {/* Timeline node dot */}
@@ -390,38 +460,99 @@ export function LeadTimelineView({
                   onClick={() => onOpenDetail(lead.id)}
                   className="p-4 border border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900 shadow-xs space-y-3 cursor-pointer transition-all hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-600 active:scale-[0.99]"
                 >
-                  {/* Top Bar: Created Time & Status */}
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-black text-sm text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-lg shadow-2xs">
-                        {lead.full_name}
+                  {/* Top Bar: Tên khách | Ngày | Giờ | Phòng - Địa chỉ | Trạng thái */}
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+                      {/* 1. Tên khách */}
+                      <span className="font-heading font-black text-sm sm:text-base text-indigo-950 dark:text-indigo-200 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-xl shadow-2xs shrink-0 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>{lead.full_name}</span>
                       </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                        {new Date(lead.created_at).toLocaleDateString('vi-VN')}
+
+                      {/* 2. Ngày xem */}
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1 font-mono shrink-0 shadow-2xs">
+                        <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>{displayDate}</span>
                       </span>
+
+                      {/* 3. Giờ xem */}
+                      {displayTime && (
+                        <span className="text-xs font-bold text-amber-900 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800/80 px-2.5 py-1 rounded-xl flex items-center gap-1 font-mono shrink-0 shadow-2xs">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{displayTime}</span>
+                        </span>
+                      )}
+
+                      {/* 4. Phòng - Địa chỉ tòa nhà */}
+                      {displayRoomAddress && (
+                        <span className="text-xs font-extrabold text-teal-900 dark:text-teal-200 bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800/80 px-3 py-1 rounded-xl flex items-center gap-1.5 min-w-0 max-w-full sm:max-w-md truncate shadow-2xs" title={displayRoomAddress}>
+                          <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                          <span className="truncate">🏠 {displayRoomAddress}</span>
+                        </span>
+                      )}
                     </div>
 
-                    <Badge className={`text-[10px] font-bold ${sc.color} ${sc.border}`}>
+                    {/* 5. Badge Trạng Thái */}
+                    <Badge className={`text-xs font-bold px-2.5 py-1 rounded-xl shadow-2xs shrink-0 ${sc.color} ${sc.border}`}>
                       {sc.label}
                     </Badge>
                   </div>
 
-                  {/* Requirements grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs border border-slate-100 dark:border-slate-700/80">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">SĐT khách</span>
-                      <span className="font-mono font-bold text-slate-800 dark:text-slate-100">{lead.phone}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">Ngân sách</span>
-                      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        {lead.budget ? `${lead.budget.toLocaleString('vi-VN')}đ/tháng` : 'Chưa nhập'}
+                  {/* Requirements grid - High Contrast & High Readability */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 shadow-2xs">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
+                        📱 SĐT Khách
+                      </span>
+                      <span className="font-mono font-black text-sm text-slate-900 dark:text-slate-100">
+                        {lead.phone}
                       </span>
                     </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <span className="text-[10px] text-slate-400 block font-medium">Khu vực & Loại phòng</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
-                        📍 {lead.preferred_area || 'KV'} • {lead.preferred_room_type || 'Loại phòng'}
+
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDetail(lead.id);
+                      }}
+                      title="Bấm vào đây để nhập/chỉnh sửa Ngân sách & Nhu cầu"
+                      className="space-y-0.5 cursor-pointer p-1.5 -m-1.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-all group"
+                    >
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                        <span>💰 Ngân Sách</span>
+                        <span className="text-[10px] text-amber-700 dark:text-amber-400 font-extrabold opacity-0 group-hover:opacity-100 transition-opacity">✏️ Sửa</span>
+                      </span>
+                      <div>
+                        {resolvedBudget > 0 ? (
+                          <span className="font-mono font-black text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                            <span>{resolvedBudget.toLocaleString('vi-VN')}đ/tháng</span>
+                            {!lead.budget && matchedRoomInListings?.price && (
+                              <span className="text-[9px] text-teal-700 dark:text-teal-300 font-extrabold bg-teal-100 dark:bg-teal-950 px-1.5 py-0.5 rounded border border-teal-300 dark:border-teal-700">
+                                Theo phòng xem
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-extrabold text-amber-800 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-700">
+                            ✏️ Nhập ngay
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDetail(lead.id);
+                      }}
+                      title="Bấm vào đây để nhập/chỉnh sửa Ngân sách & Nhu cầu"
+                      className="space-y-0.5 cursor-pointer p-1.5 -m-1.5 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-700/60 transition-all group"
+                    >
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                        <span>📍 Khu Vực & Loại Phòng</span>
+                        <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold opacity-0 group-hover:opacity-100 transition-opacity">✏️ Sửa</span>
+                      </span>
+                      <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 truncate block">
+                        📍 {resolvedArea || 'Chưa chọn KV'} • <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{resolvedRoomType || 'Loại phòng linh hoạt'}</span>
                       </span>
                     </div>
                   </div>

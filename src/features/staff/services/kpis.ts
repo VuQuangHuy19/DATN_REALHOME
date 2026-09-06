@@ -88,12 +88,17 @@ export async function computeAutoKPI(
     }
   }
 
+  const employeeIds = [employeeId];
+  if (employeeTableId && !employeeIds.includes(employeeTableId)) {
+    employeeIds.push(employeeTableId);
+  }
+
   // 3. Fetch existing KPI rules target from database
   const { data: existingKpi } = await supabase
     .from('employee_kpis')
     .select('target_revenue, total_leads, total_appointments')
     .eq('company_id', companyId)
-    .eq('employee_id', employeeTableId || employeeId)
+    .in('employee_id', employeeIds)
     .eq('period', period)
     .maybeSingle();
 
@@ -102,27 +107,31 @@ export async function computeAutoKPI(
   const targetLeads = existingKpi?.total_leads ?? config.default_target_leads;
 
   // 4. Fetch contracts
-  const { data: deposits, error: depError } = await supabase
+  let depQuery = supabase
     .from('deposit_contracts')
-    .select('id, room_id, rent_price, commission_amount, status')
+    .select('id, room_id, rent_price, deposit_amount, commission_amount, status, sales_agent_id, created_by')
     .eq('company_id', companyId)
-    .eq('sales_agent_id', employeeId)
-    .gte('created_at', startDate)
-    .lt('created_at', endDate)
+    .or(`sales_agent_id.in.(${employeeIds.join(',')}),created_by.in.(${employeeIds.join(',')})`)
     .neq('status', 'cancelled');
 
-  if (depError) throw depError;
+  if (period) {
+    depQuery = depQuery.gte('created_at', startDate).lt('created_at', endDate);
+  }
+  const { data: deposits, error: depError } = await depQuery;
+  if (depError) console.error('Dep contracts error:', depError);
 
-  const { data: rentals, error: rentError } = await supabase
+  let rentQuery = supabase
     .from('rental_contracts')
-    .select('id, room_id, deposit_contract_id, rent_price, commission_amount, status')
+    .select('id, room_id, deposit_contract_id, rent_price, deposit_amount, commission_amount, status, sales_agent_id, created_by')
     .eq('company_id', companyId)
-    .eq('sales_agent_id', employeeId)
-    .gte('created_at', startDate)
-    .lt('created_at', endDate)
+    .or(`sales_agent_id.in.(${employeeIds.join(',')}),created_by.in.(${employeeIds.join(',')})`)
     .neq('status', 'cancelled');
 
-  if (rentError) throw rentError;
+  if (period) {
+    rentQuery = rentQuery.gte('created_at', startDate).lt('created_at', endDate);
+  }
+  const { data: rentals, error: rentError } = await rentQuery;
+  if (rentError) console.error('Rental contracts error:', rentError);
 
   const validRentals = (rentals ?? []).filter((r: any) => r.status !== 'cancelled');
   const rentalDepositIds = new Set(validRentals.map((r: any) => r.deposit_contract_id).filter(Boolean));
@@ -135,23 +144,28 @@ export async function computeAutoKPI(
     return true;
   });
 
-  const totalDepositsComm = activeStandaloneDeposits.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const totalDepositsComm = activeStandaloneDeposits.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || (Number(c.rent_price) * 0.5) || (Number(c.deposit_amount) * 0.5) || 0), 0);
   const totalDepositsCount = activeStandaloneDeposits.length;
 
-  const totalRentalsComm = validRentals.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const totalRentalsComm = validRentals.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || (Number(c.rent_price) * 0.5) || (Number(c.deposit_amount) * 0.5) || 0), 0);
   const totalRentalsCount = validRentals.length;
 
-  // 5. Cross check with converted leads count
+  // 5. Fetch leads count
   let convertedLeadsCount = 0;
+  let totalAssignedLeadsCount = 0;
   try {
-    const { data: convertedLeads } = await supabase
+    let leadQ = supabase
       .from('leads')
-      .select('id')
+      .select('id, status, converted_at')
       .eq('company_id', companyId)
-      .eq('assigned_to', employeeId)
-      .gte('converted_at', startDate)
-      .lt('converted_at', endDate);
-    convertedLeadsCount = (convertedLeads ?? []).length;
+      .or(`assigned_to.in.(${employeeIds.join(',')}),created_by.in.(${employeeIds.join(',')})`);
+    
+    if (period) {
+      leadQ = leadQ.gte('created_at', startDate).lt('created_at', endDate);
+    }
+    const { data: leadsData } = await leadQ;
+    totalAssignedLeadsCount = (leadsData ?? []).length;
+    convertedLeadsCount = (leadsData ?? []).filter((l: any) => l.status === 'converted' || l.converted_at).length;
   } catch (err) {
     console.error('Error fetching cross-check leads:', err);
   }
@@ -159,14 +173,16 @@ export async function computeAutoKPI(
   // 6. Fetch completed/viewed appointments count
   let appointmentsCompletedCount = 0;
   try {
-    const { data: appts } = await supabase
+    let apptQ = supabase
       .from('appointments')
-      .select('id')
+      .select('id, status')
       .eq('company_id', companyId)
-      .eq('assigned_to', employeeId)
-      .gte('date', period + '-01')
-      .lte('date', period + '-31')
-      .in('status', ['confirmed', 'completed', 'viewed', 'Viewed', 'Dealed', 'Confirm']);
+      .or(`assigned_to.in.(${employeeIds.join(',')}),created_by.in.(${employeeIds.join(',')})`);
+    
+    if (period) {
+      apptQ = apptQ.gte('created_at', startDate).lt('created_at', endDate);
+    }
+    const { data: appts } = await apptQ;
     appointmentsCompletedCount = (appts ?? []).length;
   } catch (err) {
     console.error('Error fetching appointments completed count:', err);

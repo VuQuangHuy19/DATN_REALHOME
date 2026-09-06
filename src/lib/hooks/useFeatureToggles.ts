@@ -22,45 +22,82 @@ const DEFAULT_TOGGLES: FeatureToggles = {
 };
 
 const LANDLORD_DEFAULT_TOGGLES: FeatureToggles = {
-  enableInvoices: false, // Landlord Privacy: Mặc định TẮT hóa đơn ủy thác trừ khi Chủ nhà chủ động BẬT
-  enableProfitReport: false, // Landlord Privacy: Mặc định TẮT P&L riêng tư
+  enableInvoices: true, // Mặc định BẬT theo yêu cầu
+  enableProfitReport: true, // Mặc định BẬT theo yêu cầu
   enableZaloZns: true,
   enableAiCopilot: true,
   privacyShieldMode: true,
-  enableMaintenance: false, // Mặc định TẮT Bảo trì & Sự cố, khi nào người dùng cần thì vào Settings bật lên
+  enableMaintenance: true,
 };
 
 export function useFeatureToggles() {
   const { role } = useAuth();
   const storageKey = `realhome_feature_toggles_${role || 'guest'}`;
 
-  const [toggles, setToggles] = useState<FeatureToggles>(() => {
-    if (typeof window === 'undefined') {
-      return role === 'landlord' ? LANDLORD_DEFAULT_TOGGLES : DEFAULT_TOGGLES;
-    }
+  const getInitialToggles = (): FeatureToggles => {
+    const defaultVal = role === 'landlord' ? LANDLORD_DEFAULT_TOGGLES : DEFAULT_TOGGLES;
+    if (typeof window === 'undefined') return defaultVal;
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        return { ...defaultVal, ...JSON.parse(saved) };
+      }
     } catch {}
-    return role === 'landlord' ? LANDLORD_DEFAULT_TOGGLES : DEFAULT_TOGGLES;
-  });
+    return defaultVal;
+  };
+
+  const [toggles, setToggles] = useState<FeatureToggles>(getInitialToggles);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(toggles));
-    } catch {}
-  }, [toggles, storageKey]);
+    setToggles(getInitialToggles());
+  }, [role, storageKey]);
+
+  useEffect(() => {
+    const handleToggleChange = () => {
+      setToggles(getInitialToggles());
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('feature_toggles_changed', handleToggleChange);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('feature_toggles_changed', handleToggleChange);
+      }
+    };
+  }, [storageKey, role]);
 
   const updateToggle = (key: keyof FeatureToggles, value: boolean) => {
-    setToggles((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setToggles((prev) => {
+      const updated = { ...prev, [key]: value };
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        if (key === 'enableInvoices') {
+          localStorage.setItem('landlord_settings_use_invoices', JSON.stringify(value));
+        }
+        if (key === 'enableMaintenance') {
+          localStorage.setItem('landlord_settings_use_maintenance', JSON.stringify(value));
+        }
+      } catch {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('feature_toggles_changed'));
+        window.dispatchEvent(new Event('landlord_settings_changed'));
+      }
+      return updated;
+    });
   };
 
   const resetToDefaults = () => {
     const defaultVal = role === 'landlord' ? LANDLORD_DEFAULT_TOGGLES : DEFAULT_TOGGLES;
     setToggles(defaultVal);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(defaultVal));
+      localStorage.setItem('landlord_settings_use_invoices', JSON.stringify(true));
+      localStorage.setItem('landlord_settings_use_maintenance', JSON.stringify(true));
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('feature_toggles_changed'));
+      window.dispatchEvent(new Event('landlord_settings_changed'));
+    }
   };
 
   return {
@@ -69,3 +106,4 @@ export function useFeatureToggles() {
     resetToDefaults,
   };
 }
+

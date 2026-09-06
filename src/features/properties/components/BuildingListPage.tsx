@@ -49,6 +49,7 @@ import { getAreaColorClass } from '@/lib/utils/colors';
 import { ExcelImportModal } from './ExcelImportModal';
 import { GoogleSheetImportModal } from '@/features/import/components/GoogleSheetImportModal';
 import { QuickCreateManagerModal } from './QuickCreateManagerModal';
+import Pagination from '@/components/Pagination';
 import { toast } from 'sonner';
 
 type VnProvince = { id: string; name: string };
@@ -320,18 +321,39 @@ export function BuildingListPage() {
     });
   }, [filteredBuildings, buildingStatsMap]);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6; // 6 buildings per page
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterArea, filterLandlord, activeTab]);
+
+  const activeTargetList = useMemo(() => {
+    return activeTab === 'action_needed' ? actionNeededBuildings : filteredBuildings;
+  }, [activeTab, actionNeededBuildings, filteredBuildings]);
+
+  const totalPages = Math.max(1, Math.ceil(activeTargetList.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+
+  const paginatedBuildings = useMemo(() => {
+    const startIdx = (safePage - 1) * pageSize;
+    return activeTargetList.slice(startIdx, startIdx + pageSize);
+  }, [activeTargetList, safePage, pageSize]);
+
   // Group Buildings by Area for Matrix View
   const groupedBuildingsByArea = useMemo<[string, DBBuilding[]][]>(() => {
     const map = new Map<string, DBBuilding[]>();
 
-    filteredBuildings.forEach((b) => {
+    paginatedBuildings.forEach((b) => {
       const area = b.area || 'Khác';
       if (!map.has(area)) map.set(area, []);
       map.get(area)!.push(b);
     });
 
     return Array.from(map.entries());
-  }, [filteredBuildings]);
+  }, [paginatedBuildings]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -772,8 +794,8 @@ export function BuildingListPage() {
             </div>
           </div>
 
-          {/* Inline Bulk Action Bar - Ngay dưới Matrix tòa nhà, Bản đồ BĐS, Tòa cần đẩy lấp đầy */}
-          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 flex-wrap bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
+          {/* Inline Bulk Action & Pagination Bar - Ngay dưới Ô tìm kiếm - Chọn khu vực - Chọn chủ nhà */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-100 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
                 <input
@@ -786,12 +808,12 @@ export function BuildingListPage() {
               </label>
 
               <span className="text-xs text-slate-500 font-medium">
-                • Đã chọn <strong className="text-emerald-700 font-extrabold">{selectedBuildingIds.size}</strong> / {filteredBuildings.length} tòa nhà
+                • Hiển thị <strong>{activeTargetList.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, activeTargetList.length)}</strong> trong tổng số <strong>{activeTargetList.length}</strong> tòa nhà {selectedBuildingIds.size > 0 && `(Đã chọn ${selectedBuildingIds.size})`}
               </span>
             </div>
 
-            {selectedBuildingIds.size > 0 && (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {selectedBuildingIds.size > 0 && (
                 <PermissionGate roles={['company_admin']}>
                   <Button
                     size="sm"
@@ -803,17 +825,17 @@ export function BuildingListPage() {
                     Xóa đã chọn ({selectedBuildingIds.size})
                   </Button>
                 </PermissionGate>
+              )}
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedBuildingIds(new Set())}
-                  className="bg-white hover:bg-slate-100 text-slate-700 border-slate-200 h-8 text-xs font-bold rounded-xl"
-                >
-                  Hủy chọn
-                </Button>
-              </div>
-            )}
+              {/* ── NÚT PHÂN TRANG NGAY DƯỚI BỘ LỌC TÌM KIẾM - KHU VỰC - CHỦ NHÀ ── */}
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={(p) => setCurrentPage(p)}
+                />
+              )}
+            </div>
           </div>
         </CardHeader>
 
@@ -828,9 +850,9 @@ export function BuildingListPage() {
             <>
               {/* TAB 1: MATRIX TÒA NHÀ FLAT GRID */}
               {activeTab === 'matrix' && (
-                filteredBuildings.length > 0 ? (
+                paginatedBuildings.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredBuildings.map((b) => renderBuildingCard(b))}
+                    {paginatedBuildings.map((b) => renderBuildingCard(b))}
                   </div>
                 ) : (
                   <div className="text-center py-16 text-slate-400 space-y-2">
@@ -880,7 +902,7 @@ export function BuildingListPage() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {actionNeededBuildings.map((b) => renderBuildingCard(b))}
+                      {paginatedBuildings.map((b) => renderBuildingCard(b))}
                     </div>
                   </div>
                 ) : (

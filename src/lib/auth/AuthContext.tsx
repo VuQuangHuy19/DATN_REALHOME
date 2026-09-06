@@ -28,6 +28,7 @@ interface AuthContextValue extends AuthState {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 import { supabase } from '@/lib/supabase/client';
+import { translateErrorMessage } from '@/lib/utils/error-translator';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -127,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'Lỗi kết nối máy chủ' };
+      return { error: translateErrorMessage(err) };
     }
   };
 

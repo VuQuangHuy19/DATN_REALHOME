@@ -55,10 +55,14 @@ export function QuickCreateManagerModal({ isOpen, onClose, landlordId, onCreated
       avatar_url: avatarUrl,
     };
     
+    const localToken = typeof window !== 'undefined' ? localStorage.getItem('bds_auth_token') : null;
+    const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (localToken) authHeaders['Authorization'] = `Bearer ${localToken}`;
+
     try {
       const res = await fetch('/api/managers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         credentials: 'include',
         body: JSON.stringify(payload),
       });

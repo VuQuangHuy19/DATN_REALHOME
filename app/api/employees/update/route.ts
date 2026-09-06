@@ -36,6 +36,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    if (position && ['super_admin', 'super admin', 'customer', 'tenant'].includes(position.trim().toLowerCase())) {
+      return NextResponse.json({ error: 'Chức vụ này không dành cho nhân viên công ty.' }, { status: 403 });
+    }
+
     // Cập nhật bảng employees
     const employeePatch: Record<string, any> = { updated_at: new Date().toISOString() };
     if (name !== undefined) employeePatch.full_name = name;

@@ -510,7 +510,7 @@ export function parseDualColumnLayout(
         for (const candidate of candidates) {
           const phones = candidate.match(/(?:0|[35789])\d{8}/g);
           if (phones && phones.length > 0) {
-            const formattedPhones = phones.map(p => (p.length === 9 ? '0' + p : p));
+            const formattedPhones = phones.map(p => (p.length === 9 && !p.startsWith('0') ? '0' + p : p.replace(/^0+/, '0')));
             const namePart = candidate.replace(/[\d\-\:\,\;\(\)\|]/g, '').trim();
             const mgrRaw = namePart.length >= 2 ? `${namePart}|${formattedPhones[0]}` : formattedPhones[0];
 
@@ -579,14 +579,23 @@ export function parseDualColumnLayout(
       let leftStatus: 'available' | 'rented' | 'reserved' = 'rented';
       let leftAvailableDate: string | null = null;
 
-      const dateInfo = parseDateFromStatusString(cleanStat);
-      if (dateInfo.available_date) {
-        leftAvailableDate = dateInfo.available_date;
-        leftStatus = 'rented';
-      } else if (normStat.includes('trong') || normStat.includes('o ngay') || normStat.includes('o luon') || normStat.includes('san') || normStat === 'available') {
+      const isExplicitlyAvailable =
+        normStat.includes('trong') ||
+        normStat.includes('o ngay') ||
+        normStat.includes('o luon') ||
+        normStat.includes('san') ||
+        normStat === 'available';
+
+      if (isExplicitlyAvailable) {
         leftStatus = 'available';
-      } else if (normStat.includes('giu') || normStat.includes('coc')) {
-        leftStatus = 'reserved';
+      } else {
+        const dateInfo = parseDateFromStatusString(cleanStat);
+        if (dateInfo.available_date) {
+          leftAvailableDate = dateInfo.available_date;
+          leftStatus = 'rented';
+        } else if (normStat.includes('giu') || normStat.includes('coc')) {
+          leftStatus = 'reserved';
+        }
       }
 
       // Quét tất cả các ô trên dòng này để thu thập Ghi chú riêng hoặc Ngày sắp trống ở bất kỳ cột nào
@@ -607,13 +616,13 @@ export function parseDualColumnLayout(
 
         if (IGNORE_KWS.some(kw => lower === kw)) return;
 
-        const dateCheck = parseDateFromStatusString(cellStr);
-        if (dateCheck.available_date) {
-          if (!leftAvailableDate) {
+        if (!isExplicitlyAvailable && !leftAvailableDate) {
+          const dateCheck = parseDateFromStatusString(cellStr);
+          if (dateCheck.available_date) {
             leftAvailableDate = dateCheck.available_date;
             leftStatus = 'rented';
+            return;
           }
-          return;
         }
 
         if (!cleanPriceNumber(cellStr) && !isPurePriceString(cellStr) && !lower.includes('so dan')) {
@@ -1072,7 +1081,7 @@ export function parseSingleRowBuildingLayout(
     let phoneLines: string[] = [];
     const matchedPhones = rawPhoneCell.match(/(?:0|[35789])\d{8}/g);
     if (matchedPhones && matchedPhones.length > 0) {
-      const padded = matchedPhones.map(p => (p.length === 9 ? '0' + p : p));
+      const padded = matchedPhones.map(p => (p.length === 9 && !p.startsWith('0') ? '0' + p : p.replace(/^0+/, '0')));
       phoneLines = Array.from(new Set(padded));
     }
 
@@ -1129,33 +1138,38 @@ export function parseSingleRowBuildingLayout(
     let status = 'rented';
     let roomAvailableDate: string | null = null;
 
-    let dateInfo = parseDateFromStatusString(cleanStat);
-
-    // Nếu ô trạng thái không chứa ngày tháng, quét tất cả các ô trên dòng này (như Cột E, F, G...) để tìm ghi chú ngày tháng (vd: Excel date 46264, "15/8", "1/9", "KÍ LẠI 1/9"...)
-    if (!dateInfo.available_date) {
-      row.forEach((cell) => {
-        if (cell !== undefined && cell !== null && !dateInfo.available_date) {
-          const dCheck = parseDateFromStatusString(cell);
-          if (dCheck.available_date) {
-            dateInfo = dCheck;
-          }
-        }
-      });
-    }
-
-    if (dateInfo.available_date) {
-      roomAvailableDate = dateInfo.available_date;
-      status = 'rented';
-    } else if (
+    const isExplicitlyAvailable =
       normStat.includes('trong') ||
       normStat.includes('o ngay') ||
       normStat.includes('o luon') ||
       normStat.includes('san') ||
-      normStat === 'available'
-    ) {
+      normStat === 'available';
+
+    if (isExplicitlyAvailable) {
       status = 'available';
-    } else if (normStat.includes('giu') || normStat.includes('coc')) {
-      status = 'reserved';
+      roomAvailableDate = null;
+    } else {
+      let dateInfo = parseDateFromStatusString(cleanStat);
+
+      // Nếu ô trạng thái không chứa ngày tháng, quét các ô còn lại ngoại trừ ô mã phòng/tên tòa/giá
+      if (!dateInfo.available_date) {
+        row.forEach((cell, cIdx) => {
+          if (cIdx === bldCol || cIdx === codeCol || cIdx === priceCol) return;
+          if (cell !== undefined && cell !== null && !dateInfo.available_date) {
+            const dCheck = parseDateFromStatusString(cell);
+            if (dCheck.available_date) {
+              dateInfo = dCheck;
+            }
+          }
+        });
+      }
+
+      if (dateInfo.available_date) {
+        roomAvailableDate = dateInfo.available_date;
+        status = 'rented';
+      } else if (normStat.includes('giu') || normStat.includes('coc')) {
+        status = 'reserved';
+      }
     }
 
     const sizeNum = parseRoomSize(sizeVal);
@@ -1613,34 +1627,38 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
       let status = 'rented';
       let roomAvailableDate: string | null = null;
 
-      // ===== NHẬN DIỆN NGÀY THÁNG → "SẮP TRỐNG" =====
-      let dateInfo = parseDateFromStatusString(cleanStat);
-
-      // Nếu ô trạng thái không chứa ngày tháng, quét tất cả các ô còn lại trên dòng này (như Cột E, F, G...) để tìm ghi chú ngày tháng (vd: Excel date 46264, "15/8", "1/9", "KÍ LẠI 1/9"...)
-      if (!dateInfo.available_date) {
-        row.forEach((cell) => {
-          if (cell !== undefined && cell !== null && !dateInfo.available_date) {
-            const dCheck = parseDateFromStatusString(cell);
-            if (dCheck.available_date) {
-              dateInfo = dCheck;
-            }
-          }
-        });
-      }
-
-      if (dateInfo.available_date) {
-        roomAvailableDate = dateInfo.available_date;
-        status = 'rented';
-      } else if (
+      const isExplicitlyAvailable =
         normStat.includes('trong') ||
         normStat.includes('o ngay') ||
         normStat.includes('o luon') ||
         normStat.includes('san') ||
-        normStat === 'available'
-      ) {
+        normStat === 'available';
+
+      if (isExplicitlyAvailable) {
         status = 'available';
-      } else if (normStat.includes('giu') || normStat.includes('coc')) {
-        status = 'reserved';
+        roomAvailableDate = null;
+      } else {
+        let dateInfo = parseDateFromStatusString(cleanStat);
+
+        // Nếu ô trạng thái không chứa ngày tháng, quét tất cả các ô còn lại trên dòng này
+        if (!dateInfo.available_date) {
+          row.forEach((cell, cIdx) => {
+            if (cIdx === bldCol || cIdx === codeCol || cIdx === priceCol) return;
+            if (cell !== undefined && cell !== null && !dateInfo.available_date) {
+              const dCheck = parseDateFromStatusString(cell);
+              if (dCheck.available_date) {
+                dateInfo = dCheck;
+              }
+            }
+          });
+        }
+
+        if (dateInfo.available_date) {
+          roomAvailableDate = dateInfo.available_date;
+          status = 'rented';
+        } else if (normStat.includes('giu') || normStat.includes('coc')) {
+          status = 'reserved';
+        }
       }
       // Tất cả các trạng thái khác ("đã ở", "có khách", "đã thuê", rỗng "") → rented (mặc định)
 

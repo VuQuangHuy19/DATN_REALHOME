@@ -171,8 +171,8 @@ export default function PlansPage() {
     setFormExtraSeatPrice(plan.extra_seat_price || 0);
     setFormDescription(plan.description);
     setFormPopular(plan.popular);
-    setFormFeatures(plan.features.join('\n'));
-    setFormMissing(plan.missing.join('\n'));
+    setFormFeatures((plan.features || []).join('\n'));
+    setFormMissing((plan.missing || []).join('\n'));
     setIsDialogOpen(true);
   };
 
@@ -374,13 +374,13 @@ export default function PlansPage() {
               {/* Features */}
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-ink-muted uppercase tracking-wider mb-3">Tính năng bao gồm</p>
-                {plan.features.map((f) => (
+                {(plan.features || []).map((f) => (
                   <div key={f} className="flex items-start gap-2 text-sm text-ink">
                     <Check className="h-4 w-4 text-[hsl(142,52%,42%)] flex-shrink-0 mt-0.5" />
                     {f}
                   </div>
                 ))}
-                {plan.missing.map((f) => (
+                {(plan.missing || []).map((f) => (
                   <div key={f} className="flex items-start gap-2 text-sm text-ink-muted/50">
                     <X className="h-4 w-4 text-border flex-shrink-0 mt-0.5" />
                     <span className="line-through">{f}</span>

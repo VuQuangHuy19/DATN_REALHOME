@@ -25,6 +25,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import { subscribeToUserNotifications } from '@/lib/notifications/realtimeSubscriber';
 import { confirmAppointmentService } from '@/features/notifications/services/appointmentNotificationService';
+import { getNotificationTypeConfig, FormattedNotificationBody } from '@/components/ui/NotificationFormatter';
 
 export function NotificationBell() {
   const { user, profile, role } = useAuth();
@@ -45,15 +46,15 @@ export function NotificationBell() {
     const fetchNotifications = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('recipient_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(30);
+        const params = new URLSearchParams();
+        params.set('userId', user.id);
+        if (profile?.company_id) params.set('companyId', profile.company_id);
 
-        if (!error && data) {
-          setNotifications(data);
+        const res = await fetch(`/api/notifications?${params.toString()}`);
+        const json = await res.json();
+
+        if (json.success && Array.isArray(json.data)) {
+          setNotifications(json.data);
         }
       } catch (err) {
         console.error('Fetch notifications error:', err);
@@ -298,9 +299,7 @@ export function NotificationBell() {
                       </h4>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-snug line-clamp-2">
-                      {item.body}
-                    </p>
+                    <FormattedNotificationBody body={item.body} />
 
                     {/* Meta Payload Details */}
                     {(dataObj.customerName || dataObj.roomCode) && (

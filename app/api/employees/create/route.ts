@@ -22,6 +22,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    if (position && ['super_admin', 'super admin', 'customer', 'tenant'].includes(position.trim().toLowerCase())) {
+      return NextResponse.json({ error: 'Chức vụ này không dành cho nhân viên công ty.' }, { status: 403 });
+    }
+
     // Kiểm tra giới hạn seats của gói hiện tại
     try {
       const { data: activeSub } = await supabaseAdmin

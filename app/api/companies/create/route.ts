@@ -75,12 +75,18 @@ export async function POST(request: Request) {
         professional: 20,
         enterprise: 999999,
       };
+      const pricesMap: Record<string, number> = {
+        starter: 500000,
+        professional: 2000000,
+        enterprise: 5000000,
+      };
+      const planName = plan || 'starter';
       await supabaseAdmin.from('subscriptions').insert({
         company_id: companyData.id,
-        plan: plan || 'starter',
+        plan: planName,
         status: 'active',
-        seats: seatsMap[plan || 'starter'] || 5,
-        price_per_month: 0,
+        seats: seatsMap[planName] || 5,
+        price_per_month: pricesMap[planName] || 500000,
         starts_at: new Date().toISOString(),
         ends_at: null,
       });

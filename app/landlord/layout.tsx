@@ -294,7 +294,7 @@ function LandlordHeader() {
   const { unreadCount } = useNotifications(user?.id, company?.id);
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-border-subtle px-3 sm:px-4 md:px-6 flex items-center justify-between shrink-0 max-w-full overflow-hidden shadow-2xs">
+    <header className="sticky top-0 z-40 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-border-subtle px-3 sm:px-4 md:px-6 flex items-center justify-between shrink-0 max-w-full overflow-hidden shadow-2xs">
       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
         {/* Logo RealHome trên Mobile */}
         <Link href="/customer/properties" className="md:hidden flex items-center shrink-0 mr-0.5 hover:opacity-90 transition-opacity">
@@ -490,7 +490,7 @@ function LandlordContent({ children }: { children: React.ReactNode }) {
   const { isSidebarCollapsed } = useAdminModule();
 
   return (
-    <div className="flex min-h-screen bg-bg-base w-full max-w-full overflow-x-hidden">
+    <div className="flex min-h-screen bg-bg-base w-full max-w-full">
       <LandlordSidebar />
       <div
         className={cn(

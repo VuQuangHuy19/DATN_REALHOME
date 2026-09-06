@@ -78,7 +78,7 @@ export default function SubscriptionsPage() {
           plan: s.plan,
           status: s.status,
           seats: s.seats,
-          pricePerMonth: s.price_per_month,
+          pricePerMonth: (s.price_per_month && s.price_per_month > 0) ? s.price_per_month : ({ starter: 500000, professional: 2000000, enterprise: 5000000 }[s.plan as string] || 0),
           startsAt: s.starts_at,
           endsAt: s.ends_at || s.trial_ends_at || null,
         }))
@@ -92,7 +92,7 @@ export default function SubscriptionsPage() {
 
   useEffect(() => { fetchSubscriptions(); }, []);
 
-  const totalMRR = subs.filter((s) => s.status === 'active').reduce((sum, s) => sum + s.pricePerMonth, 0);
+  const totalMRR = subs.filter((s) => s.status === 'active').reduce((sum, s) => sum + (s.pricePerMonth || 0), 0);
   const activeCount = subs.filter((s) => s.status === 'active').length;
   const trialCount  = subs.filter((s) => s.status === 'trial').length;
 

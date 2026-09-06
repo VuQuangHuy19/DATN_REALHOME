@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useAdminModule } from '@/features/admin/context/admin-module-context';
+import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 
 interface NavItem {
   label: string;
@@ -111,7 +112,7 @@ const getNavItems = (isEn: boolean): NavItem[] => [
     children: [
       { label: isEn ? 'System Notifications' : 'Thông báo hệ thống', href: '/admin/system/notifications', icon: Bell },
       { label: isEn ? 'Feature Toggles & Privacy' : 'Cấu hình chức năng', href: '/admin/system/feature-toggles', icon: SlidersHorizontal },
-      { label: isEn ? 'Activity & Audit Logs' : 'Nhật ký hoạt động (Audit Logs)', href: '/admin/system/activity-logs', icon: ClipboardList },
+      { label: isEn ? 'Activity & Audit Logs' : 'Nhật ký hoạt động', href: '/admin/system/activity-logs', icon: ClipboardList },
       { label: isEn ? 'SaaS Billing & Logs' : 'Gói dịch vụ', href: '/admin/system/billing', icon: CreditCard },
     ],
   },
@@ -168,6 +169,7 @@ export function AdminSidebar() {
   const { language } = useAppPreferences();
   const isEn = language === 'en';
   const { activeModule, isSidebarCollapsed, toggleSidebar } = useAdminModule();
+  const { toggles } = useFeatureToggles();
 
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
@@ -233,11 +235,25 @@ export function AdminSidebar() {
     );
   };
 
+  const isChildVisible = (child: { href: string; label: string; permission?: string }) => {
+    if (child.permission && !hasPermission(child.permission)) return false;
+    if (child.href === '/admin/finance/profit' && !toggles.enableProfitReport) return false;
+    if (child.href === '/admin/services/invoices' && !toggles.enableInvoices) return false;
+    if (child.href === '/admin/services/readings' && !toggles.enableInvoices) return false;
+    if (child.href === '/admin/maintenance' && !toggles.enableMaintenance) return false;
+    return true;
+  };
+
   const canViewItem = (item: NavItem) => {
-    if (role === 'sales_agent') return true;
+    if (item.href === '/admin/finance/profit' && !toggles.enableProfitReport) return false;
+    if (item.href === '/admin/services/invoices' && !toggles.enableInvoices) return false;
+    if (item.href === '/admin/services/readings' && !toggles.enableInvoices) return false;
+    if (item.href === '/admin/maintenance' && !toggles.enableMaintenance) return false;
+
     if (item.children) {
-      return item.children.some((child) => !child.permission || hasPermission(child.permission));
+      return item.children.some(isChildVisible);
     }
+    if (role === 'sales_agent') return true;
     return !item.permission || hasPermission(item.permission);
   };
 
@@ -423,7 +439,7 @@ export function AdminSidebar() {
               {hasChildren && isExpanded && item.children && (
                 <div className="ml-3 mt-0.5 space-y-0.5 border-l-2 border-indigo-100 dark:border-indigo-900/50 pl-3">
                   {item.children
-                    .filter((child) => !child.permission || hasPermission(child.permission))
+                    .filter(isChildVisible)
                     .map((child) => {
                       const ChildIcon = child.icon;
                       const childActive = pathname === child.href || pathname.startsWith(child.href + '/');

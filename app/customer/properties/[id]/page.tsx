@@ -289,37 +289,7 @@ export default function BuildingDetailPage() {
                 {maskHouseNumberInBuildingName(building.address)}
               </div>
               
-              {/* Hero Key Highlights Banner */}
-              <div className="flex flex-wrap items-center gap-2 pt-4">
-                <Badge className="bg-emerald-500/15 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-emerald-500/25 transition-all">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>{building.pccc_certified !== false ? 'Đạt Chuẩn PCCC' : 'Chưa Hoàn Thiện PCCC'}</span>
-                </Badge>
-                {building.has_elevator !== false && (
-                  <Badge className="bg-blue-500/15 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-blue-500/25 transition-all">
-                    <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                    <span>Thang Máy Di Chuyển</span>
-                  </Badge>
-                )}
-                {building.allow_pet !== false && building.allow_pet !== 'Không' && building.allow_pet !== 'false' && (
-                  <Badge className="bg-amber-500/15 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-amber-500/25 transition-all">
-                    <PawPrint className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                    <span>Cho Nuôi Thú Cưng</span>
-                  </Badge>
-                )}
-                {building.allow_vinfast_electric !== false && (
-                  <Badge className="bg-teal-500/15 text-teal-900 dark:text-teal-300 border-teal-300 dark:border-teal-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-teal-500/25 transition-all">
-                    <Zap className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
-                    <span>Sạc Xe Điện</span>
-                  </Badge>
-                )}
-                {building.allow_foreigners && (
-                  <Badge className="bg-indigo-500/15 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 font-extrabold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs hover:bg-indigo-500/25 transition-all">
-                    <Globe className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                    <span>Nhận Khách Nước Ngoài</span>
-                  </Badge>
-                )}
-              </div>
+
             </div>
             <Button
               variant="outline"

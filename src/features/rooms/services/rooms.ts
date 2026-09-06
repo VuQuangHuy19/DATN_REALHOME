@@ -4,6 +4,9 @@ import type { DBRoom } from '@/lib/supabase/types';
 type RoomInsert = Omit<DBRoom, 'id' | 'created_at' | 'updated_at'>;
 type RoomUpdate = Partial<RoomInsert>;
 
+const isUuidStr = (val?: string | null): boolean =>
+  !!val && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
+
 export type RoomWithBuilding = DBRoom & { 
   buildings: {
     id: string;
@@ -22,6 +25,9 @@ export type RoomWithBuilding = DBRoom & {
 };
 
 export async function getRooms(companyId?: string, landlordId?: string): Promise<RoomWithBuilding[]> {
+  // Tự động kích hoạt giải phóng phòng hết hạn giữ chỗ (15 phút) ở background
+  fetch('/api/rooms/auto-release-expired', { method: 'POST' }).catch(() => {});
+
   let validLandlordCodes: string[] = [];
   if (landlordId) {
     validLandlordCodes.push(landlordId);
@@ -51,9 +57,23 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
   const { data, error } = await q;
   if (error) throw error;
 
+  const now = new Date();
   const roomsWithLandlord = (data ?? []).map((room: any) => {
+    // Nếu phòng ở trạng thái 'reserved' nhưng đã quá hạn (hoặc ko có reserved_until) -> tự nhả về 'available'
+    let status = room.status;
+    let reserved_until = room.reserved_until;
+    if (status === 'reserved') {
+      const isExpired = !reserved_until || new Date(reserved_until) < now;
+      if (isExpired) {
+        status = 'available';
+        reserved_until = null;
+      }
+    }
+
     return {
       ...room,
+      status,
+      reserved_until,
       landlord_code: room.buildings?.landlord_id ?? room.landlord_id ?? '—',
     };
   });
@@ -63,9 +83,6 @@ export async function getRooms(companyId?: string, landlordId?: string): Promise
 
 export async function getRoomsByBuilding(buildingId: string, companyId?: string): Promise<DBRoom[]> {
   if (!buildingId) return [];
-
-  const isUuidStr = (val?: string | null): boolean =>
-    !!val && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(val);
 
   let targetBuildingId: string | null = isUuidStr(buildingId) ? buildingId : null;
 
@@ -90,7 +107,21 @@ export async function getRoomsByBuilding(buildingId: string, companyId?: string)
   if (companyId) q = q.or(`company_id.eq.${companyId},company_id.is.null`);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as unknown as DBRoom[];
+
+  const now = new Date();
+  const roomsList = (data ?? []).map((room: any) => {
+    let status = room.status;
+    let reserved_until = room.reserved_until;
+    if (status === 'reserved') {
+      const isExpired = !reserved_until || new Date(reserved_until) < now;
+      if (isExpired) {
+        status = 'available';
+        reserved_until = null;
+      }
+    }
+    return { ...room, status, reserved_until };
+  });
+  return roomsList as unknown as DBRoom[];
 }
 
 export async function getRoom(id: string): Promise<DBRoom | null> {
@@ -110,14 +141,38 @@ export async function getRoomWithBuilding(id: string): Promise<RoomWithBuilding 
 }
 
 export async function createRoom(r: RoomInsert): Promise<DBRoom> {
-  const { data, error } = await supabase.from('rooms').insert(r as any).select().single();
+  let payload = { ...r };
+  if (payload.building_id && !isUuidStr(payload.building_id)) {
+    const { data: bld } = await supabase
+      .from('buildings')
+      .select('id')
+      .eq('code', payload.building_id)
+      .maybeSingle();
+    if (bld?.id) {
+      payload.building_id = bld.id;
+    }
+  }
+  const { data, error } = await supabase.from('rooms').insert(payload as any).select().single();
   if (error) throw error;
   return data as unknown as DBRoom;
 }
 
 export async function updateRoom(id: string, r: RoomUpdate): Promise<DBRoom> {
+  let payload = { ...r };
+  if (payload.building_id && !isUuidStr(payload.building_id)) {
+    const { data: bld } = await supabase
+      .from('buildings')
+      .select('id')
+      .eq('code', payload.building_id)
+      .maybeSingle();
+    if (bld?.id) {
+      payload.building_id = bld.id;
+    } else {
+      delete (payload as any).building_id;
+    }
+  }
   const { data, error } = await supabase
-    .from('rooms').update({ ...(r as any), updated_at: new Date().toISOString() })
+    .from('rooms').update({ ...(payload as any), updated_at: new Date().toISOString() })
     .eq('id', id).select().single();
   if (error) throw error;
   return data as unknown as DBRoom;

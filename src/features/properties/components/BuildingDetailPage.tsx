@@ -293,7 +293,7 @@ export function BuildingDetailPage() {
 
     const payload = {
       code: newCode,
-      building_id: building?.code || '',
+      building_id: building?.id || room.building_id || building?.code || '',
       landlord_id: landlordCode,
       company_id: company?.id ?? null,
       floor: newFloor,
@@ -420,7 +420,7 @@ export function BuildingDetailPage() {
 
     const payload = {
       code: fd.get('code') as string,
-      building_id: building?.code || '',
+      building_id: building?.id || editItem?.building_id || building?.code || '',
       landlord_id: landlordCode,
       company_id: company?.id ?? null,
       floor: Number(fd.get('floor')),

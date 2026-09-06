@@ -181,5 +181,12 @@ export function useLeadDetail(leadId: string) {
     return data;
   };
 
-  return { lead, activities, loading, addActivity, changeStatus, changeAssignee };
+  const updateLeadInfo = async (patch: Partial<DBLead>) => {
+    if (!lead) return null;
+    const data = await updateLead(leadId, patch);
+    setLead(data);
+    return data;
+  };
+
+  return { lead, activities, loading, addActivity, changeStatus, changeAssignee, updateLeadInfo };
 }

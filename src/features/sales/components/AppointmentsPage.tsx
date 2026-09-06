@@ -21,6 +21,8 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { ShowingActionDrawer } from '@/components/showing/ShowingActionDrawer';
 import { ShowingTimelineView } from '@/components/showing/ShowingTimelineView';
 import type { DBAppointment } from '@/lib/supabase/types';
+import Pagination from '@/components/Pagination';
+import { useEffect } from 'react';
 
 const STATUS_LIST = ['Pending', 'Confirm', 'Viewed', 'Dealed', 'Cancel'] as const;
 type AppStatus = typeof STATUS_LIST[number];
@@ -227,6 +229,17 @@ export function AppointmentsPage() {
     }
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterFromDate, filterToDate, filterStatus, filterAssignee]);
+
+  const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
+  const safePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const paginatedAppointments = sortedAndFiltered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   const openView = (item: DBAppointment) => { setViewItem(item); setIsViewOpen(true); };
   const openEdit = (item: DBAppointment) => { setEditItem(item); setIsEditOpen(true); };
 
@@ -340,38 +353,53 @@ export function AppointmentsPage() {
       ) : (
 
       <Card className="border-slate-200 shadow-sm">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Tìm theo tên khách hàng hoặc SĐT..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+        <CardHeader className="p-4 border-b border-border/60">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Tìm theo tên khách hàng hoặc SĐT..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 p-1 rounded-lg">
+                <Input type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} className="w-34 h-8 text-xs font-mono font-bold cursor-pointer" />
+                <span className="text-slate-500 font-bold px-0.5">đến</span>
+                <Input type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} className="w-34 h-8 text-xs font-mono font-bold cursor-pointer" />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="Pending">Chờ duyệt</option>
+                <option value="Confirm">Xác nhận</option>
+                <option value="Viewed">Đã xem phòng</option>
+                <option value="Dealed">Đã chốt thành công</option>
+                <option value="Cancel">Đã hủy</option>
+              </select>
+              {selectedIds.length > 0 && (
+                <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">
+                  <Trash2 className="h-4 w-4 mr-2" /> Hủy {selectedIds.length} lịch hẹn
+                </Button>
+              )}
+              <div className="text-xs text-slate-500 font-medium hidden lg:block whitespace-nowrap">
+                Hiển thị <strong>{sortedAndFiltered.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, sortedAndFiltered.length)}</strong> / <strong>{sortedAndFiltered.length}</strong> lịch hẹn
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 p-1 rounded-lg">
-              <Input type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} className="w-34 h-8 text-xs font-mono font-bold cursor-pointer" />
-              <span className="text-slate-500 font-bold px-0.5">đến</span>
-              <Input type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} className="w-34 h-8 text-xs font-mono font-bold cursor-pointer" />
-            </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="Pending">Chờ duyệt</option>
-              <option value="Confirm">Xác nhận</option>
-              <option value="Viewed">Đã xem phòng</option>
-              <option value="Dealed">Đã chốt thành công</option>
-              <option value="Cancel">Đã hủy</option>
-            </select>
-            {selectedIds.length > 0 && (
-              <Button onClick={handleBulkDelete} size="sm" className="bg-red-500 hover:bg-red-600 text-white rounded-lg whitespace-nowrap h-10">
-                <Trash2 className="h-4 w-4 mr-2" /> Hủy {selectedIds.length} lịch hẹn
-              </Button>
+
+            {totalPages > 1 && (
+              <div className="shrink-0 self-end md:self-auto">
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={(p) => setCurrentPage(p)}
+                />
+              </div>
             )}
           </div>
         </CardHeader>
@@ -406,7 +434,7 @@ export function AppointmentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle text-ink">
-                  {sortedAndFiltered.map((item) => (
+                  {paginatedAppointments.map((item) => (
                     <tr
                       key={item.id}
                       className="hover:bg-bg-subtle/50 transition-colors cursor-pointer"
@@ -437,9 +465,9 @@ export function AppointmentsPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 font-mono">
-                        {item.building_id ? (
+                        {(item.building_code || item.building_id) ? (
                           <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-bg-subtle border border-border-subtle text-ink-muted">
-                            {item.building_id}
+                            {item.building_code || item.building_id}
                           </span>
                         ) : (
                           <span className="text-ink-muted text-xs">—</span>
@@ -583,7 +611,7 @@ export function AppointmentsPage() {
 
               {/* Mobile Card List View (Responsive UI/UX cho Điện thoại) */}
               <div className="block md:hidden divide-y divide-border-subtle bg-white dark:bg-zinc-900">
-                {sortedAndFiltered.map((item) => (
+                {paginatedAppointments.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => openView(item)}

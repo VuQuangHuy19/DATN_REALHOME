@@ -26,7 +26,7 @@ export function useCompanies() {
 
     // Lắng nghe Realtime từ Supabase cho bảng companies
     const channel = supabase
-      .channel('realtime-companies-list')
+      .channel(`realtime-companies-list:${Math.random().toString(36).substring(2, 9)}`)
       .on(
         'postgres_changes',
         {
@@ -116,7 +116,7 @@ export function useCompanyStats() {
 
     // Lắng nghe Realtime để cập nhật Stats khi bảng companies thay đổi
     const channel = supabase
-      .channel('realtime-company-stats')
+      .channel(`realtime-company-stats:${Math.random().toString(36).substring(2, 9)}`)
       .on(
         'postgres_changes',
         {

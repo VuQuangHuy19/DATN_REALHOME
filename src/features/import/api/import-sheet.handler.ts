@@ -552,7 +552,10 @@ export async function handleImportSheet(request: Request) {
           let mPhoneRaw = parts.slice(1).join('-').trim(); // lấy phần sau dấu -
           
           // Lấy SĐT đầu tiên (bỏ qua SĐT phụ nếu có nhiều)
-          const mPhone = mPhoneRaw.split('\n')[0].replace(/[^\\d]/g, '').slice(0, 11) || '';
+          const rawDigits = mPhoneRaw.split('\n')[0].replace(/[^\d]/g, '').slice(0, 11) || '';
+          const mPhone = rawDigits ? (rawDigits.startsWith('00') ? rawDigits.replace(/^0+/, '0') : (rawDigits.length === 9 && !rawDigits.startsWith('0') ? '0' + rawDigits : rawDigits)) : '';
+          
+          const targetLandlordUuid = landlord_id ? (companyLandlords.find((l: any) => l.code === landlord_id || l.id === landlord_id)?.id || (landlord_id.length === 36 ? landlord_id : null)) : null;
           
           if (mName && mName.length >= 2 && mName.toLowerCase() !== 'x9') {
             // Tra cứu Manager theo tên + công ty (cache theo session để tránh spam DB)
@@ -581,22 +584,25 @@ export async function handleImportSheet(request: Request) {
                   name: mName,
                   phone: mPhone || null,
                   manager_type: 'individual',
-                  landlord_id: landlord_id || null, // ← Gắn TH03 làm chủ giám sát
+                  landlord_id: targetLandlordUuid, // ← Gắn UUID làm chủ giám sát
                   code: `MGR-${mName.toUpperCase().replace(/\s+/g, '').slice(0, 8)}-${mPhone.slice(-4) || '0000'}`
                 })
                 .select('id')
                 .single();
               if (!mErr && newMgr) {
                 mId = newMgr.id;
-                console.log(`[Import] Đã tạo Quản lý tòa mới: ${mName} (${mPhone}) thuộc giám sát của landlord ${landlord_id}`);
+                console.log(`[Import] Đã tạo Quản lý tòa mới: ${mName} (${mPhone}) thuộc giám sát của landlord UUID ${targetLandlordUuid}`);
               } else if (mErr) {
                 console.warn(`[Import] Không thể tạo quản lý ${mName}:`, mErr.message);
               }
-            } else if (existingMgr && !existingMgr.landlord_id && landlord_id) {
-              // Nếu manager đã có nhưng chưa gán landlord → gán luôn
+            } else if (existingMgr && (!existingMgr.landlord_id || existingMgr.phone !== mPhone) && (targetLandlordUuid || mPhone)) {
+              // Nếu manager đã có nhưng chưa gán landlord hoặc phone bị trùng 00 → cập nhật
               await supabaseAdmin
                 .from('managers')
-                .update({ landlord_id: landlord_id })
+                .update({ 
+                  ...(targetLandlordUuid ? { landlord_id: targetLandlordUuid } : {}),
+                  ...(mPhone ? { phone: mPhone } : {})
+                })
                 .eq('id', existingMgr.id);
             }
             

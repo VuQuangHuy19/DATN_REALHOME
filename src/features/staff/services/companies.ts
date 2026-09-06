@@ -43,7 +43,7 @@ export async function getCompanies(): Promise<DBCompany[]> {
     }
   }
 
-  return companies.map((c) => ({
+  return companies.map((c: any) => ({
     ...c,
     total_users: userCounts[c.id] ?? c.total_users ?? 0,
     total_properties: propertyCounts[c.id] ?? c.total_properties ?? 0,

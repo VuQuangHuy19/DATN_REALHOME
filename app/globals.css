@@ -120,12 +120,59 @@
     appearance: textfield;
   }
 
-  /* Toàn bộ các phần tử có thể tương tác, lựa chọn, nút bấm, ô chọn, menu item */
+  /* Disable browser native password reveal icon to prevent duplicate eye icons */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none !important;
+  }
+
+  /* Styling cho nút chọn lịch dạng date picker */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
+  /* 1. Con trỏ dạng văn bản (I-beam cursor) dành cho tiêu đề, chữ, đoạn văn & ô nhập liệu */
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  b,
+  strong,
+  em,
+  i,
+  small,
+  sub,
+  sup,
+  td,
+  th,
+  blockquote,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  textarea {
+    cursor: text;
+  }
+
+  /* 2. Con trỏ dạng bàn tay (hand pointer) chỉ dành cho nút bấm và phần tử tương tác */
   button,
-  a,
+  button *,
+  a[href],
+  a[href] *,
   select,
   option,
-  label,
   summary,
   input[type="button"],
   input[type="submit"],
@@ -134,8 +181,10 @@
   input[type="radio"],
   input[type="file"],
   [role="button"],
+  [role="button"] *,
   [role="option"],
   [role="menuitem"],
+  [role="menuitem"] *,
   [role="menuitemcheckbox"],
   [role="menuitemradio"],
   [role="tab"],
@@ -144,17 +193,34 @@
   [role="combobox"],
   [role="switch"],
   [data-radix-collection-item],
-  [data-state],
-  .cursor-pointer {
-    cursor: pointer !important;
+  .cursor-pointer,
+  .cursor-pointer * {
+    cursor: pointer;
   }
 
-  /* Vẫn giữ cursor not-allowed khi bị disabled */
+  /* Label kèm ô chọn checkbox/radio vẫn dùng bàn tay */
+  label:has(input[type="checkbox"]),
+  label:has(input[type="radio"]) {
+    cursor: pointer;
+  }
+
+  /* 3. Utility classes cho cursor */
+  .cursor-text {
+    cursor: text !important;
+  }
+
+  .cursor-default {
+    cursor: default !important;
+  }
+
+  /* 4. Con trỏ disabled khi phần tử bị khóa */
   button:disabled,
+  button:disabled *,
   input:disabled,
   select:disabled,
   textarea:disabled,
   [aria-disabled="true"],
+  [data-disabled],
   .cursor-not-allowed {
     cursor: not-allowed !important;
   }

@@ -1,40 +1,34 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Calculator,
   Percent,
   Sliders,
-  DollarSign,
-  ShieldCheck,
   Building2,
   Users,
   Award,
-  ArrowRight,
-  Save,
-  CheckCircle2,
-  HelpCircle,
   TrendingUp,
   FileText,
   UserCheck,
   Zap,
   Sparkles,
-  Check,
   Plus,
   Trash2,
   Target,
   Scale,
   Edit3,
-  Calendar,
-  AlertCircle,
   Loader2,
   Search,
   Lock,
-  Eye,
   CheckCircle,
   XCircle,
   Clock,
-  Info,
+  RotateCcw,
+  DollarSign,
+  Gift,
+  Calendar,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   calculateCompanyRevenueAndSalesCommission,
@@ -43,6 +37,7 @@ import {
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getKPIConfiguration, saveKPIConfiguration } from '@/features/staff/services/kpi_configurations';
 import { getSalesDashboardStats } from '@/lib/supabase/repositories/dashboard';
+import { getSalaryBonuses, addSalaryBonus, deleteSalaryBonus, SalaryBonus } from '@/src/lib/supabase/repositories/salary_bonuses';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -84,15 +79,18 @@ export function CommissionPoliciesComponent() {
   const isSale = role === 'sales_agent' || profile?.role === 'sales_agent';
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // ── State 1: Cấu hình Chính sách Hoa hồng Chủ nhà (Landlord Engine) ──────────
   const [interpolationMode, setInterpolationMode] = useState<'linear' | 'step' | 'custom'>('linear');
-  const [clawbackEnabled, setClawbackEnabled] = useState(true);
-  const [vacancyBonusEnabled, setVacancyBonusEnabled] = useState(true);
-  const [vacancyDaysThreshold, setVacancyDaysThreshold] = useState(30);
-  const [vacancyBonusPercent, setVacancyBonusPercent] = useState(10);
+  const [customMatrix, setCustomMatrix] = useState({
+    m1: 10,
+    m3: 25,
+    m6: 40,
+    m9: 50,
+    m12: 60,
+  });
 
   // ── State 2: Cấu hình Cơ chế Hoa hồng Sale & Cấp bậc (Sales Commission) ──────
   const [selectedCommMode, setSelectedCommMode] = useState<'fixed' | 'tier' | 'custom'>('fixed');
@@ -108,12 +106,10 @@ export function CommissionPoliciesComponent() {
   const [commissionTiers, setCommissionTiers] = useState<
     Array<{ minRevenue: number; maxRevenue: number; rate: number }>
   >([
-    { minRevenue: 0, maxRevenue: 30000000, rate: 0.35 },
-    { minRevenue: 30000000, maxRevenue: 60000000, rate: 0.45 },
-    { minRevenue: 60000000, maxRevenue: 100000000, rate: 0.55 },
+    { minRevenue: 0, maxRevenue: 12500000, rate: 0.30 },
+    { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34 },
+    { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40 },
   ]);
-
-  const [teamLeadOverrideRate, setTeamLeadOverrideRate] = useState(5);
 
   // ── State 3: Trọng số & Mục tiêu KPI Mặc định (KPI Config) ─────────────────
   const [revenueWeight, setRevenueWeight] = useState(50);
@@ -130,7 +126,22 @@ export function CommissionPoliciesComponent() {
   const [simTermMonths, setSimTermMonths] = useState<number>(9);
   const [simSalesLevel, setSimSalesLevel] = useState<'junior' | 'official' | 'senior' | 'teamLead'>('official');
 
-  // ── State 5: Sale Specific Data (Dành riêng cho Chế độ Sale Thuần Xem) ──────
+  // ── State 5: Danh sách Hợp đồng Chốt trong tháng cho Mục 2 Case minh họa ────
+  const [monthClosedDeals, setMonthClosedDeals] = useState<any[]>([]);
+  const [selectedMonthDealId, setSelectedMonthDealId] = useState<string>('');
+
+  // ── State 6: Quản lý Lương & Thưởng Sales (Khối 2) ──────────────────────────
+  const [salesAgentsList, setSalesAgentsList] = useState<any[]>([]);
+  const [selectedPayrollSaleId, setSelectedPayrollSaleId] = useState<string>('');
+  const [saleBonuses, setSaleBonuses] = useState<SalaryBonus[]>([]);
+  
+  // Form Thêm Thưởng
+  const [newBonusAmount, setNewBonusAmount] = useState<number>(500000);
+  const [newBonusReason, setNewBonusReason] = useState<string>('Thưởng chốt deal căn Studio thành công');
+  const [newBonusDate, setNewBonusDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [addingBonus, setAddingBonus] = useState(false);
+
+  // ── State 7: Sale Specific Data (Dành riêng cho Chế độ Sale Thuần Xem) ──────
   const [saleClosedDeals, setSaleClosedDeals] = useState<any[]>([]);
   const [selectedDealId, setSelectedDealId] = useState<string>('');
   const [dealSearchQuery, setDealSearchQuery] = useState<string>('');
@@ -160,8 +171,89 @@ export function CommissionPoliciesComponent() {
           setDefaultTargetAppointments(conf.default_target_appointments ?? 10);
           setDefaultTargetLeads(conf.default_target_leads ?? 20);
         }
+
+        // Fetch danh sách nhân viên Sales
+        const { data: salesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, role')
+          .eq('company_id', company.id)
+          .eq('role', 'sales_agent');
+
+        if (salesData && salesData.length > 0) {
+          setSalesAgentsList(salesData);
+          setSelectedPayrollSaleId(salesData[0].id);
+        }
+
+        // Fetch danh sách tất cả hợp đồng chốt trong công ty (cho Mục 2 Dropdown)
+        const [depRes, rentRes] = await Promise.all([
+          supabase
+            .from('deposit_contracts')
+            .select('id, contract_code, party_b_name, deposit_amount, rent_price, commission_rate_raw, created_at, status, room_id, rooms(code, price, rose, buildings(name))')
+            .eq('company_id', company.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('rental_contracts')
+            .select('id, contract_code, deposit_contract_id, party_b_name, rent_price, commission_rate_raw, start_date, end_date, created_at, status, room_id, rooms(code, price, rose, buildings(name))')
+            .eq('company_id', company.id)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        const getRoseVal = (item: any) => {
+          if (item.commission_rate_raw && typeof item.commission_rate_raw === 'string' && item.commission_rate_raw.trim()) {
+            return item.commission_rate_raw.trim();
+          }
+          if (item.rooms?.rose && typeof item.rooms.rose === 'string' && item.rooms.rose.trim()) {
+            return item.rooms.rose.trim();
+          }
+          return ''; // Để trống nếu chưa nhập % hoa hồng
+        };
+
+        const rentalList = (rentRes.data || [])
+          .filter((r: any) => r.status !== 'cancelled')
+          .map((r: any) => ({
+            id: r.id,
+            depositContractId: r.deposit_contract_id,
+            roomId: r.room_id,
+            code: r.rooms?.code || 'P.N/A',
+            building: r.rooms?.buildings?.name || 'Tòa nhà',
+            tenant: r.party_b_name || 'Khách hàng',
+            price: r.rent_price || r.rooms?.price || 0,
+            termMonths: getContractTermMonths(r.start_date, r.end_date) || 12,
+            rose: getRoseVal(r),
+            typeLabel: 'HĐ Thuê',
+          }));
+
+        const rentalDepositIds = new Set(rentalList.map((r: any) => r.depositContractId).filter(Boolean));
+        const rentalRoomCustomerKeys = new Set(
+          rentalList.map((r: any) => `${r.roomId}_${(r.tenant || '').toLowerCase().trim()}`)
+        );
+
+        const depositList = (depRes.data || [])
+          .filter((d: any) => {
+            if (d.status === 'converted' || d.status === 'converted_to_rental' || d.status === 'cancelled' || d.status === 'forfeited' || d.status === 'cancelled_deposit') return false;
+            if (rentalDepositIds.has(d.id)) return false;
+            const key = `${d.room_id}_${(d.party_b_name || '').toLowerCase().trim()}`;
+            if (rentalRoomCustomerKeys.has(key)) return false;
+            return true;
+          })
+          .map((d: any) => ({
+            id: d.id,
+            code: d.rooms?.code || 'P.N/A',
+            building: d.rooms?.buildings?.name || 'Tòa nhà',
+            tenant: d.party_b_name || 'Khách hàng',
+            price: d.rent_price || d.rooms?.price || 0,
+            termMonths: 12,
+            rose: getRoseVal(d),
+            typeLabel: 'HĐ Cọc',
+          }));
+
+        const allDeals = [...rentalList, ...depositList];
+        setMonthClosedDeals(allDeals);
+        if (allDeals.length > 0) {
+          setSelectedMonthDealId(allDeals[0].id);
+        }
       } catch (err: any) {
-        console.error('Error loading KPI config:', err);
+        console.error('Error loading KPI config & deals:', err);
       } finally {
         setLoading(false);
       }
@@ -169,7 +261,29 @@ export function CommissionPoliciesComponent() {
     loadData();
   }, [company?.id]);
 
-  // Load Căn đã chốt & Điểm KPI cho Sale (Áp dụng Bộ lọc & Khử trùng lặp 4 trường hợp)
+  // Tự động nhảy tiền & sync dữ liệu sang Bộ Mô Phỏng Dòng Tiền khi chọn phòng chốt
+  useEffect(() => {
+    if (!selectedMonthDealId || monthClosedDeals.length === 0) return;
+    const deal = monthClosedDeals.find((d) => d.id === selectedMonthDealId);
+    if (deal) {
+      setSimRoomPrice(deal.price || 0);
+      setSimTermMonths(deal.termMonths || 12);
+      // Nếu hợp đồng/phòng chưa nhập % hoa hồng thì để trống ô này
+      setSimRoseStr(deal.rose ? deal.rose : '');
+    }
+  }, [selectedMonthDealId, monthClosedDeals]);
+
+  // Fetch danh sách Tiền Thưởng khi đổi Sale chọn
+  useEffect(() => {
+    async function loadBonuses() {
+      if (!company?.id || !selectedPayrollSaleId) return;
+      const bonuses = await getSalaryBonuses(company.id, selectedPayrollSaleId);
+      setSaleBonuses(bonuses);
+    }
+    loadBonuses();
+  }, [company?.id, selectedPayrollSaleId]);
+
+  // Load Căn đã chốt cho Sale (Dành riêng cho Chế độ Sale)
   useEffect(() => {
     async function loadSaleData() {
       const sId = user?.id || profile?.id;
@@ -197,7 +311,6 @@ export function CommissionPoliciesComponent() {
 
         setSaleKpiStats(stats);
 
-        // 1. Map danh sách Hợp đồng thuê chính thức
         const rentals = (rentRes.data || []).map((r: any) => {
           const termMonths = getContractTermMonths(r.start_date, r.end_date);
           return {
@@ -214,25 +327,20 @@ export function CommissionPoliciesComponent() {
           };
         });
 
-        // 2. Thu thập danh sách ID hợp đồng cọc đã chuyển thành hợp đồng thuê
         const rentalDepositIds = new Set((rentRes.data || []).map((r: any) => r.deposit_contract_id).filter(Boolean));
         const rentalRoomCustomerKeys = new Set(
           rentals.map((r: any) => `${r.room_id}_${(r.party_b_name || '').toLowerCase().trim()}`)
         );
 
-        // 3. Lọc & xử lý Hợp đồng Đặt cọc (Khử trùng lặp & Phân loại bỏ cọc / chờ ký)
         const deposits = (depRes.data || [])
           .filter((d: any) => {
-            // CASE 1: Đã chuyển sang HĐ Thuê => Ẩn HĐ Cọc, chỉ hiển thị HĐ Thuê chính thức
             if (d.status === 'converted' || d.status === 'converted_to_rental') return false;
             if (rentalDepositIds.has(d.id)) return false;
             const key = `${d.room_id}_${(d.party_b_name || '').toLowerCase().trim()}`;
             if (rentalRoomCustomerKeys.has(key)) return false;
-
             return true;
           })
           .map((d: any) => {
-            // CASE 2: Bỏ cọc / Hủy cọc
             const isCancelled =
               d.status === 'cancelled' || d.status === 'forfeited' || d.status === 'cancelled_deposit';
 
@@ -243,9 +351,8 @@ export function CommissionPoliciesComponent() {
               building_name: d.rooms?.buildings?.name || 'Tòa nhà',
               price: d.rent_price || d.rooms?.price || 0,
               rose: d.rooms?.rose || '40% - 6th, 60% - 12th',
-              termMonths: 12, // Thời hạn dự kiến trên HĐ cọc
+              termMonths: 12,
               isCancelled,
-              // CASE 3: Chưa ký HĐ thuê / Bỏ cọc
               statusLabel: isCancelled ? '🚫 BỎ CỌC (0 VNĐ)' : '📝 HĐ CỌC (CHỜ HĐ THUÊ)',
               statusColor: isCancelled
                 ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300 border-rose-200 dark:border-rose-500/30'
@@ -267,6 +374,105 @@ export function CommissionPoliciesComponent() {
     }
   }, [company?.id, user?.id, profile?.id, isSale]);
 
+  // Tự động lưu cấu hình (Auto-Save) khi Admin thay đổi các chỉ số
+  const handleAutoSave = useCallback(
+    async (overrideData?: any) => {
+      if (isSale || !company?.id) return;
+      setAutoSaving(true);
+      try {
+        const payload = overrideData || {
+          revenue_weight: revenueWeight / 100,
+          appointment_weight: appointmentWeight / 100,
+          lead_weight: leadWeight / 100,
+          default_target_revenue: defaultTargetRevenue,
+          default_target_appointments: defaultTargetAppointments,
+          default_target_leads: defaultTargetLeads,
+          sale_commission_mode: selectedCommMode,
+          sale_commission_fixed_rate: fixedRatePercent / 100,
+          sale_commission_tiers: commissionTiers,
+        };
+        await saveKPIConfiguration(company.id, payload);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } catch (err: any) {
+        console.error('Auto-save KPI config error:', err);
+      } finally {
+        setAutoSaving(false);
+      }
+    },
+    [company?.id, isSale, revenueWeight, appointmentWeight, leadWeight, defaultTargetRevenue, defaultTargetAppointments, defaultTargetLeads, selectedCommMode, fixedRatePercent, commissionTiers]
+  );
+
+  // ⚡ Nút Khôi Phục Mặc Định (Reset to Default)
+  const handleResetToDefault = async () => {
+    if (isSale) return;
+    const defaultPayload = {
+      revenue_weight: 0.5,
+      appointment_weight: 0.3,
+      lead_weight: 0.2,
+      default_target_revenue: 50000000,
+      default_target_appointments: 10,
+      default_target_leads: 20,
+      sale_commission_mode: 'fixed',
+      sale_commission_fixed_rate: 0.6,
+      sale_commission_tiers: [
+        { minRevenue: 0, maxRevenue: 12500000, rate: 0.30 },
+        { minRevenue: 12500000, maxRevenue: 25000000, rate: 0.34 },
+        { minRevenue: 25000000, maxRevenue: 999999999, rate: 0.40 },
+      ],
+    };
+
+    setInterpolationMode('linear');
+    setCustomMatrix({ m1: 10, m3: 25, m6: 40, m9: 50, m12: 60 });
+    setSelectedCommMode('fixed');
+    setFixedRatePercent(60);
+    setCommissionTiers(defaultPayload.sale_commission_tiers);
+    setRevenueWeight(50);
+    setAppointmentWeight(30);
+    setLeadWeight(20);
+    setDefaultTargetRevenue(50000000);
+    setDefaultTargetAppointments(10);
+    setDefaultTargetLeads(20);
+
+    await handleAutoSave(defaultPayload);
+    toast.success('✨ Đã khôi phục toàn bộ cài đặt mặc định ban đầu thành công!');
+  };
+
+  // Thêm Khoản Thưởng cho Sale (Khối 2)
+  const handleAddBonusSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!company?.id || !selectedPayrollSaleId) return;
+    if (newBonusAmount <= 0) {
+      toast.error('Vui lòng nhập số tiền thưởng hợp lệ');
+      return;
+    }
+    setAddingBonus(true);
+    try {
+      const added = await addSalaryBonus({
+        company_id: company.id,
+        sales_agent_id: selectedPayrollSaleId,
+        amount: newBonusAmount,
+        reason: newBonusReason || 'Khen thưởng thành tích xuất sắc',
+        bonus_date: newBonusDate,
+      });
+      setSaleBonuses(prev => [added, ...prev]);
+      setNewBonusAmount(500000);
+      setNewBonusReason('');
+      toast.success('✨ Đã thêm khoản tiền thưởng mới cho Sale thành công!');
+    } catch (err: any) {
+      toast.error(err.message || 'Lỗi khi thêm tiền thưởng');
+    } finally {
+      setAddingBonus(false);
+    }
+  };
+
+  // Xóa Khoản Thưởng (Khối 2)
+  const handleDeleteBonusItem = async (id: string) => {
+    await deleteSalaryBonus(id);
+    setSaleBonuses(prev => prev.filter(b => b.id !== id));
+    toast.success('Đã xóa khoản thưởng');
+  };
+
   // Dynamic active sales rate from tier or fixed mode
   const activeSalesRate = selectedCommMode === 'fixed' ? fixedRatePercent : salesTierRates[simSalesLevel];
 
@@ -278,10 +484,26 @@ export function CommissionPoliciesComponent() {
     activeSalesRate
   );
 
-  // Helper format số tiền VNĐ
+  // Active Selected Deal trong Mục 2 minh họa
+  const activeSelectedMonthDeal = monthClosedDeals.find(d => d.id === selectedMonthDealId) || monthClosedDeals[0] || {
+    code: '501',
+    building: 'Tòa 249 Yên Hòa',
+    tenant: 'Nguyễn Văn A',
+    price: 5200000,
+    termMonths: 9,
+    rose: '40% - 6th, 60% - 12th',
+  };
+
+  const activeDealSimResult = calculateCompanyRevenueAndSalesCommission(
+    activeSelectedMonthDeal.price,
+    activeSelectedMonthDeal.rose,
+    activeSelectedMonthDeal.termMonths,
+    activeSalesRate
+  );
+
   const formatMoney = (val: number) => val.toLocaleString('vi-VN');
 
-  // Lọc căn đã chốt của Sale (Theo Tab Tất cả / Đã cọc / Đã thuê & Từ khóa tìm kiếm)
+  // Lọc căn đã chốt của Sale (Dành riêng cho Chế độ Sale)
   const filteredClosedDeals = saleClosedDeals.filter((deal) => {
     if (dealFilterTab === 'deposit' && deal.type !== 'deposit') return false;
     if (dealFilterTab === 'rental' && deal.type !== 'rental') return false;
@@ -298,7 +520,6 @@ export function CommissionPoliciesComponent() {
 
   const activeDeal = saleClosedDeals.find((d) => d.id === selectedDealId) || filteredClosedDeals[0];
 
-  // Tính hoa hồng căn được chọn (Xử lý trường hợp bỏ cọc = 0 VNĐ)
   const activeDealCalculation = activeDeal
     ? activeDeal.isCancelled
       ? {
@@ -318,38 +539,11 @@ export function CommissionPoliciesComponent() {
         )
     : null;
 
-  // Lưu toàn bộ cấu hình (Chỉ dành cho Admin)
-  const handleSaveAllConfig = async () => {
-    if (isSale) {
-      toast.error('Sale chỉ có quyền xem chính sách & kết quả hoa hồng cá nhân!');
-      return;
-    }
-    setSaving(true);
-    try {
-      if (company?.id) {
-        const payload = {
-          revenue_weight: revenueWeight / 100,
-          appointment_weight: appointmentWeight / 100,
-          lead_weight: leadWeight / 100,
-          default_target_revenue: defaultTargetRevenue,
-          default_target_appointments: defaultTargetAppointments,
-          default_target_leads: defaultTargetLeads,
-          sale_commission_mode: selectedCommMode,
-          sale_commission_fixed_rate: fixedRatePercent / 100,
-          sale_commission_tiers: commissionTiers,
-        };
-        await saveKPIConfiguration(company.id, payload);
-      }
-
-      setSaveSuccess(true);
-      toast.success('Đã lưu toàn bộ cơ chế, chính sách hoa hồng & KPI thành công!');
-      setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err: any) {
-      toast.error(`Lỗi khi lưu cấu hình: ${err.message}`);
-    } finally {
-      setSaving(false);
-    }
-  };
+  // Tính tổng thưởng & lương của Sale được chọn trong Khối 2
+  const selectedSaleAgentInfo = salesAgentsList.find(s => s.id === selectedPayrollSaleId);
+  const totalBonusSum = saleBonuses.reduce((sum, item) => sum + item.amount, 0);
+  const calculatedBaseCommission = 2600000 * 0.6; // Giả lập hoa hồng từ căn chốt
+  const totalPayrollAmount = calculatedBaseCommission + totalBonusSum;
 
   if (loading) {
     return (
@@ -385,7 +579,7 @@ export function CommissionPoliciesComponent() {
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <h2 className="text-xl font-bold flex items-center gap-2 text-white">
                 <Calculator className="w-6 h-6 text-emerald-400" />
-                Chính Sách Hoa Hồng & Tra Cứu KPI Cá Nhân
+                Chính Sách Hoa Hồng &amp; Tra Cứu KPI Cá Nhân
               </h2>
               <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
                 <Lock className="w-3 h-3" /> Chỉ xem
@@ -409,7 +603,7 @@ export function CommissionPoliciesComponent() {
               <Target className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  1. Định Mức Chỉ Tiêu KPI & Tiến Độ Tháng Này
+                  1. Định Mức Chỉ Tiêu KPI &amp; Tiến Độ Tháng Này
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Xem mức độ hoàn thành chỉ tiêu doanh số hoa hồng, số căn chốt và số lịch hẹn dẫn khách.
@@ -426,7 +620,7 @@ export function CommissionPoliciesComponent() {
             <div className="bg-slate-50 dark:bg-slate-900/70 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                   Doanh Số Hoa Hồng
+                  Doanh Số Hoa Hồng
                 </span>
                 <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
                   {revenueProgress}%
@@ -447,12 +641,6 @@ export function CommissionPoliciesComponent() {
                     style={{ width: `${revenueProgress}%` }}
                   />
                 </div>
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
-                <span>Trạng thái:</span>
-                <span className={`font-bold ${revenueProgress >= 100 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                  {revenueProgress >= 100 ? '🔥 Đã đạt chỉ tiêu!' : `Còn thiếu ${formatMoney(Math.max(0, targetRevenue - actualRevenue))} đ`}
-                </span>
               </div>
             </div>
 
@@ -482,12 +670,6 @@ export function CommissionPoliciesComponent() {
                   />
                 </div>
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
-                <span>Đánh giá:</span>
-                <span className={`font-bold ${dealsProgress >= 100 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                  {dealsProgress >= 100 ? '🎉 Vượt chỉ tiêu!' : `Cần chốt thêm ${Math.max(0, targetDeals - actualDeals)} căn`}
-                </span>
-              </div>
             </div>
 
             {/* KPI 3: Lịch Hẹn Dẫn Khách */}
@@ -516,19 +698,12 @@ export function CommissionPoliciesComponent() {
                   />
                 </div>
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
-                <span>Chăm sóc khách:</span>
-                <span className="font-bold text-purple-600 dark:text-purple-400">
-                  {actualAppts > 0 ? 'Đang hoạt động tốt' : 'Cần tăng cường đặt hẹn'}
-                </span>
-              </div>
             </div>
           </div>
         </div>
 
         {/* ── SECTION 2: TRA CỨU HOA HỒNG CĂN ĐÃ CHỐT CỦA TÔI ───────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cột trái: Chọn & Tìm căn đã chốt */}
           <div className="lg:col-span-1 bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-5 space-y-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -539,7 +714,6 @@ export function CommissionPoliciesComponent() {
               </div>
             </div>
 
-            {/* Ô tìm kiếm */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
@@ -551,303 +725,53 @@ export function CommissionPoliciesComponent() {
               />
             </div>
 
-            {/* Bộ lọc 3 Trạng thái: Tất cả (Mặc định) | Đã cọc | Đã thuê */}
-            <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setDealFilterTab('all')}
-                className={`py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer ${
-                  dealFilterTab === 'all'
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-bold'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Tất cả ({saleClosedDeals.length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDealFilterTab('deposit')}
-                className={`py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer ${
-                  dealFilterTab === 'deposit'
-                    ? 'bg-amber-500 text-white shadow-xs font-bold dark:bg-amber-600'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400'
-                }`}
-              >
-                Đã cọc ({saleClosedDeals.filter((d) => d.type === 'deposit').length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDealFilterTab('rental')}
-                className={`py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer ${
-                  dealFilterTab === 'rental'
-                    ? 'bg-emerald-600 text-white shadow-xs font-bold dark:bg-emerald-600'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400'
-                }`}
-              >
-                Đã thuê ({saleClosedDeals.filter((d) => d.type === 'rental').length})
-              </button>
-            </div>
-
-            {/* Danh sách căn (Tối đa 3 căn hiển thị, nhiều hơn cuộn xuống) */}
             <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-              {filteredClosedDeals.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-xs">
-                  Không tìm thấy căn nào đã chốt khớp từ khóa.
-                </div>
-              ) : (
-                filteredClosedDeals.map((deal) => {
-                  const isSelected = activeDeal?.id === deal.id;
-                  return (
-                    <button
-                      key={deal.id}
-                      type="button"
-                      onClick={() => setSelectedDealId(deal.id)}
-                      className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-emerald-50 border-emerald-500 text-slate-900 dark:bg-emerald-500/15 dark:border-emerald-500 dark:text-white shadow-xs font-semibold'
-                          : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700/50 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">
-                          Phòng {deal.room_code}
-                        </span>
-                        <span
-                          className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${deal.statusColor}`}
-                        >
-                          {deal.statusLabel}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 truncate">
-                        {deal.building_name}
-                      </p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        <span>Khách: {deal.party_b_name || 'Khách hàng'}</span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-white">
-                          {formatMoney(deal.price)} đ
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })
-              )}
+              {filteredClosedDeals.map((deal) => (
+                <button
+                  key={deal.id}
+                  type="button"
+                  onClick={() => setSelectedDealId(deal.id)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                    activeDeal?.id === deal.id
+                      ? 'bg-emerald-50 border-emerald-500 text-slate-900 dark:bg-emerald-500/15 dark:border-emerald-500 dark:text-white shadow-xs font-semibold'
+                      : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700/50 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">
+                      Phòng {deal.room_code}
+                    </span>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${deal.statusColor}`}>
+                      {deal.statusLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 truncate">
+                    {deal.building_name}
+                  </p>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Cột phải: Phiếu chi tiết công thức & số tiền hoa hồng thực nhận */}
           <div className="lg:col-span-2 space-y-6">
-            {activeDeal ? (
+            {activeDeal && activeDealCalculation && (
               <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 space-y-6 shadow-xs">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-4">
+                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                  Phòng {activeDeal.room_code} — {activeDeal.building_name}
+                </h3>
+                <div className="p-5 bg-emerald-600 rounded-xl flex items-center justify-between text-white shadow-md">
                   <div>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-                      📌 Bảng Chi Tiết Tính Hoa Hồng Cho Căn Đã Chọn
+                    <span className="text-xs uppercase tracking-wider text-emerald-100 block font-semibold">
+                      🎉 Hoa Hồng Sale Thực Nhận:
                     </span>
-                    <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mt-1">
-                      Phòng {activeDeal.room_code} — {activeDeal.building_name}
-                    </h3>
+                    <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white mt-1 block">
+                      {formatMoney(activeDealCalculation.salesCommission)} VNĐ
+                    </span>
                   </div>
-                  <span
-                    className={`text-xs font-mono font-bold px-3 py-1 rounded-lg border ${activeDeal.statusColor}`}
-                  >
-                    {activeDeal.statusLabel}
-                  </span>
+                  <CheckCircle className="w-10 h-10 text-emerald-200 opacity-80 shrink-0" />
                 </div>
-
-                {/* Chú thích thông minh theo 4 Trường hợp */}
-                {activeDeal.isCancelled && (
-                  <div className="p-3.5 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30 text-rose-800 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2.5 font-medium">
-                    <XCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                    <span>
-                      🚫 Khách đã hủy cọc / bỏ cọc. Theo quy định, hoa hồng thực nhận ghi nhận cho giao dịch này là <strong>0 VNĐ</strong>.
-                    </span>
-                  </div>
-                )}
-
-                {activeDeal.type === 'deposit' && !activeDeal.isCancelled && (
-                  <div className="p-3.5 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs rounded-xl flex items-center gap-2.5 font-medium">
-                    <Clock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                    <span>
-                      📝 Đây là Hợp Đồng Đặt Cọc. Hoa hồng bên dưới là mức tạm tính. Khi khách ký Hợp đồng thuê chính thức, hoa hồng sẽ tự động cập nhật chuẩn xác theo thời hạn HĐ thuê thực tế.
-                    </span>
-                  </div>
-                )}
-
-                {activeDeal.type === 'rental' && (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2.5 font-medium">
-                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span>
-                      ✅ Hợp Đồng Thuê Chính Thức ({activeDeal.termMonths} tháng). Hoa hồng và doanh thu đã được chốt chuẩn xác theo thời hạn HĐ thuê thực tế ({activeDeal.termMonths} tháng).
-                    </span>
-                  </div>
-                )}
-
-                {/* Thông tin căn & Hợp đồng */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700/50 text-xs">
-                  <div>
-                    <span className="text-slate-500 block">Khách hàng thuê:</span>
-                    <strong className="text-slate-900 dark:text-white text-sm">
-                      {activeDeal.party_b_name || 'Chưa rõ'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Giá thuê / tháng:</span>
-                    <strong className="text-emerald-600 dark:text-emerald-400 text-sm font-mono">
-                      {formatMoney(activeDeal.price)} VNĐ
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Thời hạn hợp đồng:</span>
-                    <strong className="text-slate-900 dark:text-white text-sm font-mono">
-                      {activeDeal.termMonths} tháng
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block">Mốc hoa hồng Chủ nhà:</span>
-                    <strong className="text-amber-600 dark:text-amber-400 text-xs font-mono">
-                      {activeDeal.rose}
-                    </strong>
-                  </div>
-                </div>
-
-                {/* KẾT QUẢ TÍNH HOA HỒNG CHI TIẾT */}
-                {activeDealCalculation && (
-                  <div className="bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-slate-50 dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-slate-900 border border-emerald-300 dark:border-emerald-500/40 rounded-2xl p-6 space-y-5">
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 border-b border-emerald-200 dark:border-emerald-500/30 pb-3">
-                      <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                      Công Thức & Kết Quả Phân Rã Dòng Tiền Hoa Hồng
-                    </h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                      <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-                        <span className="text-slate-500 block">Tỷ lệ HH Chủ nhà áp dụng (Nội suy):</span>
-                        <span className="text-amber-700 dark:text-amber-400 font-mono font-bold text-base">
-                          {activeDealCalculation.landlordRoseRate}
-                        </span>
-                      </div>
-
-                      <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-                        <span className="text-slate-500 block">Tổng HH Công ty thu về:</span>
-                        <span className="text-emerald-700 dark:text-emerald-400 font-mono font-bold text-base">
-                          {formatMoney(activeDealCalculation.companyRevenue)} VNĐ
-                        </span>
-                      </div>
-
-                      <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-                        <span className="text-slate-500 block">Tỷ lệ chia Sale (% Mốc):</span>
-                        <span className="text-blue-700 dark:text-blue-400 font-mono font-bold text-base">
-                          {activeDealCalculation.salesCommissionRate}
-                        </span>
-                      </div>
-
-                      <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-                        <span className="text-slate-500 block">Lợi nhuận gộp Công ty giữ:</span>
-                        <span className="text-purple-700 dark:text-purple-400 font-mono font-bold text-base">
-                          {formatMoney(activeDealCalculation.companyNetProfit)} VNĐ
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* HỘP NỔI BẬT SỐ TIỀN THỰC NHẬN */}
-                    <div
-                      className={`p-5 rounded-xl flex items-center justify-between shadow-md text-white ${
-                        activeDeal.isCancelled ? 'bg-slate-700' : 'bg-emerald-600'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-xs uppercase tracking-wider text-emerald-100 block font-semibold">
-                          {activeDeal.isCancelled
-                            ? '🚫 Hoa Hồng Ghi Nhận (Khách Bỏ Cọc):'
-                            : '🎉 Hoa Hồng Sale Thực Nhận Cho Căn Này:'}
-                        </span>
-                        <span className="text-2xl sm:text-3xl font-extrabold font-mono text-white mt-1 block">
-                          {formatMoney(activeDealCalculation.salesCommission)} VNĐ
-                        </span>
-                      </div>
-                      {activeDeal.isCancelled ? (
-                        <XCircle className="w-10 h-10 text-rose-300 opacity-80 shrink-0" />
-                      ) : (
-                        <CheckCircle className="w-10 h-10 text-emerald-200 opacity-80 shrink-0" />
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 text-center space-y-3">
-                <Building2 className="w-12 h-12 text-slate-300 mx-auto" />
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  Bạn chưa chọn căn nào hoặc chưa có căn chốt trong danh sách.
-                </p>
               </div>
             )}
-
-            {/* SECTION 3: MÔ PHỎNG TÍNH THỬ HOA HỒNG DÀNH CHO SALE */}
-            <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 space-y-6 shadow-xs">
-              <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-700/60 pb-3">
-                <Calculator className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Bộ Mô Phỏng Tính Thử Hoa Hồng Căn Mới (Realtime)
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Nhập thử thông tin phòng định chào khách để tính trước hoa hồng bạn sẽ nhận được.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                <div>
-                  <label className="text-slate-600 dark:text-slate-400 block mb-1 font-medium">
-                    Giá phòng định chào (VNĐ):
-                  </label>
-                  <input
-                    type="text"
-                    value={formatNumberWithDots(simRoomPrice)}
-                    onChange={(e) => setSimRoomPrice(parseDotsToNumber(e.target.value))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-emerald-600 font-bold font-mono text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-slate-600 dark:text-slate-400 block mb-1 font-medium">
-                    Thời hạn dự kiến (Tháng):
-                  </label>
-                  <input
-                    type="text"
-                    value={simTermMonths}
-                    onChange={(e) => setSimTermMonths(parseIntegerInput(e.target.value, 60))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold font-mono text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-slate-600 dark:text-slate-400 block mb-1 font-medium">
-                    Mốc hoa hồng Chủ nhà:
-                  </label>
-                  <input
-                    type="text"
-                    value={simRoseStr}
-                    onChange={(e) => setSimRoseStr(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-mono text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
-                <div>
-                  <span className="text-slate-500 block">Dự kiến hoa hồng Sale nhận:</span>
-                  <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">
-                    {formatMoney(simResult.salesCommission)} VNĐ
-                  </span>
-                </div>
-                <div className="text-right text-slate-500">
-                  <span>(Tỷ lệ HH Chủ nhà: {simResult.landlordRoseRate} ➔ Công ty thu: {formatMoney(simResult.companyRevenue)}đ)</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -855,64 +779,74 @@ export function CommissionPoliciesComponent() {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // BẢNG DÀNH CHO ADMIN / MANAGER (ĐẦY ĐỦ QUYỀN CHỈNH SỬA & LƯU CẤU HÌNH)
+  // BẢNG DÀNH CHO ADMIN / MANAGER (TỰ ĐỘNG LƯU & KHÔI PHỤC MẶC ĐỊNH)
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      {/* Action Header Banner */}
+      {/* 1️⃣ Action Header Banner (Nút Khôi phục mặc định + Auto-save badge) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/60 shadow-xs">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Sliders className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-            Cấu Hình Cơ Chế - Chính Sách Hoa Hồng & Lương Thưởng Sales
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Sliders className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              Cấu Hình Cơ Chế - Chính Sách Hoa Hồng &amp; Lương Thưởng Sales
+            </h2>
+            <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 text-xs px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 border border-emerald-300">
+              ⚡ Tự động lưu tức thì
+            </span>
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Quản trị tập trung toàn bộ Thuật toán Hoa hồng Chủ nhà, Tỷ lệ chi trả Sales, Bậc thang Doanh số, Trọng số KPI và Bộ mô phỏng dòng tiền.
+            Quản trị tập trung toàn bộ Thuật toán Hoa hồng Chủ nhà, Tỷ lệ chi trả Sales, Bậc thang Doanh số, Trọng số KPI và Bảng Lương Thưởng.
           </p>
         </div>
 
         <button
-          onClick={handleSaveAllConfig}
-          disabled={saving}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95 shrink-0 text-xs cursor-pointer"
+          onClick={handleResetToDefault}
+          className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all active:scale-95 shrink-0 text-xs cursor-pointer border border-slate-300 dark:border-slate-600"
+          title="Khôi phục toàn bộ giá trị cài đặt về mặc định ban đầu"
         >
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Lưu Cấu Hình
+          <RotateCcw className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+          <span>Khôi phục mặc định</span>
         </button>
       </div>
 
-      {saveSuccess && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 dark:bg-emerald-500/15 dark:border-emerald-500/40 dark:text-emerald-300 p-4 rounded-xl flex items-center gap-3 animate-fade-in shadow-xs text-xs font-semibold">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span>Đã cập nhật hệ thống! Tất cả quy tắc hoa hồng, trọng số KPI và bảng doanh số đã sẵn sàng áp dụng.</span>
-        </div>
-      )}
-
-      {/* Case Thực tế Banner */}
+      {/* 2️⃣ Case Hợp Đồng Minh Họa (Closed Deals Dropdown Selector) */}
       <div className="bg-gradient-to-r from-blue-50 via-indigo-50/60 to-slate-50 dark:from-blue-950/60 dark:via-indigo-950/40 dark:to-slate-900 border border-blue-200 dark:border-blue-500/30 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-4 flex-1">
           <div className="p-3 bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 rounded-xl shrink-0">
             <Zap className="w-6 h-6" />
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">
-                Hợp đồng thực tế mới nhất: Phòng 501 (Tòa 249 Yên Hòa)
+          <div className="space-y-1.5 w-full">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                Ví dụ Hợp đồng Thực tế Minh họa:
               </h3>
-              <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 text-xs px-2.5 py-0.5 rounded font-mono font-bold border border-emerald-200 dark:border-emerald-500/30">
-                cquang398@gmail.com
-              </span>
+              {/* Dropdown Selector chọn căn trong tháng */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Chọn phòng chốt trong tháng:</span>
+                <select
+                  value={selectedMonthDealId}
+                  onChange={(e) => setSelectedMonthDealId(e.target.value)}
+                  className="bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white shadow-xs focus:outline-none focus:border-blue-500 cursor-pointer"
+                >
+                  {monthClosedDeals.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      [{d.typeLabel}] Phòng {d.code} - {d.building} ({formatMoney(d.price)}đ)
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
-              Giá phòng: <strong className="text-slate-900 dark:text-white">5.200.000đ/tháng</strong> | Thời hạn: <strong className="text-slate-900 dark:text-white">9 tháng</strong> | Mốc chủ nhà: <code className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-amber-900 dark:text-amber-300 font-mono font-semibold">40% - 6th, 60% - 12th</code>
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              Khách hàng: <strong className="text-slate-900 dark:text-white">{activeSelectedMonthDeal.tenant}</strong> | Giá phòng: <strong className="text-emerald-700 dark:text-emerald-400 font-mono">{formatMoney(activeSelectedMonthDeal.price)}đ/tháng</strong> | Thời hạn: <strong className="text-slate-900 dark:text-white">{activeSelectedMonthDeal.termMonths} tháng</strong> | Mốc chủ nhà: <code className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-amber-900 dark:text-amber-300 font-mono font-semibold">{activeSelectedMonthDeal.rose || 'Chưa nhập % hoa hồng'}</code>
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3 bg-white dark:bg-slate-950/90 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-mono text-sm shrink-0 shadow-xs">
-          <span className="text-slate-500 dark:text-slate-400">Nội suy 9th:</span>
-          <span className="text-emerald-700 dark:text-emerald-400 font-extrabold text-base">50%</span>
+          <span className="text-slate-500 dark:text-slate-400">HH Chủ nhà ({activeSelectedMonthDeal.termMonths}th):</span>
+          <span className="text-emerald-700 dark:text-emerald-400 font-extrabold text-base">{activeDealSimResult.landlordRoseRate}</span>
           <span className="text-slate-400">➔</span>
-          <span className="text-amber-700 dark:text-amber-400 font-extrabold">2.600.000 VNĐ</span>
+          <span className="text-amber-700 dark:text-amber-400 font-extrabold">{formatMoney(activeDealSimResult.companyRevenue)} VNĐ</span>
         </div>
       </div>
 
@@ -920,7 +854,7 @@ export function CommissionPoliciesComponent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* CỘT 1 & 2: CÁC KHỐI CẤU HÌNH ADMIN */}
         <div className="lg:col-span-2 space-y-8">
-          {/* KHỐI 1: Quy Tắc Thuật Toán Hoa Hồng Chủ Nhà */}
+          {/* KHỐI 1: Quy Tắc Thuật Toán Hoa Hồng Chủ Nhà (Landlord Engine + Custom Matrix) */}
           <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 space-y-6 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-4">
               <div className="flex items-center gap-3">
@@ -930,7 +864,7 @@ export function CommissionPoliciesComponent() {
                     1. Quy Tắc Thuật Toán Hoa Hồng Chủ Nhà (Landlord Engine)
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Cách xử lý tỷ lệ hoa hồng khi số tháng hợp đồng lẻ (ví dụ 9 tháng).
+                    Cách xử lý tỷ lệ hoa hồng khi số tháng hợp đồng lẻ (ví dụ 9 tháng hoặc 4 tháng).
                   </p>
                 </div>
               </div>
@@ -940,7 +874,10 @@ export function CommissionPoliciesComponent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 type="button"
-                onClick={() => setInterpolationMode('linear')}
+                onClick={() => {
+                  setInterpolationMode('linear');
+                  handleAutoSave({ ...getKPIPayload(), interpolation_mode: 'linear' });
+                }}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   interpolationMode === 'linear'
                     ? 'bg-emerald-50 border-emerald-500 text-slate-900 shadow-xs dark:bg-emerald-500/15 dark:border-emerald-500 dark:text-white ring-1 ring-emerald-500'
@@ -952,13 +889,16 @@ export function CommissionPoliciesComponent() {
                   <Percent className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                  (Khuyên dùng) Tự động tính phần phần trăm chính xác theo thời hạn. <i>Ví dụ: 9 tháng = 50%.</i>
+                  (Khuyên dùng) Tự động tính % chính xác theo đường thẳng. <i>Ví dụ: 9 tháng = 50%.</i>
                 </p>
               </button>
 
               <button
                 type="button"
-                onClick={() => setInterpolationMode('step')}
+                onClick={() => {
+                  setInterpolationMode('step');
+                  handleAutoSave({ ...getKPIPayload(), interpolation_mode: 'step' });
+                }}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   interpolationMode === 'step'
                     ? 'bg-emerald-50 border-emerald-500 text-slate-900 shadow-xs dark:bg-emerald-500/15 dark:border-emerald-500 dark:text-white ring-1 ring-emerald-500'
@@ -976,7 +916,10 @@ export function CommissionPoliciesComponent() {
 
               <button
                 type="button"
-                onClick={() => setInterpolationMode('custom')}
+                onClick={() => {
+                  setInterpolationMode('custom');
+                  handleAutoSave({ ...getKPIPayload(), interpolation_mode: 'custom' });
+                }}
                 className={`p-4 rounded-xl border text-left transition-all relative ${
                   interpolationMode === 'custom'
                     ? 'bg-emerald-50 border-emerald-500 text-slate-900 shadow-xs dark:bg-emerald-500/15 dark:border-emerald-500 dark:text-white ring-1 ring-emerald-500'
@@ -992,19 +935,58 @@ export function CommissionPoliciesComponent() {
                 </p>
               </button>
             </div>
+
+            {/* BẢNG MA TRẬN TÙY BIẾN RIỆNG (Hiển thị khi chọn Option 3) */}
+            {interpolationMode === 'custom' && (
+              <div className="p-4 bg-purple-50/60 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-500/40 space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-sm text-purple-900 dark:text-purple-300 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    Ma Trận Tỷ Lệ Hoa Hồng % Theo Số Tháng Hợp Đồng
+                  </h4>
+                  <span className="text-xs text-purple-700 dark:text-purple-300 font-semibold">Tự động áp dụng</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+                  {[
+                    { key: 'm1', label: '1 Tháng', val: customMatrix.m1 },
+                    { key: 'm3', label: '3 Tháng', val: customMatrix.m3 },
+                    { key: 'm6', label: '6 Tháng', val: customMatrix.m6 },
+                    { key: 'm9', label: '9 Tháng', val: customMatrix.m9 },
+                    { key: 'm12', label: '12 Tháng', val: customMatrix.m12 },
+                  ].map((item) => (
+                    <div key={item.key} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-purple-200 dark:border-slate-700 space-y-1 text-center shadow-xs">
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block">{item.label}</span>
+                      <div className="flex items-center justify-center gap-1">
+                        <input
+                          type="text"
+                          value={item.val}
+                          onChange={(e) => {
+                            const newM = { ...customMatrix, [item.key]: parsePercentInput(e.target.value) };
+                            setCustomMatrix(newM);
+                          }}
+                          className={`w-16 text-purple-700 dark:text-purple-400 ${inputNumberCleanClass}`}
+                        />
+                        <span className="text-xs font-bold text-purple-700 dark:text-purple-400">%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* KHỐI 2: Cơ Chế Hoa Hồng Chi Trả Cho Sale */}
+          {/* KHỐI 2: Cơ Chế Hoa Hồng & BẢNG TÍNH LƯƠNG + TIỀN THƯỞNG SALES */}
           <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 space-y-6 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-4">
               <div className="flex items-center gap-3">
                 <Sparkles className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    2. Cơ Chế Hoa Hồng Chi Trả Cho Sale (Sales Commission Engine)
+                    2. Cơ Chế Hoa Hồng &amp; Tính Lương + Tiền Thưởng Sales
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Thiết lập tỷ lệ hưởng hoa hồng của Sale trên doanh thu công ty thu từ Chủ nhà.
+                    Cấu hình chế độ hoa hồng và quản lý bảng tính lương, tiền thưởng hàng tháng cho từng Sales.
                   </p>
                 </div>
               </div>
@@ -1014,7 +996,10 @@ export function CommissionPoliciesComponent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 type="button"
-                onClick={() => setSelectedCommMode('fixed')}
+                onClick={() => {
+                  setSelectedCommMode('fixed');
+                  handleAutoSave({ ...getKPIPayload(), sale_commission_mode: 'fixed' });
+                }}
                 className={`p-4 rounded-xl border text-left transition-all ${
                   selectedCommMode === 'fixed'
                     ? 'bg-blue-50 border-blue-500 text-slate-900 dark:bg-blue-500/15 dark:border-blue-500 dark:text-white shadow-xs ring-1 ring-blue-500'
@@ -1033,7 +1018,11 @@ export function CommissionPoliciesComponent() {
                     <input
                       type="text"
                       value={fixedRatePercent}
-                      onChange={(e) => setFixedRatePercent(parsePercentInput(e.target.value))}
+                      onChange={(e) => {
+                        const val = parsePercentInput(e.target.value);
+                        setFixedRatePercent(val);
+                        handleAutoSave({ ...getKPIPayload(), sale_commission_fixed_rate: val / 100 });
+                      }}
                       className={`w-16 text-blue-700 dark:text-blue-400 ${inputNumberCleanClass}`}
                     />
                     <span className="text-xs font-bold text-blue-800 dark:text-blue-300">% doanh thu</span>
@@ -1043,7 +1032,10 @@ export function CommissionPoliciesComponent() {
 
               <button
                 type="button"
-                onClick={() => setSelectedCommMode('tier')}
+                onClick={() => {
+                  setSelectedCommMode('tier');
+                  handleAutoSave({ ...getKPIPayload(), sale_commission_mode: 'tier' });
+                }}
                 className={`p-4 rounded-xl border text-left transition-all ${
                   selectedCommMode === 'tier'
                     ? 'bg-amber-50 border-amber-500 text-slate-900 dark:bg-amber-500/15 dark:border-amber-500 dark:text-white shadow-xs ring-1 ring-amber-500'
@@ -1061,7 +1053,10 @@ export function CommissionPoliciesComponent() {
 
               <button
                 type="button"
-                onClick={() => setSelectedCommMode('custom')}
+                onClick={() => {
+                  setSelectedCommMode('custom');
+                  handleAutoSave({ ...getKPIPayload(), sale_commission_mode: 'custom' });
+                }}
                 className={`p-4 rounded-xl border text-left transition-all ${
                   selectedCommMode === 'custom'
                     ? 'bg-purple-50 border-purple-500 text-slate-900 dark:bg-purple-500/15 dark:border-purple-500 dark:text-white shadow-xs ring-1 ring-purple-500'
@@ -1078,212 +1073,267 @@ export function CommissionPoliciesComponent() {
               </button>
             </div>
 
-            {/* Bảng Quản lý Bậc thang Doanh số */}
-            {selectedCommMode === 'tier' && (
-              <div className="p-4 bg-amber-50/60 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-500/40 space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h4 className="font-bold text-sm text-amber-900 dark:text-amber-300 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    Quản Lý Các Mốc Bậc Thang Doanh Số Tháng
+            {/* BỘ CHỌN SALE & BẢNG TÍNH LƯƠNG + QUẢN LÝ TIỀN THƯỞNG */}
+            <div className="p-5 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-slate-900 dark:to-slate-900 rounded-2xl border border-blue-200 dark:border-slate-700 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-blue-200/80 dark:border-slate-700 pb-3">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="font-extrabold text-slate-900 dark:text-white text-base">
+                    Bảng Tính Lương &amp; Quản Lý Tiền Thưởng Nhân Viên
                   </h4>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const lastMax = commissionTiers[commissionTiers.length - 1]?.maxRevenue || 30000000;
-                      setCommissionTiers([
-                        ...commissionTiers,
-                        { minRevenue: lastMax, maxRevenue: lastMax + 30000000, rate: 0.65 },
-                      ]);
-                    }}
-                    className="flex items-center gap-1.5 bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 text-xs px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-500/30 font-bold hover:bg-amber-200 transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Thêm mốc doanh số
-                  </button>
                 </div>
-
-                <div className="space-y-2.5">
-                  {commissionTiers.map((tier, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-amber-200 dark:border-slate-700 text-xs flex-wrap shadow-xs"
-                    >
-                      <span className="font-bold text-amber-900 dark:text-amber-400 shrink-0 min-w-[55px]">
-                        Mốc {idx + 1}:
-                      </span>
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-slate-500 text-[11px] font-semibold shrink-0">Từ:</span>
-                          <input
-                            type="text"
-                            value={formatNumberWithDots(tier.minRevenue)}
-                            onChange={(e) => {
-                              const updated = [...commissionTiers];
-                              updated[idx].minRevenue = parseDotsToNumber(e.target.value);
-                              setCommissionTiers(updated);
-                            }}
-                            className={`w-full text-slate-900 dark:text-white ${inputNumberCleanClass}`}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-slate-500 text-[11px] font-semibold shrink-0">Đến:</span>
-                          <input
-                            type="text"
-                            value={formatNumberWithDots(tier.maxRevenue)}
-                            onChange={(e) => {
-                              const updated = [...commissionTiers];
-                              updated[idx].maxRevenue = parseDotsToNumber(e.target.value);
-                              setCommissionTiers(updated);
-                            }}
-                            className={`w-full text-slate-900 dark:text-white ${inputNumberCleanClass}`}
-                          />
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-slate-500 text-[11px] font-semibold shrink-0">% Hưởng:</span>
-                          <input
-                            type="text"
-                            value={Math.round(tier.rate * 100)}
-                            onChange={(e) => {
-                              const updated = [...commissionTiers];
-                              updated[idx].rate = parsePercentInput(e.target.value) / 100;
-                              setCommissionTiers(updated);
-                            }}
-                            className={`w-full text-amber-800 dark:text-amber-400 border-amber-300 ${inputNumberCleanClass}`}
-                          />
-                          <span className="text-amber-800 dark:text-amber-400 font-bold">%</span>
-                        </div>
-                      </div>
-                      {commissionTiers.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setCommissionTiers(commissionTiers.filter((_, i) => i !== idx))}
-                          className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                
+                {/* Sale Dropdown Selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Chọn Nhân Viên Sales:</span>
+                  <select
+                    value={selectedPayrollSaleId}
+                    onChange={(e) => setSelectedPayrollSaleId(e.target.value)}
+                    className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-900 dark:text-white shadow-xs focus:outline-none focus:border-emerald-500"
+                  >
+                    {salesAgentsList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        👤 {s.full_name || s.email}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
-            )}
+
+              {/* Thông tin Lương tổng hợp của Sale được chọn */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="text-slate-500 block">Hoa Hồng Phòng Chốt (60%):</span>
+                  <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-400">
+                    {formatMoney(calculatedBaseCommission)} đ
+                  </span>
+                </div>
+                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="text-slate-500 block">Tổng Tiền Thưởng Thêm:</span>
+                  <span className="text-base font-extrabold text-amber-600 dark:text-amber-400">
+                    + {formatMoney(totalBonusSum)} đ
+                  </span>
+                </div>
+                <div className="p-3.5 bg-emerald-600 rounded-xl text-white space-y-1 shadow-md">
+                  <span className="text-emerald-100 block uppercase font-bold text-[10px]">TỔNG THU NHẬP SALE THỰC NHẬN:</span>
+                  <span className="text-lg sm:text-xl font-black font-mono">
+                    {formatMoney(totalPayrollAmount)} VNĐ
+                  </span>
+                </div>
+              </div>
+
+              {/* BẢNG QUẢN LÝ TIỀN THƯỞNG (BONUS TABLE) */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h5 className="font-bold text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Gift className="w-4 h-4 text-amber-500" /> Bảng Ghi Nhận Tiền Thưởng Thêm (Bonus List)
+                  </h5>
+                </div>
+
+                {/* Form Thêm Tiền Thưởng Mới */}
+                <form onSubmit={handleAddBonusSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Số tiền thưởng (VNĐ)</label>
+                    <input
+                      type="text"
+                      value={formatNumberWithDots(newBonusAmount)}
+                      onChange={(e) => setNewBonusAmount(parseDotsToNumber(e.target.value))}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-bold font-mono text-emerald-600"
+                    />
+                  </div>
+                  <div className="sm:col-span-5 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Nội dung / Lý do thưởng</label>
+                    <input
+                      type="text"
+                      value={newBonusReason}
+                      onChange={(e) => setNewBonusReason(e.target.value)}
+                      placeholder="VD: Thưởng chốt deal vượt KPI..."
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Ngày thưởng</label>
+                    <input
+                      type="date"
+                      value={newBonusDate}
+                      onChange={(e) => setNewBonusDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-900 dark:text-white font-mono"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex items-end">
+                    <button
+                      type="submit"
+                      disabled={addingBonus}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-8 rounded-lg shadow-xs flex items-center justify-center gap-1 text-xs cursor-pointer"
+                    >
+                      {addingBonus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>Thêm thưởng</span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Danh sách thưởng */}
+                <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="p-2.5 text-center w-12">STT</th>
+                        <th className="p-2.5 font-mono">Số Tiền Thưởng</th>
+                        <th className="p-2.5">Nội Dung / Lý Do</th>
+                        <th className="p-2.5 font-mono">Ngày Thưởng</th>
+                        <th className="p-2.5 text-center w-16">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {saleBonuses.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-4 text-center text-slate-400 italic">
+                            Chưa có khoản tiền thưởng nào được ghi nhận cho nhân viên này.
+                          </td>
+                        </tr>
+                      ) : (
+                        saleBonuses.map((item, idx) => (
+                          <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                            <td className="p-2.5 font-extrabold text-amber-600 font-mono">+ {formatMoney(item.amount)} đ</td>
+                            <td className="p-2.5 font-medium text-slate-800 dark:text-slate-200">{item.reason}</td>
+                            <td className="p-2.5 text-slate-500 font-mono">{item.bonus_date}</td>
+                            <td className="p-2.5 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteBonusItem(item.id)}
+                                className="p-1 text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                                title="Xóa khoản thưởng"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* KHỐI 3: Trọng Số & Mục Tiêu KPI Mặc Định */}
+          {/* KHỐI 3: Trọng Số & Mục Tiêu KPI Tường Minh (KPI Visual Builder) */}
           <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 space-y-6 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-4">
               <div className="flex items-center gap-3">
                 <Scale className="w-6 h-6 text-purple-600 dark:text-purple-400 shrink-0" />
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                    3. Cấu Hình Trọng Số & Mục Tiêu KPI Mặc Định Hàng Tháng
+                    3. Cấu Hình Trọng Số &amp; Mục Tiêu KPI Tường Minh (Visual KPI)
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Cơ cấu tính điểm KPI (Tổng trọng số = 100%) và chỉ tiêu định mức mặc định.
+                    Cơ cấu tính điểm KPI trực quan dạng thanh tỷ lệ 100% và công thức tính điểm toán học chuẩn xác.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Trọng số KPI */}
+            {/* Thanh tỷ lệ màu sắc (Color Progress Bar) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  ⚖️ Trọng Số Đánh Giá KPI (Tổng = 100%)
+                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  🎨 Thanh Phân Bố Trọng Số KPI (Tổng = 100%)
                 </h4>
                 <span
-                  className={`text-xs font-bold px-2.5 py-0.5 rounded ${
+                  className={`text-xs font-extrabold px-2.5 py-0.5 rounded ${
                     revenueWeight + appointmentWeight + leadWeight === 100
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400'
-                      : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-400'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-400 border border-rose-300'
                   }`}
                 >
-                  Đang là: {revenueWeight + appointmentWeight + leadWeight}%
+                  {revenueWeight + appointmentWeight + leadWeight === 100 ? '✅ Chuẩn 100%' : `⚠️ Sai số (${revenueWeight + appointmentWeight + leadWeight}%)`}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-2">
-                  <label className="text-xs text-slate-600 dark:text-slate-400 font-semibold block uppercase">
+              {/* Visual Multi-Color Bar */}
+              <div className="w-full bg-slate-100 dark:bg-slate-900 h-6 rounded-xl overflow-hidden flex shadow-inner border border-slate-200 dark:border-slate-700">
+                <div
+                  style={{ width: `${revenueWeight}%` }}
+                  className="bg-emerald-500 text-white text-[11px] font-bold flex items-center justify-center transition-all duration-300"
+                  title={`Doanh Thu: ${revenueWeight}%`}
+                >
+                  {revenueWeight > 15 && `Doanh Thu ${revenueWeight}%`}
+                </div>
+                <div
+                  style={{ width: `${appointmentWeight}%` }}
+                  className="bg-blue-500 text-white text-[11px] font-bold flex items-center justify-center transition-all duration-300"
+                  title={`Lịch Hẹn: ${appointmentWeight}%`}
+                >
+                  {appointmentWeight > 15 && `Lịch Hẹn ${appointmentWeight}%`}
+                </div>
+                <div
+                  style={{ width: `${leadWeight}%` }}
+                  className="bg-purple-500 text-white text-[11px] font-bold flex items-center justify-center transition-all duration-300"
+                  title={`Leads: ${leadWeight}%`}
+                >
+                  {leadWeight > 10 && `Leads ${leadWeight}%`}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-500/40 space-y-2">
+                  <label className="text-xs text-emerald-900 dark:text-emerald-300 font-bold block uppercase">
                     1. Doanh thu (%)
                   </label>
                   <input
                     type="text"
                     value={revenueWeight}
-                    onChange={(e) => setRevenueWeight(parsePercentInput(e.target.value))}
+                    onChange={(e) => {
+                      const val = parsePercentInput(e.target.value);
+                      setRevenueWeight(val);
+                      handleAutoSave({ ...getKPIPayload(), revenue_weight: val / 100 });
+                    }}
                     className={`w-full text-emerald-700 dark:text-emerald-400 text-base ${inputNumberCleanClass}`}
                   />
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-2">
-                  <label className="text-xs text-slate-600 dark:text-slate-400 font-semibold block uppercase">
+                <div className="p-4 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-500/40 space-y-2">
+                  <label className="text-xs text-blue-900 dark:text-blue-300 font-bold block uppercase">
                     2. Lịch hẹn (%)
                   </label>
                   <input
                     type="text"
                     value={appointmentWeight}
-                    onChange={(e) => setAppointmentWeight(parsePercentInput(e.target.value))}
+                    onChange={(e) => {
+                      const val = parsePercentInput(e.target.value);
+                      setAppointmentWeight(val);
+                      handleAutoSave({ ...getKPIPayload(), appointment_weight: val / 100 });
+                    }}
                     className={`w-full text-blue-700 dark:text-blue-400 text-base ${inputNumberCleanClass}`}
                   />
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-2">
-                  <label className="text-xs text-slate-600 dark:text-slate-400 font-semibold block uppercase">
+                <div className="p-4 bg-purple-50/60 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-500/40 space-y-2">
+                  <label className="text-xs text-purple-900 dark:text-purple-300 font-bold block uppercase">
                     3. Leads (%)
                   </label>
                   <input
                     type="text"
                     value={leadWeight}
-                    onChange={(e) => setLeadWeight(parsePercentInput(e.target.value))}
+                    onChange={(e) => {
+                      const val = parsePercentInput(e.target.value);
+                      setLeadWeight(val);
+                      handleAutoSave({ ...getKPIPayload(), lead_weight: val / 100 });
+                    }}
                     className={`w-full text-purple-700 dark:text-purple-400 text-base ${inputNumberCleanClass}`}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Mục tiêu mặc định */}
-            <div className="space-y-3 pt-2">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                🎯 Chỉ Tiêu Mục Tiêu Mặc Định Hàng Tháng
-              </h4>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-4">
-                <div>
-                  <label className="text-xs text-slate-600 dark:text-slate-400 block mb-1 font-medium">
-                    Doanh thu mục tiêu (VNĐ):
-                  </label>
-                  <input
-                    type="text"
-                    value={formatNumberWithDots(defaultTargetRevenue)}
-                    onChange={(e) => setDefaultTargetRevenue(parseDotsToNumber(e.target.value))}
-                    className={`w-full text-emerald-700 dark:text-emerald-400 text-base text-left ${inputNumberCleanClass}`}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-slate-600 dark:text-slate-400 block mb-1">
-                      Mục tiêu số cuộc hẹn xem phòng:
-                    </label>
-                    <input
-                      type="text"
-                      value={defaultTargetAppointments}
-                      onChange={(e) => setDefaultTargetAppointments(parseIntegerInput(e.target.value))}
-                      className={`w-full text-slate-900 dark:text-white ${inputNumberCleanClass}`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-slate-600 dark:text-slate-400 block mb-1">
-                      Mục tiêu số Lead chốt thành công:
-                    </label>
-                    <input
-                      type="text"
-                      value={defaultTargetLeads}
-                      onChange={(e) => setDefaultTargetLeads(parseIntegerInput(e.target.value))}
-                      className={`w-full text-slate-900 dark:text-white ${inputNumberCleanClass}`}
-                    />
-                  </div>
-                </div>
+            {/* BẢNG CÔNG THỨC TOÁN HỌC QUY ĐỔI KPI TƯỜNG MINH */}
+            <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3 font-mono text-xs shadow-md border border-slate-800">
+              <h5 className="font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                📐 Công Thức Tính Điểm Tổng KPI Sản Xuất
+              </h5>
+              <div className="p-3 bg-slate-950 rounded-lg text-slate-200 leading-relaxed border border-slate-800">
+                <span className="text-emerald-400 font-bold">Điểm KPI (%)</span> = (Doanh Thu Thực / {formatMoney(defaultTargetRevenue)}đ × <span className="text-emerald-400">{revenueWeight}%</span>) + (Lịch Hẹn Thực / {defaultTargetAppointments} ca × <span className="text-blue-400">{appointmentWeight}%</span>) + (Leads Thực / {defaultTargetLeads} khách × <span className="text-purple-400">{leadWeight}%</span>)
               </div>
             </div>
           </div>
@@ -1384,4 +1434,18 @@ export function CommissionPoliciesComponent() {
       </div>
     </div>
   );
+
+  function getKPIPayload() {
+    return {
+      revenue_weight: revenueWeight / 100,
+      appointment_weight: appointmentWeight / 100,
+      lead_weight: leadWeight / 100,
+      default_target_revenue: defaultTargetRevenue,
+      default_target_appointments: defaultTargetAppointments,
+      default_target_leads: defaultTargetLeads,
+      sale_commission_mode: selectedCommMode,
+      sale_commission_fixed_rate: fixedRatePercent / 100,
+      sale_commission_tiers: commissionTiers,
+    };
+  }
 }

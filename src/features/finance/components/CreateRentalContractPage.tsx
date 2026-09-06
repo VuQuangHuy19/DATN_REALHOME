@@ -332,7 +332,6 @@ export function CreateRentalContractPage() {
       company_id: company.id,
       room_id: selectedRoomId,
       deposit_contract_id: depositId || null,
-      renewed_from_contract_id: searchParams.get('renew_from_id') || null,
       contract_code: generatedCode,
       status: 'active' as const,
       agreement_date: agreementDate,

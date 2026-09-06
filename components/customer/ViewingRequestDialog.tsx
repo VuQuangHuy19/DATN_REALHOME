@@ -43,6 +43,8 @@ export interface SelectableRoom {
   size: number;
   companyId: string;
   status: string;
+  roomType?: string;
+  expectedAvailableDate?: string;
 }
 
 interface ViewingRequestDialogProps {
@@ -74,8 +76,8 @@ export function ViewingRequestDialog({
     typeof window !== 'undefined' ? (sessionStorage.getItem('sale_ref_id') || localStorage.getItem('sale_ref_id')) : null
   );
 
-  const isRoomMode = !!property; // Đã biết phòng cụ thể
-  const isBuildingMode = !property && availableRooms && availableRooms.length > 0;
+  const isBuildingMode = availableRooms && availableRooms.length > 0;
+  const isRoomMode = !isBuildingMode && !!property;
 
   const {
     register,
@@ -104,14 +106,16 @@ export function ViewingRequestDialog({
   }, [open, profile, setValue]);
 
   // Thông tin property cuối cùng để submit
-  const effectiveProperty = isRoomMode ? property : selectedRoom
+  const effectiveProperty = selectedRoom
     ? {
         id: selectedRoom.id,
         title: selectedRoom.title,
         address: selectedRoom.address,
         area: selectedRoom.area,
+        price: selectedRoom.price,
+        roomType: selectedRoom.roomType,
       }
-    : null;
+    : property;
 
   const onSubmit = async (data: FormValues) => {
     if (!effectiveProperty) {
@@ -236,68 +240,83 @@ export function ViewingRequestDialog({
             </div>
           )}
 
-          {/* --- BUILDING MODE: dropdown chọn phòng --- */}
+          {/* --- BUILDING MODE: danh sách chọn phòng --- */}
           {isBuildingMode && (
             <div className="space-y-2">
-              <Label>
-                Chọn phòng muốn xem <span className="text-red-500">*</span>
-              </Label>
-              <div className="grid gap-1.5 max-h-52 overflow-y-auto pr-0.5 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Vui lòng chọn phòng muốn xem <span className="text-red-500">*</span>
+                </Label>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  ({availableRooms!.length} phòng còn trống / sắp trống)
+                </span>
+              </div>
+              <div className="grid gap-2 max-h-56 overflow-y-auto pr-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-1.5">
                 {availableRooms!
                   .slice()
                   .sort((a, b) => {
-                    // available trước, rồi soon_available
                     if (a.status !== b.status) return a.status === 'available' ? -1 : 1;
-                    // cùng status → sắp xếp theo tầng rồi số phòng
                     if (a.floor !== b.floor) return a.floor - b.floor;
                     return a.title.localeCompare(b.title, undefined, { numeric: true });
                   })
                   .map((room) => {
                     const isSelected = selectedRoom?.id === room.id;
                     const isSoon = room.status === 'soon_available';
-                    const roomCode = room.title.split('—')[1]?.trim() || room.title;
+                    const rawCode = room.title.split('—')[1]?.trim() || room.title;
+                    const roomCode = rawCode.toLowerCase().startsWith('phòng') ? rawCode : `Phòng ${rawCode}`;
                     return (
                       <button
                         key={room.id}
                         type="button"
                         onClick={() => setSelectedRoom(room)}
                         className={`
-                          w-full flex items-center justify-between px-4 py-2.5 text-left
-                          transition-colors duration-100 first:rounded-t-xl last:rounded-b-xl
+                          w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left
+                          transition-all duration-150 border
                           ${isSelected
-                            ? 'bg-amber-50 dark:bg-amber-950/40'
-                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-600 shadow-sm ring-1 ring-amber-400/50'
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700'
                           }
                         `}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${isSoon ? 'bg-amber-400' : 'bg-emerald-500'}`} />
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-                              {roomCode}
-                              {isSoon && (
-                                <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
-                                  Sắp trống
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSoon ? 'bg-amber-400' : 'bg-emerald-500'}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100">
+                                {roomCode}
+                              </span>
+
+                              {room.roomType && (
+                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-2xs">
+                                  🏷️ {room.roomType}
                                 </span>
                               )}
-                            </p>
-                            <p className="text-[11px] text-slate-500">
-                              Tầng {room.floor} · {room.size}m²
+
+                              {isSoon && (
+                                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-700">
+                                  ⏳ Sắp trống
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                              Tầng {room.floor} · {room.size}m² {room.roomType ? `· Loại: ${room.roomType}` : ''}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <span className="text-sm font-extrabold text-amber-600 dark:text-amber-400 font-mono whitespace-nowrap">
-                            {room.price.toLocaleString('vi-VN')}đ
+
+                        <div className="flex items-center gap-2 shrink-0 ml-3">
+                          <span className="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400 font-mono whitespace-nowrap">
+                            {room.price.toLocaleString('vi-VN')}đ/th
                           </span>
-                          {isSelected && <Check className="h-4 w-4 text-amber-600 dark:text-amber-400" />}
+                          {isSelected && <Check className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />}
                         </div>
                       </button>
                     );
                   })}
               </div>
               {!selectedRoom && (
-                <p className="text-xs text-red-500">Vui lòng chọn phòng muốn xem</p>
+                <p className="text-xs text-red-500 font-semibold">Vui lòng chọn phòng muốn xem</p>
               )}
             </div>
           )}

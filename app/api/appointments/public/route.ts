@@ -62,15 +62,31 @@ export async function POST(request: Request) {
       }
     }
 
-    // 1. Lấy thông tin landlord_id và building_id từ phòng tương ứng
+    // 1. Lấy thông tin landlord_id, building_id, company_id, room_type, price, code từ phòng tương ứng
     const { data: roomData } = await supabaseAdmin
       .from('rooms')
-      .select('landlord_id, building_id')
+      .select('code, landlord_id, building_id, company_id, room_type, price, buildings(id, name, address, area)')
       .eq('id', property.id)
       .maybeSingle();
 
     const landlordId = roomData?.landlord_id ?? null;
     const buildingId = roomData?.building_id ?? null;
+    const effectiveCompanyId = roomData?.company_id || companyId;
+    const autoRoomType = roomData?.room_type || property.roomType || null;
+    const autoBudget = roomData?.price || property.price || 0;
+    const autoArea = (roomData as any)?.buildings?.area || property.area || null;
+
+    // Build standard room title (Phòng [Số phòng] — [Tên/Địa chỉ tòa nhà])
+    let resolvedRoomTitle = property.title;
+    if (roomData) {
+      const codeStr = roomData.code || '';
+      const bAddress = (roomData as any).buildings?.name || (roomData as any).buildings?.address || property.address || '';
+      if (codeStr && bAddress) {
+        resolvedRoomTitle = codeStr.toLowerCase().startsWith('phòng')
+          ? `${codeStr} — ${bAddress}`
+          : `Phòng ${codeStr} — ${bAddress}`;
+      }
+    }
 
     let finalAssignedTo = assignedToUserId || createdByUserId || null;
     let finalAssignedToName = assignedToName || null;
@@ -92,15 +108,15 @@ export async function POST(request: Request) {
     const { data: appointment, error: aptError } = await supabaseAdmin
       .from('appointments')
       .insert({
-        company_id: companyId,
+        company_id: effectiveCompanyId,
         customer_name: customerName,
-        customer_phone: normalizedPhone,     // Đã normalize
+        customer_phone: normalizedPhone,
         customer_email: null,
         room_id: property.id,
-        room_title: property.title,
+        room_title: resolvedRoomTitle,
         date: normalizedDate,
         time: viewingTime,
-        area: property.area ?? null,
+        area: autoArea,
         status: 'Pending',
         notes: 'Yêu cầu xem qua website',
         assigned_to: finalAssignedTo,
@@ -118,47 +134,76 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: aptError.message }, { status: 400 });
     }
 
-    // 3. Tạo lead mới bằng admin client (bypass RLS)
-    const { data: lead, error: leadError } = await supabaseAdmin
+    // 3. Tự động Tra cứu hoặc Tạo lead mới bằng admin client (bypass RLS)
+    let finalLead: any = null;
+    const { data: existingLeads } = await supabaseAdmin
       .from('leads')
-      .insert({
-        company_id: companyId,
-        full_name: customerName,
-        phone: normalizedPhone,              // Đã normalize
-        email: null,
-        source: 'website',
-        status: 'new',
-        interest: property.title,
-        budget: 0,
-        preferred_area: property.area ?? null,
-        preferred_room_type: null,
-        interested_area: property.area ?? null,
-        assigned_to: finalAssignedTo,
-        created_by: createdByUserId || null,
-        notes: `Đặt lịch xem: ${property.title} — ${normalizedDate} ${viewingTime}`,
-        last_contacted_at: null,
-      })
-      .select()
-      .single();
+      .select('id, status, interest, preferred_room_type, budget')
+      .eq('company_id', effectiveCompanyId)
+      .eq('phone', normalizedPhone);
 
-    if (leadError) {
-      console.error('Lỗi khi tạo lead:', leadError);
-      // Không trả về lỗi chặn vì lịch hẹn đã được tạo thành công
+    if (existingLeads && existingLeads.length > 0) {
+      finalLead = existingLeads[0];
+      await supabaseAdmin
+        .from('leads')
+        .update({
+          status: finalLead.status === 'new' ? 'appointment' : finalLead.status,
+          interest: resolvedRoomTitle,
+          preferred_area: autoArea ?? undefined,
+          preferred_room_type: autoRoomType ?? undefined,
+          budget: (finalLead.budget > 0) ? finalLead.budget : autoBudget,
+          assigned_to: finalAssignedTo || undefined,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', finalLead.id);
+    } else {
+      const { data: newLead, error: leadError } = await supabaseAdmin
+        .from('leads')
+        .insert({
+          company_id: effectiveCompanyId,
+          full_name: customerName,
+          phone: normalizedPhone,
+          email: null,
+          source: finalLeadSource === 'sale_referral_link' ? 'referral' : 'website',
+          status: 'appointment',
+          interest: resolvedRoomTitle,
+          budget: autoBudget,
+          preferred_area: autoArea,
+          preferred_room_type: autoRoomType,
+          interested_area: autoArea,
+          assigned_to: finalAssignedTo,
+          created_by: createdByUserId || null,
+          notes: `Đặt lịch xem: ${resolvedRoomTitle} — ${normalizedDate} ${viewingTime}`,
+          last_contacted_at: null,
+        })
+        .select()
+        .single();
+
+      if (leadError) {
+        console.error('Lỗi khi tạo lead:', leadError);
+      } else {
+        finalLead = newLead;
+      }
     }
 
-    // 4. Tạo lead activity nếu lead được tạo thành công
-    if (lead) {
+    // 4. Tạo lead activity & liên kết lead_id vào lịch hẹn
+    if (finalLead) {
+      await supabaseAdmin
+        .from('appointments')
+        .update({ lead_id: finalLead.id })
+        .eq('id', appointment.id);
+
       const { error: actError } = await supabaseAdmin
         .from('lead_activities')
         .insert({
-          lead_id: lead.id,
-          company_id: companyId,
+          lead_id: finalLead.id,
+          company_id: effectiveCompanyId,
           type: 'note',
-          content: `Khách đặt lịch xem qua website: ${property.title}`,
+          content: `Khách đặt lịch xem qua website: ${property.title} (Lúc ${viewingTime} ngày ${normalizedDate})`,
           old_status: null,
           new_status: null,
-          created_by: null,
-          created_by_name: 'Website',
+          created_by: createdByUserId || null,
+          created_by_name: customerName || 'Website',
         });
 
       if (actError) {
@@ -166,15 +211,65 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Gửi thông báo cho toàn bộ nhân sự công ty (in_app + push)
-    await notify({
-      companyId,
-      recipientId: null, // Gửi cho tất cả (trừ landlord/tenant dựa trên logic notify/policy)
-      type: 'lead_new',
-      title: 'Lịch hẹn mới từ website',
-      message: `Khách hàng ${customerName} (${normalizedPhone}) vừa đặt lịch xem phòng ${property.title} lúc ${viewingTime} ngày ${normalizedDate}.`,
-      channels: ['in_app', 'push'],
-      link: '/admin/appointments', // Link trỏ tới trang quản lý lịch hẹn
+    // 5. Gửi thông báo broadcast & trực tiếp cho tất cả tài khoản trong công ty
+    const notifRows: any[] = [
+      {
+        company_id: effectiveCompanyId,
+        recipient_id: null,
+        type: 'new_appointment',
+        title: '📅 Lịch hẹn xem phòng mới từ website',
+        body: `Khách hàng ${customerName} (${normalizedPhone}) vừa đặt lịch xem phòng ${property.title} lúc ${viewingTime} ngày ${normalizedDate}.`,
+        link: '/admin/customers/appointments',
+        is_read: false,
+      },
+    ];
+
+    if (effectiveCompanyId) {
+      const { data: staffProfiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('company_id', effectiveCompanyId);
+
+      if (staffProfiles && staffProfiles.length > 0) {
+        staffProfiles.forEach((s: any) => {
+          notifRows.push({
+            company_id: effectiveCompanyId,
+            recipient_id: s.id,
+            type: 'new_appointment',
+            title: '📅 Lịch hẹn xem phòng mới từ website',
+            body: `Khách hàng ${customerName} (${normalizedPhone}) vừa đặt lịch xem phòng ${property.title} lúc ${viewingTime} ngày ${normalizedDate}.`,
+            link: '/admin/customers/appointments',
+            is_read: false,
+          });
+        });
+      }
+    }
+
+    if (landlordId) {
+      notifRows.push({
+        company_id: effectiveCompanyId,
+        recipient_id: landlordId,
+        type: 'new_appointment',
+        title: '🏠 Có lịch hẹn xem phòng mới',
+        body: `Có lịch xem phòng ${property.title} lúc ${viewingTime} ngày ${normalizedDate}.`,
+        link: '/landlord',
+        is_read: false,
+      });
+    }
+
+    await supabaseAdmin.from('notifications').insert(notifRows);
+
+    // 8. Ghi nhật ký hoạt động (activity_logs)
+    await supabaseAdmin.from('activity_logs').insert({
+      company_id: effectiveCompanyId,
+      user_id: createdByUserId || null,
+      user_name: customerName || 'Khách hàng vãng lai',
+      action: 'CREATE',
+      entity: 'appointment',
+      entity_id: appointment.id,
+      entity_label: property.title || 'Lịch hẹn xem phòng',
+      detail: `Khách hàng ${customerName} (${normalizedPhone}) đặt lịch xem phòng ${property.title} lúc ${viewingTime} ngày ${normalizedDate}`,
+      ip_address: '127.0.0.1',
     });
 
     return NextResponse.json({ success: true, appointment }, { status: 201 });

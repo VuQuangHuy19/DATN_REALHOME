@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,10 +10,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Thiếu userId' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('notifications')
       .update({ is_read: true } as any)
-      .eq('recipient_id', userId)
+      .or(`recipient_id.eq.${userId},recipient_id.is.null`)
       .eq('is_read', false);
 
     if (error) {

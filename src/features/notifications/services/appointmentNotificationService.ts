@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import {
   sendSMSNotificationToCustomer,
   sendSMSNotificationToLandlord,
@@ -123,57 +124,38 @@ export async function createAppointmentWithNotification(
 
     if (salesList && salesList.length > 0) {
       const notificationRows = salesList.map((sale: any) => {
-        const payloadData = buildNotificationDataPayload({
-          customerName: customer_name,
-          customerPhone: customer_phone,
-          roomTitle: `Phòng ${appointment.room_id || ''}`,
-          roomAddress: buildingAddress,
-          saleName: assignedSaleName || sale.full_name || 'Sale',
-          salePhone: assignedSalePhone || sale.phone || '',
-          appointmentTime: `${time} - ${date}`,
-          appointmentId: appointment.id,
-          recipientRole: 'sale',
-        });
-
         return {
           company_id: company_id || null,
           recipient_id: sale.id,
-          recipient_role: 'sales_agent',
-          type: 'appointment_new',
+          type: 'new_appointment',
           title: '📅 Lịch hẹn xem phòng mới',
-          body: `Khách hàng ${customer_name} vừa đăng ký xem phòng lúc ${time} ngày ${date}.`,
-          data: payloadData as any,
-          appointment_id: appointment.id,
+          body: `Khách hàng ${customer_name} (${customer_phone}) vừa đăng ký xem phòng lúc ${time} ngày ${date}.`,
           link: '/admin/customers/appointments',
           is_read: false,
         };
       });
 
-      await supabase.from('notifications').insert(notificationRows as any);
+      await supabaseAdmin.from('notifications').insert(notificationRows as any);
     }
 
-    if (landlordId) {
-      const payloadData = buildNotificationDataPayload({
-        customerName: customer_name,
-        customerPhone: customer_phone,
-        roomTitle: `Phòng ${appointment.room_id || ''}`,
-        roomAddress: buildingAddress,
-        saleName: assignedSaleName || 'Sale phụ trách',
-        salePhone: assignedSalePhone,
-        appointmentTime: `${time} - ${date}`,
-        appointmentId: appointment.id,
-        recipientRole: 'landlord',
-      });
+    // Always insert a broadcast notification for Company Admin & Managers
+    await supabaseAdmin.from('notifications').insert({
+      company_id: company_id || null,
+      recipient_id: null,
+      type: 'new_appointment',
+      title: '📅 Lịch hẹn xem phòng mới',
+      body: `Khách hàng ${customer_name} (${customer_phone}) vừa đăng ký xem phòng lúc ${time} ngày ${date}.`,
+      link: '/admin/customers/appointments',
+      is_read: false,
+    } as any);
 
-      await supabase.from('notifications').insert({
+    if (landlordId) {
+      await supabaseAdmin.from('notifications').insert({
         company_id: company_id || null,
         recipient_id: landlordId,
-        recipient_role: 'landlord',
-        type: 'appointment_confirmed',
+        type: 'new_appointment',
         title: '🏠 Có lịch hẹn xem phòng mới',
         body: `Có lịch xem phòng lúc ${time} ngày ${date}.`,
-        data: payloadData as any,
-        appointment_id: appointment.id,
         link: '/landlord',
         is_read: false,
       } as any);
@@ -316,15 +298,12 @@ export async function confirmAppointmentService(input: ConfirmAppointmentInput) 
       recipientRole: 'landlord',
     });
 
-    await supabase.from('notifications').insert({
+    await supabaseAdmin.from('notifications').insert({
       company_id: updatedApp.company_id,
       recipient_id: updatedApp.landlord_id,
-      recipient_role: 'landlord',
-      type: 'appointment_confirmed',
+      type: 'appointment',
       title: '🏠 Lịch hẹn xem phòng đã được xác nhận',
       body: `Sale ${sale_name} đã xác nhận dẫn khách xem phòng ${roomCode || ''} lúc ${updatedApp.time} ngày ${updatedApp.date}.`,
-      data: landlordPayload as any,
-      appointment_id: appointment_id,
       link: '/landlord',
       is_read: false,
     } as any);

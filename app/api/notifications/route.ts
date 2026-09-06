@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const companyId = searchParams.get('companyId');
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const limit = parseInt(searchParams.get('limit') || '50', 10);
 
-    if (!userId) {
-      return NextResponse.json({ success: false, message: 'Thiếu userId' }, { status: 400 });
-    }
-
-    let query = supabase
+    let query = supabaseAdmin
       .from('notifications')
       .select('*')
-      .eq('recipient_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (companyId) {
+    if (companyId && companyId !== 'null' && companyId !== 'undefined') {
       query = query.eq('company_id', companyId);
+    }
+
+    if (userId && userId !== 'null' && userId !== 'undefined') {
+      query = query.or(`recipient_id.eq.${userId},recipient_id.is.null`);
     }
 
     const { data, error } = await query;
@@ -41,15 +40,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { company_id, recipient_id, recipient_role, type, title, body: notifBody, data, appointment_id, link } = body;
 
-    if (!recipient_id || !title) {
-      return NextResponse.json({ success: false, message: 'Thiếu recipient_id hoặc title' }, { status: 400 });
+    if (!title) {
+      return NextResponse.json({ success: false, message: 'Thiếu title' }, { status: 400 });
     }
 
-    const { data: newNotif, error } = await supabase
+    const { data: newNotif, error } = await supabaseAdmin
       .from('notifications')
       .insert({
         company_id: company_id || null,
-        recipient_id,
+        recipient_id: recipient_id || null,
         recipient_role: recipient_role || 'user',
         type: type || 'system',
         title,
@@ -58,16 +57,16 @@ export async function POST(req: NextRequest) {
         appointment_id: appointment_id || null,
         link: link || null,
         is_read: false,
-        created_at: new Date().toISOString(),
-      } as any)
+      })
       .select()
       .single();
 
     if (error) {
+      console.error('[API Notifications POST error]', error);
       return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data: newNotif });
+    return NextResponse.json({ success: true, data: newNotif }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }

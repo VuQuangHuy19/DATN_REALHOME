@@ -1,12 +1,11 @@
-'use client';
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Search, FileText, Printer } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 
 interface ArchivedContractsTableProps {
   filteredArchived: any[];
@@ -29,6 +28,17 @@ export function ArchivedContractsTable({
   setViewRental,
   setIsViewRentalOpen,
 }: ArchivedContractsTableProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [archivedSearch]);
+
+  const totalPages = Math.ceil(filteredArchived.length / pageSize);
+  const safePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const paginatedArchived = filteredArchived.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   const archivedStatusLabels: Record<string, { label: string; color: string }> = {
     ended: { label: 'Đã hết hạn', color: 'bg-slate-100 text-slate-700 border-slate-300' },
     terminated: { label: 'Kết thúc sớm', color: 'bg-amber-100 text-amber-800 border-amber-300' },
@@ -40,20 +50,37 @@ export function ArchivedContractsTable({
   return (
     <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
       <CardHeader className="p-4 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-          <Input 
-            placeholder="Tìm hợp đồng đã thanh lý/hết hạn theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
-            value={archivedSearch} 
-            onChange={(e) => setArchivedSearch(e.target.value)} 
-            className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
-          />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input 
+                placeholder="Tìm hợp đồng đã thanh lý/hết hạn theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
+                value={archivedSearch} 
+                onChange={(e) => setArchivedSearch(e.target.value)} 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent text-xs" 
+              />
+            </div>
+            <div className="text-xs text-ink-muted font-medium hidden sm:block whitespace-nowrap">
+              Hiển thị <strong>{filteredArchived.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, filteredArchived.length)}</strong> / <strong>{filteredArchived.length}</strong> hợp đồng
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="shrink-0 self-end md:self-auto">
+              <Pagination
+                currentPage={safePage}
+                totalPages={totalPages}
+                onPageChange={(p) => setCurrentPage(p)}
+              />
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
         {/* Mobile Card List Hợp Đồng Thanh Lý (Hiện trên mobile < md) */}
         <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
-          {filteredArchived.map((item: any) => {
+          {paginatedArchived.map((item: any) => {
             const statusInfo = archivedStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
 
             return (
@@ -126,7 +153,7 @@ export function ArchivedContractsTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border text-ink">
-              {filteredArchived.map((item: any) => {
+              {paginatedArchived.map((item: any) => {
                 const statusInfo = archivedStatusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted' };
                 return (
                   <tr 

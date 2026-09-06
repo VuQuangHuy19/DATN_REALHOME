@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Plus, Search, MessageSquare, Phone, Mail, Edit, Trash2, Eye, Loader2, AlertCircle } from 'lucide-react';
 import { useConsultations } from '@/hooks/useConsultations';
-import { useEmployees } from '@/features/staff/hooks/useStaff';;
+import { useEmployees } from '@/features/staff/hooks/useStaff';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { DBConsultation } from '@/lib/supabase/types';
+import Pagination from '@/components/Pagination';
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   new:         { label: 'Mới',            color: 'bg-blue-100 text-blue-700' },
@@ -39,6 +40,12 @@ export default function ConsultationsPage() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
 
   const filtered = list.filter((c) => {
     const matchSearch =
@@ -48,6 +55,10 @@ export default function ConsultationsPage() {
     const matchStatus = statusFilter === 'all' || c.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const safePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const paginatedList = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -117,13 +128,30 @@ export default function ConsultationsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input placeholder="Tìm theo tên, SĐT hoặc email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+        <CardHeader className="p-4 border-b border-border/60">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input placeholder="Tìm theo tên, SĐT hoặc email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+              </div>
+              <div className="text-xs text-slate-500 font-medium hidden sm:block whitespace-nowrap">
+                Hiển thị <strong>{filtered.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, filtered.length)}</strong> / <strong>{filtered.length}</strong> yêu cầu
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="shrink-0 self-end md:self-auto">
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={(p) => setCurrentPage(p)}
+                />
+              </div>
+            )}
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div>
           ) : (
@@ -142,7 +170,7 @@ export default function ConsultationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filtered.map((item) => {
+                  {paginatedList.map((item) => {
                     const sc = statusConfig[item.status];
                     return (
                       <tr
@@ -184,7 +212,7 @@ export default function ConsultationsPage() {
 
               {/* Mobile Card View */}
               <div className="md:hidden divide-y divide-border bg-white">
-                {filtered.map((item) => {
+                {paginatedList.map((item) => {
                   const sc = statusConfig[item.status];
                   return (
                     <div

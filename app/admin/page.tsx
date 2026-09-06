@@ -17,7 +17,7 @@ import {
   Activity, PlusCircle, Pencil, Trash2, ShieldAlert,
   Sparkles, CalendarRange, Clock, CheckCircle2, ChevronRight,
   TrendingUp, Award, Flame, Percent, MapPin, Compass, Calculator,
-  Handshake, Wallet, SlidersHorizontal, ChevronDown
+  Handshake, Wallet, SlidersHorizontal, ChevronDown, DoorOpen
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -409,9 +409,11 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-ink tracking-tight">
-            Quản trị &amp; Kinh doanh
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-ink tracking-tight">
+              Quản trị &amp; Kinh doanh
+            </h1>
+          </div>
           <p className="text-ink-muted mt-1 text-xs sm:text-sm">
             Doanh thu hoa hồng, hiệu suất chốt phòng và phân bổ nhân sự
           </p>
@@ -423,41 +425,37 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => handlePresetChange('1_week')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
-                presetTimeframe === '1_week'
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${presetTimeframe === '1_week'
                   ? 'bg-indigo-600 text-white shadow-indigo-200'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               1 Tuần
             </button>
             <button
               onClick={() => handlePresetChange('today')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
-                presetTimeframe === 'today'
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${presetTimeframe === 'today'
                   ? 'bg-indigo-600 text-white shadow-indigo-200'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               Hôm nay
             </button>
             <button
               onClick={() => handlePresetChange('30_days')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
-                presetTimeframe === '30_days'
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${presetTimeframe === '30_days'
                   ? 'bg-indigo-600 text-white shadow-indigo-200'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               30 ngày
             </button>
             <button
               onClick={() => handlePresetChange('all')}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${
-                presetTimeframe === 'all'
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm ${presetTimeframe === 'all'
                   ? 'bg-indigo-600 text-white shadow-indigo-200'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               Tất cả
             </button>
@@ -492,18 +490,16 @@ export default function AdminDashboardPage() {
 
       {/* ─── Urgent Actions — Lên đầu, nổi bật nhất ─── */}
       {stats && (
-        <div className={`rounded-2xl border-2 p-4 sm:p-5 ${
-          (stats.pendingAppointmentsToday > 0 || stats.unassignedConsultations > 0 || stats.overdueInvoices > 0)
+        <div className={`rounded-2xl border-2 p-4 sm:p-5 ${(stats.pendingAppointmentsToday > 0 || stats.unassignedConsultations > 0 || stats.overdueInvoices > 0)
             ? 'border-rose-200 bg-gradient-to-r from-rose-50/80 via-amber-50/40 to-sky-50/40'
             : 'border-border bg-white'
-        }`}>
+          }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className={`p-1.5 rounded-lg ${
-                (stats.pendingAppointmentsToday > 0 || stats.unassignedConsultations > 0 || stats.overdueInvoices > 0)
+              <div className={`p-1.5 rounded-lg ${(stats.pendingAppointmentsToday > 0 || stats.unassignedConsultations > 0 || stats.overdueInvoices > 0)
                   ? 'bg-rose-100 text-rose-600'
                   : 'bg-emerald-100 text-emerald-600'
-              }`}>
+                }`}>
                 <ShieldAlert className="h-4 w-4" />
               </div>
               <span className="font-bold text-sm text-ink">Việc cần xử lý ngay hôm nay</span>
@@ -528,9 +524,8 @@ export default function AdminDashboardPage() {
                 <p className="font-semibold text-xs text-ink group-hover:text-amber-800 transition-colors truncate">Lịch hẹn chờ duyệt</p>
                 <p className="text-[10px] text-ink-muted mt-0.5">Hôm nay</p>
               </div>
-              <span className={`text-lg font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-lg ${
-                stats.pendingAppointmentsToday > 0 ? 'text-amber-700 bg-amber-100' : 'text-ink-muted bg-bg-subtle'
-              }`}>
+              <span className={`text-lg font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-lg ${stats.pendingAppointmentsToday > 0 ? 'text-amber-700 bg-amber-100' : 'text-ink-muted bg-bg-subtle'
+                }`}>
                 {stats.pendingAppointmentsToday}
               </span>
             </Link>
@@ -543,9 +538,8 @@ export default function AdminDashboardPage() {
                 <p className="font-semibold text-xs text-ink group-hover:text-sky-800 transition-colors truncate">Tư vấn chưa phân công</p>
                 <p className="text-[10px] text-ink-muted mt-0.5">Từ trang public</p>
               </div>
-              <span className={`text-lg font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-lg ${
-                stats.unassignedConsultations > 0 ? 'text-sky-700 bg-sky-100' : 'text-ink-muted bg-bg-subtle'
-              }`}>
+              <span className={`text-lg font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-lg ${stats.unassignedConsultations > 0 ? 'text-sky-700 bg-sky-100' : 'text-ink-muted bg-bg-subtle'
+                }`}>
                 {stats.unassignedConsultations}
               </span>
             </Link>
@@ -558,9 +552,8 @@ export default function AdminDashboardPage() {
                 <p className="font-semibold text-xs text-ink group-hover:text-rose-800 transition-colors truncate">Hóa đơn quá hạn</p>
                 <p className="text-[10px] text-ink-muted mt-0.5">Cần nhắc nợ hoặc xử lý</p>
               </div>
-              <span className={`text-lg font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-lg ${
-                stats.overdueInvoices > 0 ? 'text-rose-700 bg-rose-100' : 'text-ink-muted bg-bg-subtle'
-              }`}>
+              <span className={`text-lg font-extrabold font-mono tabular-nums px-2 py-0.5 rounded-lg ${stats.overdueInvoices > 0 ? 'text-rose-700 bg-rose-100' : 'text-ink-muted bg-bg-subtle'
+                }`}>
                 {stats.overdueInvoices}
               </span>
             </Link>
@@ -616,9 +609,8 @@ export default function AdminDashboardPage() {
                 <div className="flex bg-indigo-50 p-0.5 rounded-lg border border-indigo-100">
                   {(['today', 'week', 'month'] as const).map((f, i) => (
                     <button key={f} onClick={() => setApptFilter(f)}
-                      className={`px-1.5 py-0.5 text-[9px] font-bold rounded-md transition-all ${
-                        apptFilter === f ? 'bg-indigo-600 text-white' : 'text-indigo-500 hover:text-indigo-700'
-                      }`}
+                      className={`px-1.5 py-0.5 text-[9px] font-bold rounded-md transition-all ${apptFilter === f ? 'bg-indigo-600 text-white' : 'text-indigo-500 hover:text-indigo-700'
+                        }`}
                     >
                       {['Ngày', 'Tuần', 'Tháng'][i]}
                     </button>
@@ -651,37 +643,60 @@ export default function AdminDashboardPage() {
 
       {/* secondary KPI Grid */}
       {stats && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Link href="/admin/realhome/buildings">
-            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer">
+            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer h-full">
               <CardContent className="p-3 sm:p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] sm:text-xs font-bold text-ink-muted uppercase">🏢 Tòa nhà</p>
                   <p className="text-xl sm:text-2xl font-bold font-heading text-ink mt-0.5">{stats.totalBuildings}</p>
                 </div>
-                <Building2 className="h-4 w-4 text-ink-muted hidden sm:block" />
+                <Building2 className="h-5 w-5 text-indigo-500 hidden sm:block" />
               </CardContent>
             </Card>
           </Link>
           <Link href="/admin/realhome/rooms">
-            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer">
+            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer h-full">
               <CardContent className="p-3 sm:p-4 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] sm:text-xs font-bold text-ink-muted uppercase">🏠 Phòng &amp; Lấp đầy</p>
-                  <p className="text-xl sm:text-2xl font-bold font-heading text-ink mt-0.5">{stats.totalRooms} <span className="text-sm font-medium text-ink-muted">({stats.occupancyRate}%)</span></p>
+                  <p className="text-[10px] sm:text-xs font-bold text-ink-muted uppercase">🏠 Tổng phòng</p>
+                  <p className="text-xl sm:text-2xl font-bold font-heading text-ink mt-0.5">
+                    {stats.totalRooms} <span className="text-xs sm:text-sm font-semibold text-emerald-600">({stats.occupancyRate}% lấp đầy)</span>
+                  </p>
                 </div>
-                <Home className="h-4 w-4 text-ink-muted hidden sm:block" />
+                <Home className="h-5 w-5 text-emerald-500 hidden sm:block" />
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/admin/realhome/rooms">
+            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer h-full">
+              <CardContent className="p-3 sm:p-4 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[10px] sm:text-xs font-bold text-ink-muted uppercase">🔑 Phòng trống &amp; Sắp trống</p>
+                  <p className="text-xl sm:text-2xl font-bold font-heading text-amber-600 mt-0.5">
+                    {(stats.vacantRooms ?? 0) + (stats.soonAvailableRooms ?? 0)} <span className="text-xs font-medium text-ink-muted">phòng</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs font-semibold">
+                    <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Trống: <strong>{stats.vacantRooms ?? 0}</strong> ({stats.vacantRate ?? 0}%)
+                    </span>
+                    <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                      Sắp trống: <strong>{stats.soonAvailableRooms ?? 0}</strong> ({stats.soonAvailableRate ?? 0}%)
+                    </span>
+                  </div>
+                </div>
+                <DoorOpen className="h-5 w-5 text-amber-500 hidden sm:block shrink-0" />
               </CardContent>
             </Card>
           </Link>
           <Link href="/admin/contracts">
-            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer">
+            <Card className="hover:shadow-sm hover:bg-bg-subtle/50 transition-all border-border shadow-none rounded-xl cursor-pointer h-full">
               <CardContent className="p-3 sm:p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] sm:text-xs font-bold text-ink-muted uppercase">📋 HĐ hết hạn</p>
                   <p className="text-xl sm:text-2xl font-bold font-heading text-rose-600 mt-0.5">{stats.expiringContractsCount}</p>
                 </div>
-                <CalendarRange className="h-4 w-4 text-rose-500 hidden sm:block" />
+                <CalendarRange className="h-5 w-5 text-rose-500 hidden sm:block" />
               </CardContent>
             </Card>
           </Link>
@@ -820,8 +835,8 @@ export default function AdminDashboardPage() {
                     key={t.id}
                     onClick={() => setActiveTab(t.id as any)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === t.id
-                        ? 'bg-accent text-accent-foreground shadow-sm'
-                        : 'text-ink-muted hover:text-ink hover:bg-bg-subtle'
+                      ? 'bg-accent text-accent-foreground shadow-sm'
+                      : 'text-ink-muted hover:text-ink hover:bg-bg-subtle'
                       }`}
                   >
                     {t.label}
@@ -842,8 +857,8 @@ export default function AdminDashboardPage() {
                       key={r.id}
                       onClick={() => setTimeRange(r.id as any)}
                       className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all uppercase ${timeRange === r.id
-                          ? 'bg-white text-ink shadow-sm'
-                          : 'text-ink-muted hover:text-ink'
+                        ? 'bg-white text-ink shadow-sm'
+                        : 'text-ink-muted hover:text-ink'
                         }`}
                     >
                       {r.label}

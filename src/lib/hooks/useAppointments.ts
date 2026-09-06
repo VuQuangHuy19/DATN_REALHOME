@@ -13,7 +13,7 @@ import type { DBAppointment } from '@/lib/supabase/types';
 
 export function useAppointments(companyId?: string) {
   const { role, profile } = useAuth();
-  const landlordId = role === 'landlord' ? (profile?.landlord_id || undefined) : undefined;
+  const landlordId = role === 'landlord' ? (profile?.landlord_id || profile?.id) : undefined;
   const [items, setItems] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,13 +27,13 @@ export function useAppointments(companyId?: string) {
     setLoading(true);
     setError(null);
     try {
-      setItems(await getAppointments(companyId, landlordId));
+      setItems(await getAppointments(companyId, landlordId, profile));
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [companyId, landlordId]);
+  }, [companyId, landlordId, profile]);
 
   useEffect(() => {
     fetch();
@@ -128,6 +128,7 @@ export function useAppointments(companyId?: string) {
         company_name: null,
         company_phone: null,
         building_address: null,
+        building_code: null,
       };
       setItems((prev) => [createdWithRelations, ...prev]);
       return created;

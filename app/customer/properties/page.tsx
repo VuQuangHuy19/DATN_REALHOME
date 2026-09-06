@@ -622,32 +622,9 @@ export default function PropertiesPage() {
   return (
     <div className="container mx-auto px-4 py-8 bg-bg-base">
       {/* Header */}
-      <div className="mb-4 flex items-start justify-between gap-4 relative">
-        <div>
-          <h1 className="text-3xl font-bold font-heading text-ink">Bất Động Sản</h1>
-          {company && <p className="text-sm text-ink-muted mt-0.5">{company.name}</p>}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Nút Copy Link Môi giới — chỉ hiện khi role = sales_agent */}
-          {isSale && (
-            <Button
-              variant="outline"
-              size="sm"
-              className={`flex-shrink-0 gap-1.5 font-bold transition-all ${
-                copyLinkDone
-                  ? 'border-emerald-400 text-emerald-700 bg-emerald-50'
-                  : 'border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100'
-              }`}
-              onClick={handleCopyReferralLink}
-              title="Copy link giới thiệu phòng cho khách — lịch hẹn sẽ tự động gắn cho bạn"
-            >
-              {copyLinkDone
-                ? <><CheckCheck className="h-3.5 w-3.5" /> Đã copy!</>
-                : <><LinkIcon className="h-3.5 w-3.5" /> Copy Link</>}
-            </Button>
-          )}
-        </div>
+      <div className="mb-4">
+        <h1 className="text-3xl font-bold font-heading text-ink">Bất Động Sản</h1>
+        {company && <p className="text-sm text-ink-muted mt-0.5">{company.name}</p>}
       </div>
 
       {/* 3-cấp vị trí */}
@@ -730,7 +707,7 @@ export default function PropertiesPage() {
             <div className="flex items-center justify-between gap-1.5 sm:gap-2 px-0.5 sm:px-1 flex-nowrap w-full min-w-0">
               <span className="text-[11px] sm:text-xs text-ink-muted font-bold whitespace-nowrap bg-bg-subtle px-2 sm:px-2.5 py-1 rounded-xl border border-border-subtle shrink-0">
                 <span className="sm:hidden">{sortedGroups.length} BĐS</span>
-                <span className="hidden sm:inline">{sortedGroups.length} bất động sản được tìm thấy</span>
+                <span className="hidden sm:inline">{sortedGroups.length} BĐS</span>
               </span>
 
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 min-w-0">
@@ -847,12 +824,19 @@ export default function PropertiesPage() {
           open={viewingGroup !== null}
           onOpenChange={(open) => { if (!open) setViewingGroup(null); }}
           companyId={viewingGroup.companyId}
-          property={{
-            id: viewingGroup.representativeRoom.id,
-            title: viewingGroup.buildingName,
-            address: viewingGroup.address,
-            area: viewingGroup.area,
-          }}
+          availableRooms={viewingGroup.rooms.map((r) => ({
+            id: r.id,
+            title: r.title,
+            address: r.address,
+            area: r.area,
+            price: r.price,
+            floor: r.floor,
+            size: r.size,
+            companyId: r.companyId,
+            status: r.status,
+            roomType: r.roomType,
+            expectedAvailableDate: r.expectedAvailableDate || (r as any).availableDate,
+          }))}
         />
       )}
     </div>

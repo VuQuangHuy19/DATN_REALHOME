@@ -71,12 +71,18 @@ export async function PUT(request: Request) {
         .limit(1)
         .maybeSingle();
 
+      const pricesMap: Record<string, number> = {
+        starter: 500000,
+        professional: 2000000,
+        enterprise: 5000000,
+      };
       const seatsMap: Record<string, number> = {
         starter: 5,
         professional: 20,
-        enterprise: 999999,
+        enterprise: 100,
       };
       const seats = seatsMap[newPlan] || 20;
+      const price_per_month = pricesMap[newPlan] || 2000000;
 
       if (!activeSub || activeSub.plan !== newPlan) {
         // Hủy/hết hạn các subscription cũ
@@ -94,7 +100,7 @@ export async function PUT(request: Request) {
             plan: newPlan,
             status: 'active',
             seats,
-            price_per_month: 0,
+            price_per_month,
             starts_at: now.toISOString(),
             ends_at: null, // Vô thời hạn cho gói do Super Admin nâng cấp
           });

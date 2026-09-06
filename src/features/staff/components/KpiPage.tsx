@@ -130,25 +130,107 @@ export function KpiPage() {
     }
   }, [filterYear, filterMonth]);
 
+  const allStaffOptions = useMemo(() => {
+    const list: { id: string; profile_id?: string; name: string; role: string }[] = [];
+    employees.forEach((emp) => {
+      if (emp.status !== 'inactive') {
+        list.push({
+          id: emp.id,
+          profile_id: emp.profile_id || emp.id,
+          name: emp.full_name || (emp as any).name || 'Nhân viên',
+          role: emp.role || 'sales_agent',
+        });
+      }
+    });
+    profiles.forEach((p) => {
+      if (p.is_active && ['sales_agent', 'employee', 'manager', 'company_admin'].includes(p.role)) {
+        const exists = list.some((item) => item.id === p.id || item.profile_id === p.id);
+        if (!exists) {
+          list.push({
+            id: p.id,
+            profile_id: p.id,
+            name: p.full_name || 'Nhân viên',
+            role: p.role,
+          });
+        }
+      }
+    });
+    return list;
+  }, [employees, profiles]);
+
   const loadKPIs = useCallback(async () => {
     if (!company?.id) return;
     setLoading(true);
     try {
       const data = await getKPIs(company.id);
-      setKpiList(data);
+
+      const currentYearStr = filterYear || new Date().getFullYear().toString();
+      const currentMonthStr = filterMonth ? filterMonth.padStart(2, '0') : String(new Date().getMonth() + 1).padStart(2, '0');
+      const activePeriod = `${currentYearStr}-${currentMonthStr}`;
+
+      const mergedList = [...data];
+
+      for (const staff of allStaffOptions) {
+        const hasRecord = mergedList.some((k) =>
+          k.employee_id === staff.id || k.employee_id === staff.profile_id || (k.employee_name && k.employee_name === staff.name)
+        );
+
+        if (!hasRecord) {
+          try {
+            const autoStats = await computeAutoKPI(company.id, staff.profile_id || staff.id, activePeriod);
+            let status: DBEmployeeKPI['status'] = 'on_track';
+            const rev = autoStats.revenue_generated || 0;
+            const target = autoStats.target_revenue || kpiConfig?.default_target_revenue || 50000000;
+            const score = autoStats.score || 75;
+            if (score >= 90 || rev > target) status = 'exceeded';
+            else if (score < 70 || rev < target * 0.8) status = 'behind';
+
+            mergedList.push({
+              id: `auto_${staff.id}_${activePeriod}`,
+              company_id: company.id,
+              employee_id: staff.id,
+              employee_name: staff.name,
+              period: activePeriod,
+              total_leads: autoStats.converted_leads_count || 0,
+              total_appointments: autoStats.total_appointments || 0,
+              successful_deals: autoStats.successful_deals || 0,
+              conversion_rate: 0,
+              revenue_generated: rev,
+              target_revenue: target,
+              score: score,
+              status: status,
+              auto_calculated: true,
+              commission_earned: autoStats.commission_earned || 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as any);
+          } catch (err) {
+            console.error('Lỗi khi tính tự động KPI cho nhân viên:', staff.name, err);
+          }
+        }
+      }
+
+      setKpiList(mergedList);
       setError(null);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [company?.id]);
+  }, [company?.id, allStaffOptions, filterYear, filterMonth, kpiConfig]);
 
   useEffect(() => { loadKPIs(); }, [loadKPIs]);
 
   const filtered = kpiList.filter((k) => {
-    const [year, month] = k.period.split('-');
-    if (filterEmployeeId && k.employee_id !== filterEmployeeId) return false;
+    if (filterEmployeeId) {
+      const selectedStaff = allStaffOptions.find((s) => s.id === filterEmployeeId);
+      const isMatch = k.employee_id === filterEmployeeId ||
+        (selectedStaff?.profile_id && k.employee_id === selectedStaff.profile_id) ||
+        (selectedStaff?.name && k.employee_name === selectedStaff.name);
+      if (!isMatch) return false;
+    }
+
+    const [year, month] = (k.period || '').split('-');
 
     if (filterFromDate || filterToDate) {
       const kpiDateStr = `${k.period}-01`;
@@ -583,12 +665,12 @@ export function KpiPage() {
         <select
           value={filterEmployeeId}
           onChange={(e) => setFilterEmployeeId(e.target.value)}
-          className="h-9 min-w-[180px] rounded-lg border border-border bg-background px-3 text-xs text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="h-9 min-w-[180px] rounded-lg border border-border bg-background px-3 text-xs font-semibold text-ink cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <option value="">Tất cả nhân viên</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.full_name || (emp as any).name}
+          <option value="">Tất cả nhân viên ({allStaffOptions.length})</option>
+          {allStaffOptions.map((staff) => (
+            <option key={staff.id} value={staff.id}>
+              {staff.name}
             </option>
           ))}
         </select>

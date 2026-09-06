@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ExcelImportModal } from '@/features/properties/components/ExcelImportModal';
 import { GoogleSheetImportModal } from '@/features/import/components/GoogleSheetImportModal';
+import Pagination from '@/components/Pagination';
 import { useRooms } from '@/features/rooms/hooks/useRooms';
 import { useBuildings } from '@/features/properties/hooks/useBuildings';
 import { useRoomImages } from '@/features/properties/hooks/useRoomImages';
@@ -247,13 +248,13 @@ export function RoomListPage() {
         landlordCode.toLowerCase().includes(query) ||
         area.toLowerCase().includes(query);
 
-      const ds = getRoomDisplayStatus(r, contracts);
+      const ds = getRoomDisplayStatus(r, contracts, depositContracts);
       let matchesStatus = true;
       if (filterStatus) {
         if (filterStatus === 'soon_available') {
           matchesStatus = ds.isSoonAvailable;
         } else {
-          matchesStatus = r.status === filterStatus && !ds.isSoonAvailable;
+          matchesStatus = ds.status === filterStatus && !ds.isSoonAvailable;
         }
       }
 
@@ -263,7 +264,7 @@ export function RoomListPage() {
 
       return matchesSearch && matchesStatus && matchesBuilding && matchesArea && matchesLandlord;
     });
-  }, [roomList, role, buildings, contracts, searchQuery, filterStatus, filterBuildingId, filterArea, filterLandlordCode]);
+  }, [roomList, role, buildings, contracts, depositContracts, searchQuery, filterStatus, filterBuildingId, filterArea, filterLandlordCode]);
 
   const isAllSelected = useMemo(() => {
     if (filteredRooms.length === 0) return false;
@@ -278,11 +279,41 @@ export function RoomListPage() {
     }
   };
 
+  // Action needed rooms (Hot List)
+  const actionNeededRooms = useMemo(() => {
+    return filteredRooms.filter((r) => {
+      const ds = getRoomDisplayStatus(r, contracts, depositContracts);
+      const isReserved = ds.status === 'reserved';
+      const isAvailable = ds.status === 'available';
+      return ds.isSoonAvailable || isReserved || isAvailable;
+    });
+  }, [filteredRooms, contracts, depositContracts]);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12; // 12 rooms per page
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatus, filterBuildingId, filterArea, filterLandlordCode, activeTab]);
+
+  const activeTargetList = useMemo(() => {
+    return activeTab === 'action_needed' ? actionNeededRooms : filteredRooms;
+  }, [activeTab, actionNeededRooms, filteredRooms]);
+
+  const totalPages = Math.max(1, Math.ceil(activeTargetList.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+
+  const paginatedRooms = useMemo(() => {
+    const startIdx = (safePage - 1) * pageSize;
+    return activeTargetList.slice(startIdx, startIdx + pageSize);
+  }, [activeTargetList, safePage, pageSize]);
+
   // Group rooms by building
   const groupedRoomsByBuilding = useMemo(() => {
     const map = new Map<string, { building: any; rooms: RoomWithBuilding[] }>();
 
-    // First populate from buildings
     buildings.forEach((b) => {
       if (filterArea && b.area !== filterArea) return;
       if (filterBuildingId && b.id !== filterBuildingId && b.code !== filterBuildingId) return;
@@ -290,7 +321,7 @@ export function RoomListPage() {
       map.set(b.code || b.id, { building: b, rooms: [] });
     });
 
-    filteredRooms.forEach((r) => {
+    paginatedRooms.forEach((r) => {
       const bld = buildings.find((b) => b.code === r.building_id || b.id === r.building_id);
       const key = bld?.code || bld?.id || r.building_id || 'unknown';
 
@@ -304,17 +335,7 @@ export function RoomListPage() {
     });
 
     return Array.from(map.values()).filter((item) => item.rooms.length > 0);
-  }, [buildings, filteredRooms, filterArea, filterBuildingId, filterLandlordCode]);
-
-  // Action needed rooms (Hot List)
-  const actionNeededRooms = useMemo(() => {
-    return filteredRooms.filter((r) => {
-      const ds = getRoomDisplayStatus(r, contracts);
-      const isReserved = r.status === 'reserved';
-      const isAvailable = r.status === 'available';
-      return ds.isSoonAvailable || isReserved || isAvailable;
-    });
-  }, [filteredRooms, contracts]);
+  }, [buildings, paginatedRooms, filterArea, filterBuildingId, filterLandlordCode]);
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -330,7 +351,7 @@ export function RoomListPage() {
 
     const payload: Omit<DBRoom, 'id' | 'created_at' | 'updated_at'> = {
       company_id: company?.id ?? '',
-      building_id: bCode,
+      building_id: selectedBuilding?.id || editItem?.building_id || bCode,
       landlord_id: landlordCode,
       code: formData.get('code') as string,
       floor: Number(formData.get('floor')),
@@ -409,8 +430,8 @@ export function RoomListPage() {
   // Render individual room card for Matrix
   const renderRoomCard = (room: RoomWithBuilding) => {
     const isSelected = selectedRoomIds.has(room.id);
-    const ds = getRoomDisplayStatus(room, contracts);
-    const activeDeposit = room.status === 'reserved'
+    const ds = getRoomDisplayStatus(room, contracts, depositContracts);
+    const activeDeposit = ds.status === 'reserved'
       ? depositContracts.find((c) => c.room_id === room.id && c.status === 'active')
       : null;
 
@@ -420,16 +441,16 @@ export function RoomListPage() {
     if (ds.isSoonAvailable) {
       cardBg = 'bg-amber-50/50 border-amber-200 hover:border-amber-400';
       statusBadgeClass = 'bg-amber-100 text-amber-800 border-amber-300 font-bold';
-    } else if (room.status === 'rented') {
+    } else if (ds.status === 'rented') {
       cardBg = 'bg-rose-50/40 border-rose-200/80 hover:border-rose-300';
       statusBadgeClass = 'bg-rose-100 text-rose-700 border-rose-200 font-bold';
-    } else if (room.status === 'available') {
+    } else if (ds.status === 'available') {
       cardBg = 'bg-emerald-50/40 border-emerald-200/80 hover:border-emerald-400';
       statusBadgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200 font-bold';
-    } else if (room.status === 'maintenance') {
+    } else if (ds.status === 'maintenance') {
       cardBg = 'bg-yellow-50/40 border-yellow-200 hover:border-yellow-300';
       statusBadgeClass = 'bg-yellow-100 text-yellow-800 border-yellow-200 font-bold';
-    } else if (room.status === 'reserved') {
+    } else if (ds.status === 'reserved') {
       cardBg = 'bg-sky-50/40 border-sky-200 hover:border-sky-300';
       statusBadgeClass = 'bg-sky-100 text-sky-700 border-sky-200 font-bold';
     }
@@ -460,7 +481,7 @@ export function RoomListPage() {
           </div>
 
           <Badge className={`${statusBadgeClass} text-[10px] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0`}>
-            {ds.isSoonAvailable ? 'Sắp trống' : room.status === 'available' ? 'Còn trống' : room.status === 'rented' ? 'Đã thuê' : room.status === 'reserved' ? 'Đang giữ' : 'Bảo trì'}
+            {ds.isSoonAvailable ? 'Sắp trống' : ds.status === 'available' ? 'Còn trống' : ds.status === 'rented' ? 'Đã thuê' : ds.status === 'reserved' ? 'Đang giữ' : 'Bảo trì'}
           </Badge>
         </div>
 
@@ -654,9 +675,9 @@ export function RoomListPage() {
             </div>
           </div>
 
-          {/* Inline Bulk Action Bar - Ngay dưới Matrix phòng, Sơ đồ tầng, Xử lý nhanh */}
-          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100 flex-wrap bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
-            <div className="flex items-center gap-3">
+          {/* Inline Bulk Action & Pagination Bar - Ngay dòng Chọn tất cả & Hiển thị phòng */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-100 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
+            <div className="flex items-center gap-3 flex-wrap">
               <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -668,45 +689,59 @@ export function RoomListPage() {
               </label>
 
               <span className="text-xs text-slate-500 font-medium">
-                • Đã chọn <strong className="text-emerald-700 font-extrabold">{selectedRoomIds.size}</strong> / {filteredRooms.length} phòng
+                • Hiển thị <strong>{activeTargetList.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, activeTargetList.length)}</strong> trong tổng số <strong>{activeTargetList.length}</strong> phòng
+                {selectedRoomIds.size > 0 && (
+                  <span className="ml-1 text-emerald-700 font-extrabold">(Đã chọn {selectedRoomIds.size})</span>
+                )}
               </span>
             </div>
 
-            {selectedRoomIds.size > 0 && (
-              <div className="flex items-center gap-2">
-                {role !== 'sales_agent' && (
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={() => setIsBulkStatusModalOpen(true)}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 mr-1" />
-                      Đổi trạng thái ({selectedRoomIds.size})
-                    </Button>
+            <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+              {selectedRoomIds.size > 0 && (
+                <div className="flex items-center gap-2">
+                  {role !== 'sales_agent' && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => setIsBulkStatusModalOpen(true)}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                        Đổi trạng thái ({selectedRoomIds.size})
+                      </Button>
 
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => setIsConfirmBulkDeleteOpen(true)}
-                      className="bg-rose-600 hover:bg-rose-700 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      Xóa đã chọn ({selectedRoomIds.size})
-                    </Button>
-                  </>
-                )}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setIsConfirmBulkDeleteOpen(true)}
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-bold h-8 text-xs rounded-xl shadow-xs"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                        Xóa đã chọn ({selectedRoomIds.size})
+                      </Button>
+                    </>
+                  )}
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedRoomIds(new Set())}
-                  className="bg-white hover:bg-slate-100 text-slate-700 border-slate-200 h-8 text-xs font-bold rounded-xl"
-                >
-                  Hủy chọn
-                </Button>
-              </div>
-            )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedRoomIds(new Set())}
+                    className="bg-white hover:bg-slate-100 text-slate-700 border-slate-200 h-8 text-xs font-bold rounded-xl"
+                  >
+                    Hủy chọn
+                  </Button>
+                </div>
+              )}
+
+              {/* Nút phân trang cùng hàng với Chọn tất cả */}
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={(p) => setCurrentPage(p)}
+                />
+              )}
+            </div>
           </div>
 
           {/* Search bar & Status Filter Pills */}
@@ -901,7 +936,7 @@ export function RoomListPage() {
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                      {actionNeededRooms.map((room) => renderRoomCard(room))}
+                      {paginatedRooms.map((room) => renderRoomCard(room))}
                     </div>
                   </div>
                 ) : (
@@ -987,15 +1022,23 @@ export function RoomListPage() {
                   <Label htmlFor="building_id" className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tòa nhà <span className="text-rose-500">*</span></Label>
                   <select id="building_id" name="building_id" defaultValue={editItem?.building_id ?? ''} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400">
                     <option value="">Chọn tòa nhà</option>
-                    {buildings.map((b) => <option key={b.id} value={b.code || b.id}>{b.name}</option>)}
+                    {buildings.map((b) => <option key={b.id} value={b.id || b.code}>{b.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="room_type" className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Loại phòng <span className="text-rose-500">*</span></Label>
-                  <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400" required>
-                    <option value="">Chọn loại</option>
-                    {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                  </select>
+                  {(() => {
+                    const list = [...(roomTypes || [])];
+                    if (editItem?.room_type && !list.some(t => t.name === editItem.room_type)) {
+                      list.unshift({ id: 'current-' + editItem.room_type, name: editItem.room_type } as any);
+                    }
+                    return (
+                      <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400" required>
+                        <option value="">Chọn loại</option>
+                        {list.map((t) => <option key={t.id || t.name} value={t.name}>{t.name}</option>)}
+                      </select>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="floor" className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tầng <span className="text-rose-500">*</span></Label>

@@ -43,8 +43,6 @@ export async function notify(params: NotifyParams): Promise<void> {
       body: message,
       type,
       link,
-      channels,
-      send_status: 'pending',
       is_read: false
     })
     .select('id')
@@ -163,16 +161,7 @@ async function sendEmail(
   }
 }
 
-async function updateNotificationStatus(notificationId: string, status: 'sent' | 'failed') {
-  const { error } = await supabaseAdmin
-    .from('notifications')
-    .update({ 
-      send_status: status,
-      sent_at: new Date().toISOString()
-    })
-    .eq('id', notificationId);
-    
-  if (error) {
-    console.error(`[notify] Lỗi cập nhật send_status cho ${notificationId}`, error);
-  }
+async function updateNotificationStatus(_notificationId: string, _status: 'sent' | 'failed') {
+  // Bảng notifications hiện dùng schema chuẩn (id, company_id, title, body, type, recipient_id, link, is_read, created_at)
+  return;
 }

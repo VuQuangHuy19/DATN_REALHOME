@@ -8,12 +8,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, User, Building2, Shield, Mail, Phone, ShieldCheck, Camera, Eye, Upload, X } from 'lucide-react';
+import { Loader2, User, Building2, Shield, Mail, Phone, ShieldCheck, Camera, Eye, Upload, X, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
 import { compressImage } from '@/src/lib/image-utils';
 import KYCForm from '@/components/kyc/KYCForm';
 import { AvatarPickerModal } from '@/components/admin/AvatarPickerModal';
+import { SocialMediaBrandGenerator } from '@/components/admin/SocialMediaBrandGenerator';
+import Link from 'next/link';
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
@@ -242,6 +244,16 @@ export default function AdminProfilePage() {
                         <Upload className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
                         <span>{isEn ? 'Select Profile Picture' : 'Chọn ảnh đại diện'}</span>
                       </button>
+
+                      <Link href="/admin/avatar-frame">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-amber-700 dark:text-amber-400 bg-amber-50/80 dark:bg-amber-950/40 hover:bg-amber-100 rounded-xl transition-colors text-left cursor-pointer whitespace-nowrap"
+                        >
+                          <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+                          <span>{isEn ? 'Create TikTok / Zalo Frame' : 'Tạo khung Avatar TikTok / Zalo'}</span>
+                        </button>
+                      </Link>
                     </div>
                   </>
                 )}
@@ -361,6 +373,14 @@ export default function AdminProfilePage() {
             />
           )}
         </div>
+      </div>
+
+      {/* 🎨 Công cụ Thiết kế Khung Avatar & Ảnh Bìa Social Media (Trực tiếp trên trang Hồ Sơ) */}
+      <div className="pt-4">
+        <SocialMediaBrandGenerator
+          defaultName={profile?.full_name || 'Quang Huy RealHome'}
+          defaultPhone={profile?.phone || '0857.844.999'}
+        />
       </div>
 
       {/* Lightbox Preview Avatar Modal */}

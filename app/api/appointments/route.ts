@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createAppointmentWithNotification } from '@/features/notifications/services/appointmentNotificationService';
 
 export async function GET(req: NextRequest) {
@@ -7,12 +7,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const companyId = searchParams.get('companyId');
     const saleId = searchParams.get('saleId');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const limit = parseInt(searchParams.get('limit') || '500', 10);
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('appointments')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('date', { ascending: false })
       .limit(limit);
 
     if (companyId) query = query.eq('company_id', companyId);

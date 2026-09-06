@@ -104,3 +104,25 @@ export async function deleteContractTemplate(id: string) {
     console.error('Lỗi xóa contract template:', err);
   }
 }
+
+export async function updateContractCommission(
+  type: 'deposit' | 'rental',
+  contractId: string,
+  commissionRateRaw: string | null,
+  commissionAmount: number
+) {
+  const table = type === 'deposit' ? 'deposit_contracts' : 'rental_contracts';
+  const { data, error } = await supabase
+    .from(table)
+    .update({
+      commission_rate_raw: commissionRateRaw,
+      commission_amount: commissionAmount,
+      updated_at: new Date().toISOString(),
+    } as any)
+    .eq('id', contractId)
+    .select()
+    .single();
+
+  if (error) throw new Error(`Không thể cập nhật hoa hồng: ${error.message}`);
+  return data;
+}

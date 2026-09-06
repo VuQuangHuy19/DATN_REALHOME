@@ -1,6 +1,4 @@
-'use client';
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -19,9 +17,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Pencil, Trash2, Search, FileText, Loader2,
-  Printer, RefreshCw, ClipboardCheck, FileSignature, Eye, MoreHorizontal
+  Printer, RefreshCw, ClipboardCheck, FileSignature, Eye, MoreHorizontal, Percent
 } from 'lucide-react';
 import { calculateCommissionAmount } from '@/features/finance/services/commission';
+import Pagination from '@/components/Pagination';
 
 interface DepositContractsTableProps {
   filteredDeposits: any[];
@@ -41,6 +40,7 @@ interface DepositContractsTableProps {
   setHandoverContract: (item: any) => void;
   setHandoverSourceType: (type: 'deposit' | 'rental') => void;
   setIsHandoverOpen: (open: boolean) => void;
+  onOpenCommissionModal?: (type: 'deposit' | 'rental', contract: any) => void;
 }
 
 export function DepositContractsTable({
@@ -61,20 +61,48 @@ export function DepositContractsTable({
   setHandoverContract,
   setHandoverSourceType,
   setIsHandoverOpen,
+  onOpenCommissionModal,
 }: DepositContractsTableProps) {
   const router = useRouter();
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [depositSearch]);
+
+  const totalPages = Math.ceil(filteredDeposits.length / pageSize);
+  const safePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+  const paginatedDeposits = filteredDeposits.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <Card className="border-border shadow-none rounded-lg bg-white overflow-hidden">
       <CardHeader className="p-4 border-b border-border">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-          <Input 
-            placeholder="Tìm hợp đồng cọc theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
-            value={depositSearch} 
-            onChange={(e) => setDepositSearch(e.target.value)} 
-            className="pl-9 rounded-lg border-border focus-visible:ring-accent" 
-          />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+              <Input 
+                placeholder="Tìm hợp đồng cọc theo tên khách, SĐT, mã hợp đồng hoặc mã phòng..." 
+                value={depositSearch} 
+                onChange={(e) => setDepositSearch(e.target.value)} 
+                className="pl-9 rounded-lg border-border focus-visible:ring-accent text-xs" 
+              />
+            </div>
+            <div className="text-xs text-ink-muted font-medium hidden sm:block whitespace-nowrap">
+              Hiển thị <strong>{filteredDeposits.length > 0 ? (safePage - 1) * pageSize + 1 : 0} - {Math.min(safePage * pageSize, filteredDeposits.length)}</strong> / <strong>{filteredDeposits.length}</strong> hợp đồng cọc
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="shrink-0 self-end md:self-auto">
+              <Pagination
+                currentPage={safePage}
+                totalPages={totalPages}
+                onPageChange={(p) => setCurrentPage(p)}
+              />
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -86,7 +114,7 @@ export function DepositContractsTable({
           <>
             {/* Mobile Card List (Chỉ hiện trên di động < md) */}
             <div className="block md:hidden space-y-3 p-3 bg-slate-50/50">
-              {filteredDeposits.map((item) => {
+              {paginatedDeposits.map((item) => {
                 const statusInfo = statusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted border-border' };
                 const agentId = item.sales_agent_id || item.created_by;
                 const saleProfile = agentId ? profilesMap.get(agentId) : null;
@@ -208,7 +236,7 @@ export function DepositContractsTable({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border text-ink">
-                  {filteredDeposits.map((item) => {
+                  {paginatedDeposits.map((item) => {
                     const statusInfo = statusLabels[item.status] || { label: item.status, color: 'bg-bg-subtle text-ink-muted border-border' };
                     return (
                       <tr 
@@ -292,6 +320,22 @@ export function DepositContractsTable({
                             >
                               <Eye className="h-4 w-4 text-slate-600" />
                             </Button>
+
+                            {/* 💵 2. Cập nhật hoa hồng */}
+                            {onOpenCommissionModal && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenCommissionModal('deposit', item);
+                                }}
+                                title="Cập nhật % hoa hồng công ty"
+                              >
+                                <Percent className="h-4 w-4 text-amber-600" />
+                              </Button>
+                            )}
 
                             {/* 🟢 2. Duyệt cọc / Nhận cọc / Lập HĐ thuê */}
                             {role === 'landlord' && item.status === 'active' && (

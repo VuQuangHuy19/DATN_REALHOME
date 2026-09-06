@@ -79,10 +79,18 @@ export function BuildingRoomDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="room_type" className="text-ink font-semibold text-xs uppercase tracking-wider">Loại phòng</Label>
-                <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent" required>
-                  <option value="">Chọn loại</option>
-                  {roomTypes.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
+                {(() => {
+                  const list = [...(roomTypes || [])];
+                  if (editItem?.room_type && !list.some(t => t.name === editItem.room_type)) {
+                    list.unshift({ id: 'current-' + editItem.room_type, name: editItem.room_type });
+                  }
+                  return (
+                    <select id="room_type" name="room_type" defaultValue={editItem?.room_type ?? ''} className="w-full h-10 rounded-lg border border-border bg-background px-3 py-2 text-sm text-ink focus-visible:ring-accent" required>
+                      <option value="">Chọn loại</option>
+                      {list.map((t) => <option key={t.id || t.name} value={t.name}>{t.name}</option>)}
+                    </select>
+                  );
+                })()}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="status" className="text-ink font-semibold text-xs uppercase tracking-wider">Trạng thái</Label>

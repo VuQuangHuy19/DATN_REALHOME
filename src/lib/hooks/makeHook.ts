@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { supabase } from '@/lib/supabase/client';
 
 export function makeHook<T>(
   fetcher: (companyId?: string, landlordId?: string) => Promise<T[]>,
   creator: (item: any) => Promise<T>,
   updater: (id: string, item: any) => Promise<T>,
-  remover: (id: string, companyId?: string) => Promise<void>
+  remover: (id: string, companyId?: string) => Promise<void>,
+  tableName?: string
 ) {
   return function useEntity(companyId?: string) {
     const { role, profile } = useAuth();
@@ -29,10 +31,35 @@ export function makeHook<T>(
 
     useEffect(() => { fetch(); }, [fetch]);
 
+    // Supabase Realtime subscription
+    useEffect(() => {
+      if (!tableName) return;
+      const channelName = `realtime:${tableName}:${companyId || 'all'}:${Math.random().toString(36).substring(2, 7)}`;
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: tableName,
+          },
+          () => {
+            fetch();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [fetch, companyId]);
+
     const add = async (item: any): Promise<T | null> => {
       try {
         const created = await creator(item);
         setItems((prev) => [created, ...prev]);
+        fetch();
         return created;
       } catch (e: any) { setError(e.message); return null; }
     };
@@ -41,6 +68,7 @@ export function makeHook<T>(
       try {
         const updated = await updater(id, patch);
         setItems((prev) => prev.map((i: any) => i.id === id ? { ...i, ...updated } : i));
+        fetch();
         return updated;
       } catch (e: any) { setError(e.message); return null; }
     };
@@ -49,6 +77,7 @@ export function makeHook<T>(
       try {
         await remover(id, companyId);
         setItems((prev) => (prev as any[]).filter((i) => i.id !== id));
+        fetch();
       } catch (e: any) { setError(e.message); }
     };
 

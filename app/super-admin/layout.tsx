@@ -13,7 +13,7 @@ function SuperAdminHeader() {
     : 'SA';
 
   return (
-    <header className="h-16 bg-white border-b border-border-subtle px-6 flex items-center justify-between shadow-none">
+    <header className="sticky top-0 z-40 h-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-b border-border-subtle px-6 flex items-center justify-between shadow-xs">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-ink-muted">RealHome</span>
         <span className="text-border-subtle">/</span>

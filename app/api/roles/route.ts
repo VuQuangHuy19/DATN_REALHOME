@@ -32,11 +32,18 @@ export async function GET(request: Request) {
       .from('roles')
       .select('*')
       .or(`company_id.eq.${payload.company_id},company_id.is.null`)
-      .neq('name', 'Super Admin')
+      .not('name', 'ilike', '%super_admin%')
+      .not('name', 'ilike', '%super admin%')
+      .not('name', 'ilike', 'customer')
+      .not('name', 'ilike', 'tenant')
       .order('name', { ascending: true });
 
     if (error) throw error;
-    return NextResponse.json(data);
+    const excludedRoles = ['super_admin', 'super admin', 'customer', 'tenant'];
+    const filteredData = (data || []).filter(
+      (r: any) => !excludedRoles.includes((r.name || '').trim().toLowerCase())
+    );
+    return NextResponse.json(filteredData);
   } catch (error: any) {
     console.error('Error fetching roles:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

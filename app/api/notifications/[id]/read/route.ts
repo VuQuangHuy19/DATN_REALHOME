@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export async function POST(
   req: NextRequest,
@@ -12,7 +12,7 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Thiếu notification id' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('notifications')
       .update({ is_read: true } as any)
       .eq('id', id);

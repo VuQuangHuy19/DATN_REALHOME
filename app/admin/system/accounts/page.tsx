@@ -1,7 +1,7 @@
 'use client';
 
-import { EmployeesPage } from '@/features/staff/components/EmployeesPage';
+import { AccountsPage } from '@/features/staff/components/AccountsPage';
 
 export default function Page() {
-  return <EmployeesPage />;
+  return <AccountsPage />;
 }

@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import {
   Building2, Users, CreditCard, TrendingUp, Activity,
   Package, Loader2, Calendar, ShieldAlert, Sparkles,
-  TrendingDown, CheckCircle2, AlertTriangle, RefreshCw
+  TrendingDown, CheckCircle2, AlertTriangle, RefreshCw,
+  Check, RotateCcw, Unlock, Mail
 } from 'lucide-react';
 import { useCompanies } from '@/lib/hooks/useCompanies';
 import Link from 'next/link';
@@ -39,37 +42,101 @@ function formatVND(n: number) {
 }
 
 export default function SuperAdminDashboard() {
-  const { companies, loading: companiesLoading } = useCompanies();
+  const { companies, loading: companiesLoading, update: updateCompany, refetch: refetchCompanies } = useCompanies();
   const [subs, setSubs] = useState<any[]>([]);
   const [subsLoading, setSubsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [processingKey, setProcessingKey] = useState<string | null>(null);
+
+  const [resolvedAlertKeys, setResolvedAlertKeys] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('realhome_resolved_superadmin_alerts');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const fetchSubs = useCallback(async () => {
+    setSubsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*, companies(name)');
+      if (error) throw error;
+      setSubs(data || []);
+    } catch (err) {
+      console.error('Error fetching subscriptions:', err);
+    } finally {
+      setSubsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    async function fetchSubs() {
-      try {
-        const { data, error } = await supabase
-          .from('subscriptions')
-          .select('*, companies(name)');
-        if (error) throw error;
-        setSubs(data || []);
-      } catch (err) {
-        console.error('Error fetching subscriptions:', err);
-      } finally {
-        setSubsLoading(false);
-      }
-    }
     fetchSubs();
-  }, []);
+  }, [fetchSubs]);
 
   const loading = companiesLoading || subsLoading;
 
-  // Calcul MRR (price_per_month * seats for active subscriptions)
+  const defaultPlanPrices: Record<string, number> = {
+    starter: 500000,
+    professional: 2000000,
+    enterprise: 5000000,
+  };
+
+  // Calcul MRR (Monthly Recurring Revenue for active subscriptions)
   const totalMRR = useMemo(() => {
     return subs
-      .filter((s) => s.status === 'active')
-      .reduce((sum, s) => sum + (s.price_per_month || 0) * (s.seats || 1), 0);
+      .filter((s: any) => s.status === 'active')
+      .reduce((sum: number, s: any) => {
+        const price = (s.price_per_month && s.price_per_month > 0)
+          ? s.price_per_month
+          : (defaultPlanPrices[s.plan] || 0);
+        return sum + price;
+      }, 0);
   }, [subs]);
+
+  const handleMarkResolved = (alertKey: string, companyName: string) => {
+    const updated = [...resolvedAlertKeys, alertKey];
+    setResolvedAlertKeys(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('realhome_resolved_superadmin_alerts', JSON.stringify(updated));
+    }
+    toast.success(`Đã đánh dấu xử lý xong vấn đề cho công ty "${companyName}"`);
+  };
+
+  const handleResetResolvedAlerts = () => {
+    setResolvedAlertKeys([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('realhome_resolved_superadmin_alerts');
+    }
+    toast.info('Đã khôi phục danh sách tất cả cảnh báo hệ thống');
+  };
+
+  const handleQuickActivate = async (item: any) => {
+    setProcessingKey(item.alertKey);
+    try {
+      const targetPlan = item.plan && item.plan !== 'starter' ? item.plan : 'enterprise';
+      const updated = await updateCompany(item.id, {
+        status: 'active',
+        plan: targetPlan,
+      });
+      if (updated) {
+        handleMarkResolved(item.alertKey, item.name);
+        toast.success(`Đã gia hạn & kích hoạt gói ${targetPlan.toUpperCase()} thành công cho "${item.name}"!`);
+        fetchSubs();
+        refetchCompanies();
+      }
+    } catch (e: any) {
+      toast.error(`Lỗi khi xử lý: ${e.message}`);
+    } finally {
+      setProcessingKey(null);
+    }
+  };
 
   // Companies expiring trial soon (in next 7 days)
   const trialExpiringSoonList = useMemo(() => {
@@ -93,40 +160,50 @@ export default function SuperAdminDashboard() {
     companies.forEach((c) => {
       if (c.status === 'suspended') {
         list.push({
+          alertKey: `suspended_${c.id}`,
           id: c.id,
           name: c.name,
+          plan: c.plan,
           reason: 'Tài khoản công ty đang bị tạm khóa',
           severity: 'danger',
           status: c.status,
           owner_email: c.owner_email,
+          type: 'suspended',
         });
       }
       if (c.status === 'trial' && c.trial_ends_at) {
         const d = new Date(c.trial_ends_at);
         if (d >= now && d <= in7Days) {
           list.push({
+            alertKey: `trial_${c.id}`,
             id: c.id,
             name: c.name,
+            plan: c.plan,
             reason: `Dùng thử sắp hết hạn (${d.toLocaleDateString('vi-VN')})`,
             severity: 'warning',
             status: c.status,
             owner_email: c.owner_email,
+            type: 'trial_expiring',
           });
         }
       }
     });
 
-    subs.forEach((s) => {
+    subs.forEach((s: any) => {
       if (s.status === 'expired' || s.status === 'cancelled') {
         const comp = companies.find((c) => c.id === s.company_id);
         if (comp) {
           list.push({
+            alertKey: `sub_${s.id}_${s.status}`,
             id: comp.id,
+            subId: s.id,
             name: comp.name,
+            plan: comp.plan || s.plan,
             reason: `Gói ${planLabel[s.plan] || s.plan} đã ${s.status === 'expired' ? 'hết hạn' : 'bị hủy'}`,
             severity: 'danger',
             status: comp.status,
             owner_email: comp.owner_email,
+            type: 'sub_expired',
           });
         }
       }
@@ -134,6 +211,10 @@ export default function SuperAdminDashboard() {
 
     return list;
   }, [companies, subs]);
+
+  const activeAttentionList = useMemo(() => {
+    return attentionList.filter((item: any) => !resolvedAlertKeys.includes(item.alertKey));
+  }, [attentionList, resolvedAlertKeys]);
 
   // Registration chart data
   const registrationsChartData = useMemo(() => {
@@ -367,41 +448,64 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Attention & Alerts Box */}
-      <Card className="border-border shadow-none rounded-lg bg-white">
-        <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-bold font-heading text-ink flex items-center gap-2">
-            <ShieldAlert className="h-4.5 w-4.5 text-amber-500" />
-            Tài khoản cần chú ý &amp; xử lý gấp
-          </CardTitle>
-          <span className="px-2 py-0.5 bg-rose-50 text-rose-700 text-xs rounded-full font-bold">
-            {attentionList.length} cảnh báo
-          </span>
+      <Card className="border-border shadow-none rounded-2xl bg-white overflow-hidden">
+        <CardHeader className="pb-3 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-amber-500" />
+            <CardTitle className="text-base font-bold font-heading text-ink">
+              Tài khoản cần chú ý &amp; xử lý gấp
+            </CardTitle>
+            <span className="px-2.5 py-0.5 bg-rose-50 text-rose-700 text-xs rounded-full font-bold">
+              {activeAttentionList.length} cần xử lý
+            </span>
+          </div>
+
+          {resolvedAlertKeys.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetResolvedAlerts}
+              className="text-xs text-slate-600 hover:text-slate-900 border-slate-200 rounded-xl h-8 px-3"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
+              Khôi phục ({resolvedAlertKeys.length} đã ẩn)
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
-          {attentionList.length === 0 ? (
-            <div className="p-8 text-center text-ink-muted text-sm">
-              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-              Tuyệt vời! Không có tài khoản nào cần xử lý khẩn cấp.
+          {activeAttentionList.length === 0 ? (
+            <div className="p-8 text-center text-ink-muted text-sm space-y-2">
+              <CheckCircle2 className="h-9 w-9 mx-auto text-emerald-500" />
+              <p className="font-bold text-slate-800">Tất cả vấn đề đã được xử lý xong!</p>
+              <p className="text-xs text-slate-500">Không có tài khoản nào cần can thiệp khẩn cấp vào lúc này.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-bg-subtle border-b border-border text-ink-muted text-xs font-bold uppercase tracking-wider">
                   <tr>
-                    <th className="px-5 py-3">Công ty</th>
-                    <th className="px-5 py-3">Chi tiết vấn đề</th>
-                    <th className="px-5 py-3">Mức độ</th>
-                    <th className="px-5 py-3">Trạng thái</th>
-                    <th className="px-5 py-3 text-right">Liên hệ</th>
+                    <th className="px-5 py-3.5">Công ty</th>
+                    <th className="px-5 py-3.5">Chi tiết vấn đề</th>
+                    <th className="px-5 py-3.5">Mức độ</th>
+                    <th className="px-5 py-3.5">Trạng thái</th>
+                    <th className="px-5 py-3.5">Liên hệ</th>
+                    <th className="px-5 py-3.5 text-right">Thao tác xử lý</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {attentionList.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-bg-subtle/50 transition-colors">
-                      <td className="px-5 py-3.5 font-semibold text-ink">{item.name}</td>
-                      <td className="px-5 py-3.5 text-ink-muted text-xs">{item.reason}</td>
+                  {activeAttentionList.map((item: any) => (
+                    <tr key={item.alertKey} className="hover:bg-bg-subtle/50 transition-colors">
+                      <td className="px-5 py-3.5 font-semibold text-ink">
+                        <div>
+                          <p className="font-bold text-slate-900">{item.name}</p>
+                          <span className={`inline-block text-[10px] font-semibold px-2 py-0.2 rounded-full mt-0.5 ${planStyle[item.plan] || 'bg-slate-100'}`}>
+                            Gói {planLabel[item.plan] || item.plan}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-ink-muted text-xs font-medium">{item.reason}</td>
                       <td className="px-5 py-3.5">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                           item.severity === 'danger'
                             ? 'bg-rose-50 text-rose-700 border border-rose-200'
                             : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -411,12 +515,51 @@ export default function SuperAdminDashboard() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusStyle[item.status] ?? 'bg-bg-subtle'}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${statusStyle[item.status] ?? 'bg-bg-subtle'}`}>
                           {statusLabel[item.status] ?? item.status}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-right font-mono text-xs text-ink-muted">
-                        {item.owner_email}
+                      <td className="px-5 py-3.5 font-mono text-xs text-ink-muted">
+                        <a href={`mailto:${item.owner_email}`} className="text-indigo-600 hover:underline flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {item.owner_email}
+                        </a>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Quick Action: Kích hoạt / Gia hạn / Mở khóa */}
+                          <Button
+                            size="sm"
+                            onClick={() => handleQuickActivate(item)}
+                            disabled={processingKey === item.alertKey}
+                            className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-xs flex items-center gap-1"
+                          >
+                            {processingKey === item.alertKey ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : item.type === 'suspended' ? (
+                              <>
+                                <Unlock className="h-3.5 w-3.5" />
+                                <span>Mở khóa</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3.5 w-3.5" />
+                                <span>Gia hạn gói</span>
+                              </>
+                            )}
+                          </Button>
+
+                          {/* Quick Action: Đánh dấu đã xử lý */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkResolved(item.alertKey, item.name)}
+                            className="h-8 px-2.5 text-xs text-emerald-700 hover:bg-emerald-50 border-emerald-200 dark:border-emerald-800 font-semibold rounded-xl flex items-center gap-1"
+                            title="Đánh dấu đã xử lý xong"
+                          >
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Đã xử lý</span>
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

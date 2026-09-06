@@ -1,6 +1,7 @@
 import { supabase as defaultClient } from '../client';
 import { supabaseAdmin } from '../admin';
 import { getKPIConfiguration, calculateSaleCommissionInfo } from '@/features/staff/services/kpi_configurations';
+import { calculateCommissionAmount } from '@/features/finance/services/commission';
 
 export async function getDashboardStats(companyId: string, landlordId?: string, timeframe: string = 'current_month', customClient?: any) {
   const db = customClient || (typeof window === 'undefined' ? supabaseAdmin : defaultClient);
@@ -544,18 +545,25 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
   const allAppointmentsList = (allAppointmentsRes.data ?? []) as any[];
 
   const totalRooms = roomRows.length;
+  const vacantRooms = roomRows.filter((r) => r.status === 'available').length;
+  const soonAvailableRooms = roomRows.filter((r) => {
+    return Boolean(r.available_date || (r.description && typeof r.description === 'string' && (r.description.includes('[Sắp trống:') || r.description.toLowerCase().includes('sắp trống'))));
+  }).length;
   const rentedRooms = roomRows.filter((r) => r.status === 'rented').length;
   const occupancyRate = totalRooms > 0 ? Math.round((rentedRooms / totalRooms) * 100) : 0;
+  const vacantRate = totalRooms > 0 ? Math.round((vacantRooms / totalRooms) * 100) : 0;
+  const soonAvailableRate = totalRooms > 0 ? Math.round((soonAvailableRooms / totalRooms) * 100) : 0;
 
   const totalCollectedAmount = paidInvoicesList.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0);
 
-  // Khử trùng lặp giữa HĐ cọc và HĐ thuê chính thức trong tháng
+  // Khử trùng lặp giữa HĐ cọc và HĐ thuê chính thức (Ưu tiên tuyệt đối HĐ thuê)
   const monthlyDepositsList = (dynamicDepositsRes.data ?? []) as any[];
   const monthlyRentalsList = (dynamicRentalsRes.data ?? []) as any[];
   const validRentals = monthlyRentalsList.filter((r: any) => r.status !== 'cancelled');
   const rentalDepositIds = new Set(validRentals.map((r: any) => r.deposit_contract_id).filter(Boolean));
   const rentalRoomIds = new Set(validRentals.map((r: any) => r.room_id).filter(Boolean));
 
+  // Chỉ tính HĐ cọc khi phòng chưa được chuyển thành HĐ thuê chính thức
   const activeStandaloneDeposits = monthlyDepositsList.filter((d: any) => {
     if (d.status === 'cancelled' || d.status === 'converted' || d.status === 'converted_to_rental') return false;
     if (rentalDepositIds.has(d.id)) return false;
@@ -563,8 +571,20 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
     return true;
   });
 
-  const depositCommission = activeStandaloneDeposits.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
-  const rentalCommission = validRentals.reduce((sum: number, c: any) => sum + (Number(c.commission_amount) || 0), 0);
+  const getContractCommission = (contract: any) => {
+    if (contract.commission_amount !== undefined && contract.commission_amount !== null && Number(contract.commission_amount) > 0) {
+      return Number(contract.commission_amount);
+    }
+    const rateStr = contract.commission_rate_raw || '';
+    const price = Number(contract.rent_price || contract.deposit_amount || 0);
+    if (rateStr && price > 0) {
+      return calculateCommissionAmount(price, rateStr, contract.lease_duration_months || 12);
+    }
+    return 0;
+  };
+
+  const depositCommission = activeStandaloneDeposits.reduce((sum: number, c: any) => sum + getContractCommission(c), 0);
+  const rentalCommission = validRentals.reduce((sum: number, c: any) => sum + getContractCommission(c), 0);
   const companyRevenue = depositCommission + rentalCommission;
 
   const landlordRevenue = paidInvoicesList.reduce((sum: number, inv: any) => {
@@ -718,7 +738,11 @@ export async function getDashboardStats(companyId: string, landlordId?: string, 
   return {
     totalBuildings: buildingRows.length,
     totalRooms,
-    availableRooms: roomRows.filter((r) => r.status === 'available').length,
+    availableRooms: vacantRooms,
+    vacantRooms,
+    soonAvailableRooms,
+    vacantRate,
+    soonAvailableRate,
     rentedRooms,
     totalLeads: leadRows.length,
     newLeads: leadRows.filter((l) => ['new', 'contacted', 'consulting'].includes(l.status)).length,

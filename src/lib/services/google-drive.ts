@@ -339,7 +339,17 @@ export async function syncGoogleDriveImagesForProperty(
   const existingUrls = new Set((existingRoomImgs || []).map((r: any) => r.url));
 
   const isVideoFile = (f: DriveFileInfo) => {
-    return f.mimeType.startsWith('video/') || f.name.endsWith('.mp4') || f.name.endsWith('.mov') || f.name.endsWith('.webm');
+    const nameLower = (f.name || '').toLowerCase();
+    return (
+      (f.mimeType && f.mimeType.startsWith('video/')) ||
+      nameLower.endsWith('.mp4') ||
+      nameLower.endsWith('.mov') ||
+      nameLower.endsWith('.webm') ||
+      nameLower.endsWith('.hevc') ||
+      nameLower.endsWith('.mkv') ||
+      nameLower.endsWith('.m4v') ||
+      nameLower.endsWith('.3gp')
+    );
   };
 
   // Các file chưa có trong DB -> chèn ngay làm link tạm thời

@@ -45,50 +45,36 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (res1.error) {
-      if (res1.error.message?.includes('status_check') || res1.error.code === '23514') {
-        const fallbackRes = await supabaseAdmin
+      console.warn('[OnTheWayAPI] Full payload update failed, attempting safe fallback:', res1.error.message);
+      
+      // Fallback 1: Try updating status 'on_the_way' without custom columns
+      const fallbackRes = await supabaseAdmin
+        .from('appointments')
+        .update({
+          status: 'on_the_way',
+          updated_at: nowIso,
+        } as any)
+        .eq('id', appointmentId)
+        .select()
+        .single();
+
+      if (fallbackRes.error) {
+        // Fallback 2: Try status 'Confirm' if status constraint check blocks 'on_the_way'
+        const statusRes = await supabaseAdmin
           .from('appointments')
           .update({
             status: 'Confirm',
-            on_the_way_at: nowIso,
-            on_the_way_lat: typeof lat === 'number' ? lat : null,
-            on_the_way_lng: typeof lng === 'number' ? lng : null,
-            phone_unlocked_until: unlockUntilIso,
             updated_at: nowIso,
           } as any)
           .eq('id', appointmentId)
           .select()
           .single();
 
-        if (fallbackRes.error && fallbackRes.error.message?.includes('column')) {
-          const simpleRes = await supabaseAdmin
-            .from('appointments')
-            .update({ status: 'Confirm', updated_at: nowIso } as any)
-            .eq('id', appointmentId)
-            .select()
-            .single();
-          updated = simpleRes.data;
-          updateErr = simpleRes.error;
-        } else {
-          updated = fallbackRes.data;
-          updateErr = fallbackRes.error;
-        }
-      } else if (res1.error.message?.includes('column') || res1.error.message?.includes('schema cache')) {
-        const fallbackRes = await supabaseAdmin
-          .from('appointments')
-          .update({
-            status: 'on_the_way',
-            on_the_way_at: nowIso,
-            phone_unlocked_until: unlockUntilIso,
-            updated_at: nowIso,
-          } as any)
-          .eq('id', appointmentId)
-          .select()
-          .single();
-        updated = fallbackRes.data;
-        updateErr = fallbackRes.error;
+        updated = statusRes.data;
+        updateErr = statusRes.error;
       } else {
-        updateErr = res1.error;
+        updated = fallbackRes.data;
+        updateErr = null;
       }
     } else {
       updated = res1.data;
