@@ -17,8 +17,28 @@ function OnboardingForm() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(true);
+  const [userInfo, setUserInfo] = useState<{ email?: string; isTenant?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  React.useEffect(() => {
+    if (!token) {
+      setVerifying(false);
+      return;
+    }
+    fetch(`/api/onboarding/verify?token=${encodeURIComponent(token)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setUserInfo(data);
+        }
+      })
+      .catch((err) => setError('Không thể kiểm tra liên kết kích hoạt'))
+      .finally(() => setVerifying(false));
+  }, [token]);
 
   if (!token) {
     return (
@@ -27,7 +47,16 @@ function OnboardingForm() {
           <AlertCircle className="h-5 w-5 text-danger" />
           Đường dẫn kích hoạt không hợp lệ
         </div>
-        Mã kích hoạt tài khoản không tồn tại hoặc đã bị thay đổi. Vui lòng liên hệ với Super Admin để nhận lại lời mời.
+        Mã kích hoạt tài khoản không tồn tại hoặc đã bị thay đổi. Vui lòng kiểm tra lại liên kết.
+      </div>
+    );
+  }
+
+  if (verifying) {
+    return (
+      <div className="w-full text-center space-y-4 py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-accent mx-auto" />
+        <p className="text-sm text-ink-muted">Đang kiểm tra mã kích hoạt...</p>
       </div>
     );
   }
@@ -80,10 +109,12 @@ function OnboardingForm() {
           </div>
           <h2 className="text-2xl font-bold font-heading text-ink mb-2">Kích Hoạt Thành Công</h2>
           <p className="text-ink-muted text-sm leading-relaxed mb-6">
-            Tài khoản quản trị của bạn đã sẵn sàng sử dụng. Hệ thống đã cập nhật mật khẩu mới và kích hoạt dịch vụ cho công ty của bạn.
+            {userInfo?.isTenant
+              ? 'Tài khoản Cổng thông tin Khách thuê của bạn đã được kích hoạt thành công! Bạn có thể đăng nhập ngay để theo dõi hợp đồng và hóa đơn.'
+              : 'Tài khoản của bạn đã sẵn sàng sử dụng. Hệ thống đã cập nhật mật khẩu mới và kích hoạt dịch vụ thành công.'}
           </p>
           <Button asChild className="w-full bg-accent hover:bg-accent-500 text-white font-semibold shadow-none" size="lg">
-            <Link href="/login">Đăng nhập ngay</Link>
+            <Link href="/login">Đăng nhập ngay →</Link>
           </Button>
         </div>
       </div>
@@ -103,9 +134,13 @@ function OnboardingForm() {
         <div className="inline-flex items-center justify-center gap-1.5 text-accent mb-2 font-bold text-xs uppercase tracking-wider">
           <ShieldCheck className="h-4 w-4" /> Thiết lập tài khoản
         </div>
-        <h2 className="text-2xl font-bold font-heading text-ink">Kích hoạt tài khoản quản trị</h2>
+        <h2 className="text-2xl font-bold font-heading text-ink">
+          {userInfo?.isTenant ? 'Kích hoạt tài khoản Khách thuê' : 'Kích hoạt tài khoản hệ thống'}
+        </h2>
         <p className="text-ink-muted text-sm mt-1.5">
-          Đặt mật khẩu đăng nhập cho tài khoản của bạn để hoàn tất quá trình kích hoạt.
+          {userInfo?.email
+            ? `Thiết lập mật khẩu đăng nhập cho ${userInfo.email}`
+            : 'Đặt mật khẩu đăng nhập cho tài khoản của bạn để hoàn tất quá trình kích hoạt.'}
         </p>
       </div>
 

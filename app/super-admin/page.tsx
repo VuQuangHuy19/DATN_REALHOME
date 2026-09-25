@@ -8,7 +8,7 @@ import {
   Building2, Users, CreditCard, TrendingUp, Activity,
   Package, Loader2, Calendar, ShieldAlert, Sparkles,
   TrendingDown, CheckCircle2, AlertTriangle, RefreshCw,
-  Check, RotateCcw, Unlock, Mail
+  Check, RotateCcw, Unlock, Mail, Clock, ArrowRight
 } from 'lucide-react';
 import { useCompanies } from '@/lib/hooks/useCompanies';
 import Link from 'next/link';
@@ -44,7 +44,8 @@ function formatVND(n: number) {
 export default function SuperAdminDashboard() {
   const { companies, loading: companiesLoading, update: updateCompany, refetch: refetchCompanies } = useCompanies();
   const [subs, setSubs] = useState<any[]>([]);
-  const [subsLoading, setSubsLoading] = useState(true);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
 
@@ -60,45 +61,51 @@ export default function SuperAdminDashboard() {
     return [];
   });
 
-  const fetchSubs = useCallback(async () => {
-    setSubsLoading(true);
+  const fetchDashboardData = useCallback(async () => {
+    setDataLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*, companies(name)');
-      if (error) throw error;
-      setSubs(data || []);
+      const [subRes, invRes] = await Promise.all([
+        supabase.from('subscriptions').select('*, companies(name)'),
+        supabase.from('saas_invoices').select('*, companies(*)'),
+      ]);
+      if (subRes.error) console.error('Error fetching subs:', subRes.error);
+      if (invRes.error) console.error('Error fetching invoices:', invRes.error);
+
+      setSubs(subRes.data || []);
+      setInvoices(invRes.data || []);
     } catch (err) {
-      console.error('Error fetching subscriptions:', err);
+      console.error('Error fetching dashboard data:', err);
     } finally {
-      setSubsLoading(false);
+      setDataLoading(false);
     }
   }, []);
 
   useEffect(() => {
     setMounted(true);
-    fetchSubs();
-  }, [fetchSubs]);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
-  const loading = companiesLoading || subsLoading;
+  const loading = companiesLoading || dataLoading;
 
-  const defaultPlanPrices: Record<string, number> = {
-    starter: 500000,
-    professional: 2000000,
-    enterprise: 5000000,
-  };
+  // Calcul total revenue from paid invoices (Matches /super-admin/invoices!)
+  const totalPaidRevenue = useMemo(() => {
+    return invoices
+      .filter((inv: any) => inv.status === 'paid')
+      .reduce((sum: number, inv: any) => sum + Number(inv.amount || 0), 0);
+  }, [invoices]);
 
-  // Calcul MRR (Monthly Recurring Revenue for active subscriptions)
-  const totalMRR = useMemo(() => {
-    return subs
-      .filter((s: any) => s.status === 'active')
-      .reduce((sum: number, s: any) => {
-        const price = (s.price_per_month && s.price_per_month > 0)
-          ? s.price_per_month
-          : (defaultPlanPrices[s.plan] || 0);
-        return sum + price;
-      }, 0);
-  }, [subs]);
+  const paidInvoicesCount = useMemo(() => {
+    return invoices.filter((inv: any) => inv.status === 'paid').length;
+  }, [invoices]);
+
+  // Pending / Unpaid Invoices
+  const pendingInvoices = useMemo(() => {
+    return invoices.filter((inv: any) => inv.status === 'pending' || inv.status === 'unpaid');
+  }, [invoices]);
+
+  const pendingInvoicesAmount = useMemo(() => {
+    return pendingInvoices.reduce((sum: number, inv: any) => sum + Number(inv.amount || 0), 0);
+  }, [pendingInvoices]);
 
   const handleMarkResolved = (alertKey: string, companyName: string) => {
     const updated = [...resolvedAlertKeys, alertKey];
@@ -120,6 +127,22 @@ export default function SuperAdminDashboard() {
   const handleQuickActivate = async (item: any) => {
     setProcessingKey(item.alertKey);
     try {
+      if (item.type === 'invoice_pending' && item.invoiceId) {
+        const res = await fetch('/api/super-admin/invoices/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ invoice_id: item.invoiceId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Không thể phê duyệt hóa đơn');
+
+        toast.success(`🎉 Phê duyệt thành công hóa đơn ${item.invoiceCode} cho "${item.name}"!`);
+        handleMarkResolved(item.alertKey, item.name);
+        fetchDashboardData();
+        refetchCompanies();
+        return;
+      }
+
       const targetPlan = item.plan && item.plan !== 'starter' ? item.plan : 'enterprise';
       const updated = await updateCompany(item.id, {
         status: 'active',
@@ -128,7 +151,7 @@ export default function SuperAdminDashboard() {
       if (updated) {
         handleMarkResolved(item.alertKey, item.name);
         toast.success(`Đã gia hạn & kích hoạt gói ${targetPlan.toUpperCase()} thành công cho "${item.name}"!`);
-        fetchSubs();
+        fetchDashboardData();
         refetchCompanies();
       }
     } catch (e: any) {
@@ -150,13 +173,37 @@ export default function SuperAdminDashboard() {
     });
   }, [companies]);
 
-  // Companies requiring attention: Trial expiring soon, Suspended, or Subscription cancelled/expired
+  // Companies & Invoices requiring attention: Pending invoices, Suspended, or Trial expiring soon
   const attentionList = useMemo(() => {
     const list: any[] = [];
     const now = new Date();
     const in7Days = new Date();
     in7Days.setDate(now.getDate() + 7);
 
+    // 1. Pending / Unpaid invoices (Highest priority!)
+    pendingInvoices.forEach((inv: any) => {
+      const compName = inv.companies?.name || companies.find((c) => c.id === inv.company_id)?.name || 'Doanh nghiệp';
+      const compPlan = inv.plan || inv.companies?.plan || 'professional';
+      const compEmail = inv.companies?.owner_email || '—';
+      const isAddon = (inv.plan && inv.plan.endsWith('_addon')) || (inv.invoice_code && inv.invoice_code.includes('-ADDON-'));
+
+      list.push({
+        alertKey: `inv_${inv.id}`,
+        id: inv.company_id,
+        invoiceId: inv.id,
+        invoiceCode: inv.invoice_code,
+        name: compName,
+        plan: compPlan,
+        reason: `Hóa đơn ${inv.invoice_code} (${isAddon ? `Mua ${inv.seats} seats` : `Gói ${planLabel[compPlan] || compPlan}`}) đang chờ duyệt`,
+        amount: inv.amount,
+        severity: 'warning',
+        status: 'pending',
+        owner_email: compEmail,
+        type: 'invoice_pending',
+      });
+    });
+
+    // 2. Suspended companies
     companies.forEach((c) => {
       if (c.status === 'suspended') {
         list.push({
@@ -189,17 +236,18 @@ export default function SuperAdminDashboard() {
       }
     });
 
+    // 3. Expired / Cancelled subscriptions (excluding companies already in pending invoices list)
     subs.forEach((s: any) => {
       if (s.status === 'expired' || s.status === 'cancelled') {
         const comp = companies.find((c) => c.id === s.company_id);
-        if (comp) {
+        if (comp && !list.some((l) => l.id === comp.id)) {
           list.push({
             alertKey: `sub_${s.id}_${s.status}`,
             id: comp.id,
             subId: s.id,
             name: comp.name,
             plan: comp.plan || s.plan,
-            reason: `Gói ${planLabel[s.plan] || s.plan} đã ${s.status === 'expired' ? 'hết hạn' : 'bị hủy'}`,
+            reason: `Gói ${planLabel[comp.plan || s.plan] || comp.plan || s.plan} đã ${s.status === 'expired' ? 'hết hạn' : 'bị hủy'}`,
             severity: 'danger',
             status: comp.status,
             owner_email: comp.owner_email,
@@ -210,7 +258,7 @@ export default function SuperAdminDashboard() {
     });
 
     return list;
-  }, [companies, subs]);
+  }, [companies, subs, pendingInvoices]);
 
   const activeAttentionList = useMemo(() => {
     return attentionList.filter((item: any) => !resolvedAlertKeys.includes(item.alertKey));
@@ -269,20 +317,20 @@ export default function SuperAdminDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Doanh thu tháng MRR */}
+        {/* Doanh thu SaaS Đã thu */}
         <Card className="border-border shadow-none rounded-lg bg-white relative overflow-hidden group">
           <CardContent className="p-5 flex flex-col justify-between h-full min-h-[110px]">
             <div>
               <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
-                MRR (Doanh thu tháng)
+                Doanh thu SaaS đã thu
               </p>
-              <p className="text-2xl font-bold font-mono text-accent mt-2 tracking-tight tabular-nums">
-                {formatVND(totalMRR)}
+              <p className="text-2xl font-bold font-mono text-emerald-600 mt-2 tracking-tight tabular-nums">
+                {formatVND(totalPaidRevenue)}
               </p>
             </div>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-xs text-ink-muted">
-              <span>Đang tính trên active seats</span>
-              <div className="p-1.5 rounded-md bg-accent-soft text-accent">
+              <span>{paidInvoicesCount} hóa đơn đã hoàn tất</span>
+              <div className="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
                 <TrendingUp className="h-4 w-4" />
               </div>
             </div>
@@ -316,21 +364,23 @@ export default function SuperAdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Hết hạn dùng thử */}
+        {/* Hóa đơn chờ duyệt */}
         <Card className="border-border shadow-none rounded-lg bg-white relative overflow-hidden group">
           <CardContent className="p-5 flex flex-col justify-between h-full min-h-[110px]">
             <div>
               <p className="text-[11px] font-bold text-ink-muted uppercase tracking-wider">
-                Sắp hết Trial (7 ngày)
+                Hóa đơn chờ duyệt
               </p>
               <p className="text-3xl font-bold font-heading text-amber-600 mt-1 tracking-tight">
-                {trialExpiringSoonList.length}
+                {pendingInvoices.length} <span className="text-xs text-amber-700 font-normal">({formatVND(pendingInvoicesAmount)})</span>
               </p>
             </div>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-xs text-ink-muted">
-              <span>Cần chăm sóc, gia hạn</span>
+              <Link href="/super-admin/invoices" className="hover:underline text-indigo-600 font-semibold flex items-center gap-1">
+                Duyệt ngay <Sparkles className="h-3 w-3" />
+              </Link>
               <div className="p-1.5 rounded-md bg-amber-50 text-amber-600">
-                <ShieldAlert className="h-4 w-4" />
+                <Clock className="h-4 w-4" />
               </div>
             </div>
           </CardContent>
@@ -515,8 +565,12 @@ export default function SuperAdminDashboard() {
                         </span>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${statusStyle[item.status] ?? 'bg-bg-subtle'}`}>
-                          {statusLabel[item.status] ?? item.status}
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                          item.status === 'pending'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                            : (statusStyle[item.status] ?? 'bg-bg-subtle')
+                        }`}>
+                          {item.status === 'pending' ? 'Chờ duyệt' : (statusLabel[item.status] ?? item.status)}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 font-mono text-xs text-ink-muted">
@@ -526,7 +580,7 @@ export default function SuperAdminDashboard() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {/* Quick Action: Kích hoạt / Gia hạn / Mở khóa */}
+                          {/* Quick Action: Kích hoạt / Gia hạn / Mở khóa / Phê duyệt */}
                           <Button
                             size="sm"
                             onClick={() => handleQuickActivate(item)}
@@ -535,6 +589,11 @@ export default function SuperAdminDashboard() {
                           >
                             {processingKey === item.alertKey ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : item.type === 'invoice_pending' ? (
+                              <>
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+                                <span>Phê duyệt</span>
+                              </>
                             ) : item.type === 'suspended' ? (
                               <>
                                 <Unlock className="h-3.5 w-3.5" />

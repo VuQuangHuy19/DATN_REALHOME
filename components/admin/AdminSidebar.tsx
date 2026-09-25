@@ -85,10 +85,9 @@ const getNavItems = (isEn: boolean): NavItem[] => [
     sectionLabel: isEn ? 'Finance' : 'Tài chính',
     sectionColor: 'text-amber-500',
     children: [
-      { label: isEn ? 'Profit & P&L Report' : 'Báo cáo Kế toán', href: '/admin/finance/profit', icon: TrendingUp },
+      { label: isEn ? 'Profit & P&L Report' : 'Tính toán lợi nhuận', href: '/admin/finance/profit', icon: TrendingUp },
       { label: isEn ? 'Commission Engine' : 'Cơ chế Hoa hồng Sales', href: '/admin/commission-policies', icon: Sliders },
-      { label: isEn ? 'Monthly Invoices' : 'Hóa đơn & Sổ quỹ', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
-      { label: isEn ? 'Service Readings' : 'Chỉ số điện nước', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
+      { label: isEn ? 'Monthly Invoices & Meter Readings' : 'Hóa đơn & Điện nước', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
     ],
   },
   {
@@ -99,7 +98,7 @@ const getNavItems = (isEn: boolean): NavItem[] => [
     sectionColor: 'text-purple-500',
     children: [
       { label: isEn ? 'Employees & Staff' : 'Đội ngũ Nhân sự', href: '/admin/hr/employees', icon: Users, permission: 'employees.read' },
-      { label: isEn ? 'User Accounts' : 'Tài khoản người dùng', href: '/admin/system/accounts', icon: UserCog, permission: 'accounts.read' },
+      { label: isEn ? 'User Accounts' : 'Tài khoản nhân viên', href: '/admin/system/accounts', icon: UserCog, permission: 'accounts.read' },
       { label: isEn ? 'KPI Target & Evaluation' : 'Cấu hình KPIs', href: '/admin/hr/kpi', icon: TrendingUp, permission: 'reports.read' },
       { label: isEn ? 'Roles & RBAC Matrix' : 'Vai trò & Phân quyền', href: '/admin/system/roles', icon: Shield, permission: 'roles.read' },
       { label: isEn ? 'Identity Verification (KYC)' : 'Xác thực KYC', href: '/admin/kyc', icon: ShieldCheck },
@@ -134,11 +133,10 @@ const getLandlordNavItems = (isEn: boolean): NavItem[] => [
   { label: isEn ? 'Contracts' : 'Hợp đồng & Giữ cọc', href: '/admin/contracts', icon: FileText, permission: 'contracts.read' },
   {
     label: isEn ? 'Finance & Commission' : 'Tài chính & Hoa hồng',
-    href: '/admin/services/readings',
+    href: '/admin/services/invoices',
     icon: Receipt,
     children: [
-      { label: isEn ? 'Service Readings' : 'Chỉ số điện nước & Dịch vụ', href: '/admin/services/readings', icon: ClipboardList, permission: 'services.read' },
-      { label: isEn ? 'Monthly Invoices' : 'Hóa đơn tháng & Sổ quỹ', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
+      { label: isEn ? 'Monthly Invoices & Meter Readings' : 'Hóa đơn & Điện nước', href: '/admin/services/invoices', icon: FileText, permission: 'invoices.read' },
     ],
   },
 ];

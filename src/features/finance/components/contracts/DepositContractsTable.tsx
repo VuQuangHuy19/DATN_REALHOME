@@ -17,10 +17,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Pencil, Trash2, Search, FileText, Loader2,
-  Printer, RefreshCw, ClipboardCheck, FileSignature, Eye, MoreHorizontal, Percent
+  Printer, RefreshCw, ClipboardCheck, FileSignature, Eye, MoreHorizontal, Percent, Mail
 } from 'lucide-react';
 import { calculateCommissionAmount } from '@/features/finance/services/commission';
 import Pagination from '@/components/Pagination';
+import { toast } from 'sonner';
 
 interface DepositContractsTableProps {
   filteredDeposits: any[];
@@ -425,6 +426,44 @@ export function DepositContractsTable({
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
+
+                            {/* ✉️ Gửi email kích hoạt tài khoản cho khách thuê */}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!item.party_b_email) {
+                                  toast.error('Hợp đồng cọc này chưa có email của khách thuê');
+                                  return;
+                                }
+                                const toastId = toast.loading('Đang gửi mail kích hoạt qua Mailjet...');
+                                try {
+                                  const res = await fetch('/api/contracts/tenant-invite', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      company_id: item.company_id,
+                                      email: item.party_b_email,
+                                      full_name: item.party_b_name,
+                                      phone: item.party_b_phone,
+                                      contract_code: item.contract_code,
+                                      room_code: item.rooms?.code || '',
+                                      building_name: item.rooms?.buildings?.name || '',
+                                    }),
+                                  });
+                                  const data = await res.json();
+                                  if (!res.ok) throw new Error(data.error || 'Lỗi gửi email');
+                                  toast.success(data.message || 'Đã gửi email kích hoạt tài khoản qua Mailjet!', { id: toastId });
+                                } catch (err: any) {
+                                  toast.error('Gửi mail thất bại: ' + err.message, { id: toastId });
+                                }
+                              }}
+                              title="Gửi mail kích hoạt tài khoản Cổng khách thuê qua Mailjet"
+                            >
+                              <Mail className="h-4 w-4 text-indigo-600" />
+                            </Button>
 
                             {/* 🖨️ 4. In hợp đồng */}
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" asChild title="In hợp đồng">

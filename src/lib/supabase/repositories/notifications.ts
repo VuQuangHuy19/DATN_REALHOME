@@ -4,7 +4,7 @@ import type { Database } from '../types';
 type DBNotification = Database['public']['Tables']['notifications']['Row'];
 type DBActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 
-export async function getNotifications(recipientId?: string, companyId?: string): Promise<DBNotification[]> {
+export async function getNotifications(recipientId?: string, companyId?: string, userRole?: string): Promise<DBNotification[]> {
   try {
     const params = new URLSearchParams();
     if (recipientId && recipientId !== 'undefined' && recipientId !== 'null') {
@@ -12,6 +12,9 @@ export async function getNotifications(recipientId?: string, companyId?: string)
     }
     if (companyId && companyId !== 'undefined' && companyId !== 'null') {
       params.set('companyId', companyId);
+    }
+    if (userRole && userRole !== 'undefined' && userRole !== 'null') {
+      params.set('userRole', userRole);
     }
     const res = await fetch(`/api/notifications?${params.toString()}`);
     const json = await res.json();
@@ -21,6 +24,7 @@ export async function getNotifications(recipientId?: string, companyId?: string)
   } catch (err) {
     console.error('Error fetching notifications via API:', err);
   }
+
 
   // Fallback direct supabase query
   let query = supabase

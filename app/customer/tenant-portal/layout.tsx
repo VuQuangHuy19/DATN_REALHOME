@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import {
-  LayoutDashboard, Home, FileText, Wallet, Wrench, Sparkles,
+  LayoutDashboard, Home, FileText, Wallet, Wrench,
   Settings, Menu, ChevronLeft, LogOut, User, X, Grid
 } from 'lucide-react';
 import { AIChatWidget } from '@/components/ui/AIChatWidget';
@@ -18,9 +18,9 @@ const SIDEBAR_LINKS = [
   { href: '/customer/tenant-portal', label: 'Tổng quan', icon: LayoutDashboard, exact: true },
   { href: '/customer/tenant-portal/apartments', label: 'Căn hộ của tôi', icon: Home },
   { href: '/customer/tenant-portal/contracts', label: 'Hợp đồng', icon: FileText },
-  { href: '/customer/tenant-portal/finance', label: 'Tài chính & Ví', icon: Wallet },
-  { href: '/customer/tenant-portal/maintenance', label: 'Bảo trì & Bàn giao', icon: Wrench },
-  { href: '/customer/tenant-portal/services', label: 'Dịch vụ bổ sung', icon: Sparkles },
+  { href: '/customer/tenant-portal/finance', label: 'Thanh toán hóa đơn', icon: Wallet },
+  { href: '/customer/tenant-portal/maintenance', label: 'Bảo trì đồ trong phòng', icon: Wrench },
+
   { href: '/customer/tenant-portal/settings', label: 'Cài đặt & Hồ sơ', icon: Settings },
 ];
 
@@ -146,7 +146,6 @@ function TenantBottomNav() {
 
   const tenantMoreItems = [
     { href: '/customer/tenant-portal/maintenance', label: 'Bảo trì & Bàn giao', icon: Wrench },
-    { href: '/customer/tenant-portal/services', label: 'Dịch vụ bổ sung', icon: Sparkles },
     { href: '/customer/tenant-portal/settings', label: 'Cài đặt & Hồ sơ', icon: Settings },
   ];
 

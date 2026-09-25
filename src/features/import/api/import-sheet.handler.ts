@@ -650,6 +650,17 @@ export async function handleImportSheet(request: Request) {
           }
         }
 
+        // Tự động quét địa điểm xung quanh (POIs) nếu có tọa độ GPS
+        if (payload.latitude !== null && payload.longitude !== null) {
+          try {
+            const { fetchNearbyPlaces } = await import('@/lib/services/nearby-places');
+            const nearbyPlaces = await fetchNearbyPlaces(payload.latitude, payload.longitude);
+            payload.nearby_places = nearbyPlaces as any;
+          } catch (poiErr: any) {
+            console.warn(`[Import] Không thể quét POIs cho tòa nhà ${name}:`, poiErr?.message);
+          }
+        }
+
         if (total_floors !== undefined && total_floors !== null && total_floors !== '') {
           payload.total_floors = Number(total_floors);
         }

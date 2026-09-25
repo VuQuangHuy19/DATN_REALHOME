@@ -367,19 +367,19 @@ export default function TenantInvoicesPage() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            <div className="p-4 rounded-xl bg-slate-950 text-white flex items-center justify-between shadow-md">
+            <div className="p-4 rounded-xl bg-slate-950 text-white flex items-center justify-between shadow-md border border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-amber-500 text-slate-950 font-extrabold flex items-center justify-center text-sm shadow-inner">
+                <div className="h-10 w-10 rounded-xl bg-amber-500 text-slate-950 font-extrabold flex items-center justify-center text-xs shadow-inner shrink-0">
                   PayOS
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Thanh toán qua PayOS (VietQR / Napas247)</h4>
-                  <p className="text-[11px] text-slate-400">Hỗ trợ tất cả ứng dụng Ngân hàng (MB, VCB, Techcom...)</p>
+                  <h4 className="font-extrabold text-sm text-white">Thanh toán qua PayOS (VietQR / Napas247)</h4>
+                  <p className="text-[11px] text-slate-300 font-medium">Hỗ trợ tất cả ứng dụng Ngân hàng (MB, VCB, Techcom...)</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 bg-black/40 px-2.5 py-1 rounded-lg text-xs font-mono font-bold text-amber-400">
-                <Clock className="h-3.5 w-3.5" /> {formatTimer(timeLeft)}
+              <div className="flex items-center gap-1 bg-black/60 px-2.5 py-1 rounded-lg text-xs font-mono font-bold text-amber-400 border border-amber-500/20 shrink-0">
+                <Clock className="h-3.5 w-3.5 text-amber-400" /> {formatTimer(timeLeft)}
               </div>
             </div>
 

@@ -117,19 +117,33 @@ export default function MaintenancePage() {
         // Lấy danh sách landlords riêng để tránh lỗi PostgREST ambiguity
         const landlordIds = Array.from(
           new Set(data.map((item: any) => item.rooms?.buildings?.landlord_id).filter(Boolean))
-        );
+        ) as string[];
 
         let landlordMap: Record<string, any> = {};
         if (landlordIds.length > 0) {
-          const { data: lndData } = await supabase
-            .from('landlords')
-            .select('id, name, bank_name, bank_account_number, bank_account_owner, bank_accounts')
-            .in('id', landlordIds);
+          const uuidKeys = landlordIds.filter((k) =>
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)
+          );
+          const codeKeys = landlordIds.filter(
+            (k) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)
+          );
 
-          if (lndData) {
-            lndData.forEach((l: any) => {
-              landlordMap[l.id] = l;
-            });
+          const orConds: string[] = [];
+          if (uuidKeys.length > 0) orConds.push(`id.in.(${uuidKeys.join(',')})`);
+          if (codeKeys.length > 0) orConds.push(`code.in.(${codeKeys.join(',')})`);
+
+          if (orConds.length > 0) {
+            const { data: lndData } = await supabase
+              .from('landlords')
+              .select('id, code, name, bank_name, bank_account_number, bank_account_owner, bank_accounts')
+              .or(orConds.join(','));
+
+            if (lndData) {
+              lndData.forEach((l: any) => {
+                if (l.id) landlordMap[l.id] = l;
+                if (l.code) landlordMap[l.code] = l;
+              });
+            }
           }
         }
 

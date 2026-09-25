@@ -55,6 +55,7 @@ export interface CustomerListing {
   isVerifiedProperty?: boolean;
   landlordSystemName?: string | null;
   landlordName?: string | null;
+  nearbyPlaces?: any | null;
 }
 
 export interface PublicCompany {

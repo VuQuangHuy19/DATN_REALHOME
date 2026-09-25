@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   UserCheck,
@@ -24,6 +25,10 @@ import {
   Users,
   UserX,
   Filter,
+  Plus,
+  Pencil,
+  Trash2,
+  UserPlus,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getRoleLabel } from '@/lib/constants/roles';
@@ -42,15 +47,23 @@ interface AccountUser {
 }
 
 export function AccountsPage() {
-  const { company } = useAuth();
+  const { company, profile: currentProfile } = useAuth();
   const [accounts, setAccounts] = useState<AccountUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // Modals state
   const [viewAccount, setViewAccount] = useState<AccountUser | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+
+  const [editAccount, setEditAccount] = useState<AccountUser | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const fetchAccounts = useCallback(async () => {
@@ -94,8 +107,123 @@ export function AccountsPage() {
     });
   }, [accounts, searchQuery, roleFilter, statusFilter]);
 
+  // Handler: Thêm tài khoản mới
+  const handleCreateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+
+    const formData = new FormData(e.currentTarget);
+    const full_name = ((formData.get('full_name') as string) || '').trim();
+    const email = ((formData.get('email') as string) || '').trim();
+    const phone = ((formData.get('phone') as string) || '').trim();
+    const role = (formData.get('role') as string) || 'employee';
+    const password = ((formData.get('password') as string) || '').trim();
+
+    if (!full_name || !email) {
+      toast.error('Vui lòng điền Họ tên và Email tài khoản');
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name,
+          email,
+          phone,
+          role,
+          password: password || undefined,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || 'Lỗi khởi tạo tài khoản');
+
+      toast.success('Thêm tài khoản người dùng mới thành công!');
+      setIsAddOpen(false);
+      fetchAccounts();
+    } catch (err: any) {
+      toast.error(err.message || 'Khởi tạo tài khoản thất bại');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handler: Cập nhật thông tin tài khoản
+  const handleUpdateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editAccount) return;
+    setSaving(true);
+
+    const formData = new FormData(e.currentTarget);
+    const full_name = ((formData.get('full_name') as string) || '').trim();
+    const phone = ((formData.get('phone') as string) || '').trim();
+    const role = (formData.get('role') as string) || editAccount.role;
+
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editAccount.id,
+          full_name,
+          phone,
+          role,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || 'Lỗi cập nhật tài khoản');
+
+      toast.success('Cập nhật tài khoản người dùng thành công!');
+      setIsEditOpen(false);
+      setEditAccount(null);
+      fetchAccounts();
+    } catch (err: any) {
+      toast.error(err.message || 'Cập nhật thất bại');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handler: Xóa tài khoản
+  const handleDeleteAccount = async (user: AccountUser) => {
+    if (currentProfile?.id && user.id === currentProfile.id) {
+      toast.error('Không thể tự xóa tài khoản Quản trị viên đang đăng nhập!');
+      return;
+    }
+
+    const confirmMsg = `Bạn có CHẮC CHẮN muốn XÓA vĩnh viễn tài khoản "${user.full_name || user.email}"? Thao tác này không thể hoàn tác!`;
+    if (!confirm(confirmMsg)) return;
+
+    setActionLoadingId(user.id);
+    try {
+      const res = await fetch(`/api/admin/accounts?userId=${user.id}`, {
+        method: 'DELETE',
+      });
+
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || 'Lỗi xóa tài khoản');
+
+      toast.success(`Đã xóa vĩnh viễn tài khoản ${user.email || user.full_name}`);
+      fetchAccounts();
+    } catch (err: any) {
+      toast.error(err.message || 'Xóa tài khoản thất bại');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Handler: Khóa / Mở khóa tài khoản
   const handleToggleStatus = async (user: AccountUser) => {
     const nextStatus = !user.is_active;
+
+    if (!nextStatus && currentProfile?.id && user.id === currentProfile.id) {
+      toast.error('Không thể tự khóa tài khoản Quản trị viên đang đăng nhập');
+      return;
+    }
     const confirmMsg = nextStatus
       ? `Bạn có chắc chắn muốn MỞ KHÓA tài khoản ${user.email || user.full_name}?`
       : `Bạn có chắc chắn muốn KHÓA tài khoản ${user.email || user.full_name}?`;
@@ -130,6 +258,7 @@ export function AccountsPage() {
     }
   };
 
+  // Handler: Reset Mật khẩu
   const handleResetPassword = async (user: AccountUser) => {
     if (!user.email) {
       toast.error('Tài khoản này không có địa chỉ Email để gửi link đặt lại mật khẩu');
@@ -176,9 +305,15 @@ export function AccountsPage() {
             <UserCheck className="h-7 w-7 text-accent" /> Quản lý Tài khoản Người dùng
           </h1>
           <p className="text-xs text-ink-muted mt-1">
-            Quản lý trạng thái đăng nhập, xác thực KYC, khóa/mở khóa tài khoản và bảo mật cho toàn bộ thành viên hệ thống.
+            Khởi tạo, cập nhật, phân vai trò, khóa/mở khóa tài khoản và bảo mật cho thành viên doanh nghiệp.
           </p>
         </div>
+        <Button
+          onClick={() => setIsAddOpen(true)}
+          className="bg-accent hover:bg-accent/90 text-white font-bold rounded-xl h-11 px-5 shadow-sm shrink-0"
+        >
+          <Plus className="h-4 w-4 mr-2" /> Thêm tài khoản mới
+        </Button>
       </div>
 
       {/* KPI Overview Cards */}
@@ -257,10 +392,10 @@ export function AccountsPage() {
               className="h-10 rounded-xl border border-border bg-white px-3 text-xs font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">Tất cả vai trò</option>
-              <option value="company_admin">Giám đốc / Admin công ty</option>
               <option value="manager">Quản lý vận hành tòa nhà</option>
               <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
-              <option value="landlord">Chủ bất động sản / Chủ nhà</option>
+              <option value="accountant">Kế toán viên</option>
+              <option value="employee">Nhân viên</option>
               <option value="tenant">Khách thuê phòng</option>
               <option value="customer">Khách hàng tìm phòng</option>
             </select>
@@ -366,6 +501,21 @@ export function AccountsPage() {
 
                     <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Nút Sửa */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditAccount(user);
+                            setIsEditOpen(true);
+                          }}
+                          className="h-8 rounded-lg text-xs font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1"
+                          title="Chỉnh sửa tài khoản"
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Sửa
+                        </Button>
+
+                        {/* Nút Khóa / Mở khóa */}
                         <Button
                           variant="outline"
                           size="sm"
@@ -373,7 +523,7 @@ export function AccountsPage() {
                           onClick={() => handleToggleStatus(user)}
                           className={`h-8 rounded-lg text-xs font-bold gap-1 ${
                             user.is_active
-                              ? 'border-red-200 text-red-700 hover:bg-red-50'
+                              ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
                               : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
                           }`}
                           title={user.is_active ? 'Khóa tài khoản này' : 'Mở khóa tài khoản'}
@@ -391,15 +541,28 @@ export function AccountsPage() {
                           )}
                         </Button>
 
+                        {/* Nút Reset Mật khẩu */}
                         <Button
                           variant="outline"
                           size="sm"
                           disabled={actionLoadingId === user.id}
                           onClick={() => handleResetPassword(user)}
-                          className="h-8 rounded-lg text-xs font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1"
+                          className="h-8 rounded-lg text-xs font-bold border-slate-200 text-slate-700 hover:bg-slate-50 gap-1"
                           title="Gửi email đặt lại mật khẩu"
                         >
-                          <KeyRound className="h-3.5 w-3.5" /> Reset Pass
+                          <KeyRound className="h-3.5 w-3.5" /> Reset
+                        </Button>
+
+                        {/* Nút Xóa */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={actionLoadingId === user.id || user.id === currentProfile?.id}
+                          onClick={() => handleDeleteAccount(user)}
+                          className="h-8 rounded-lg text-xs font-bold border-red-200 text-red-600 hover:bg-red-50 gap-1"
+                          title="Xóa tài khoản này"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Xóa
                         </Button>
                       </div>
                     </td>
@@ -410,6 +573,202 @@ export function AccountsPage() {
           </div>
         )}
       </Card>
+
+      {/* Modal: Thêm tài khoản mới */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="max-w-md bg-white rounded-2xl border border-border shadow-2xl p-6">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 font-heading font-extrabold text-base text-ink">
+              <UserPlus className="h-5 w-5 text-accent" /> Thêm tài khoản người dùng mới
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateAccount} className="space-y-4 pt-3 text-sm">
+            <div>
+              <Label htmlFor="add_full_name" className="text-xs font-bold text-ink uppercase">
+                Họ và tên <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="add_full_name"
+                name="full_name"
+                required
+                placeholder="VD: Nguyễn Văn A"
+                className="rounded-xl h-10 mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="add_email" className="text-xs font-bold text-ink uppercase">
+                Email đăng nhập <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="add_email"
+                name="email"
+                type="email"
+                required
+                placeholder="VD: nguyenvana@realhome.vn"
+                className="rounded-xl h-10 mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="add_phone" className="text-xs font-bold text-ink uppercase">
+                  Số điện thoại
+                </Label>
+                <Input
+                  id="add_phone"
+                  name="phone"
+                  placeholder="0987654321"
+                  className="rounded-xl h-10 mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="add_role" className="text-xs font-bold text-ink uppercase">
+                  Vai trò hệ thống <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  id="add_role"
+                  name="role"
+                  defaultValue="sales_agent"
+                  className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent mt-1"
+                >
+                  <option value="manager">Quản lý vận hành tòa nhà</option>
+                  <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
+                  <option value="accountant">Kế toán viên</option>
+                  <option value="employee">Nhân viên</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="add_password" className="text-xs font-bold text-ink uppercase">
+                Mật khẩu khởi tạo
+              </Label>
+              <Input
+                id="add_password"
+                name="password"
+                type="password"
+                placeholder="Mặc định: RealHome@2026!"
+                className="rounded-xl h-10 mt-1"
+              />
+              <p className="text-[11px] text-ink-muted mt-1">
+                Nếu để trống, mật khẩu mặc định sẽ là <code className="font-mono bg-slate-100 px-1 rounded">RealHome@2026!</code>
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-border flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddOpen(false)}
+                className="rounded-xl h-10 px-4"
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-accent hover:bg-accent/90 text-white font-bold rounded-xl h-10 px-6"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Tạo tài khoản
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Chỉnh sửa tài khoản */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-md bg-white rounded-2xl border border-border shadow-2xl p-6">
+          <DialogHeader className="pb-3 border-b border-border">
+            <DialogTitle className="flex items-center gap-2 font-heading font-extrabold text-base text-ink">
+              <Pencil className="h-5 w-5 text-accent" /> Chỉnh sửa thông tin tài khoản
+            </DialogTitle>
+          </DialogHeader>
+
+          {editAccount && (
+            <form onSubmit={handleUpdateAccount} className="space-y-4 pt-3 text-sm">
+              <div>
+                <Label htmlFor="edit_email" className="text-xs font-bold text-ink uppercase">
+                  Email đăng nhập
+                </Label>
+                <Input
+                  id="edit_email"
+                  value={editAccount.email || ''}
+                  disabled
+                  className="rounded-xl h-10 mt-1 bg-slate-100 cursor-not-allowed text-slate-500"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit_full_name" className="text-xs font-bold text-ink uppercase">
+                  Họ và tên <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="edit_full_name"
+                  name="full_name"
+                  defaultValue={editAccount.full_name || ''}
+                  required
+                  placeholder="Họ tên người dùng"
+                  className="rounded-xl h-10 mt-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="edit_phone" className="text-xs font-bold text-ink uppercase">
+                    Số điện thoại
+                  </Label>
+                  <Input
+                    id="edit_phone"
+                    name="phone"
+                    defaultValue={editAccount.phone || ''}
+                    placeholder="0987654321"
+                    className="rounded-xl h-10 mt-1"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_role" className="text-xs font-bold text-ink uppercase">
+                    Vai trò hệ thống <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    id="edit_role"
+                    name="role"
+                    defaultValue={editAccount.role}
+                    className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent mt-1"
+                  >
+                    <option value="manager">Quản lý vận hành tòa nhà</option>
+                    <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
+                    <option value="accountant">Kế toán viên</option>
+                    <option value="employee">Nhân viên</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-border flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsEditOpen(false)}
+                  className="rounded-xl h-10 px-4"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-accent hover:bg-accent/90 text-white font-bold rounded-xl h-10 px-6"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Lưu thay đổi
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

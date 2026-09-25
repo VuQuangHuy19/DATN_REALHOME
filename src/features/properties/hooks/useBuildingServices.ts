@@ -30,8 +30,9 @@ export function useBuildingServices(buildingId?: string) {
       setServices((prev) => [...prev, created]);
       return created;
     } catch (e: any) {
-      setError(e.message);
-      return null;
+      console.error('Lỗi createBuildingService:', e);
+      setError(e.message || 'Lỗi khi tạo dịch vụ');
+      throw e;
     }
   };
 
@@ -41,8 +42,9 @@ export function useBuildingServices(buildingId?: string) {
       setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...updated } : s)));
       return updated;
     } catch (e: any) {
-      setError(e.message);
-      return null;
+      console.error('Lỗi updateBuildingService:', e);
+      setError(e.message || 'Lỗi khi cập nhật dịch vụ');
+      throw e;
     }
   };
 
@@ -51,7 +53,9 @@ export function useBuildingServices(buildingId?: string) {
       await deleteBuildingService(id);
       setServices((prev) => prev.filter((s) => s.id !== id));
     } catch (e: any) {
-      setError(e.message);
+      console.error('Lỗi deleteBuildingService:', e);
+      setError(e.message || 'Lỗi khi xóa dịch vụ');
+      throw e;
     }
   };
 

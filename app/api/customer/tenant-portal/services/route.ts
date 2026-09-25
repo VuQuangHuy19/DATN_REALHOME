@@ -52,12 +52,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ services: [], building: null });
     }
 
-    const { data: contracts } = await supabaseAdmin
+    let { data: contracts } = await supabaseAdmin
       .from('rental_contracts')
       .select('room_id')
       .or(filters.join(','))
       .order('created_at', { ascending: false })
       .limit(1);
+
+    if (!contracts || contracts.length === 0) {
+      const { data: depContracts } = await supabaseAdmin
+        .from('deposit_contracts')
+        .select('room_id')
+        .or(filters.join(','))
+        .order('created_at', { ascending: false })
+        .limit(1);
+      contracts = depContracts;
+    }
 
     const roomId = contracts?.[0]?.room_id;
     if (!roomId) {

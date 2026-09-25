@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useSearchParams } from 'next/navigation';
 import { 
   Loader2, Search, PlusCircle, CheckCircle, XCircle, FileText, 
-  RefreshCw, Building2, ChevronLeft, ChevronRight, X, Mail
+  RefreshCw, Building2, ChevronLeft, ChevronRight, X, Mail, User
 } from 'lucide-react';
 import type { InvoiceWithRoomAndContract } from '@/features/finance/services/invoices';
 import { supabase } from '@/lib/supabase/client';
@@ -63,9 +63,27 @@ export function InvoicesPage() {
   const [buildings, setBuildings] = useState<BuildingItem[]>([]);
   const [landlordList, setLandlordList] = useState<LandlordItem[]>([]);
   const [buildingsLoading, setBuildingsLoading] = useState(false);
+  const [selectedLandlordId, setSelectedLandlordId] = useState<string>('all');
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
   const [buildingSearchTerm, setBuildingSearchTerm] = useState<string>('');
   
+  const handleLandlordChange = (landlordId: string) => {
+    setSelectedLandlordId(landlordId);
+    if (selectedBuildingId !== 'all') {
+      const selectedLandlordObj = landlordList.find((l) => l.id === landlordId || l.code === landlordId);
+      const isValidForBuilding = buildings.some(
+        (b) =>
+          b.id === selectedBuildingId &&
+          (landlordId === 'all' ||
+            b.landlord_id === landlordId ||
+            (selectedLandlordObj && (b.landlord_id === selectedLandlordObj.code || b.landlord_id === selectedLandlordObj.id)))
+      );
+      if (!isValidForBuilding) {
+        setSelectedBuildingId('all');
+      }
+    }
+  };
+
   // Dialog State
   const [viewInvoice, setViewInvoice] = useState<InvoiceWithRoomAndContract | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -145,11 +163,27 @@ export function InvoicesPage() {
     loadInvoices();
   }, [loadInvoices]);
 
-  // Lọc danh sách Tòa nhà theo từ khóa gõ
+  // Lọc danh sách Tòa nhà theo từ khóa gõ & theo Chủ nhà được chọn
   const filteredBuildings = useMemo(() => {
-    if (!buildingSearchTerm.trim()) return buildings;
+    let list = buildings;
+
+    if (selectedLandlordId !== 'all') {
+      const selectedLandlordObj = landlordList.find(
+        (l) => l.id === selectedLandlordId || l.code === selectedLandlordId
+      );
+      list = list.filter((b) => {
+        if (!b.landlord_id) return false;
+        return (
+          b.landlord_id === selectedLandlordId ||
+          (selectedLandlordObj && (b.landlord_id === selectedLandlordObj.code || b.landlord_id === selectedLandlordObj.id))
+        );
+      });
+    }
+
+    if (!buildingSearchTerm.trim()) return list;
+
     const term = buildingSearchTerm.toLowerCase().trim();
-    return buildings.filter((b) => {
+    return list.filter((b) => {
       const bName = b.name?.toLowerCase() || '';
       const bCode = b.code?.toLowerCase() || '';
       const landlord = landlordList.find((l) => l.code === b.landlord_id || l.id === b.landlord_id);
@@ -158,15 +192,31 @@ export function InvoicesPage() {
       const lPhone = landlord?.phone?.toLowerCase() || '';
       return bName.includes(term) || bCode.includes(term) || lName.includes(term) || lCode.includes(term) || lPhone.includes(term);
     });
-  }, [buildings, landlordList, buildingSearchTerm]);
+  }, [buildings, landlordList, selectedLandlordId, buildingSearchTerm]);
 
   // Lọc Hóa đơn
   const filtered = invoices.filter((item) => {
+    const buildingIdOfInvoice = item.rooms?.building_id || item.rooms?.buildings?.id;
+    const building = buildings.find((b) => b.id === buildingIdOfInvoice);
+
+    const matchesLandlord =
+      selectedLandlordId === 'all' ||
+      !selectedLandlordId ||
+      (() => {
+        if (!building) return false;
+        const landlordObj = landlordList.find(
+          (l) => l.id === selectedLandlordId || l.code === selectedLandlordId
+        );
+        return (
+          building.landlord_id === selectedLandlordId ||
+          (landlordObj && (building.landlord_id === landlordObj.code || building.landlord_id === landlordObj.id))
+        );
+      })();
+
     const matchesBuilding = 
       selectedBuildingId === 'all' || 
       !selectedBuildingId || 
-      item.rooms?.building_id === selectedBuildingId || 
-      item.rooms?.buildings?.id === selectedBuildingId;
+      buildingIdOfInvoice === selectedBuildingId;
 
     const matchesSearch = 
       (item.rooms?.code && item.rooms.code.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -175,7 +225,7 @@ export function InvoicesPage() {
       item.invoice_code.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    return matchesBuilding && matchesSearch && matchesStatus;
+    return matchesLandlord && matchesBuilding && matchesSearch && matchesStatus;
   });
 
   const handleBatchGenerate = async () => {
@@ -325,9 +375,39 @@ export function InvoicesPage() {
 
       {/* Bộ lọc Thông minh */}
       <Card className="border-border shadow-none rounded-xl bg-white overflow-hidden">
-        <CardContent className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          {/* Ô 1: Chọn Tòa nhà */}
-          <div className="md:col-span-5 space-y-1.5">
+        <CardContent className="p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          {/* Ô 1: Chọn Chủ Nhà */}
+          <div className="md:col-span-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+                <User className="h-4 w-4 text-accent" /> Chọn Chủ Nhà ({landlordList.length})
+              </Label>
+              {selectedLandlordId !== 'all' && (
+                <button
+                  onClick={() => handleLandlordChange('all')}
+                  className="text-[11px] text-accent font-bold hover:underline flex items-center gap-0.5"
+                >
+                  <X className="h-3 w-3" /> Tất cả chủ
+                </button>
+              )}
+            </div>
+
+            <select
+              value={selectedLandlordId}
+              onChange={(e) => handleLandlordChange(e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">👤 -- Tất cả Chủ nhà ({landlordList.length} chủ) --</option>
+              {landlordList.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} {l.code ? `[${l.code}]` : ''} {l.phone ? `(${l.phone})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ô 2: Chọn Tòa nhà */}
+          <div className="md:col-span-3 space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
                 <Building2 className="h-4 w-4 text-accent" /> Chọn tòa nhà ({filteredBuildings.length}/{buildings.length})
@@ -342,26 +422,26 @@ export function InvoicesPage() {
               )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted" />
                 <Input
                   placeholder="Gõ Tên/Mã tòa nhà..."
                   value={buildingSearchTerm}
                   onChange={(e) => setBuildingSearchTerm(e.target.value)}
-                  className="pl-9 h-9 text-xs rounded-lg border-border focus-visible:ring-accent font-semibold"
+                  className="pl-9 h-8 text-xs rounded-md border-border focus-visible:ring-accent font-semibold"
                 />
               </div>
 
               {buildingsLoading ? (
-                <div className="h-10 border border-border rounded-lg flex items-center px-3 text-ink-muted bg-bg-subtle/50 text-sm"><Loader2 className="h-4 w-4 animate-spin mr-2 text-accent" /> Đang tải tòa nhà...</div>
+                <div className="h-10 border border-border rounded-lg flex items-center px-3 text-ink-muted bg-bg-subtle/50 text-xs"><Loader2 className="h-4 w-4 animate-spin mr-2 text-accent" /> Đang tải tòa nhà...</div>
               ) : (
                 <select
                   value={selectedBuildingId}
                   onChange={(e) => setSelectedBuildingId(e.target.value)}
-                  className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="flex h-10 w-full rounded-lg border border-border bg-background px-3 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
                 >
-                  <option value="all">🏢 -- Tất cả Tòa nhà --</option>
+                  <option value="all">🏢 -- Tất cả Tòa nhà ({filteredBuildings.length} tòa) --</option>
                   {filteredBuildings.map((b) => {
                     const landlord = landlordList.find((l) => l.code === b.landlord_id || l.id === b.landlord_id);
                     const landlordLabel = landlord ? ` — Chủ: ${landlord.name} (${landlord.code || ''})` : (b.landlord_id ? ` — Chủ: ${b.landlord_id}` : '');
@@ -376,18 +456,18 @@ export function InvoicesPage() {
             </div>
           </div>
 
-          {/* Ô 2: Tìm nhanh */}
-          <div className="md:col-span-3 space-y-1.5">
+          {/* Ô 3: Tìm nhanh */}
+          <div className="md:col-span-2 space-y-1.5">
             <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
-              <Search className="h-4 w-4 text-accent" /> Tìm Mã HĐ / Phòng / Khách / SĐT
+              <Search className="h-4 w-4 text-accent" /> Tìm nhanh
             </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <Input
-                placeholder="Mã HĐ (HDD-...), Phòng (302), SĐT..."
+                placeholder="Mã HĐ, Phòng..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-8 h-10 text-sm rounded-lg border-border font-semibold focus-visible:ring-accent"
+                className="pl-9 pr-8 h-10 text-xs rounded-lg border-border font-semibold focus-visible:ring-accent"
               />
               {searchQuery && (
                 <button
@@ -400,7 +480,7 @@ export function InvoicesPage() {
             </div>
           </div>
 
-          {/* Ô 3: Kỳ Hóa đơn */}
+          {/* Ô 4: Kỳ Hóa đơn */}
           <div className="md:col-span-2 space-y-1.5">
             <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
               Kỳ Hóa Đơn
@@ -420,7 +500,7 @@ export function InvoicesPage() {
                 type="month"
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="rounded-lg border-border h-10 font-black text-xs text-center focus-visible:ring-accent bg-amber-50/30 px-1 cursor-pointer"
+                className="rounded-lg border-border h-10 font-bold text-xs text-center focus-visible:ring-accent bg-amber-50/30 px-1 cursor-pointer"
               />
               <Button
                 type="button"
@@ -435,7 +515,7 @@ export function InvoicesPage() {
             </div>
           </div>
 
-          {/* Ô 4: Trạng thái Thanh toán */}
+          {/* Ô 5: Trạng thái Thanh toán */}
           <div className="md:col-span-2 space-y-1.5">
             <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
               Trạng thái
@@ -443,9 +523,9 @@ export function InvoicesPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-2 py-2 text-xs font-bold text-ink focus:outline-none focus:ring-2 focus:ring-accent"
             >
-              <option value="all">Tất cả trạng thái</option>
+              <option value="all">Tất cả</option>
               <option value="unpaid">🟡 Chưa thanh toán</option>
               <option value="paid">🟢 Đã thanh toán</option>
               <option value="overdue">🔴 Quá hạn</option>

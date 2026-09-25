@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Building2, DoorOpen, FileText, Receipt,
-  ClipboardList, Bell, LogOut, User, Menu, X, ChevronDown, ChevronRight, Calendar, Wrench, SlidersHorizontal, PanelLeft
+  ClipboardList, Bell, LogOut, User, Menu, X, ChevronDown, ChevronRight, Calendar, Wrench, SlidersHorizontal, PanelLeft, UserCog
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,7 @@ interface NavItem {
 
 const landlordNav: NavItem[] = [
   { label: 'Tổng quan', href: '/landlord', icon: LayoutDashboard },
-  { label: 'Hồ sơ cá nhân', href: '/landlord/profile', icon: User },
+  { label: 'Hồ sơ', href: '/landlord/profile', icon: User },
   {
     label: 'Bất động sản',
     href: '/landlord/buildings',
@@ -47,6 +47,7 @@ const landlordNav: NavItem[] = [
     children: [
       { label: 'Tòa nhà', href: '/landlord/buildings', icon: Building2 },
       { label: 'Phòng', href: '/landlord/rooms', icon: DoorOpen },
+      { label: 'Người quản lý tòa', href: '/landlord/managers', icon: UserCog },
     ],
   },
   { label: 'Lịch hẹn', href: '/landlord/appointments', icon: Calendar },
@@ -396,10 +397,11 @@ function LandlordBottomNav() {
 
   const landlordMoreItems = [
     { label: 'Phòng trọ', href: '/landlord/rooms', icon: DoorOpen },
+    { label: 'Người quản lý tòa', href: '/landlord/managers', icon: UserCog },
     { label: 'Lịch hẹn', href: '/landlord/appointments', icon: Calendar },
     ...(useInvoices ? [{ label: 'Chỉ số dịch vụ', href: '/landlord/readings', icon: ClipboardList }] : []),
     ...(useMaintenance ? [{ label: 'Bảo trì & Sự cố', href: '/landlord/maintenance', icon: Wrench }] : []),
-    { label: 'Hồ sơ cá nhân', href: '/landlord/profile', icon: User },
+    { label: 'Hồ sơ', href: '/landlord/profile', icon: User },
   ];
 
   return (

@@ -42,6 +42,7 @@ export function ServiceReadingsPage() {
   const { items: buildings, loading: buildingsLoading } = useBuildings(company?.id);
   const { items: landlordList } = useLandlords(company?.id);
   
+  const [selectedLandlordId, setSelectedLandlordId] = useState<string>('all');
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
   const [buildingSearchTerm, setBuildingSearchTerm] = useState<string>('');
   const [filterKeyword, setFilterKeyword] = useState<string>('');
@@ -57,6 +58,23 @@ export function ServiceReadingsPage() {
     const newPeriod = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     setSelectedPeriod(newPeriod);
   };
+
+  const handleLandlordChange = (landlordId: string) => {
+    setSelectedLandlordId(landlordId);
+    if (selectedBuildingId !== 'all') {
+      const selectedLandlordObj = landlordList.find((l) => l.id === landlordId || l.code === landlordId);
+      const isValidForBuilding = buildings.some(
+        (b) =>
+          b.id === selectedBuildingId &&
+          (landlordId === 'all' ||
+            b.landlord_id === landlordId ||
+            (selectedLandlordObj && (b.landlord_id === selectedLandlordObj.code || b.landlord_id === selectedLandlordObj.id)))
+      );
+      if (!isValidForBuilding) {
+        setSelectedBuildingId('all');
+      }
+    }
+  };
   
   const [rows, setRows] = useState<RoomReadingRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,7 +86,23 @@ export function ServiceReadingsPage() {
   }, [buildings, selectedBuildingId]);
 
   const filteredBuildings = useMemo(() => {
-    if (!buildingSearchTerm.trim()) return buildings;
+    let list = buildings;
+
+    if (selectedLandlordId !== 'all') {
+      const selectedLandlordObj = landlordList.find(
+        (l) => l.id === selectedLandlordId || l.code === selectedLandlordId
+      );
+      list = list.filter((b) => {
+        if (!b.landlord_id) return false;
+        return (
+          b.landlord_id === selectedLandlordId ||
+          (selectedLandlordObj && (b.landlord_id === selectedLandlordObj.code || b.landlord_id === selectedLandlordObj.id))
+        );
+      });
+    }
+
+    if (!buildingSearchTerm.trim()) return list;
+
     const q = buildingSearchTerm.trim().toLowerCase();
 
     const matchingLandlordKeys = new Set(
@@ -82,7 +116,7 @@ export function ServiceReadingsPage() {
         .flatMap((l) => [l.id, l.code].filter((k): k is string => Boolean(k)))
     );
 
-    return buildings.filter((b) => {
+    return list.filter((b) => {
       const nameMatch = b.name.toLowerCase().includes(q);
       const codeMatch = b.code ? b.code.toLowerCase().includes(q) : false;
       const landlordIdMatch = b.landlord_id ? b.landlord_id.toLowerCase().includes(q) : false;
@@ -90,7 +124,7 @@ export function ServiceReadingsPage() {
 
       return nameMatch || codeMatch || landlordIdMatch || landlordRefMatch;
     });
-  }, [buildings, landlordList, buildingSearchTerm]);
+  }, [buildings, landlordList, selectedLandlordId, buildingSearchTerm]);
 
   const loadData = useCallback(async () => {
     if (!company?.id || !selectedPeriod) return;
@@ -227,9 +261,25 @@ export function ServiceReadingsPage() {
   }, [loadData]);
 
   const displayedRows = useMemo(() => {
-    if (!filterKeyword.trim()) return rows;
+    let res = rows;
+
+    if (selectedLandlordId !== 'all') {
+      const selectedLandlordObj = landlordList.find(
+        (l) => l.id === selectedLandlordId || l.code === selectedLandlordId
+      );
+      res = res.filter((r) => {
+        const b = buildings.find((bld) => bld.id === r.buildingId || bld.code === r.buildingCode);
+        if (!b) return false;
+        return (
+          b.landlord_id === selectedLandlordId ||
+          (selectedLandlordObj && (b.landlord_id === selectedLandlordObj.code || b.landlord_id === selectedLandlordObj.id))
+        );
+      });
+    }
+
+    if (!filterKeyword.trim()) return res;
     const q = filterKeyword.trim().toLowerCase();
-    return rows.filter(
+    return res.filter(
       (r) =>
         r.roomCode.toLowerCase().includes(q) ||
         r.tenantName.toLowerCase().includes(q) ||
@@ -237,7 +287,7 @@ export function ServiceReadingsPage() {
         r.buildingName.toLowerCase().includes(q) ||
         r.buildingCode.toLowerCase().includes(q)
     );
-  }, [rows, filterKeyword]);
+  }, [rows, filterKeyword, selectedLandlordId, landlordList, buildings]);
 
   const groupedByBuilding = useMemo(() => {
     const map = new Map<string, {
@@ -431,9 +481,39 @@ export function ServiceReadingsPage() {
 
       {/* Bộ lọc thông minh */}
       <Card className="border-border shadow-none rounded-xl bg-white">
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          {/* Ô 1: Chọn Tòa nhà */}
-          <div className="md:col-span-5 space-y-1.5">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          {/* Ô 1: Chọn Chủ Nhà */}
+          <div className="md:col-span-3 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
+                <User className="h-4 w-4 text-accent" /> Chọn Chủ Nhà ({landlordList.length})
+              </Label>
+              {selectedLandlordId !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => handleLandlordChange('all')}
+                  className="text-xs text-accent hover:underline font-semibold"
+                >
+                  × Tất cả chủ
+                </button>
+              )}
+            </div>
+            <select
+              value={selectedLandlordId}
+              onChange={(e) => handleLandlordChange(e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value="all">👤 — Tất cả Chủ nhà ({landlordList.length} chủ) —</option>
+              {landlordList.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} {l.code ? `[${l.code}]` : ''} {l.phone ? `(${l.phone})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ô 2: Chọn Tòa nhà */}
+          <div className="md:col-span-4 space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
                 <Building2 className="h-4 w-4 text-accent" /> Chọn Tòa Nhà ({filteredBuildings.length}/{buildings.length})
@@ -452,7 +532,7 @@ export function ServiceReadingsPage() {
               )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Input
                 placeholder="🔍 Gõ Tên/Mã tòa nhà..."
                 value={buildingSearchTerm}
@@ -468,9 +548,9 @@ export function ServiceReadingsPage() {
                 <select
                   value={selectedBuildingId}
                   onChange={(e) => setSelectedBuildingId(e.target.value)}
-                  className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-accent"
+                  className="flex h-10 w-full rounded-lg border border-border bg-white px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-accent"
                 >
-                  <option value="all">— Tất cả Tòa nhà ({buildings.length} tòa) —</option>
+                  <option value="all">— Tất cả Tòa nhà ({filteredBuildings.length} tòa) —</option>
                   {filteredBuildings.map((b) => {
                     const landlordObj = landlordList.find(l => l.id === b.landlord_id || l.code === b.landlord_id);
                     const landlordLabel = landlordObj 
@@ -488,18 +568,18 @@ export function ServiceReadingsPage() {
             </div>
           </div>
 
-          {/* Ô 2: Tìm nhanh */}
-          <div className="md:col-span-4 space-y-1.5">
+          {/* Ô 3: Tìm nhanh */}
+          <div className="md:col-span-3 space-y-1.5">
             <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
-              <Search className="h-4 w-4 text-accent" /> Tìm nhanh Phòng / Khách / SĐT
+              <Search className="h-4 w-4 text-accent" /> Tìm nhanh Phòng / Khách
             </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <Input
-                placeholder="Gõ Số phòng (302), Tên khách, SĐT..."
+                placeholder="Gõ Số phòng, Khách, SĐT..."
                 value={filterKeyword}
                 onChange={(e) => setFilterKeyword(e.target.value)}
-                className="pl-9 pr-8 h-10 text-sm rounded-lg border-border font-semibold focus-visible:ring-accent"
+                className="pl-9 pr-8 h-10 text-xs rounded-lg border-border font-semibold focus-visible:ring-accent"
               />
               {filterKeyword && (
                 <button
@@ -512,10 +592,10 @@ export function ServiceReadingsPage() {
             </div>
           </div>
 
-          {/* Ô 3: Kỳ chốt */}
-          <div className="md:col-span-3 space-y-1.5">
+          {/* Ô 4: Kỳ chốt */}
+          <div className="md:col-span-2 space-y-1.5">
             <Label className="flex items-center gap-1.5 text-ink font-bold text-xs uppercase tracking-wider">
-              <Calendar className="h-4 w-4 text-accent" /> Kỳ chốt (Tháng/Năm)
+              <Calendar className="h-4 w-4 text-accent" /> Kỳ chốt
             </Label>
             <div className="flex items-center gap-1">
               <Button
@@ -532,7 +612,7 @@ export function ServiceReadingsPage() {
                 type="month"
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="rounded-lg border-border h-10 font-black text-sm text-center focus-visible:ring-accent bg-amber-50/30 px-1 cursor-pointer"
+                className="rounded-lg border-border h-10 font-bold text-xs text-center focus-visible:ring-accent bg-amber-50/30 px-1 cursor-pointer"
               />
               <Button
                 type="button"

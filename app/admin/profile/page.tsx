@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, User, Building2, Shield, Mail, Phone, ShieldCheck, Camera, Eye, Upload, X, Sparkles } from 'lucide-react';
+import { Loader2, User, Building2, Shield, Mail, Phone, ShieldCheck, Camera, Eye, EyeOff, Upload, X, Sparkles, KeyRound, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAppPreferences } from '@/components/providers/AppPreferencesProvider';
 import { compressImage } from '@/src/lib/image-utils';
@@ -36,11 +36,44 @@ export default function AdminProfilePage() {
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const [showAvatarPreview, setShowAvatarPreview] = useState(false);
   const [showAvatarPickerModal, setShowAvatarPickerModal] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newPassword || newPassword.length < 6) {
+      toast.error(isEn ? 'Password must be at least 6 characters' : 'Mật khẩu mới phải có ít nhất 6 ký tự');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error(isEn ? 'Passwords do not match' : 'Mật khẩu xác nhận không trùng khớp');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      toast.success(isEn ? 'Password updated successfully!' : '✨ Đổi mật khẩu thành công!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error(err.message || (isEn ? 'Failed to update password' : 'Đổi mật khẩu thất bại'));
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const handleSelectAvatarUrl = async (newUrl: string) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('bds_auth_token') : null;
@@ -176,7 +209,7 @@ export default function AdminProfilePage() {
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10">
       <div className="mb-6">
-        <h1 className="text-3xl font-black font-heading text-slate-900 dark:text-slate-100">{isEn ? 'Personal Profile' : 'Hồ sơ cá nhân'}</h1>
+        <h1 className="text-3xl font-black font-heading text-slate-900 dark:text-slate-100">{isEn ? 'Personal Profile' : 'Hồ sơ'}</h1>
         <p className="text-sm sm:text-base text-slate-500 font-medium mt-1">{isEn ? 'Manage your personal info and account' : 'Quản lý thông tin cá nhân và tài khoản của bạn'}</p>
       </div>
 
@@ -357,6 +390,76 @@ export default function AdminProfilePage() {
                   <Button type="submit" className="h-11 px-8 text-sm font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition-all" disabled={saving}>
                     {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {isEn ? 'Save Changes' : 'Lưu thay đổi'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Card Đổi mật khẩu */}
+          <Card className="border border-slate-200 dark:border-slate-800 shadow-md rounded-3xl">
+            <CardHeader className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <CardTitle className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                {isEn ? 'Change Password' : 'Đổi mật khẩu bảo mật'}
+              </CardTitle>
+              <CardDescription className="text-sm">
+                {isEn ? 'Update your account login password' : 'Cập nhật mật khẩu đăng nhập trực tiếp cho tài khoản của bạn'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 pt-6">
+              <form onSubmit={handleChangePassword} noValidate className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="new_password" className="text-sm font-extrabold text-slate-800 dark:text-slate-200">
+                      {isEn ? 'New Password' : 'Mật khẩu mới'}
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        id="new_password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="pl-10 pr-10 h-11 text-sm font-semibold rounded-xl"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm_password" className="text-sm font-extrabold text-slate-800 dark:text-slate-200">
+                      {isEn ? 'Confirm New Password' : 'Nhập lại mật khẩu mới'}
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        id="confirm_password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="pl-10 pr-10 h-11 text-sm font-semibold rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                  <Button
+                    type="submit"
+                    className="h-11 px-8 text-sm font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition-all"
+                    disabled={changingPassword}
+                  >
+                    {changingPassword && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {isEn ? 'Update Password' : 'Cập nhật mật khẩu'}
                   </Button>
                 </div>
               </form>

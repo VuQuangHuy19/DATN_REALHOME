@@ -99,9 +99,23 @@ export function EmployeesPage() {
     return Array.from(set);
   }, [employeeList]);
 
-  // Available roles for select, excluding non-staff roles
+  // Available roles for select, excluding non-staff roles, company admins, and landlords
   const availableRoles = useMemo(() => {
-    const excluded = ['super_admin', 'super admin', 'customer', 'tenant'];
+    const excluded = [
+      'super_admin',
+      'super admin',
+      'company_admin',
+      'company admin',
+      'admin',
+      'giám đốc / admin công ty',
+      'giám đốc / admin',
+      'landlord',
+      'landlord_id',
+      'chủ bất động sản / chủ nhà',
+      'chủ nhà',
+      'customer',
+      'tenant',
+    ];
     return roles.filter((r) => !excluded.includes((r.name || '').trim().toLowerCase()));
   }, [roles]);
 
@@ -306,7 +320,7 @@ export function EmployeesPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="position" className="text-xs font-bold text-ink uppercase">
-                        Chức vụ / Vai trò
+                        Vai trò
                       </Label>
                       <select
                         id="position"
@@ -314,14 +328,24 @@ export function EmployeesPage() {
                         defaultValue={editItem?.role || (editItem as any)?.position || ''}
                         className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
                       >
-                        <option value="">-- Chọn chức vụ --</option>
+                        <option value="">-- Chọn vai trò --</option>
                         {availableRoles.map((r) => (
                           <option key={r.id} value={r.name}>
                             {getRoleLabel(r.name)}
                           </option>
                         ))}
                         {(editItem?.role || (editItem as any)?.position) &&
-                          !['super_admin', 'super admin', 'customer', 'tenant'].includes(
+                          ![
+                            'super_admin',
+                            'super admin',
+                            'company_admin',
+                            'company admin',
+                            'admin',
+                            'landlord',
+                            'landlord_id',
+                            'customer',
+                            'tenant',
+                          ].includes(
                             ((editItem?.role || (editItem as any)?.position) || '').trim().toLowerCase()
                           ) &&
                           !roles.some((r) => r.name === (editItem?.role || (editItem as any)?.position)) && (
@@ -469,7 +493,6 @@ export function EmployeesPage() {
               <option value="">Tất cả chức vụ</option>
               <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
               <option value="manager">Quản lý vận hành</option>
-              <option value="company_admin">Giám đốc / Admin</option>
               <option value="accountant">Kế toán viên</option>
               <option value="employee">Nhân viên</option>
             </select>
@@ -531,7 +554,7 @@ export function EmployeesPage() {
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-ink-muted uppercase">Họ tên nhân viên</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-ink-muted uppercase">Email / Số điện thoại</th>
                   <th className="px-5 py-3.5 text-left text-xs font-bold text-ink-muted uppercase">Phòng ban</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-bold text-ink-muted uppercase">Chức vụ</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-ink-muted uppercase">Vai trò</th>
                   <th className="px-5 py-3.5 text-center text-xs font-bold text-ink-muted uppercase">Trạng thái</th>
                   {hasPermission('employees.write') && (
                     <th className="px-5 py-3.5 text-right text-xs font-bold text-ink-muted uppercase">Thao tác</th>
@@ -588,20 +611,20 @@ export function EmployeesPage() {
 
                       {hasPermission('employees.write') && (
                         <td className="px-5 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-2">
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              className="h-8 w-8 text-ink-muted hover:text-accent rounded-lg"
+                              className="h-9 px-3.5 text-xs font-bold text-indigo-600 border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 rounded-xl gap-1.5 transition-all shadow-2xs"
                               onClick={() => openEdit(item)}
                               title="Chỉnh sửa thông tin"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-3.5 w-3.5 text-indigo-600" /> Sửa
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
-                              className="h-8 w-8 text-red-500 hover:bg-red-50 rounded-lg"
+                              className="h-9 px-3.5 text-xs font-bold text-rose-600 border-rose-200 bg-rose-50/60 hover:bg-rose-100 rounded-xl gap-1.5 transition-all shadow-2xs"
                               onClick={() => {
                                 if (confirm('Bạn có chắc chắn muốn xóa nhân viên này khỏi hệ thống?')) {
                                   remove(item.id);
@@ -609,7 +632,7 @@ export function EmployeesPage() {
                               }}
                               title="Xóa nhân viên"
                             >
-                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <Trash2 className="h-3.5 w-3.5 text-rose-600" /> Xóa
                             </Button>
                           </div>
                         </td>

@@ -107,6 +107,6 @@ export async function getCompanyStats() {
     byPlan: companies.reduce((acc: Record<string, number>, c) => {
       acc[c.plan] = (acc[c.plan] || 0) + 1;
       return acc;
-      }, {}),
+    }, {}),
   };
 }

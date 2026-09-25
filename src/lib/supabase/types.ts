@@ -319,6 +319,7 @@ export interface Database {
           management_fee_rate?: number;
           latitude?: number | null;
           longitude?: number | null;
+          nearby_places?: Json | null;
         };
         Insert: Omit<Database['public']['Tables']['buildings']['Row'], 'id' | 'created_at' | 'updated_at'> & {
           id?: string;
@@ -331,6 +332,7 @@ export interface Database {
           allow_vinfast_electric?: boolean;
           latitude?: number | null;
           longitude?: number | null;
+          nearby_places?: Json | null;
         };
         Update: Partial<Database['public']['Tables']['buildings']['Insert']>;
         Relationships: [];
@@ -681,6 +683,7 @@ export interface Database {
           party_a_phone: string | null;
           party_b_name: string;
           party_b_phone: string;
+          party_b_email?: string | null;
           party_b_dob: string | null;
           party_b_id_card: string | null;
           party_b_id_date: string | null;

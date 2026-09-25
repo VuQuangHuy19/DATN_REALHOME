@@ -95,7 +95,7 @@ export default function BillingPage() {
   const [plansList, setPlansList] = useState<any[]>([
     { id: 'starter', name: 'Starter', price: 500000, seats: 5, extra_seat_price: 50000, description: 'Dành cho các đội nhóm nhỏ mới bắt đầu' },
     { id: 'professional', name: 'Professional', price: 2000000, seats: 20, extra_seat_price: 100000, description: 'Giải pháp tối ưu cho doanh nghiệp' },
-    { id: 'enterprise', name: 'Enterprise', price: 5000000, seats: 999, extra_seat_price: 0, description: 'Đầy đủ tính năng cao cấp cho tập đoàn lớn' },
+    { id: 'enterprise', name: 'Enterprise', price: 5000000, seats: 100, extra_seat_price: 150000, description: 'Đầy đủ tính năng cao cấp cho tập đoàn lớn' },
   ]);
   const [selectedPlan, setSelectedPlan] = useState<string>('professional');
   const [selectedSeats, setSelectedSeats] = useState<number | ''>(20);
@@ -361,7 +361,9 @@ export default function BillingPage() {
 
   const basePrice = currentPlanObj.price || 0;
   const baseSeats = currentPlanObj.seats || 5;
-  const extraSeatPrice = currentPlanObj.extra_seat_price || 0;
+  const extraSeatPrice = (currentPlanObj.extra_seat_price && currentPlanObj.extra_seat_price > 0)
+    ? currentPlanObj.extra_seat_price
+    : (selectedPlan === 'enterprise' ? 150000 : (selectedPlan === 'starter' ? 50000 : 100000));
   const numericSeats = selectedSeats === '' ? 0 : Number(selectedSeats);
   const extraSeats = Math.max(0, numericSeats - baseSeats);
   const extraPriceTotal = extraSeats * extraSeatPrice;
@@ -376,7 +378,9 @@ export default function BillingPage() {
     seats: 20,
     extra_seat_price: 100000,
   };
-  const addonUnitPrice = activePlanObj.extra_seat_price || 100000;
+  const addonUnitPrice = (activePlanObj.extra_seat_price && activePlanObj.extra_seat_price > 0)
+    ? activePlanObj.extra_seat_price
+    : (activePlanId === 'enterprise' ? 150000 : (activePlanId === 'starter' ? 50000 : 100000));
   const numericAddonSeats = addonSeatsToAdd === '' ? 0 : Number(addonSeatsToAdd);
   const addonMonthlyPrice = numericAddonSeats * addonUnitPrice;
   const addonTotalPrice = addonMonthlyPrice * selectedMonths;
@@ -409,12 +413,12 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4 md:p-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="space-y-6 max-w-6xl mx-auto p-4 md:p-6 animate-fade-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-5">
         <div>
           <h1 className="text-2xl font-bold font-heading text-ink flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-indigo-600" />
-            Thanh toán & Gói dịch vụ B2B
+            Thanh toán & Gói dịch vụ
           </h1>
           <p className="text-ink-muted text-sm mt-1">Quản lý và gia hạn gói dịch vụ SaaS cho doanh nghiệp của bạn.</p>
         </div>
@@ -429,11 +433,11 @@ export default function BillingPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Info & History */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Subscription Info Card */}
-          <Card className="border border-border shadow-sm rounded-2xl overflow-hidden bg-white">
+      {/* Top Grid: Subscription Info (Left 7 cols) + Checkout Form (Right 5 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Subscription Info Card */}
+        <div className="lg:col-span-7 space-y-6">
+          <Card className="border border-border shadow-sm rounded-2xl overflow-hidden bg-white h-full">
             <CardHeader className="border-b border-border bg-bg-subtle pb-4">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-base font-bold text-ink flex items-center gap-2">
@@ -499,70 +503,10 @@ export default function BillingPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Billing History Card */}
-          <Card className="border border-border shadow-sm rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="border-b border-border pb-4 bg-bg-subtle">
-              <CardTitle className="text-base font-bold text-ink flex items-center gap-2">
-                <History className="h-4.5 w-4.5 text-indigo-600" />
-                Lịch sử thanh toán
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {invoices.length === 0 ? (
-                <div className="p-8 text-center text-ink-muted text-sm">Chưa có giao dịch thanh toán nào được thực hiện.</div>
-              ) : (
-                <Table>
-                  <TableHeader className="bg-bg-subtle/50">
-                    <TableRow>
-                      <TableHead>Mã hóa đơn</TableHead>
-                      <TableHead>Gói</TableHead>
-                      <TableHead>Số lượng</TableHead>
-                      <TableHead>Số tiền</TableHead>
-                      <TableHead>Trạng thái</TableHead>
-                      <TableHead>Ngày tạo</TableHead>
-                      <TableHead className="text-right">Hành động</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoices.map((inv) => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="font-mono text-xs text-ink font-semibold">{inv.invoice_code}</TableCell>
-                        <TableCell className="capitalize font-medium text-ink">{inv.plan}</TableCell>
-                        <TableCell className="text-ink">{inv.seats} seats</TableCell>
-                        <TableCell className="font-semibold text-ink">{inv.amount.toLocaleString('vi-VN')}đ</TableCell>
-                        <TableCell>{getInvoiceStatusBadge(inv.status)}</TableCell>
-                        <TableCell className="text-ink-muted text-xs">
-                          {new Date(inv.created_at).toLocaleDateString('vi-VN')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {inv.status === 'unpaid' && inv.payment_url && (
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              className="text-xs text-indigo-600 border-indigo-200 hover:bg-indigo-50 rounded-lg h-7 px-2.5"
-                              onClick={() => {
-                                setActivePaymentUrl(inv.payment_url!);
-                                setActiveInvoiceCode(inv.invoice_code);
-                                setActiveInvoiceId(inv.id);
-                                setPaymentModalOpen(true);
-                              }}
-                            >
-                              Thanh toán ngay <ArrowRight className="h-3 w-3 ml-1" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Right Column: Checkout Form */}
-        <div className="space-y-8">
+        <div className="lg:col-span-5 space-y-6">
           <Card className="border-2 border-indigo-600/30 shadow-md rounded-2xl overflow-hidden bg-white">
             {/* Tab Switcher Header */}
             <div className="flex border-b border-indigo-100 bg-indigo-50/50 p-1.5 gap-1.5">
@@ -864,6 +808,74 @@ export default function BillingPage() {
           </Card>
         </div>
       </div>
+
+      {/* Bottom Section: Full-Width Billing History Card */}
+      <Card className="border border-border shadow-sm rounded-2xl overflow-hidden bg-white w-full">
+        <CardHeader className="border-b border-border pb-4 bg-bg-subtle flex flex-row items-center justify-between">
+          <CardTitle className="text-base font-bold text-ink flex items-center gap-2">
+            <History className="h-4.5 w-4.5 text-indigo-600" />
+            Lịch sử thanh toán dịch vụ SaaS
+          </CardTitle>
+          <span className="text-xs text-ink-muted font-medium">Tổng số: {invoices.length} hóa đơn</span>
+        </CardHeader>
+        <CardContent className="p-0">
+          {invoices.length === 0 ? (
+            <div className="p-8 text-center text-ink-muted text-sm">Chưa có giao dịch thanh toán nào được thực hiện.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-bg-subtle/50">
+                  <TableRow>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Mã hóa đơn</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Gói cước</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Hạn mức (Seats)</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Số tiền</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Phương thức</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Trạng thái</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider">Ngày tạo</TableHead>
+                    <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-right">Hành động</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border/60">
+                  {invoices.map((inv) => (
+                    <TableRow key={inv.id} className="hover:bg-bg-subtle/40 transition-colors">
+                      <TableCell className="font-mono text-xs text-ink font-bold py-3.5 px-4">{inv.invoice_code}</TableCell>
+                      <TableCell className="capitalize font-semibold text-ink py-3.5 px-4">
+                        <Badge variant="outline" className="font-semibold text-xs border-indigo-200 bg-indigo-50/50 text-indigo-700">
+                          {inv.plan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-ink font-mono font-medium py-3.5 px-4">{inv.seats} seats</TableCell>
+                      <TableCell className="font-bold text-indigo-700 font-mono py-3.5 px-4 whitespace-nowrap">{inv.amount.toLocaleString('vi-VN')}đ</TableCell>
+                      <TableCell className="text-xs text-ink-muted py-3.5 px-4 capitalize">{inv.payment_method || 'VietQR PayOS'}</TableCell>
+                      <TableCell className="py-3.5 px-4">{getInvoiceStatusBadge(inv.status)}</TableCell>
+                      <TableCell className="text-ink-muted text-xs py-3.5 px-4 whitespace-nowrap">
+                        {new Date(inv.created_at).toLocaleDateString('vi-VN')} {new Date(inv.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                      </TableCell>
+                      <TableCell className="text-right py-3.5 px-4 whitespace-nowrap">
+                        {inv.status === 'unpaid' && inv.payment_url && (
+                          <Button 
+                            size="sm"
+                            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg h-8 px-3 shadow-xs"
+                            onClick={() => {
+                              setActivePaymentUrl(inv.payment_url!);
+                              setActiveInvoiceCode(inv.invoice_code);
+                              setActiveInvoiceId(inv.id);
+                              setPaymentModalOpen(true);
+                            }}
+                          >
+                            Thanh toán ngay <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal Popup Mã QR VietQR PayOS Trực Tiếp Trên Trang */}
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>

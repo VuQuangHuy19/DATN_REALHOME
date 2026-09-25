@@ -112,26 +112,34 @@ export function parseCommissionRate(
 }
 
 /**
- * Helper parse 1 đoạn tỷ lệ đơn lẻ (vd: "50%", "1 tháng", "40")
+ * Helper parse 1 đoạn tỷ lệ đơn lẻ (vd: "50%", "1 tháng", "0.5 tháng", "40")
  */
 function parseSingleRate(str: string): { rateType: 'percent' | 'month' | 'fixed'; rateValue: number } {
   const cleanTarget = str.toLowerCase().trim();
 
-  if (cleanTarget.includes('%')) {
-    const num = parseFloat(cleanTarget.replace(/[^\d.]/g, ''));
+  // Ưu tiên 1: Tách % chính xác (vd: 50% hoặc 50.5%)
+  const percentMatch = cleanTarget.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (percentMatch) {
+    const num = parseFloat(percentMatch[1]);
     if (!isNaN(num)) return { rateType: 'percent', rateValue: num };
   }
 
-  if (cleanTarget.includes('tháng') || cleanTarget.includes('thang')) {
-    const num = parseFloat(cleanTarget.replace(/[^\d.]/g, ''));
+  // Ưu tiên 2: Tách số tháng chính xác (vd: 0.5 tháng, 1 tháng, 1.5 tháng)
+  const monthMatch = cleanTarget.match(/(\d+(?:\.\d+)?)\s*(?:tháng|thang|th|t|m|months?)/i);
+  if (monthMatch) {
+    const num = parseFloat(monthMatch[1]);
     if (!isNaN(num)) return { rateType: 'month', rateValue: num };
   }
 
-  const num = parseFloat(cleanTarget.replace(/[^\d.]/g, ''));
-  if (!isNaN(num)) {
-    return num > 1
-      ? { rateType: 'percent', rateValue: num }
-      : { rateType: 'fixed', rateValue: num };
+  // Fallback: Tách nhóm số duy nhất đầu tiên
+  const numMatch = cleanTarget.match(/(\d+(?:\.\d+)?)/);
+  if (numMatch) {
+    const num = parseFloat(numMatch[1]);
+    if (!isNaN(num)) {
+      return num > 1
+        ? { rateType: 'percent', rateValue: num }
+        : { rateType: 'month', rateValue: num };
+    }
   }
 
   return { rateType: 'fixed', rateValue: 0 };
@@ -141,8 +149,9 @@ function parseSingleRate(str: string): { rateType: 'percent' | 'month' | 'fixed'
  * Tính số tiền hoa hồng từ giá phòng, chuỗi "rose" và thời hạn hợp đồng.
  *
  * Hỗ trợ các format:
- * - "5%"                          → 5% × price
+ * - "5%"                          → 5% × price (hoặc 5% giá 1 tháng)
  * - "1 tháng"                     → 1 × price
+ * - "0.5 tháng"                   → 0.5 × price
  * - "6 tháng: 50%, 12 tháng: 80%" → chọn/nội suy phù hợp theo termMonths
  * - "40% - 6th, 60% - 12th"       → 9 tháng = 50%
  * - Chuỗi rỗng / null             → 0
@@ -193,10 +202,19 @@ export function calculateCompanyRevenueAndSalesCommission(
   const salesCommission = Math.round(companyRevenue * (salesCommissionRate / 100));
   const companyNetProfit = companyRevenue - salesCommission;
 
+  let landlordRoseRateDisplay = `${rateValue}%`;
+  if (rateType === 'month') {
+    const pct = (rateValue * 100).toFixed(0);
+    landlordRoseRateDisplay = `${pct}% (${rateValue} tháng)`;
+  } else if (rateType === 'percent') {
+    const m = (rateValue / 100).toFixed(1).replace(/\.0$/, '');
+    landlordRoseRateDisplay = `${rateValue}% (${m} tháng)`;
+  }
+
   return {
     roomPrice,
     termMonths,
-    landlordRoseRate: `${rateValue}%`,
+    landlordRoseRate: landlordRoseRateDisplay,
     companyRevenue,
     salesCommissionRate: `${salesCommissionRate}%`,
     salesCommission,

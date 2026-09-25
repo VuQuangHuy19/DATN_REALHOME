@@ -35,7 +35,7 @@ export function EditContractPage() {
   const pathname = usePathname();
   const params = useParams();
   const id = params?.id as string;
-  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : pathname?.startsWith('/broker') ? '/broker' : '/admin';
 
   const { items: rooms, loading: roomsLoading } = useRooms(company?.id);
   const [loadingContract, setLoadingContract] = useState(true);

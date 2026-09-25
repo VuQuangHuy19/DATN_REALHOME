@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Pencil, Trash2, Search, FileText, Loader2,
-  Printer, RefreshCw, ClipboardCheck, Eye, MoreHorizontal, Percent
+  Printer, RefreshCw, ClipboardCheck, Eye, MoreHorizontal, Percent, Mail
 } from 'lucide-react';
 import { getContractTermMonths, calculateCommissionAmount } from '@/features/finance/services/commission';
 import { supabase } from '@/lib/supabase/client';
@@ -361,6 +361,41 @@ export function RentalContractsTable({
                                 >
                                   <Eye className="h-4 w-4 text-slate-500" />
                                   <span>Xem chi tiết hợp đồng</span>
+                                </DropdownMenuItem>
+
+                                 <DropdownMenuItem 
+                                  className="cursor-pointer py-2 px-2.5 rounded-lg flex items-center gap-2 text-indigo-700 hover:bg-indigo-50"
+                                  onClick={async () => {
+                                    if (!item.party_b_email) {
+                                      toast.error('Hợp đồng thuê này chưa có email của khách thuê');
+                                      return;
+                                    }
+                                    const toastId = toast.loading('Đang gửi mail kích hoạt qua Mailjet...');
+                                    try {
+                                      const res = await fetch('/api/contracts/tenant-invite', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          company_id: item.company_id,
+                                          email: item.party_b_email,
+                                          full_name: item.party_b_name,
+                                          phone: item.party_b_phone,
+                                          contract_code: item.contract_code,
+                                          room_code: item.rooms?.code || '',
+                                          building_name: item.rooms?.buildings?.name || '',
+                                          rental_contract_id: item.id,
+                                        }),
+                                      });
+                                      const data = await res.json();
+                                      if (!res.ok) throw new Error(data.error || 'Lỗi gửi email');
+                                      toast.success(data.message || 'Đã gửi email kích hoạt tài khoản qua Mailjet!', { id: toastId });
+                                    } catch (err: any) {
+                                      toast.error('Gửi mail thất bại: ' + err.message, { id: toastId });
+                                    }
+                                  }}
+                                >
+                                  <Mail className="h-4 w-4 text-indigo-600" />
+                                  <span>Gửi mail kích hoạt TK</span>
                                 </DropdownMenuItem>
 
                                 {onOpenCommissionModal && (

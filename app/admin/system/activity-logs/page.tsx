@@ -53,7 +53,7 @@ const entityLabels: Record<string, string> = {
   deposit_contract: 'Hợp đồng đặt cọc',
   invoice: 'Hóa đơn thanh toán',
   service: 'Chỉ số dịch vụ',
-  user: 'Tài khoản người dùng',
+  user: 'Tài khoản nhân viên',
   employee: 'Hồ sơ nhân viên',
   kyc: 'Định danh KYC',
   role: 'Vai trò & Phân quyền',

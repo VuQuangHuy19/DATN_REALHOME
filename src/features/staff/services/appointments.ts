@@ -279,6 +279,24 @@ export async function createAppointment(a: AppointmentInsert): Promise<DBAppoint
 }
 
 export async function updateAppointment(id: string, a: AppointmentUpdate): Promise<DBAppointment> {
+  // 1. Try API PATCH route first (using supabaseAdmin to bypass RLS policies)
+  try {
+    const res = await fetch('/api/appointments', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...a }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        return json.data as unknown as DBAppointment;
+      }
+    }
+  } catch (apiErr) {
+    console.warn('[updateAppointment] API PATCH error, trying client fallback:', apiErr);
+  }
+
+  // Fallback to client-side Supabase SDK
   const { data, error } = await supabase
     .from('appointments').update({ ...(a as any), updated_at: new Date().toISOString() })
     .eq('id', id).select().single();
@@ -353,6 +371,18 @@ export async function updateAppointment(id: string, a: AppointmentUpdate): Promi
 }
 
 export async function deleteAppointment(id: string) {
+  try {
+    const res = await fetch(`/api/appointments?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success) return;
+    }
+  } catch (apiErr) {
+    console.warn('[deleteAppointment] API DELETE error, trying client fallback:', apiErr);
+  }
+
   const { error } = await supabase.from('appointments').delete().eq('id', id);
   if (error) throw error;
 }

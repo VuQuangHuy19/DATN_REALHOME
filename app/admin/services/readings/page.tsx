@@ -1,7 +1,5 @@
-'use client';
-
-import { UnifiedFinanceCommissionPage } from '@/features/finance/components/UnifiedFinanceCommissionPage';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <UnifiedFinanceCommissionPage defaultTab="readings" />;
-}
+  redirect('/admin/services/invoices?tab=readings');
+}

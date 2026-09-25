@@ -37,7 +37,8 @@ export function NotificationBell() {
   const [activeTab, setActiveTab] = useState<'appointments' | 'system'>('appointments');
   const [newArrivalId, setNewArrivalId] = useState<string | null>(null);
 
-  const isLandlord = role === 'landlord';
+  const isLandlord = (role as string) === 'landlord';
+  const isTenant = (role as string) === 'tenant' || (role as string) === 'customer' || !role || (typeof window !== 'undefined' && window.location.pathname.startsWith('/customer/tenant-portal'));
 
   // 1. Initial Fetch Notifications
   useEffect(() => {
@@ -49,6 +50,7 @@ export function NotificationBell() {
         const params = new URLSearchParams();
         params.set('userId', user.id);
         if (profile?.company_id) params.set('companyId', profile.company_id);
+        if (role) params.set('userRole', role);
 
         const res = await fetch(`/api/notifications?${params.toString()}`);
         const json = await res.json();
@@ -67,6 +69,14 @@ export function NotificationBell() {
 
     // Realtime Listener
     const unsubscribe = subscribeToUserNotifications(user.id, (newNotif) => {
+      // Exclude lead appointment notifications for tenants in realtime
+      if (isTenant) {
+        const t = (newNotif.type || '').toLowerCase();
+        const title = (newNotif.title || '').toLowerCase();
+        if (t === 'appointment_new' || t === 'appointment_created' || t === 'new_lead' || title.includes('lịch hẹn xem phòng mới')) {
+          return;
+        }
+      }
       setNotifications((prev) => [newNotif, ...prev]);
       setNewArrivalId(newNotif.id);
       toast.info(`🔔 ${newNotif.title || 'Thông báo mới'}`);
@@ -75,16 +85,90 @@ export function NotificationBell() {
     return () => {
       unsubscribe();
     };
-  }, [user?.id]);
+  }, [user?.id, role, profile?.company_id, isTenant]);
+
+  // Clean tenant notifications list
+  const tenantFilteredAll = useMemo(() => {
+    if (!isTenant) return notifications;
+    const salesTypes = [
+      'appointment_new', 'appointment_created', 'appointment_claim', 'appointment_confirmed',
+      'new_lead', 'lead_new', 'lead', 'checkin', 'check_in', 'checkout', 'audit', 'sales',
+      'consultation', 'kyc_review', 'kyc_submitted'
+    ];
+
+    const salesKeywords = [
+      'dẫn khách', 'check-in', 'checkin', 'xuất phát', 'lịch hẹn xem',
+      'vừa đặt lịch', 'xem phòng mới', 'bấm xuất phát', 'timemark',
+      'phê duyệt kyc', 'chú ý sale', 'sale '
+    ];
+
+    return notifications.filter((n) => {
+      const type = (n.type || '').toLowerCase();
+      const title = (n.title || '').toLowerCase();
+      const body = (n.body || '').toLowerCase();
+
+      if (salesTypes.some((st) => type === st || type.includes(st))) {
+        return false;
+      }
+      if (salesKeywords.some((kw) => title.includes(kw) || body.includes(kw))) {
+        return false;
+      }
+      return true;
+    });
+  }, [notifications, isTenant]);
+
 
   // 2. Unread Count
+  const activeList = isTenant ? tenantFilteredAll : notifications;
   const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.is_read).length,
-    [notifications]
+    () => activeList.filter((n) => !n.is_read).length,
+    [activeList]
   );
 
   // Filter Tab List
   const filteredNotifications = useMemo(() => {
+    if (isTenant) {
+      if (activeTab === 'appointments') {
+        // Tab "🏠 Căn hộ & Hợp đồng"
+        return tenantFilteredAll.filter((n) => {
+          const t = (n.type || '').toLowerCase();
+          const title = (n.title || '').toLowerCase();
+          return (
+            t.includes('contract') ||
+            t.includes('invoice') ||
+            t.includes('maintenance') ||
+            t.includes('deposit') ||
+            t.includes('repair') ||
+            t.includes('room') ||
+            title.includes('hợp đồng') ||
+            title.includes('hóa đơn') ||
+            title.includes('bảo trì') ||
+            title.includes('sự cố') ||
+            title.includes('căn hộ')
+          );
+        });
+      }
+      // Tab "⚙️ Hệ thống"
+      return tenantFilteredAll.filter((n) => {
+        const t = (n.type || '').toLowerCase();
+        const title = (n.title || '').toLowerCase();
+        return !(
+          t.includes('contract') ||
+          t.includes('invoice') ||
+          t.includes('maintenance') ||
+          t.includes('deposit') ||
+          t.includes('repair') ||
+          t.includes('room') ||
+          title.includes('hợp đồng') ||
+          title.includes('hóa đơn') ||
+          title.includes('bảo trì') ||
+          title.includes('sự cố') ||
+          title.includes('căn hộ')
+        );
+      });
+    }
+
+    // Landlord / Staff / Admin logic
     return notifications.filter((n) => {
       const isAppointmentType =
         n.type === 'appointment_new' ||
@@ -95,7 +179,7 @@ export function NotificationBell() {
       if (activeTab === 'appointments') return isAppointmentType;
       return !isAppointmentType;
     });
-  }, [notifications, activeTab]);
+  }, [notifications, tenantFilteredAll, activeTab, isTenant]);
 
   // 3. Mark Single as Read
   const handleItemClick = async (item: any) => {
@@ -242,7 +326,7 @@ export function NotificationBell() {
                 : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
-            📋 Lịch hẹn
+            {isTenant ? '🏠 Căn hộ & Hợp đồng' : '📋 Lịch hẹn'}
           </button>
           <button
             onClick={() => setActiveTab('system')}
@@ -341,8 +425,8 @@ export function NotificationBell() {
                       </div>
                     )}
 
-                    {/* Inline Action Button for Sale / Admin */}
-                    {item.type === 'appointment_new' && !item.is_read && (
+                    {/* Inline Action Button for Sale / Admin (NEVER render for tenant) */}
+                    {item.type === 'appointment_new' && !item.is_read && !isTenant && (
                       <div className="pt-2">
                         <Button
                           size="sm"
@@ -377,7 +461,7 @@ export function NotificationBell() {
         {/* Footer */}
         <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-zinc-900/90 text-center">
           <Link
-            href={isLandlord ? '/landlord' : '/admin/system/notifications'}
+            href={isTenant ? '/customer/notifications' : isLandlord ? '/landlord' : '/admin/system/notifications'}
             onClick={() => setIsOpen(false)}
             className="inline-flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline gap-1 py-1 transition-colors"
           >
@@ -388,3 +472,4 @@ export function NotificationBell() {
     </Popover>
   );
 }
+

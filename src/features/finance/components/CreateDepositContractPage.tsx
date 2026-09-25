@@ -35,7 +35,7 @@ export function CreateDepositContractPage() {
   const { company, profile } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : pathname?.startsWith('/broker') ? '/broker' : '/admin';
   const { items: rooms, loading: roomsLoading } = useRooms(company?.id);
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();

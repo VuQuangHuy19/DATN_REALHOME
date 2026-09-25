@@ -202,5 +202,6 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     electricVehicleFee: (building as any)?.electric_vehicle_fee ?? 100000,
     createdAt: room.created_at || null,
     availableDate: null,
+    nearbyPlaces: (building as any)?.nearby_places ?? null,
   };
 }

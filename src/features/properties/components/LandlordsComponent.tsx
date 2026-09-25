@@ -387,16 +387,6 @@ function ManagerFormDialog({
               />
             </div>
 
-            {!manager && (
-              <div className="md:col-span-5 p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1.5">
-                <div className="flex items-center gap-1.5 font-bold text-indigo-700 dark:text-indigo-300">
-                  <Mail className="h-4 w-4 shrink-0 text-indigo-600" />Tự động gửi email kích hoạt
-                </div>
-                <p className="text-ink-muted text-xs leading-relaxed">
-                  Hệ thống sẽ tự động khởi tạo tài khoản và gửi thư mời thiết lập mật khẩu tới Email đăng nhập của người quản lý ngay sau khi lưu.
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Building Assignment Section (Full Width - 3 Columns) */}
@@ -829,6 +819,7 @@ export function LandlordsComponent() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLandlord, setSelectedLandlord] = useState<DBLandlord | null>(null);
+  const [editingLandlord, setEditingLandlord] = useState<DBLandlord | null>(null);
   const [editLandlordDialogOpen, setEditLandlordDialogOpen] = useState(false);
 
 
@@ -862,11 +853,13 @@ export function LandlordsComponent() {
 
 
   const handleUpdateLandlord = async (data: Partial<DBLandlord>) => {
-    if (!selectedLandlord) return;
-    await update(selectedLandlord.id, data);
+    const target = editingLandlord || selectedLandlord;
+    if (!target) return;
+    await update(target.id, data);
     await refetch();
-    // Also update selectedLandlord to reflect new data
-    setSelectedLandlord(prev => prev ? { ...prev, ...data } : null);
+    if (selectedLandlord?.id === target.id) {
+      setSelectedLandlord(prev => prev ? { ...prev, ...data } : null);
+    }
     toast.success('Cập nhật Chủ nhà thành công!');
   };
 
@@ -937,7 +930,7 @@ export function LandlordsComponent() {
           <p className="text-ink-muted text-xs mt-0.5">Danh sách chủ sở hữu bất động sản · Click vào hàng để xem chi tiết &amp; quản lý tòa</p>
         </div>
         <Button onClick={() => setAddDialogOpen(true)} className="bg-accent hover:bg-accent-500 text-white rounded-xl gap-2">
-          <Plus className="h-4 w-4" />Thêm chủ nhà
+          <Plus className="h-4 w-4" />Thêm chủ sở hữu
         </Button>
       </div>
 
@@ -979,7 +972,7 @@ export function LandlordsComponent() {
                         {!selectedLandlord && <th className="px-4 py-3 text-left text-xs font-bold text-ink-muted uppercase tracking-wider">SĐT / Email</th>}
                         <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">Tòa</th>
                         <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider">QL</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-ink-muted uppercase tracking-wider w-12"></th>
+                        <th className="px-4 py-3 text-center text-xs font-bold text-ink-muted uppercase tracking-wider w-24">Thao tác</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border text-ink">
@@ -1044,14 +1037,28 @@ export function LandlordsComponent() {
                                 <span className="font-bold text-ink text-sm">{mgrCount}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                              <Button
-                                variant="ghost" size="icon"
-                                className="h-7 w-7 text-danger hover:bg-danger/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                                onClick={() => { if (window.confirm('Bạn có chắc muốn xóa chủ nhà này?')) remove(item.id); }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                            <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost" size="icon"
+                                  className="h-7 w-7 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-all"
+                                  onClick={() => {
+                                    setEditingLandlord(item);
+                                    setEditLandlordDialogOpen(true);
+                                  }}
+                                  title="Chỉnh sửa thông tin chủ nhà"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost" size="icon"
+                                  className="h-7 w-7 text-danger hover:bg-danger/10 rounded-lg transition-all"
+                                  onClick={() => { if (window.confirm('Bạn có chắc muốn xóa chủ nhà này?')) remove(item.id); }}
+                                  title="Xóa chủ nhà"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1186,17 +1193,20 @@ export function LandlordsComponent() {
               <ImageUpload value={addImageUrl} onChange={setAddImageUrl} bucket="landlords" />
             </div>
             <Button type="submit" className="w-full bg-accent hover:bg-accent-500 text-white rounded-xl" disabled={addSaving}>
-              {addSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}Thêm chủ nhà
+              {addSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}Thêm chủ sở hữu
             </Button>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Landlord Dialog (triggered from inline panel) */}
+      {/* Edit Landlord Dialog */}
       <LandlordEditDialog
         open={editLandlordDialogOpen}
-        landlord={selectedLandlord}
-        onClose={() => setEditLandlordDialogOpen(false)}
+        landlord={editingLandlord || selectedLandlord}
+        onClose={() => {
+          setEditLandlordDialogOpen(false);
+          setEditingLandlord(null);
+        }}
         onSave={handleUpdateLandlord}
       />
     </div>

@@ -12,7 +12,7 @@ import ContractPDFTemplate from '@/components/ContractPDFTemplate';
 export function PrintContractPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const pathname = usePathname();
-  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : pathname?.startsWith('/broker') ? '/broker' : '/admin';
   const [contract, setContract] = useState<DepositContractWithRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

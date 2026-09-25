@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -30,6 +30,7 @@ import { getBuilding } from '../services/buildings';
 
 import { BuildingPhotoAssignModal } from './BuildingPhotoAssignModal';
 import { BuildingRoomDialog } from './building/BuildingRoomDialog';
+import { NearbyPlacesSection } from './NearbyPlacesSection';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -52,11 +53,92 @@ export function BuildingDetailPage() {
   const params = useParams();
   const buildingId = params.id as string;
   const { company, role } = useAuth();
-  const pathname = usePathname();
-  const { items: buildingList, loading: buildingLoading, refetch: refetchBuildings } = usePropertiesFeature(company?.id);
+  const { items: buildingList, loading: buildingLoading, refetch: refetchBuildings, update: updateBuilding } = usePropertiesFeature(company?.id);
 
   const [directBuilding, setDirectBuilding] = useState<any | null>(null);
   const foundBuilding = useMemo(() => buildingList.find((b) => b.id === buildingId || b.code === buildingId), [buildingList, buildingId]);
+
+  // Edit Building Modal State
+  const [isEditBuildingOpen, setIsEditBuildingOpen] = useState(false);
+  const [editBuildingSaving, setEditBuildingSaving] = useState(false);
+  const [editBuildingForm, setEditBuildingForm] = useState<any>({});
+
+  const openEditBuildingModal = () => {
+    const targetBuilding = foundBuilding || directBuilding;
+    if (!targetBuilding) return;
+    setEditBuildingForm({
+      code: targetBuilding.code || '',
+      name: targetBuilding.name || '',
+      address: targetBuilding.address || '',
+      area: targetBuilding.area || '',
+      total_floors: targetBuilding.total_floors || 1,
+      total_rooms: targetBuilding.total_rooms || 0,
+      year_built: targetBuilding.year_built || '',
+      electricity_price: targetBuilding.electricity_price ?? 4000,
+      water_price: targetBuilding.water_price ?? 35000,
+      internet_price: targetBuilding.internet_price ?? 100000,
+      common_service_price: targetBuilding.common_service_price ?? 200000,
+      common_service_unit: (targetBuilding as any).common_service_unit || 'người',
+      electric_vehicle_fee: targetBuilding.electric_vehicle_fee ?? 0,
+      has_elevator: targetBuilding.has_elevator ?? false,
+      pccc_certified: targetBuilding.pccc_certified ?? false,
+      allow_pet: targetBuilding.allow_pet ? (typeof targetBuilding.allow_pet === 'string' ? targetBuilding.allow_pet : 'Có') : 'Không',
+      allow_foreigners: targetBuilding.allow_foreigners ?? false,
+      allow_vinfast_electric: targetBuilding.allow_vinfast_electric ?? false,
+      common_drying_area: targetBuilding.common_drying_area || '',
+      common_service_description: targetBuilding.common_service_description || '',
+      fingerprint_lock_desc: targetBuilding.fingerprint_lock_desc || '',
+    });
+    setIsEditBuildingOpen(true);
+  };
+
+  const handleSaveBuildingEdit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const targetBuilding = foundBuilding || directBuilding;
+    if (!targetBuilding) return;
+    setEditBuildingSaving(true);
+    try {
+      const payload = {
+        code: editBuildingForm.code,
+        name: editBuildingForm.name,
+        address: editBuildingForm.address,
+        area: editBuildingForm.area || null,
+        total_floors: Number(editBuildingForm.total_floors) || 1,
+        total_rooms: Number(editBuildingForm.total_rooms) || 0,
+        year_built: Number(editBuildingForm.year_built) || null,
+        electricity_price: Number(editBuildingForm.electricity_price) || 0,
+        water_price: Number(editBuildingForm.water_price) || 0,
+        internet_price: Number(editBuildingForm.internet_price) || 0,
+        common_service_price: Number(editBuildingForm.common_service_price) || 0,
+        common_service_unit: editBuildingForm.common_service_unit || 'người',
+        electric_vehicle_fee: Number(editBuildingForm.electric_vehicle_fee) || 0,
+        has_elevator: Boolean(editBuildingForm.has_elevator),
+        pccc_certified: Boolean(editBuildingForm.pccc_certified),
+        allow_pet: editBuildingForm.allow_pet,
+        allow_foreigners: Boolean(editBuildingForm.allow_foreigners),
+        allow_vinfast_electric: Boolean(editBuildingForm.allow_vinfast_electric),
+        common_drying_area: editBuildingForm.common_drying_area || null,
+        common_service_description: editBuildingForm.common_service_description || null,
+        fingerprint_lock_desc: editBuildingForm.fingerprint_lock_desc || null,
+      };
+
+      const updated = await updateBuilding(targetBuilding.id, payload);
+      if (updated) {
+        toast.success('Đã cập nhật thông tin tòa nhà thành công!');
+        if (directBuilding) {
+          setDirectBuilding((prev: any) => ({ ...prev, ...updated }));
+        }
+        refetchBuildings();
+        setIsEditBuildingOpen(false);
+      } else {
+        toast.error('Không thể cập nhật tòa nhà');
+      }
+    } catch (err: any) {
+      toast.error(`Lỗi cập nhật tòa nhà: ${err.message}`);
+    } finally {
+      setEditBuildingSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (!buildingLoading && !foundBuilding && buildingId) {
@@ -94,23 +176,38 @@ export function BuildingDetailPage() {
       setUpdatingFee(false);
     }
   };
-  const { services: customServices, add: addCustomService, remove: removeCustomService } = useBuildingServices(building?.id);
+  const targetBuildingId = building?.id || (buildingId as string);
+  const { services: customServices, add: addCustomService, remove: removeCustomService } = useBuildingServices(targetBuildingId);
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [serviceName, setServiceName] = useState('');
   const [servicePrice, setServicePrice] = useState('');
   const [serviceUnit, setServiceUnit] = useState('lần');
   const [serviceDesc, setServiceDesc] = useState('');
   const [isSavingService, setIsSavingService] = useState(false);
+  const [serviceErrors, setServiceErrors] = useState<Record<string, string>>({});
 
   const handleAddServiceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!building?.id || !serviceName) return;
+    const errs: Record<string, string> = {};
+    if (!serviceName.trim()) errs.name = 'Vui lòng nhập tên dịch vụ';
+    if (!servicePrice.trim()) errs.price = 'Vui lòng nhập đơn giá';
+
+    if (Object.keys(errs).length > 0) {
+      setServiceErrors(errs);
+      return;
+    }
+    setServiceErrors({});
+
+    if (!targetBuildingId) {
+      toast.error('Không tìm thấy thông tin mã tòa nhà!');
+      return;
+    }
     setIsSavingService(true);
     try {
       const rawPrice = Number(servicePrice.replace(/\D/g, '')) || 0;
       await addCustomService({
-        building_id: building.id,
-        service_name: serviceName,
+        building_id: targetBuildingId,
+        service_name: serviceName.trim(),
         price: rawPrice,
         unit: serviceUnit,
       });
@@ -119,6 +216,7 @@ export function BuildingDetailPage() {
       setServiceName('');
       setServicePrice('');
       setServiceDesc('');
+      setServiceErrors({});
     } catch (err: any) {
       toast.error(`Lỗi thêm dịch vụ: ${err.message}`);
     } finally {
@@ -499,6 +597,50 @@ export function BuildingDetailPage() {
   };
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [scanningPOI, setScanningPOI] = useState(false);
+  const scanAttemptedRef = useRef<string | null>(null);
+
+  const handleScanNearbyPlaces = useCallback(async () => {
+    if (!building?.id) return;
+    setScanningPOI(true);
+    try {
+      const res = await fetch('/api/nearby-places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId: building.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || 'Lỗi quét địa điểm xung quanh');
+      } else {
+        toast.success(data.message || 'Đã quét xong tiện ích xung quanh!');
+        refetchBuildings();
+      }
+    } catch (err: any) {
+      toast.error(`Lỗi kết nối: ${err.message}`);
+    } finally {
+      setScanningPOI(false);
+    }
+  }, [building?.id, refetchBuildings]);
+
+  useEffect(() => {
+    const poiData = (building as any)?.nearby_places;
+    const hasPlaces =
+      (poiData?.education?.length || 0) +
+      (poiData?.shopping?.length || 0) +
+      (poiData?.public?.length || 0) > 0;
+
+    if (
+      building?.id &&
+      !hasPlaces &&
+      !scanningPOI &&
+      scanAttemptedRef.current !== building.id
+    ) {
+      scanAttemptedRef.current = building.id;
+      handleScanNearbyPlaces();
+    }
+  }, [building?.id, (building as any)?.nearby_places, scanningPOI, handleScanNearbyPlaces]);
+
 
   if (buildingLoading) {
     return <div className="flex justify-center items-center py-24"><Loader2 className="h-8 w-8 animate-spin text-slate-400" /></div>;
@@ -520,6 +662,14 @@ export function BuildingDetailPage() {
         </div>
         <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={openEditBuildingModal}
+              variant="outline"
+              className="border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-lg gap-1.5 text-xs shadow-xs"
+            >
+              <Pencil className="h-4 w-4 text-amber-700" />
+              Sửa thông tin tòa nhà
+            </Button>
             <Button
               onClick={() => setAssignModalOpen(true)}
               variant="outline"
@@ -644,7 +794,10 @@ export function BuildingDetailPage() {
             <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
               <Button
                 size="sm"
-                onClick={() => setServiceDialogOpen(true)}
+                onClick={() => {
+                  setServiceErrors({});
+                  setServiceDialogOpen(true);
+                }}
                 className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold px-2.5 h-7"
               >
                 <Plus className="h-3.5 w-3.5 mr-1" /> Thêm dịch vụ
@@ -735,16 +888,19 @@ export function BuildingDetailPage() {
               </DialogTitle>
             </DialogHeader>
 
-            <form onSubmit={handleAddServiceSubmit} className="space-y-4 pt-2">
+            <form onSubmit={handleAddServiceSubmit} noValidate className="space-y-4 pt-2">
               <div>
                 <Label className="text-xs font-bold text-ink-muted mb-1 block">Tên dịch vụ *</Label>
                 <Input
                   placeholder="VD: Dọn dẹp phòng theo giờ, Giặt đồ..."
                   value={serviceName}
-                  onChange={(e) => setServiceName(e.target.value)}
-                  required
-                  className="rounded-xl"
+                  onChange={(e) => {
+                    setServiceName(e.target.value);
+                    if (serviceErrors.name) setServiceErrors((prev) => ({ ...prev, name: '' }));
+                  }}
+                  className={`rounded-xl ${serviceErrors.name ? 'border-rose-500 ring-1 ring-rose-500' : ''}`}
                 />
+                {serviceErrors.name && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {serviceErrors.name}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -756,10 +912,11 @@ export function BuildingDetailPage() {
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '');
                       setServicePrice(val ? Number(val).toLocaleString('vi-VN') : '');
+                      if (serviceErrors.price) setServiceErrors((prev) => ({ ...prev, price: '' }));
                     }}
-                    required
-                    className="rounded-xl font-mono"
+                    className={`rounded-xl font-mono ${serviceErrors.price ? 'border-rose-500 ring-1 ring-rose-500' : ''}`}
                   />
+                  {serviceErrors.price && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {serviceErrors.price}</p>}
                 </div>
                 <div>
                   <Label className="text-xs font-bold text-ink-muted mb-1 block">Đơn tính *</Label>
@@ -799,6 +956,50 @@ export function BuildingDetailPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* 📍 Tiện ích xung quanh (NearbyPlacesSection) */}
+        <Card className="md:col-span-3 border-border rounded-lg shadow-none bg-white border-t-2 border-t-teal-500">
+          <CardContent className="pt-5 pb-4">
+            <NearbyPlacesSection
+              nearbyPlaces={(building as any).nearby_places}
+              latitude={(building as any).latitude}
+              longitude={(building as any).longitude}
+              onScan={handleScanNearbyPlaces}
+              isScanning={scanningPOI}
+            />
+          </CardContent>
+        </Card>
+
+
+        {/* Nút quét tiện ích xung quanh (Chỉ hiện khi có tọa độ GPS) */}
+        <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
+          {(building as any).latitude && (building as any).longitude && (
+            <Card className="md:col-span-3 border-dashed border-border rounded-lg shadow-none bg-bg-subtle/30">
+              <CardContent className="py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-ink-muted">
+                  <MapPin className="h-4 w-4 text-teal-500" />
+                  <span>
+                    GPS: {Number((building as any).latitude).toFixed(5)}, {Number((building as any).longitude).toFixed(5)}
+                    {(building as any).nearby_places
+                      ? ` — Đã quét ${((building as any).nearby_places?.education?.length || 0) + ((building as any).nearby_places?.shopping?.length || 0) + ((building as any).nearby_places?.public?.length || 0)} địa điểm`
+                      : ' — Chưa quét tiện ích xung quanh'}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={scanningPOI}
+                  onClick={handleScanNearbyPlaces}
+                  className="border-teal-200 bg-teal-50/50 hover:bg-teal-100 text-teal-700 font-bold rounded-lg text-xs gap-1.5"
+                >
+                  {scanningPOI
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang quét...</>
+                    : <><MapPin className="h-3.5 w-3.5" /> {(building as any).nearby_places ? 'Quét lại' : 'Quét địa điểm xung quanh'}</>}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </PermissionGate>
 
         {/* Configuration for company management fee */}
         <PermissionGate roles={['company_admin', 'manager']}>
@@ -1145,6 +1346,248 @@ export function BuildingDetailPage() {
           refetchBuildings();
         }}
       />
+
+      {/* ✏️ Dialog Chỉnh sửa thông tin Tòa nhà */}
+      <Dialog open={isEditBuildingOpen} onOpenChange={setIsEditBuildingOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-6 rounded-2xl">
+          <DialogHeader className="border-b border-border pb-3">
+            <DialogTitle className="font-heading text-lg font-bold text-ink flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-amber-600" />
+              Chỉnh sửa thông tin Tòa nhà ({building.name})
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveBuildingEdit} className="space-y-4 pt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Mã tòa nhà *</Label>
+                <Input
+                  value={editBuildingForm.code || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, code: e.target.value }))}
+                  required
+                  className="mt-1 text-xs rounded-xl"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Tên tòa nhà *</Label>
+                <Input
+                  value={editBuildingForm.name || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, name: e.target.value }))}
+                  required
+                  className="mt-1 text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Địa chỉ chi tiết *</Label>
+                <Input
+                  value={editBuildingForm.address || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, address: e.target.value }))}
+                  required
+                  className="mt-1 text-xs rounded-xl"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Khu vực / Quận Huyện</Label>
+                <Input
+                  value={editBuildingForm.area || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, area: e.target.value }))}
+                  className="mt-1 text-xs rounded-xl"
+                  placeholder="vd: Cầu Giấy, Hà Nội"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Tổng số tầng</Label>
+                <Input
+                  type="number"
+                  value={editBuildingForm.total_floors || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, total_floors: e.target.value }))}
+                  className="mt-1 text-xs rounded-xl"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Tổng số phòng</Label>
+                <Input
+                  type="number"
+                  value={editBuildingForm.total_rooms || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, total_rooms: e.target.value }))}
+                  className="mt-1 text-xs rounded-xl"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold text-slate-700">Năm xây dựng</Label>
+                <Input
+                  type="number"
+                  value={editBuildingForm.year_built || ''}
+                  onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, year_built: e.target.value }))}
+                  className="mt-1 text-xs rounded-xl"
+                  placeholder="vd: 2023"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <h4 className="text-xs font-extrabold uppercase text-slate-500 mb-2">Biểu phí Dịch vụ</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Giá điện (đ/kWh)</Label>
+                  <Input
+                    type="number"
+                    value={editBuildingForm.electricity_price ?? ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, electricity_price: e.target.value }))}
+                    className="mt-1 text-xs font-mono rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Giá nước (đ/m³)</Label>
+                  <Input
+                    type="number"
+                    value={editBuildingForm.water_price ?? ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, water_price: e.target.value }))}
+                    className="mt-1 text-xs font-mono rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Internet (đ/phòng)</Label>
+                  <Input
+                    type="number"
+                    value={editBuildingForm.internet_price ?? ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, internet_price: e.target.value }))}
+                    className="mt-1 text-xs font-mono rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Dịch vụ chung (đ)</Label>
+                  <Input
+                    type="number"
+                    value={editBuildingForm.common_service_price ?? ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, common_service_price: e.target.value }))}
+                    className="mt-1 text-xs font-mono rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Đơn tính dịch vụ chung</Label>
+                  <Input
+                    value={editBuildingForm.common_service_unit || ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, common_service_unit: e.target.value }))}
+                    className="mt-1 text-xs rounded-xl"
+                    placeholder="người / phòng"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Phí xe điện (đ/xe)</Label>
+                  <Input
+                    type="number"
+                    value={editBuildingForm.electric_vehicle_fee ?? ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, electric_vehicle_fee: e.target.value }))}
+                    className="mt-1 text-xs font-mono rounded-xl"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <h4 className="text-xs font-extrabold uppercase text-slate-500 mb-2">Quy định & Tiện ích</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-border bg-slate-50 cursor-pointer text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editBuildingForm.has_elevator)}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, has_elevator: e.target.checked }))}
+                    className="h-4 w-4 text-emerald-600 rounded"
+                  />
+                  <span>Có Thang máy</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-border bg-slate-50 cursor-pointer text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editBuildingForm.pccc_certified)}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, pccc_certified: e.target.checked }))}
+                    className="h-4 w-4 text-emerald-600 rounded"
+                  />
+                  <span>Đảm bảo PCCC</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-border bg-slate-50 cursor-pointer text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editBuildingForm.allow_foreigners)}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, allow_foreigners: e.target.checked }))}
+                    className="h-4 w-4 text-emerald-600 rounded"
+                  />
+                  <span>Nhận khách ngoại quốc</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-border bg-slate-50 cursor-pointer text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editBuildingForm.allow_vinfast_electric)}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, allow_vinfast_electric: e.target.checked }))}
+                    className="h-4 w-4 text-emerald-600 rounded"
+                  />
+                  <span>Nhận sạc xe điện</span>
+                </label>
+                <div className="col-span-2">
+                  <Label className="text-xs font-semibold text-slate-700">Quy định nuôi Thú cưng (Pet)</Label>
+                  <select
+                    value={editBuildingForm.allow_pet || 'Không'}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, allow_pet: e.target.value }))}
+                    className="mt-1 w-full text-xs h-9 rounded-xl border border-border px-2 bg-white"
+                  >
+                    <option value="Có">Có cho phép</option>
+                    <option value="Không">Không cho phép</option>
+                    <option value="Cho phép mèo nhỏ">Cho phép mèo nhỏ</option>
+                    <option value="Cho phép chó nhỏ < 5kg">Cho phép chó nhỏ &lt; 5kg</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2 mt-3">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Chỗ phơi đồ chung</Label>
+                  <Input
+                    value={editBuildingForm.common_drying_area || ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, common_drying_area: e.target.value }))}
+                    className="mt-1 text-xs rounded-xl"
+                    placeholder="vd: Sân thượng tầng 6"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700">Mô tả dịch vụ chung</Label>
+                  <Input
+                    value={editBuildingForm.common_service_description || ''}
+                    onChange={(e) => setEditBuildingForm((prev: any) => ({ ...prev, common_service_description: e.target.value }))}
+                    className="mt-1 text-xs rounded-xl"
+                    placeholder="vd: Bao gồm vệ sinh hành lang, rác, camera 24/7"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditBuildingOpen(false)}
+                className="text-xs rounded-xl"
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="submit"
+                disabled={editBuildingSaving}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl"
+              >
+                {editBuildingSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Lưu thay đổi
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

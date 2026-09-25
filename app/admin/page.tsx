@@ -411,7 +411,7 @@ export default function AdminDashboardPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-extrabold font-heading text-ink tracking-tight">
-              Quản trị &amp; Kinh doanh
+              Tổng quan 
             </h1>
           </div>
           <p className="text-ink-muted mt-1 text-xs sm:text-sm">

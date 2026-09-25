@@ -6,22 +6,23 @@ import type { Database } from '@/lib/supabase/types';
 type DBNotification = Database['public']['Tables']['notifications']['Row'];
 type DBActivityLog = Database['public']['Tables']['activity_logs']['Row'];
 
-export function useNotifications(userId?: string, companyId?: string) {
+export function useNotifications(userId?: string, companyId?: string, userRole?: string) {
   const [notifications, setNotifications] = useState<DBNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getNotifications(userId, companyId);
+      const data = await getNotifications(userId, companyId, userRole);
       setNotifications(data);
     } catch {}
     setLoading(false);
-  }, [userId, companyId]);
+  }, [userId, companyId, userRole]);
 
   useEffect(() => {
     fetch();
   }, [fetch]);
+
 
   // Realtime subscription: prepend new notifications as they arrive
   useEffect(() => {

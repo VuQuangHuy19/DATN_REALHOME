@@ -98,29 +98,70 @@ export async function GET(request: Request) {
       });
     }
 
-    // Bổ sung thông tin landlords cho từng invoice
-    const landlordIds = Array.from(
-      new Set(invoices.map((inv: any) => inv.rooms?.buildings?.landlord_id).filter(Boolean))
-    );
-    if (landlordIds.length > 0) {
-      const { data: lndData } = await supabaseAdmin
-        .from('landlords')
-        .select('id, name, bank_name, bank_account_number, bank_account_owner')
-        .in('id', landlordIds);
+    // Bổ sung thông tin landlords cho từng invoice (hỗ trợ cả UUID id và mã code TH01, TH02...)
+    const rawLandlordKeys = Array.from(
+      new Set(
+        invoices
+          .flatMap((inv: any) => [
+            inv.rooms?.buildings?.landlord_id,
+            inv.rooms?.landlord_id,
+          ])
+          .filter(Boolean)
+      )
+    ) as string[];
 
-      if (lndData) {
-        const lndMap: Record<string, any> = {};
-        lndData.forEach((l: any) => {
-          lndMap[l.id] = l;
-        });
-        invoices = invoices.map((inv: any) => {
-          const lndId = inv.rooms?.buildings?.landlord_id;
-          if (lndId && lndMap[lndId] && inv.rooms?.buildings) {
-            inv.rooms.buildings.landlords = lndMap[lndId];
-          }
-          return inv;
-        });
+    let lndData: any[] = [];
+    if (rawLandlordKeys.length > 0) {
+      const uuidKeys = rawLandlordKeys.filter((k) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)
+      );
+      const codeKeys = rawLandlordKeys.filter(
+        (k) => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)
+      );
+
+      const orConds: string[] = [];
+      if (uuidKeys.length > 0) orConds.push(`id.in.(${uuidKeys.join(',')})`);
+      if (codeKeys.length > 0) orConds.push(`code.in.(${codeKeys.join(',')})`);
+
+      if (orConds.length > 0) {
+        const { data: foundLnds } = await supabaseAdmin
+          .from('landlords')
+          .select('id, code, name, bank_name, bank_account_number, bank_account_owner')
+          .or(orConds.join(','));
+        lndData = foundLnds || [];
       }
+    }
+
+    // Fallback: Nếu không tìm thấy theo key trực tiếp, lấy danh sách landlords thuộc company_id của invoice
+    if (lndData.length === 0) {
+      const companyIds = Array.from(new Set(invoices.map((inv: any) => inv.company_id).filter(Boolean)));
+      if (companyIds.length > 0) {
+        const { data: compLnds } = await supabaseAdmin
+          .from('landlords')
+          .select('id, code, name, bank_name, bank_account_number, bank_account_owner')
+          .in('company_id', companyIds);
+        lndData = compLnds || [];
+      }
+    }
+
+    if (lndData.length > 0) {
+      const lndMap: Record<string, any> = {};
+      lndData.forEach((l: any) => {
+        if (l.id) lndMap[l.id] = l;
+        if (l.code) lndMap[l.code] = l;
+      });
+
+      const fallbackLandlord = lndData.find((l: any) => l.bank_account_number) || lndData[0];
+
+      invoices = invoices.map((inv: any) => {
+        const lndKey = inv.rooms?.buildings?.landlord_id || inv.rooms?.landlord_id;
+        const matchedLandlord = (lndKey && lndMap[lndKey]) ? lndMap[lndKey] : fallbackLandlord;
+
+        if (!inv.rooms) inv.rooms = {};
+        if (!inv.rooms.buildings) inv.rooms.buildings = {};
+        inv.rooms.buildings.landlords = matchedLandlord;
+        return inv;
+      });
     }
 
     return NextResponse.json({

@@ -44,13 +44,15 @@ export async function POST(request: Request) {
       const defaults: Record<string, any> = {
         starter: { price: 500000, seats: 5, extra_seat_price: 50000 },
         professional: { price: 2000000, seats: 20, extra_seat_price: 100000 },
-        enterprise: { price: 5000000, seats: 999, extra_seat_price: 0 },
+        enterprise: { price: 5000000, seats: 100, extra_seat_price: 150000 },
       };
       planObj = defaults[plan] || defaults['professional'];
     }
 
     let amount = 0;
-    const extraSeatPrice = Number(planObj.extra_seat_price) || 100000;
+    const extraSeatPrice = (planObj.extra_seat_price && Number(planObj.extra_seat_price) > 0)
+      ? Number(planObj.extra_seat_price)
+      : (plan === 'enterprise' ? 150000 : (plan === 'starter' ? 50000 : 100000));
 
     if (isAddSeats) {
       // Tab 2: Tính cước phí duy nhất cho số Seats mua thêm

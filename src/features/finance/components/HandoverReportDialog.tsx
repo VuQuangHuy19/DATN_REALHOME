@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,8 +16,10 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ClipboardCheck, Loader2, Camera, UserCheck, ShieldCheck, Plus, X } from 'lucide-react';
 import Image from 'next/image';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 import { useAuth } from '@/lib/auth/AuthContext';
+import { authFetch } from '@/lib/supabase/auth-fetch';
 
 interface HandoverReportDialogProps {
   /** Contract object (deposit_contract hoặc rental_contract) */
@@ -48,57 +49,29 @@ export function HandoverReportDialog({
   const [submitting, setSubmitting] = useState(false);
 
   /**
-   * Fetch biên bản bàn giao theo room_id (universal - không phụ thuộc FK nào).
-   * Nếu có nhiều bản giao cho cùng 1 phòng, ưu tiên bản liên kết với contract hiện tại.
+   * Fetch biên bản bàn giao theo contract_id (hoặc fallback theo room_id).
    */
   const fetchHandoverReport = async () => {
-    if (!contract?.room_id) return;
+    if (!contract?.id && !contract?.room_id) return;
     setLoading(true);
     try {
-      // Tìm theo room_id trước (universal)
-      let query = supabase
-        .from('handover_reports')
-        .select('*')
-        .eq('room_id', contract.room_id)
-        .order('created_at', { ascending: false });
+      const params = new URLSearchParams();
+      if (contract?.id) params.set('contract_id', contract.id);
+      if (contract?.room_id) params.set('room_id', contract.room_id);
 
-      // Nếu là deposit contract → ưu tiên bản có deposit_contract_id khớp
-      if (sourceType === 'deposit') {
-        query = supabase
-          .from('handover_reports')
-          .select('*')
-          .eq('deposit_contract_id', contract.id)
-          .maybeSingle();
-      }
-      // Nếu là rental contract → ưu tiên bản có rental_contract_id khớp
-      else {
-        query = supabase
-          .from('handover_reports')
-          .select('*')
-          .eq('rental_contract_id', contract.id)
-          .maybeSingle();
+      const res = await authFetch(`/api/handover-reports/save?${params.toString()}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Lỗi tải biên bản bàn giao');
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Nếu chưa tìm được bằng FK cụ thể → fallback tìm theo room_id
-      let found = Array.isArray(data) ? data[0] : data;
-      if (!found) {
-        const { data: byRoom } = await supabase
-          .from('handover_reports')
-          .select('*')
-          .eq('room_id', contract.room_id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        found = byRoom;
-      }
-
+      const found = data.report;
       setReport(found ?? null);
       if (found) {
         setNotes(found.notes || '');
-        setImagesList(found.images || []);
+        const imgs = found.images || found.furniture_checklist?.images || [];
+        setImagesList(Array.isArray(imgs) ? imgs : []);
       } else {
         setNotes('');
         setImagesList([]);
@@ -134,47 +107,33 @@ export function HandoverReportDialog({
   const handleSaveReport = async () => {
     setSubmitting(true);
     try {
-      // Payload base - gán created_by / updated_by từ profile.id
+      const existingChecklist = typeof report?.furniture_checklist === 'object' && report?.furniture_checklist ? report.furniture_checklist : {};
+
       const basePayload: Record<string, any> = {
-        company_id: contract.company_id,
-        room_id: contract.room_id,
+        id: report?.id || undefined,
+        company_id: contract.company_id || profile?.company_id || null,
+        contract_id: contract.id,
+        room_id: contract.room_id || null,
         notes,
         images: imagesList,
-        created_by: report ? report.created_by : (profile?.id || null),
-        updated_by: profile?.id || null,
-        updated_at: new Date().toISOString(),
+        furniture_checklist: {
+          ...existingChecklist,
+          images: imagesList,
+        },
       };
 
-      // Gán đúng FK tùy loại hợp đồng nguồn
-      if (sourceType === 'deposit') {
-        basePayload.deposit_contract_id = contract.id;
-      } else {
-        // rental contract: dùng rental_contract_id (cột mới sau migration)
-        basePayload.rental_contract_id = contract.id;
+      const res = await authFetch('/api/handover-reports/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(basePayload),
+      });
 
-        // Nếu rental contract có liên kết deposit → ghi thêm deposit_contract_id để tiện truy vết
-        if (contract.deposit_contract_id) {
-          basePayload.deposit_contract_id = contract.deposit_contract_id;
-        }
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Lỗi khi lưu biên bản');
       }
 
-      if (report) {
-        // Cập nhật bản đã có
-        const { error } = await supabase
-          .from('handover_reports')
-          .update(basePayload)
-          .eq('id', report.id);
-        if (error) throw error;
-        toast.success('Cập nhật biên bản bàn giao thành công!');
-      } else {
-        // Tạo mới
-        const { error } = await supabase
-          .from('handover_reports')
-          .insert(basePayload);
-        if (error) throw error;
-        toast.success('Lập biên bản bàn giao phòng thành công!');
-      }
-
+      toast.success(report ? 'Cập nhật biên bản bàn giao thành công!' : 'Lập biên bản bàn giao phòng thành công!');
       fetchHandoverReport();
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -188,21 +147,20 @@ export function HandoverReportDialog({
     if (!report) return;
     setSubmitting(true);
     try {
-      const updateData: any = {};
-      if (party === 'landlord') {
-        updateData.landlord_confirmed = true;
-        updateData.landlord_confirmed_at = new Date().toISOString();
-      } else {
-        updateData.tenant_confirmed = true;
-        updateData.tenant_confirmed_at = new Date().toISOString();
+      const res = await authFetch('/api/handover-reports/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: report.id,
+          party_confirming: party,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Lỗi xác nhận biên bản');
       }
 
-      const { error } = await supabase
-        .from('handover_reports')
-        .update(updateData)
-        .eq('id', report.id);
-
-      if (error) throw error;
       toast.success(party === 'landlord' ? 'Chủ nhà đã xác nhận biên bản!' : 'Khách thuê đã xác nhận biên bản!');
       fetchHandoverReport();
       if (onSuccess) onSuccess();
@@ -213,7 +171,9 @@ export function HandoverReportDialog({
     }
   };
 
-  const isBothConfirmed = report?.landlord_confirmed && report?.tenant_confirmed;
+  const landlordConfirmed = !!(report?.landlord_confirmed || report?.furniture_checklist?.landlord_confirmed);
+  const tenantConfirmed = !!(report?.tenant_confirmed || report?.furniture_checklist?.tenant_confirmed);
+  const isBothConfirmed = landlordConfirmed && tenantConfirmed;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -243,10 +203,10 @@ export function HandoverReportDialog({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-bg-subtle p-4 rounded-xl border border-border">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-ink-muted text-xs flex items-center gap-1.5">
-                      <ShieldCheck className={`h-4 w-4 ${report.landlord_confirmed ? 'text-emerald-500' : 'text-ink-muted'}`} />
+                      <ShieldCheck className={`h-4 w-4 ${landlordConfirmed ? 'text-emerald-500' : 'text-ink-muted'}`} />
                       Chủ nhà xác nhận:
                     </span>
-                    {report.landlord_confirmed ? (
+                    {landlordConfirmed ? (
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-bold text-[10px]">Đã xác nhận</Badge>
                     ) : (
                       <Button
@@ -263,10 +223,10 @@ export function HandoverReportDialog({
 
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-ink-muted text-xs flex items-center gap-1.5">
-                      <UserCheck className={`h-4 w-4 ${report.tenant_confirmed ? 'text-emerald-500' : 'text-ink-muted'}`} />
+                      <UserCheck className={`h-4 w-4 ${tenantConfirmed ? 'text-emerald-500' : 'text-ink-muted'}`} />
                       Khách thuê xác nhận:
                     </span>
-                    {report.tenant_confirmed ? (
+                    {tenantConfirmed ? (
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-bold text-[10px]">Đã xác nhận</Badge>
                     ) : (
                       <Button
@@ -301,30 +261,54 @@ export function HandoverReportDialog({
                 <Label className="text-ink font-bold text-xs uppercase tracking-wider">Hình ảnh hiện trạng bàn giao</Label>
 
                 {!isBothConfirmed && (
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Camera className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
-                      <Input
-                        placeholder="Nhập link (URL) hình ảnh căn phòng..."
-                        value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddImage();
-                          }
+                  <div className="space-y-3">
+                    {/* Tải ảnh trực tiếp từ thiết bị (Tự động nén Canvas API + Lưu vào Cloudflare R2 thư mục từng phòng) */}
+                    <div className="border border-border rounded-xl p-3.5 bg-slate-50/50 space-y-2">
+                      <Label className="text-xs font-bold text-slate-700 block">
+                        Tải ảnh hiện trạng từ thiết bị
+                      </Label>
+                      <ImageUpload
+                        bucket={`handover_reports/rooms/${contract?.room_id || 'general'}`}
+                        multiple={true}
+                        onChange={(newUrls: any) => {
+                          if (!newUrls) return;
+                          const urlList = Array.isArray(newUrls) ? newUrls : [newUrls];
+                          const validUrls = urlList.filter((u) => u && typeof u === 'string');
+                          setImagesList((prev) => {
+                            const combined = [...prev, ...validUrls];
+                            return Array.from(new Set(combined));
+                          });
                         }}
-                        className="pl-9 h-10 rounded-xl border-border focus-visible:ring-indigo-500"
+                        className="w-full"
                       />
                     </div>
-                    <Button
-                      type="button"
-                      onClick={handleAddImage}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold h-10 px-4 shrink-0 flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Thêm ảnh</span>
-                    </Button>
+
+                    {/* Nhập link (URL) ảnh làm phương án bổ sung */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="relative flex-1">
+                        <Camera className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
+                        <Input
+                          placeholder="Hoặc nhập link (URL) hình ảnh trực tiếp..."
+                          value={imageUrl}
+                          onChange={(e) => setImageUrl(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddImage();
+                            }
+                          }}
+                          className="pl-9 h-10 rounded-xl border-border focus-visible:ring-indigo-500 text-xs"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={handleAddImage}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold h-10 px-4 shrink-0 flex items-center gap-1.5 shadow-sm text-xs"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Thêm URL</span>
+                      </Button>
+                    </div>
                   </div>
                 )}
 

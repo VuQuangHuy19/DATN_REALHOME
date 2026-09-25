@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2, Phone, MapPin, User, Users, ArrowRight, ArrowLeft, CheckCircle2,
-  Sparkles, Shield, Zap, Clock, Loader2, ChevronRight,
+  Sparkles, Shield, Zap, Clock, Loader2, ChevronRight, Mail, Lock,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -53,11 +53,11 @@ export default function SetupCompanyPage() {
       id: 'enterprise',
       name: 'Enterprise',
       price: 5000000,
-      seats: 999,
-      extra_seat_price: 0,
+      seats: 100,
+      extra_seat_price: 150000,
       description: 'Đầy đủ tính năng cao cấp cho tập đoàn & chuỗi CHDV lớn.',
       popular: false,
-      features: ['Tất cả tính năng Professional', 'Không giới hạn tài khoản nhân viên', 'Multi-company & multi-domain', 'SLA 99.9% & hỗ trợ ưu tiên', 'Tùy chỉnh theme & logo'],
+      features: ['Tất cả tính năng Professional', 'Bao gồm 100 tài khoản nhân viên (Seats)', 'Multi-company & multi-domain', 'SLA 99.9% & hỗ trợ ưu tiên', 'Tùy chỉnh theme & logo'],
     },
   ]);
 
@@ -78,6 +78,8 @@ export default function SetupCompanyPage() {
     company_name: '',
     company_phone: profile?.phone || user?.phone || '',
     company_address: '',
+    owner_email: profile?.email || user?.email || '',
+    password: '',
   });
 
   // Tự động điền dữ liệu người dùng khi thông tin session profile sẵn sàng từ DB
@@ -85,11 +87,13 @@ export default function SetupCompanyPage() {
     if (profile || user) {
       const ownerName = profile?.full_name || user?.user_metadata?.full_name || '';
       const phoneNum = profile?.phone || user?.phone || user?.user_metadata?.phone || '';
+      const email = profile?.email || user?.email || '';
 
       setForm(prev => ({
         ...prev,
         owner_name: prev.owner_name || ownerName,
         company_phone: prev.company_phone || phoneNum,
+        owner_email: prev.owner_email || email,
       }));
     }
   }, [profile, user]);
@@ -108,11 +112,26 @@ export default function SetupCompanyPage() {
   const extraPriceTotal = extraSeatsCount * extraSeatPrice;
   const monthlyPriceTotal = basePrice + extraPriceTotal;
 
-  const handleSubmit = async () => {
+  const validateStep1 = () => {
     if (!form.owner_name.trim() || !form.company_name.trim() || !form.company_phone.trim()) {
       toast.error('Vui lòng điền đầy đủ thông tin bắt buộc (*)');
-      return;
+      return false;
     }
+    if (!profile && !user) {
+      if (!form.owner_email.trim() || !form.password.trim()) {
+        toast.error('Vui lòng nhập Email và Mật khẩu để khởi tạo tài khoản (*)');
+        return false;
+      }
+      if (form.password.trim().length < 6) {
+        toast.error('Mật khẩu khởi tạo phải từ 6 ký tự trở lên');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep1()) return;
 
     setSubmitting(true);
     try {
@@ -130,6 +149,11 @@ export default function SetupCompanyPage() {
 
       if (!res.ok) {
         throw new Error(data.error || 'Không thể tạo công ty');
+      }
+
+      if (data.token) {
+        localStorage.setItem('bds_auth_token', data.token);
+        window.dispatchEvent(new Event('storage'));
       }
 
       toast.success(`🎉 ${data.message}`);
@@ -249,6 +273,51 @@ export default function SetupCompanyPage() {
                   />
                 </div>
               </div>
+
+              {/* Nếu chưa đăng nhập (Incognito/Guest): Yêu cầu Email & Mật khẩu khởi tạo */}
+              {(!profile && !user) ? (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold text-slate-200">
+                      Email đăng nhập Chủ doanh nghiệp <span className="text-amber-400">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500 z-10" />
+                      <Input
+                        type="email"
+                        placeholder="owner@company.com"
+                        value={form.owner_email}
+                        onChange={e => handleChange('owner_email', e.target.value)}
+                        className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-bold text-slate-200">
+                      Mật khẩu khởi tạo tài khoản <span className="text-amber-400">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500 z-10" />
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={form.password}
+                        onChange={e => handleChange('password', e.target.value)}
+                        className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="md:col-span-2 bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-3.5 flex items-center justify-between text-xs text-indigo-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <span>Tài khoản khởi tạo: <strong>{profile?.email || user?.email}</strong></span>
+                  </div>
+                  <span className="bg-indigo-600/50 text-indigo-200 px-2.5 py-1 rounded-md font-semibold">Tự động liên kết</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-8 flex justify-between items-center">
@@ -262,11 +331,9 @@ export default function SetupCompanyPage() {
 
               <Button
                 onClick={() => {
-                  if (!form.owner_name.trim() || !form.company_name.trim() || !form.company_phone.trim()) {
-                    toast.error('Vui lòng điền đầy đủ thông tin bắt buộc (*)');
-                    return;
+                  if (validateStep1()) {
+                    setStep(2);
                   }
-                  setStep(2);
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 h-12 rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-900/40"
               >

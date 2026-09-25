@@ -5,6 +5,18 @@ type ServiceInsert = Omit<DBBuildingService, 'id' | 'created_at'>;
 type ServiceUpdate = Partial<ServiceInsert>;
 
 export async function getBuildingServices(buildingId: string): Promise<DBBuildingService[]> {
+  try {
+    const res = await fetch(`/api/buildings/services?buildingId=${encodeURIComponent(buildingId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.services)) {
+        return data.services;
+      }
+    }
+  } catch (err) {
+    console.warn('[getBuildingServices] API fallback to client:', err);
+  }
+
   const { data, error } = await supabase
     .from('building_services')
     .select('*')
@@ -15,6 +27,23 @@ export async function getBuildingServices(buildingId: string): Promise<DBBuildin
 }
 
 export async function createBuildingService(s: ServiceInsert): Promise<DBBuildingService> {
+  try {
+    const res = await fetch('/api/buildings/services', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(s),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Lỗi khi tạo dịch vụ bổ sung');
+    }
+    if (data.service) {
+      return data.service as DBBuildingService;
+    }
+  } catch (err: any) {
+    console.warn('[createBuildingService] API error, fallback to client:', err.message);
+  }
+
   const { data, error } = await supabase
     .from('building_services')
     .insert(s as any)
@@ -36,6 +65,17 @@ export async function updateBuildingService(id: string, s: ServiceUpdate): Promi
 }
 
 export async function deleteBuildingService(id: string): Promise<void> {
+  try {
+    const res = await fetch(`/api/buildings/services?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      return;
+    }
+  } catch (err) {
+    console.warn('[deleteBuildingService] API fallback to client:', err);
+  }
+
   const { error } = await supabase
     .from('building_services')
     .delete()

@@ -18,17 +18,17 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 
 /* ─── Badge helpers ──────────────────────────────────────────────── */
 const planStyle: Record<string, string> = {
-  starter:      'bg-bg-subtle text-ink border border-border',
+  starter: 'bg-bg-subtle text-ink border border-border',
   professional: 'bg-[hsl(211,80%,92%)] text-[hsl(211,60%,32%)] border border-[hsl(211,55%,76%)]',
-  enterprise:   'bg-[hsl(38,90%,92%)] text-[hsl(38,72%,30%)] border border-[hsl(38,72%,76%)]',
+  enterprise: 'bg-[hsl(38,90%,92%)] text-[hsl(38,72%,30%)] border border-[hsl(38,72%,76%)]',
 };
 const planLabel: Record<string, string> = {
   starter: 'Starter', professional: 'Professional', enterprise: 'Enterprise',
 };
 
 const statusStyle: Record<string, string> = {
-  active:    'bg-[hsl(142,60%,92%)] text-[hsl(142,52%,28%)] border border-[hsl(142,45%,78%)]',
-  trial:     'bg-[hsl(38,90%,92%)] text-[hsl(38,72%,30%)] border border-[hsl(38,72%,76%)]',
+  active: 'bg-[hsl(142,60%,92%)] text-[hsl(142,52%,28%)] border border-[hsl(142,45%,78%)]',
+  trial: 'bg-[hsl(38,90%,92%)] text-[hsl(38,72%,30%)] border border-[hsl(38,72%,76%)]',
   suspended: 'bg-[hsl(4,72%,93%)] text-[hsl(4,60%,36%)] border border-[hsl(4,55%,78%)]',
 };
 const statusLabel: Record<string, string> = {
@@ -55,14 +55,14 @@ const PLAN_FILTERS = ['all', 'starter', 'professional', 'enterprise'] as const;
 export default function SuperAdminCompaniesPage() {
   const { companies, loading, error, refetch, add, update, remove } = useCompanies();
 
-  const [searchQuery, setSearchQuery]   = useState('');
-  const [planFilter, setPlanFilter]     = useState<string>('all');
-  const [editItem, setEditItem]         = useState<any | null>(null);
-  const [viewItem, setViewItem]         = useState<any | null>(null);
-  const [isFormOpen, setIsFormOpen]     = useState(false);
-  const [isViewOpen, setIsViewOpen]     = useState(false);
-  const [submitting, setSubmitting]     = useState(false);
-  const [logoUrl, setLogoUrl]           = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [planFilter, setPlanFilter] = useState<string>('all');
+  const [editItem, setEditItem] = useState<any | null>(null);
+  const [viewItem, setViewItem] = useState<any | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const filtered = companies.filter((c: any) => {
     const q = searchQuery.toLowerCase();
@@ -89,14 +89,14 @@ export default function SuperAdminCompaniesPage() {
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const name       = fd.get('name') as string;
-    const code       = fd.get('code') as string;
-    const plan       = fd.get('plan') as string;
-    const status     = fd.get('status') as string;
-    const owner_name  = fd.get('ownerName') as string;
+    const name = fd.get('name') as string;
+    const code = fd.get('code') as string;
+    const plan = fd.get('plan') as string;
+    const status = fd.get('status') as string;
+    const owner_name = fd.get('ownerName') as string;
     const owner_email = fd.get('ownerEmail') as string;
-    const phone       = fd.get('phone') as string;
-    const address     = fd.get('address') as string;
+    const phone = fd.get('phone') as string;
+    const address = fd.get('address') as string;
     const jwt_duration = parseInt(fd.get('jwt_duration') as string) || 10;
 
     if (!name || !phone || !owner_email || !owner_name || !address || !code) {
@@ -140,7 +140,7 @@ export default function SuperAdminCompaniesPage() {
     setIsFormOpen(false); setEditItem(null); setLogoUrl(null);
   };
 
-  const openAdd  = () => { setEditItem(null); setLogoUrl(null); setIsFormOpen(true); };
+  const openAdd = () => { setEditItem(null); setLogoUrl(null); setIsFormOpen(true); };
   const openEdit = (item: any) => { setEditItem(item); setLogoUrl(item.logo_url || null); setIsFormOpen(true); };
   const openView = (item: any) => { setViewItem(item); setIsViewOpen(true); };
 
@@ -196,11 +196,10 @@ export default function SuperAdminCompaniesPage() {
           <button
             key={p}
             onClick={() => setPlanFilter(p)}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              planFilter === p
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${planFilter === p
                 ? 'bg-ink text-white'
                 : 'bg-bg-subtle text-ink-muted hover:bg-border hover:text-ink border border-border'
-            }`}
+              }`}
           >
             {p === 'all' ? `Tất cả (${companies.length})` : planLabel[p]}
           </button>

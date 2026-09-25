@@ -32,6 +32,31 @@ interface InvoiceItem {
   landlordAccountOwner?: string;
 }
 
+function getVietQrBankCode(bankName?: string): string {
+  if (!bankName) return '970423';
+  const name = bankName.trim().toLowerCase();
+
+  if (name.includes('tpbank') || name.includes('tiên phong') || name.includes('tpb')) return '970423';
+  if (name.includes('mbbank') || name.includes('quân đội') || name.includes('mb')) return '970422';
+  if (name.includes('vietcombank') || name.includes('vcb')) return '970436';
+  if (name.includes('vietinbank') || name.includes('icb') || name.includes('ctg')) return '970415';
+  if (name.includes('techcombank') || name.includes('tcb')) return '970407';
+  if (name.includes('bidv')) return '970418';
+  if (name.includes('agribank') || name.includes('vba')) return '970405';
+  if (name.includes('vpbank') || name.includes('vpb')) return '970432';
+  if (name.includes('acb')) return '970416';
+  if (name.includes('sacombank') || name.includes('stb')) return '970403';
+  if (name.includes('hdbank') || name.includes('hdb')) return '970437';
+  if (name.includes('shb')) return '970443';
+  if (name.includes('vib') || name.includes('quốc tế')) return '970441';
+  if (name.includes('msb') || name.includes('hàng hải')) return '970426';
+  if (name.includes('seabank')) return '970440';
+  if (name.includes('ocb') || name.includes('phương đông')) return '970448';
+  if (name.includes('eximbank')) return '970431';
+
+  return bankName.replace(/[^a-zA-Z0-9]/g, '') || '970423';
+}
+
 export default function FinancePage() {
   const { user, profile } = useAuth();
   const [autoPay, setAutoPay] = useState(false);
@@ -423,19 +448,19 @@ export default function FinancePage() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            <div className="p-4 rounded-xl bg-slate-950 text-white flex items-center justify-between shadow-md">
+            <div className="p-4 rounded-xl bg-slate-950 text-white flex items-center justify-between shadow-md border border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-amber-500 text-slate-950 font-extrabold flex items-center justify-center text-sm shadow-inner">
+                <div className="h-10 w-10 rounded-xl bg-amber-500 text-slate-950 font-extrabold flex items-center justify-center text-xs shadow-inner shrink-0">
                   PayOS
                 </div>
                 <div>
-                  <h4 className="font-bold text-sm">Thanh toán qua PayOS (VietQR / Napas247)</h4>
-                  <p className="text-[11px] text-slate-400">Hỗ trợ tất cả ứng dụng Ngân hàng (MB, VCB, Techcom, VPBank...)</p>
+                  <h4 className="font-extrabold text-sm text-white">Thanh toán qua PayOS (VietQR / Napas247)</h4>
+                  <p className="text-[11px] text-slate-300 font-medium">Hỗ trợ tất cả ứng dụng Ngân hàng (MB, VCB, Techcom, VPBank...)</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1 bg-black/40 px-2.5 py-1 rounded-lg text-xs font-mono font-bold text-amber-400">
-                <Clock className="h-3.5 w-3.5" /> {formatTimer(timeLeft)}
+              <div className="flex items-center gap-1 bg-black/60 px-2.5 py-1 rounded-lg text-xs font-mono font-bold text-amber-400 border border-amber-500/20 shrink-0">
+                <Clock className="h-3.5 w-3.5 text-amber-400" /> {formatTimer(timeLeft)}
               </div>
             </div>
 
@@ -445,8 +470,8 @@ export default function FinancePage() {
                 <img
                   src={
                     selectedInvoiceForPay?.landlordAccountNumber
-                      ? `https://img.vietqr.io/image/${(selectedInvoiceForPay.landlordBankName || 'MB').replace(/\s+/g, '')}-${selectedInvoiceForPay.landlordAccountNumber}-compact2.png?amount=${selectedInvoiceForPay.totalNum}&addInfo=REALHOME%20${selectedInvoiceForPay.month}&accountName=${encodeURIComponent(selectedInvoiceForPay.landlordAccountOwner || '')}`
-                      : `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PayOS_VietQR_RealHome_${selectedInvoiceForPay?.id || 'INV'}_Amount_${selectedInvoiceForPay?.totalNum || 0}`
+                      ? `https://img.vietqr.io/image/${getVietQrBankCode(selectedInvoiceForPay.landlordBankName)}-${selectedInvoiceForPay.landlordAccountNumber.replace(/\s+/g, '')}-compact2.png?amount=${selectedInvoiceForPay.totalNum}&addInfo=${encodeURIComponent(`REALHOME ${selectedInvoiceForPay.month}`)}&accountName=${encodeURIComponent(selectedInvoiceForPay.landlordAccountOwner || '')}`
+                      : `https://img.vietqr.io/image/970423-0857844999-compact2.png?amount=${selectedInvoiceForPay?.totalNum || 0}&addInfo=${encodeURIComponent(`REALHOME ${selectedInvoiceForPay?.month || ''}`)}&accountName=${encodeURIComponent('VU QUANG HUY')}`
                   }
                   alt="PayOS VietQR Code"
                   className="h-full w-full object-contain rounded-lg"
@@ -459,19 +484,19 @@ export default function FinancePage() {
             <div className="space-y-2 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Ngân hàng thụ hưởng:</span>
-                <span className="font-bold text-slate-900">{selectedInvoiceForPay?.landlordBankName || 'MBBank (Ngân hàng Quân Đội)'}</span>
+                <span className="font-bold text-slate-900">{selectedInvoiceForPay?.landlordBankName || 'TPBank'}</span>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Số tài khoản nhận:</span>
                 <div className="flex items-center gap-1 font-mono font-bold text-slate-900">
-                  <span>{selectedInvoiceForPay?.landlordAccountNumber || '0857 844 999'}</span>
+                  <span>{selectedInvoiceForPay?.landlordAccountNumber || '0857844999'}</span>
                 </div>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Chủ tài khoản:</span>
-                <span className="font-bold text-slate-900">{selectedInvoiceForPay?.landlordAccountOwner || 'CTY CP BĐS REALHOME'}</span>
+                <span className="font-bold text-slate-900">{selectedInvoiceForPay?.landlordAccountOwner || 'VU QUANG HUY'}</span>
               </div>
 
               <div className="flex justify-between items-center">

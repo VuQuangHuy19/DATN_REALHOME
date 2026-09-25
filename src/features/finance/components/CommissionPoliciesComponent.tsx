@@ -122,9 +122,26 @@ export function CommissionPoliciesComponent() {
 
   // ── State 4: Interactive Simulator / Calculator ────────────────────────────
   const [simRoomPrice, setSimRoomPrice] = useState<number>(5200000);
-  const [simRoseStr, setSimRoseStr] = useState<string>('40% - 6th, 60% - 12th');
+  const [simRoseUnit, setSimRoseUnit] = useState<'month' | 'percent' | 'custom'>('month');
+  const [simRoseVal, setSimRoseVal] = useState<number>(0.5);
+  const [simRoseStr, setSimRoseStr] = useState<string>('0.5 tháng (50% tháng 1)');
   const [simTermMonths, setSimTermMonths] = useState<number>(9);
   const [simSalesLevel, setSimSalesLevel] = useState<'junior' | 'official' | 'senior' | 'teamLead'>('official');
+
+  const handleSimUnitChange = (unit: 'month' | 'percent' | 'custom', val: number, customStr?: string) => {
+    setSimRoseUnit(unit);
+    if (unit === 'month') {
+      setSimRoseVal(val);
+      const pct = Math.round(val * 100);
+      setSimRoseStr(`${val} tháng (${pct}% tháng 1)`);
+    } else if (unit === 'percent') {
+      setSimRoseVal(val);
+      const m = (val / 100).toFixed(1).replace(/\.0$/, '');
+      setSimRoseStr(`${val}% (${m} tháng)`);
+    } else {
+      setSimRoseStr(customStr !== undefined ? customStr : simRoseStr);
+    }
+  };
 
   // ── State 5: Danh sách Hợp đồng Chốt trong tháng cho Mục 2 Case minh họa ────
   const [monthClosedDeals, setMonthClosedDeals] = useState<any[]>([]);
@@ -268,8 +285,28 @@ export function CommissionPoliciesComponent() {
     if (deal) {
       setSimRoomPrice(deal.price || 0);
       setSimTermMonths(deal.termMonths || 12);
-      // Nếu hợp đồng/phòng chưa nhập % hoa hồng thì để trống ô này
-      setSimRoseStr(deal.rose ? deal.rose : '');
+      const roseValStr = deal.rose ? String(deal.rose) : '50% (0.5 tháng)';
+      setSimRoseStr(roseValStr);
+
+      if (roseValStr.includes('tháng') || roseValStr.includes('thang')) {
+        const mMatch = roseValStr.match(/(\d+(?:\.\d+)?)\s*(?:tháng|thang)/i);
+        if (mMatch) {
+          setSimRoseUnit('month');
+          setSimRoseVal(parseFloat(mMatch[1]));
+        } else {
+          setSimRoseUnit('custom');
+        }
+      } else if (roseValStr.includes('%')) {
+        const pMatch = roseValStr.match(/(\d+(?:\.\d+)?)\s*%/);
+        if (pMatch) {
+          setSimRoseUnit('percent');
+          setSimRoseVal(parseFloat(pMatch[1]));
+        } else {
+          setSimRoseUnit('custom');
+        }
+      } else {
+        setSimRoseUnit('custom');
+      }
     }
   }, [selectedMonthDealId, monthClosedDeals]);
 
@@ -1362,15 +1399,90 @@ export function CommissionPoliciesComponent() {
                 />
               </div>
 
-              <div>
-                <label className="text-xs text-slate-600 dark:text-slate-400 block mb-1 font-medium">Chuỗi hoa hồng Chủ nhà (rose):</label>
-                <input
-                  type="text"
-                  value={simRoseStr}
-                  onChange={(e) => setSimRoseStr(e.target.value)}
-                  placeholder="Ví dụ: 40% - 6th, 60% - 12th"
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-slate-900 dark:text-white font-mono text-sm focus:border-emerald-500 focus:outline-none"
-                />
+              {/* Ô SelectBox & Input chọn cách tính Hoa hồng Chủ nhà */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-600 dark:text-slate-400 block font-semibold">
+                  Cách tính Hoa hồng Chủ nhà (rose):
+                </label>
+
+                <div className="grid grid-cols-12 gap-2">
+                  {/* SelectBox chọn Đơn vị */}
+                  <div className="col-span-7">
+                    <select
+                      value={simRoseUnit}
+                      onChange={(e) => {
+                        const u = e.target.value as 'month' | 'percent' | 'custom';
+                        if (u === 'month') {
+                          handleSimUnitChange('month', simRoseVal > 0 && simRoseVal <= 12 ? simRoseVal : 0.5);
+                        } else if (u === 'percent') {
+                          handleSimUnitChange('percent', simRoseVal > 0 && simRoseVal <= 500 ? simRoseVal : 50);
+                        } else {
+                          handleSimUnitChange('custom', simRoseVal, simRoseStr);
+                        }
+                      }}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-900 dark:text-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="month">Số tháng tiền phòng</option>
+                      <option value="percent">% Giá phòng tháng 1</option>
+                      <option value="custom">Chuỗi mốc tùy biến</option>
+                    </select>
+                  </div>
+
+                  {/* Input nhập số / chuỗi */}
+                  <div className="col-span-5">
+                    {simRoseUnit === 'month' && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="12"
+                          value={simRoseVal}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value) || 0;
+                            handleSimUnitChange('month', v);
+                          }}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1.5 text-center font-bold text-emerald-600 font-mono text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                        <span className="text-xs font-semibold text-slate-500">tháng</span>
+                      </div>
+                    )}
+
+                    {simRoseUnit === 'percent' && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="5"
+                          min="0"
+                          max="500"
+                          value={simRoseVal}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value) || 0;
+                            handleSimUnitChange('percent', v);
+                          }}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2 py-1.5 text-center font-bold text-emerald-600 font-mono text-sm focus:border-emerald-500 focus:outline-none"
+                        />
+                        <span className="text-xs font-semibold text-slate-500">%</span>
+                      </div>
+                    )}
+
+                    {simRoseUnit === 'custom' && (
+                      <input
+                        type="text"
+                        value={simRoseStr}
+                        onChange={(e) => setSimRoseStr(e.target.value)}
+                        placeholder="vd: 40% - 6th, 60% - 12th"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-900 dark:text-white font-mono text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Badge Xem trước chuỗi mô phỏng */}
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 font-mono">
+                  <span>Chuỗi quy đổi áp dụng:</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400">{simRoseStr || 'Chưa nhập'}</strong>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

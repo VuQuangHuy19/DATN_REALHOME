@@ -89,6 +89,17 @@ export async function POST(req: Request) {
         }
       }
 
+      // Tự động quét địa điểm xung quanh (POIs) nếu có tọa độ GPS
+      let nearbyPlaces: any = null;
+      if (latitude !== null && longitude !== null) {
+        try {
+          const { fetchNearbyPlaces } = await import('@/lib/services/nearby-places');
+          nearbyPlaces = await fetchNearbyPlaces(latitude, longitude);
+        } catch (poiErr: any) {
+          console.warn(`[Import Excel] Không thể quét POIs cho tòa nhà ${buildingName}:`, poiErr?.message);
+        }
+      }
+
       let commonServicePrice = 200000; // default
       const dvcStr = (firstRow['DVC(*)']?.toString() || firstRow['[Ghi chú] Dịch vụ theo căn (văn bản gốc)']?.toString() || '').toLowerCase();
       
@@ -151,7 +162,8 @@ export async function POST(req: Request) {
             latitude: latitude,
             longitude: longitude,
             common_service_price: commonServicePrice,
-            allow_pet: allowPetText as any
+            allow_pet: allowPetText as any,
+            nearby_places: nearbyPlaces
           })
           .select('id, code')
           .single();
@@ -175,6 +187,9 @@ export async function POST(req: Request) {
         if (latitude !== null && longitude !== null) {
           updateData.latitude = latitude;
           updateData.longitude = longitude;
+        }
+        if (nearbyPlaces) {
+          updateData.nearby_places = nearbyPlaces;
         }
         await supabase.from('buildings').update(updateData).eq('id', buildingId);
       }

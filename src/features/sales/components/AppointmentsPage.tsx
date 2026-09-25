@@ -98,7 +98,7 @@ const statusLabels: Record<string, string> = {
 export function AppointmentsPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : pathname?.startsWith('/broker') ? '/broker' : '/admin';
   const { company, role, user, profile } = useAuth();
   const { items: aptList, loading, error, update } = useAppointments(company?.id);
   const { items: profiles } = useProfiles(company?.id);

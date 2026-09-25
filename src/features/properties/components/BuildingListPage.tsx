@@ -355,20 +355,46 @@ export function BuildingListPage() {
     return Array.from(map.entries());
   }, [paginatedBuildings]);
 
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
     const formData = new FormData(e.currentTarget);
+
+    const code = ((formData.get('code') as string) || '').trim();
+    const name = ((formData.get('name') as string) || '').trim();
+    const address = ((formData.get('address') as string) || '').trim();
+    const totalFloorsRaw = (formData.get('total_floors') as string) || '';
+    const totalRoomsRaw = (formData.get('total_rooms') as string) || '';
+    const totalFloorsVal = Number(totalFloorsRaw);
+    const totalRoomsVal = Number(totalRoomsRaw);
+
+    const errs: Record<string, string> = {};
+    if (!code) errs.code = 'Vui lòng nhập mã tòa nhà';
+    if (!name) errs.name = 'Vui lòng nhập tên tòa nhà';
+    if (!selectedProvinceId) errs.province = 'Vui lòng chọn tỉnh/thành phố';
+    if (!selectedDistrictId) errs.district = 'Vui lòng chọn quận/huyện';
+    if (!selectedWardId) errs.ward = 'Vui lòng chọn phường/xã';
+    if (!address) errs.address = 'Vui lòng nhập địa chỉ chi tiết';
+    if (!totalFloorsRaw || isNaN(totalFloorsVal) || totalFloorsVal <= 0) errs.total_floors = 'Vui lòng nhập số tầng (> 0)';
+    if (!totalRoomsRaw || isNaN(totalRoomsVal) || totalRoomsVal <= 0) errs.total_rooms = 'Vui lòng nhập số phòng (> 0)';
+
+    if (Object.keys(errs).length > 0) {
+      setFormErrors(errs);
+      return;
+    }
+    setFormErrors({});
+    setSaving(true);
 
     const payload = {
       company_id: company?.id ?? '',
-      code: formData.get('code') as string,
-      name: formData.get('name') as string,
+      code,
+      name,
       area: composedArea || (formData.get('area') as string) || '',
-      address: formData.get('address') as string,
+      address,
       year_built: Number(formData.get('year_built')) || null,
-      total_floors: Number(formData.get('total_floors')) || 0,
-      total_rooms: Number(formData.get('total_rooms')) || 0,
+      total_floors: totalFloorsVal,
+      total_rooms: totalRoomsVal,
       description: (formData.get('description') as string) || null,
       image_url: imageUrl || '',
       thumbnail_url: thumbnailUrl || '',
@@ -418,6 +444,7 @@ export function BuildingListPage() {
 
   const openAdd = () => {
     setEditItem(null);
+    setFormErrors({});
     setFormLandlordCode('');
     setSelectedManagers([]);
     setImageUrl(null);
@@ -443,6 +470,7 @@ export function BuildingListPage() {
 
   const openEdit = (item: DBBuilding) => {
     setEditItem(item);
+    setFormErrors({});
     setFormLandlordCode(item.landlord_id || '');
     setSelectedManagers(item.manager_ids || []);
     setImageUrl(item.image_url || null);
@@ -479,7 +507,7 @@ export function BuildingListPage() {
       occupancyRate: 0,
     };
 
-    const targetPrefix = pathname.startsWith('/landlord') ? '/landlord/buildings' : '/admin/realhome/buildings';
+    const targetPrefix = pathname.startsWith('/landlord') ? '/landlord/buildings' : pathname.startsWith('/broker') ? '/broker/buildings' : '/admin/realhome/buildings';
     const barColor = st.occupancyRate >= 80 ? 'bg-emerald-500' : st.occupancyRate >= 50 ? 'bg-amber-500' : 'bg-rose-500';
 
     return (
@@ -955,15 +983,27 @@ export function BuildingListPage() {
           </DialogHeader>
 
           <div className="overflow-y-auto flex-1 px-6 pb-6">
-            <form id="building-form" onSubmit={handleSave} className="space-y-4 py-1">
+            <form id="building-form" onSubmit={handleSave} noValidate className="space-y-4 py-1">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Mã tòa nhà <span className="text-rose-500">*</span></Label>
-                  <Input name="code" defaultValue={editItem?.code} required className="rounded-xl border-slate-200 focus:border-emerald-400" />
+                  <Input
+                    name="code"
+                    defaultValue={editItem?.code}
+                    onChange={() => formErrors.code && setFormErrors((prev) => ({ ...prev, code: '' }))}
+                    className={`rounded-xl ${formErrors.code ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                  />
+                  {formErrors.code && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.code}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tên tòa nhà <span className="text-rose-500">*</span></Label>
-                  <Input name="name" defaultValue={editItem?.name} required className="rounded-xl border-slate-200 focus:border-emerald-400" />
+                  <Input
+                    name="name"
+                    defaultValue={editItem?.name}
+                    onChange={() => formErrors.name && setFormErrors((prev) => ({ ...prev, name: '' }))}
+                    className={`rounded-xl ${formErrors.name ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                  />
+                  {formErrors.name && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.name}</p>}
                 </div>
               </div>
 
@@ -973,36 +1013,48 @@ export function BuildingListPage() {
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tỉnh / Thành phố <span className="text-rose-500">*</span></Label>
                   <select
                     value={selectedProvinceId}
-                    onChange={(e) => setSelectedProvinceId(e.target.value)}
-                    className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400"
+                    onChange={(e) => {
+                      setSelectedProvinceId(e.target.value);
+                      if (formErrors.province) setFormErrors((prev) => ({ ...prev, province: '' }));
+                    }}
+                    className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 ${formErrors.province ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
                   >
                     <option value="">-- Chọn tỉnh/thành --</option>
                     {provinces.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                  {formErrors.province && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.province}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Quận / Huyện <span className="text-rose-500">*</span></Label>
                   <select
                     value={selectedDistrictId}
-                    onChange={(e) => setSelectedDistrictId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedDistrictId(e.target.value);
+                      if (formErrors.district) setFormErrors((prev) => ({ ...prev, district: '' }));
+                    }}
                     disabled={!selectedProvinceId}
-                    className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50"
+                    className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50 ${formErrors.district ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
                   >
                     <option value="">-- Chọn quận/huyện --</option>
                     {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
+                  {formErrors.district && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.district}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Phường / Xã <span className="text-rose-500">*</span></Label>
                   <select
                     value={selectedWardId}
-                    onChange={(e) => setSelectedWardId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedWardId(e.target.value);
+                      if (formErrors.ward) setFormErrors((prev) => ({ ...prev, ward: '' }));
+                    }}
                     disabled={!selectedDistrictId}
-                    className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50"
+                    className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50 ${formErrors.ward ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
                   >
                     <option value="">-- Chọn phường/xã --</option>
                     {wards.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
+                  {formErrors.ward && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.ward}</p>}
                 </div>
               </div>
 
@@ -1042,7 +1094,14 @@ export function BuildingListPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-rose-500">*</span></Label>
-                <Input name="address" defaultValue={editItem?.address ?? ''} placeholder="Ví dụ: 96 Đê La Thành" className="rounded-xl border-slate-200 focus:border-emerald-400" />
+                <Input
+                  name="address"
+                  defaultValue={editItem?.address ?? ''}
+                  placeholder="Ví dụ: 96 Đê La Thành"
+                  onChange={() => formErrors.address && setFormErrors((prev) => ({ ...prev, address: '' }))}
+                  className={`rounded-xl ${formErrors.address ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                />
+                {formErrors.address && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.address}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -1057,11 +1116,25 @@ export function BuildingListPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Số tầng <span className="text-rose-500">*</span></Label>
-                  <Input name="total_floors" type="number" defaultValue={editItem?.total_floors ?? 0} required className="rounded-xl border-slate-200 focus:border-emerald-400" />
+                  <Input
+                    name="total_floors"
+                    type="number"
+                    defaultValue={editItem?.total_floors ?? 0}
+                    onChange={() => formErrors.total_floors && setFormErrors((prev) => ({ ...prev, total_floors: '' }))}
+                    className={`rounded-xl ${formErrors.total_floors ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                  />
+                  {formErrors.total_floors && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.total_floors}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Số phòng <span className="text-rose-500">*</span></Label>
-                  <Input name="total_rooms" type="number" defaultValue={editItem?.total_rooms ?? 0} required className="rounded-xl border-slate-200 focus:border-emerald-400" />
+                  <Input
+                    name="total_rooms"
+                    type="number"
+                    defaultValue={editItem?.total_rooms ?? 0}
+                    onChange={() => formErrors.total_rooms && setFormErrors((prev) => ({ ...prev, total_rooms: '' }))}
+                    className={`rounded-xl ${formErrors.total_rooms ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                  />
+                  {formErrors.total_rooms && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.total_rooms}</p>}
                 </div>
               </div>
 

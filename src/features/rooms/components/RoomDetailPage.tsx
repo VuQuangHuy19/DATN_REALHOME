@@ -65,8 +65,8 @@ export function RoomDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('available');
   const [soonDate, setSoonDate] = useState<string>('');
 
-  const backUrl = pathname.startsWith('/landlord') ? '/landlord/buildings' : '/admin/realhome/buildings';
-  const buildingUrl = pathname.startsWith('/landlord') ? `/landlord/buildings/${room?.building_id}` : `/admin/realhome/buildings/${room?.building_id}`;
+  const backUrl = pathname.startsWith('/landlord') ? '/landlord/buildings' : pathname.startsWith('/broker') ? '/broker/buildings' : '/admin/realhome/buildings';
+  const buildingUrl = pathname.startsWith('/landlord') ? `/landlord/buildings/${room?.building_id}` : pathname.startsWith('/broker') ? `/broker/buildings/${room?.building_id}` : `/admin/realhome/buildings/${room?.building_id}`;
 
   const [displayPrice, setDisplayPrice] = useState<string>('');
 

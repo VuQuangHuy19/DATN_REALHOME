@@ -38,7 +38,7 @@ function SuperAdminHeader() {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { LayoutDashboard, Building2, CreditCard, Package } from 'lucide-react';
+import { LayoutDashboard, Building2, FileText, Package } from 'lucide-react';
 
 function SuperAdminBottomNav() {
   const pathname = usePathname();
@@ -49,7 +49,7 @@ function SuperAdminBottomNav() {
   const tabs = [
     { label: 'Tổng quan', href: '/super-admin', icon: LayoutDashboard },
     { label: 'Công ty', href: '/super-admin/companies', icon: Building2 },
-    { label: 'Gói đăng ký', href: '/super-admin/subscriptions', icon: CreditCard },
+    { label: 'Hóa đơn', href: '/super-admin/invoices', icon: FileText },
     { label: 'Gói dịch vụ', href: '/super-admin/plans', icon: Package },
   ];
 

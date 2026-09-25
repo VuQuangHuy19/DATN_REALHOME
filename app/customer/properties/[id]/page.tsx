@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -37,6 +37,7 @@ const statusLabels: Record<string, string> = {
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
 import { SameLandlordBuildingsWidget } from '@/src/features/properties/components/SameLandlordBuildingsWidget';
 import { SimilarBuildingsWidget } from '@/src/features/properties/components/SimilarBuildingsWidget';
+import { NearbyPlacesSection } from '@/src/features/properties/components/NearbyPlacesSection';
 
 function DressingTableIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
   return (
@@ -165,6 +166,50 @@ export default function BuildingDetailPage() {
   // Filters for rooms list
   const [filterFloor, setFilterFloor] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // POI scanning state
+  const [scanningPOI, setScanningPOI] = useState(false);
+  const [localNearbyPlaces, setLocalNearbyPlaces] = useState<any>(null);
+  const scanAttemptedRef = useRef<string | null>(null);
+
+  const handleScanPOI = useCallback(async () => {
+    if (!building?.id) return;
+    try {
+      setScanningPOI(true);
+      const res = await fetch('/api/nearby-places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildingId: building.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.data) {
+        setLocalNearbyPlaces(data.data);
+      }
+    } catch (err) {
+      console.error('Scan POI error:', err);
+    } finally {
+      setScanningPOI(false);
+    }
+  }, [building?.id]);
+
+  useEffect(() => {
+    const poiData = localNearbyPlaces || building?.nearby_places;
+    const hasPlaces =
+      (poiData?.education?.length || 0) +
+      (poiData?.shopping?.length || 0) +
+      (poiData?.public?.length || 0) > 0;
+
+    if (hasPlaces && !localNearbyPlaces) {
+      setLocalNearbyPlaces(building.nearby_places);
+    } else if (
+      building?.id &&
+      !hasPlaces &&
+      !scanningPOI
+    ) {
+      handleScanPOI();
+    }
+  }, [building?.id, building?.nearby_places, scanningPOI, localNearbyPlaces, handleScanPOI]);
+
 
   const hotline = company?.phone || '(028) 1234-5678';
   const hotlineHref = company?.phone ? `tel:${company.phone.replace(/\D/g, '')}` : 'tel:02812345678';
@@ -516,6 +561,15 @@ export default function BuildingDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Location & Nearby Places (POIs) */}
+          <NearbyPlacesSection
+            nearbyPlaces={localNearbyPlaces ?? building?.nearby_places}
+            latitude={building?.latitude}
+            longitude={building?.longitude}
+            onScan={handleScanPOI}
+            isScanning={scanningPOI}
+          />
 
           {/* Rooms List Section */}
           <div className="space-y-4">

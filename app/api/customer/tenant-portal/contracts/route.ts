@@ -53,19 +53,61 @@ export async function GET(request: Request) {
       return NextResponse.json({ contracts: [], handovers: [] });
     }
 
-    // 4. Query rental contracts (no nested join to avoid text/uuid type mismatch on building_id)
-    const { data: rawContracts, error: contractErr } = await supabaseAdmin
+    // 4. Query rental contracts with schema error fallback
+    let rawContracts: any[] = [];
+    let { data: rData, error: contractErr } = await supabaseAdmin
       .from('rental_contracts')
       .select('*')
       .or(filters.join(','))
       .order('created_at', { ascending: false });
 
-    if (contractErr) {
+    if (contractErr && contractErr.message?.includes('party_b_email')) {
+      const fallbackFilters: string[] = [];
+      if (phone) fallbackFilters.push(`party_b_phone.eq.${phone}`);
+      if (fullName) fallbackFilters.push(`party_b_name.ilike.%${fullName}%`);
+
+      if (fallbackFilters.length > 0) {
+        const retry = await supabaseAdmin
+          .from('rental_contracts')
+          .select('*')
+          .or(fallbackFilters.join(','))
+          .order('created_at', { ascending: false });
+        rData = retry.data;
+        contractErr = retry.error;
+      }
+    }
+
+    if (contractErr && !rData) {
       console.error('Error fetching tenant contracts:', contractErr);
       return NextResponse.json({ error: contractErr.message }, { status: 500 });
     }
 
-    const contracts = rawContracts || [];
+    if (rData) {
+      rawContracts = rData.map((rc: any) => ({ ...rc, contract_type: 'rental' }));
+    }
+
+    // Also query deposit contracts for full tenant visibility
+    const { data: dData } = await supabaseAdmin
+      .from('deposit_contracts')
+      .select('*')
+      .or(filters.join(','))
+      .order('created_at', { ascending: false });
+
+    if (dData && dData.length > 0) {
+      const depositMapped = dData.map((dc: any) => ({
+        ...dc,
+        contract_type: 'deposit',
+        start_date: dc.agreement_date,
+        end_date: dc.deadline_sign_contract,
+      }));
+      depositMapped.forEach((dc: any) => {
+        if (!rawContracts.some((rc: any) => rc.deposit_contract_id === dc.id || rc.contract_code === dc.contract_code)) {
+          rawContracts.push(dc);
+        }
+      });
+    }
+
+    const contracts = rawContracts;
 
     // 5. Enrich each contract with room and building via separate admin queries
     const enrichedContracts = await Promise.all(
@@ -107,8 +149,8 @@ export async function GET(request: Request) {
       const { data: hoData } = await supabaseAdmin
         .from('handover_reports')
         .select('*')
-        .in('rental_contract_id', contractIds)
-        .order('date', { ascending: false });
+        .in('contract_id', contractIds)
+        .order('created_at', { ascending: false });
       handovers = hoData || [];
     }
 

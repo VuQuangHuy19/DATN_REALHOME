@@ -46,7 +46,7 @@ export function CreateRentalContractPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : pathname?.startsWith('/broker') ? '/broker' : '/admin';
   const depositId = searchParams.get('deposit_id');
   const [depositSalesAgentId, setDepositSalesAgentId] = useState<string | null>(null);
   const { items: rooms, loading: roomsLoading } = useRooms(company?.id);
@@ -94,6 +94,7 @@ export function CreateRentalContractPage() {
   const [partyBName, setPartyBName] = useState<string>('');
   const [partyBDob, setPartyBDob] = useState<string>('');
   const [partyBPhone, setPartyBPhone] = useState<string>('');
+  const [partyBEmail, setPartyBEmail] = useState<string>('');
   const [partyBIdCard, setPartyBIdCard] = useState<string>('');
   const [partyBIdDate, setPartyBIdDate] = useState<string>('');
   const [partyBIdPlace, setPartyBIdPlace] = useState<string>('');
@@ -202,10 +203,10 @@ export function CreateRentalContractPage() {
           }
           setRentPrice(Number(data.rent_price));
           setDepositAmount(Number(data.deposit_amount));
-          setSignLocation(data.sign_location || '');
           setPartyBAddress(data.party_b_address || '');
           setPartyBName(data.party_b_name || '');
           setPartyBPhone(data.party_b_phone || '');
+          setPartyBEmail(data.party_b_email || '');
           setPartyBIdCard(data.party_b_id_card || '');
           setPartyBIdDate(data.party_b_id_date || '');
           setPartyBIdPlace(data.party_b_id_place || '');
@@ -265,6 +266,7 @@ export function CreateRentalContractPage() {
           setPartyBAddress(data.party_b_address || '');
           setPartyBName(data.party_b_name || '');
           setPartyBPhone(data.party_b_phone || '');
+          setPartyBEmail(data.party_b_email || '');
           setPartyBIdCard(data.party_b_id_card || '');
           setPartyBIdDate(data.party_b_id_date || '');
           setPartyBIdPlace(data.party_b_id_place || '');
@@ -377,6 +379,7 @@ export function CreateRentalContractPage() {
       // Bên B
       party_b_name: partyBName,
       party_b_phone: partyBPhone,
+      party_b_email: partyBEmail || null,
       party_b_dob: partyBDob || null,
       party_b_id_card: partyBIdCard || null,
       party_b_id_date: partyBIdDate || null,
@@ -441,6 +444,25 @@ export function CreateRentalContractPage() {
         } catch (syncErr) {
           console.error('Lỗi đồng bộ SĐT khách thuê vào profiles:', syncErr);
         }
+      }
+
+      // 6. Gửi email kích hoạt tài khoản Cổng thông tin khách thuê nếu có email khách
+      if (partyBEmail && partyBEmail.includes('@')) {
+        const roomObj = rooms.find((r) => r.id === selectedRoomId);
+        fetch('/api/contracts/tenant-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_id: company.id,
+            email: partyBEmail,
+            full_name: partyBName,
+            phone: partyBPhone,
+            contract_code: generatedCode,
+            room_code: roomObj?.code || '',
+            building_name: roomObj?.buildings?.name || '',
+            rental_contract_id: newContract.id,
+          }),
+        }).catch((e) => console.error('Lỗi khi gửi mail kích hoạt cho khách thuê:', e));
       }
 
       toast.success('Lập hợp đồng thuê chính thức thành công!');
@@ -681,6 +703,10 @@ export function CreateRentalContractPage() {
             <div className="space-y-1.5">
               <Label htmlFor="party_b_phone" className="text-ink font-semibold text-xs uppercase tracking-wider">Số điện thoại *</Label>
               <Input id="party_b_phone" value={partyBPhone} onChange={(e) => setPartyBPhone(e.target.value)} placeholder="Số điện thoại" required className="rounded-lg border-border focus-visible:ring-accent font-mono font-bold text-slate-900" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="party_b_email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email khách thuê</Label>
+              <Input id="party_b_email" type="email" value={partyBEmail} onChange={(e) => setPartyBEmail(e.target.value)} placeholder="Ví dụ: khachhang@gmail.com" className="rounded-lg border-border focus-visible:ring-accent font-semibold text-slate-900" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="party_b_id_card" className="text-ink font-semibold text-xs uppercase tracking-wider">Số CCCD / CMND</Label>

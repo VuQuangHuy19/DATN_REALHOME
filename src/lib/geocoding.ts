@@ -124,6 +124,13 @@ const HANOI_LANDMARKS: Record<string, GeoCoordinates> = {
   'quoc gia': { lat: 21.0375, lng: 105.7818, displayName: 'Đại học Quốc Gia Hà Nội, Cầu Giấy' },
 };
 
+const HANOI_SPECIFIC_BUILDINGS: Record<string, GeoCoordinates> = {
+  '562 đường láng': { lat: 21.0107, lng: 105.8205, displayName: '562 Đường Láng, Đống Đa, Hà Nội' },
+  '562 duong lang': { lat: 21.0107, lng: 105.8205, displayName: '562 Đường Láng, Đống Đa, Hà Nội' },
+  '19 trần duy hưng': { lat: 21.0084, lng: 105.7946, displayName: '19 Trần Duy Hưng, Cầu Giấy, Hà Nội' },
+  '19 tran duy hung': { lat: 21.0084, lng: 105.7946, displayName: '19 Trần Duy Hưng, Cầu Giấy, Hà Nội' },
+};
+
 const geocodeCache = new Map<string, GeoCoordinates | null>();
 
 /**
@@ -135,14 +142,24 @@ export async function geocodeLandmark(query: string): Promise<GeoCoordinates | n
 
   const cleanQuery = query.trim().toLowerCase();
 
-  // 1. Kiểm tra từ điển tọa độ địa danh cố định tại Hà Nội (0ms, siêu nhanh & chính xác 100%)
-  for (const [key, coords] of Object.entries(HANOI_LANDMARKS)) {
-    if (cleanQuery.includes(key) || key.includes(cleanQuery)) {
+  // 1. Kiểm tra địa chỉ nhà cụ thể trước (chính xác 100% từng số nhà)
+  for (const [key, coords] of Object.entries(HANOI_SPECIFIC_BUILDINGS)) {
+    if (cleanQuery.includes(key)) {
       return coords;
     }
   }
 
-  // 2. Kiểm tra Cache
+  // 2. Nếu câu truy vấn chứa số nhà cụ thể (ví dụ: "562 đường láng"), KHÔNG khớp với tâm phố chung chung (tránh bị lệch tọa độ)
+  const hasHouseNumber = /\d+/.test(cleanQuery);
+  if (!hasHouseNumber) {
+    for (const [key, coords] of Object.entries(HANOI_LANDMARKS)) {
+      if (cleanQuery === key || cleanQuery.includes(key)) {
+        return coords;
+      }
+    }
+  }
+
+  // 3. Kiểm tra Cache
   if (geocodeCache.has(cleanQuery)) {
     return geocodeCache.get(cleanQuery) || null;
   }

@@ -4,6 +4,8 @@ export const runtime = 'nodejs';
 import { requireApiAuth, isApiError } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/mail';
+import { generateOnboardingToken } from '@/lib/auth/onboarding-token';
+import crypto from 'crypto';
 
 export async function POST(request: Request) {
   try {
@@ -330,6 +332,77 @@ export async function POST(request: Request) {
             `,
           });
         }
+      }
+    }
+
+    // Tìm và gửi mail kích hoạt cho Khách thuê nếu có email
+    if (party_b_email && party_b_email.includes('@')) {
+      try {
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const { data: existingProf } = await supabaseAdmin
+          .from('profiles')
+          .select('id, is_active')
+          .eq('email', party_b_email)
+          .maybeSingle();
+
+        if (!existingProf) {
+          const newUserId = crypto.randomUUID();
+          await supabaseAdmin
+            .from('profiles')
+            .insert({
+              id: newUserId,
+              company_id,
+              email: party_b_email,
+              full_name: party_b_name,
+              phone: party_b_phone || null,
+              role: 'tenant',
+              is_active: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+        }
+
+        if (!existingProf || !existingProf.is_active) {
+          const tokenPayload = generateOnboardingToken(72);
+          await supabaseAdmin
+            .from('tenant_invitations')
+            .insert({
+              email: party_b_email,
+              company_id,
+              phone: party_b_phone || null,
+              full_name: party_b_name || null,
+              token: tokenPayload.rawToken,
+              expires_at: tokenPayload.expiresAt.toISOString(),
+              status: 'pending',
+            } as any);
+
+          const inviteLink = `${siteUrl}/onboarding?token=${tokenPayload.rawToken}`;
+          emailsToSend.push({
+            to: party_b_email,
+            subject: `[RealHome] Lời mời kích hoạt tài khoản Cổng thông tin khách thuê - HĐ ${contract_code}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                  <h2 style="color: #4f46e5; margin: 0 0 8px 0;">Chào mừng bạn đến với RealHome</h2>
+                  <p style="color: #64748b; font-size: 14px; margin: 0;">Cổng thông tin quản lý thuê nhà dành cho Khách thuê</p>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                <p>Xin chào <strong>${party_b_name}</strong>,</p>
+                <p>Hợp đồng đặt cọc của bạn cho phòng <strong>${roomCode}</strong> (${buildingName}) đã được lập thành công với mã hợp đồng: <strong>${contract_code}</strong>.</p>
+                <p>Vui lòng click vào nút bên dưới để thiết lập mật khẩu và kích hoạt tài khoản của bạn. Sau khi kích hoạt, bạn có thể đăng nhập Cổng thông tin khách thuê để tra cứu chi tiết hợp đồng, theo dõi hóa đơn và gửi yêu cầu sự cố.</p>
+                <div style="text-align: center; margin: 32px 0;">
+                  <a href="${inviteLink}" style="background-color: #4f46e5; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">Kích hoạt tài khoản ngay</a>
+                </div>
+                <p style="color: #64748b; font-size: 13px;">Nếu nút trên không hoạt động, bạn có thể sao chép liên kết sau dán vào trình duyệt:</p>
+                <p style="color: #4f46e5; font-size: 12px; word-break: break-all; background-color: #f8fafc; padding: 10px; border-radius: 6px;">${inviteLink}</p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                <p style="color: #94a3b8; font-size: 12px; text-align: center;">Đây là email tự động từ RealHome. Vui lòng không trả lời trực tiếp email này.</p>
+              </div>
+            `,
+          });
+        }
+      } catch (tenantMailErr) {
+        console.error('Lỗi khi chuẩn bị mail kích hoạt cho khách thuê:', tenantMailErr);
       }
     }
 

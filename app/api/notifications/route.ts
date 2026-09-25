@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const companyId = searchParams.get('companyId');
+    const userRole = searchParams.get('userRole') || searchParams.get('role');
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
     let query = supabaseAdmin
@@ -29,11 +30,53 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data: data || [] });
+    let result = data || [];
+
+    // Filter out sales lead / check-in / audit notifications for tenants
+    const isTenantRole = userRole === 'tenant' || userRole === 'customer' || !userRole;
+    if (isTenantRole) {
+      const salesTypes = [
+        'appointment_new', 'appointment_created', 'appointment_claim', 'appointment_confirmed',
+        'new_lead', 'lead_new', 'lead', 'checkin', 'check_in', 'checkout', 'audit', 'sales',
+        'consultation', 'kyc_review', 'kyc_submitted'
+      ];
+
+      const salesKeywords = [
+        'dẫn khách', 'check-in', 'checkin', 'xuất phát', 'lịch hẹn xem',
+        'vừa đặt lịch', 'xem phòng mới', 'bấm xuất phát', 'timemark',
+        'phê duyệt kyc', 'chú ý sale', 'sale '
+      ];
+
+      result = result.filter((n: any) => {
+        const type = (n.type || '').toLowerCase();
+        const title = (n.title || '').toLowerCase();
+        const body = (n.body || '').toLowerCase();
+
+        if (salesTypes.some((st) => type === st || type.includes(st))) {
+          return false;
+        }
+
+        if (salesKeywords.some((kw) => title.includes(kw) || body.includes(kw))) {
+          return false;
+        }
+
+        if (!n.recipient_id) {
+          const recRole = (n.recipient_role || '').toLowerCase();
+          if (recRole && recRole !== 'tenant' && recRole !== 'customer' && recRole !== 'user' && recRole !== 'all') {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    }
+
+    return NextResponse.json({ success: true, data: result });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,3 +114,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
+

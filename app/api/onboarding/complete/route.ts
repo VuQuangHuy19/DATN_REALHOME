@@ -49,27 +49,79 @@ export async function POST(request: Request) {
       );
     }
 
-    // Kiểm tra hết hạn
-    if (invitation.expires_at) {
-      const expiresAt = new Date(invitation.expires_at);
-      if (expiresAt < new Date()) {
-        return NextResponse.json(
-          { error: 'Liên kết kích hoạt đã hết hạn sử dụng' },
-          { status: 400 }
-        );
-      }
-    }
-
+    // 3. Kiểm tra loại tài khoản (Tenant hay Nhân viên/Quản trị)
     let profile_id = (invitation as any).profile_id;
     const company_id = invitation.company_id;
+    let isTenant = false;
 
     if (!profile_id && invitation.email) {
       const { data: prof } = await supabaseAdmin
         .from('profiles')
-        .select('id')
+        .select('id, role')
         .eq('email', invitation.email)
         .maybeSingle();
-      if (prof) profile_id = prof.id;
+      if (prof) {
+        profile_id = prof.id;
+        if (prof.role === 'tenant') isTenant = true;
+      }
+    } else if (profile_id) {
+      const { data: prof } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', profile_id)
+        .maybeSingle();
+      if (prof?.role === 'tenant') isTenant = true;
+    }
+
+    if (isTenant || (invitation as any).rental_contract_id) {
+      // Dành cho Khách thuê: Token có hiệu lực vô thời hạn cho tới khi Hợp đồng thuê hết hạn / bị hủy / thanh lý
+      const email = invitation.email;
+      const phone = invitation.phone;
+
+      let contractsFilter = '';
+      if (email && phone) {
+        contractsFilter = `party_b_email.eq.${email},party_b_phone.eq.${phone}`;
+      } else if (email) {
+        contractsFilter = `party_b_email.eq.${email}`;
+      } else if (phone) {
+        contractsFilter = `party_b_phone.eq.${phone}`;
+      }
+
+      if (contractsFilter) {
+        const { data: deposits } = await supabaseAdmin
+          .from('deposit_contracts')
+          .select('status')
+          .or(contractsFilter);
+
+        const { data: rentals } = await supabaseAdmin
+          .from('rental_contracts')
+          .select('status')
+          .or(contractsFilter);
+
+        const allContracts = [...(deposits || []), ...(rentals || [])];
+        if (allContracts.length > 0) {
+          const hasActiveContract = allContracts.some((c) =>
+            ['active', 'signed', 'draft', 'converted'].includes(c.status)
+          );
+          if (!hasActiveContract) {
+            return NextResponse.json(
+              { error: 'Hợp đồng thuê nhà hoặc đặt cọc của bạn đã kết thúc, hết hạn hoặc bị hủy.' },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    } else {
+      // Dành cho Nhân viên / Quản lý: Kiểm tra expires_at thông thường
+      if (invitation.expires_at) {
+        const expiresAt = new Date(invitation.expires_at);
+        if (expiresAt < new Date()) {
+          return NextResponse.json(
+            { error: 'Liên kết kích hoạt đã hết hạn sử dụng' },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     if (!profile_id) {

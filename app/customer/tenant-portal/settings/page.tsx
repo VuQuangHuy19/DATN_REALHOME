@@ -268,7 +268,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold text-ink font-heading flex items-center gap-2">
           <Settings className="h-7 w-7 text-amber-600" />
-          Cài đặt &amp; Hồ sơ cá nhân
+          Cài đặt &amp; Hồ sơ
         </h1>
         <p className="text-sm text-ink-muted mt-1">Quản lý thông tin cá nhân, giao diện, cài đặt thông báo và bảo mật</p>
       </div>
@@ -438,29 +438,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Liên hệ khẩn cấp */}
-      <Card className="border border-border-subtle">
-        <CardHeader className="pb-3 flex flex-row items-center gap-2">
-          <Phone className="h-5 w-5 text-red-500" />
-          <h2 className="text-base font-bold text-ink font-heading">Liên hệ khẩn cấp</h2>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-bold text-ink-muted mb-1.5 block">Họ tên</label>
-              <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} className="rounded-xl" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-ink-muted mb-1.5 block">Số điện thoại</label>
-              <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} className="rounded-xl" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-ink-muted mb-1.5 block">Quan hệ</label>
-              <Input value={emergencyRelation} onChange={(e) => setEmergencyRelation(e.target.value)} className="rounded-xl" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Cài đặt thông báo */}
       <Card className="border border-border-subtle">
@@ -489,16 +466,6 @@ export default function SettingsPage() {
               <p className="text-xs text-ink-muted">Thông báo đẩy trên trình duyệt</p>
             </div>
             <Switch checked={notifPush} onCheckedChange={setNotifPush} />
-          </div>
-          <div className="flex items-center justify-between py-2 border-t border-border-subtle">
-            <div>
-              <p className="text-sm font-semibold text-ink flex items-center gap-1.5">
-                Thông báo khi bị @Mention
-                <Badge className="bg-amber-100 text-amber-950 border border-amber-400 text-[9px] font-extrabold">Mới</Badge>
-              </p>
-              <p className="text-xs text-ink-muted">Nhận thông báo khi BQL hoặc bộ phận gắn thẻ bạn</p>
-            </div>
-            <Switch checked={notifMention} onCheckedChange={setNotifMention} />
           </div>
         </CardContent>
       </Card>

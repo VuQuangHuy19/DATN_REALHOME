@@ -1,7 +1,5 @@
-'use client';
-
-import ServiceReadingsPage from '@/app/admin/services/readings/page';
+import { redirect } from 'next/navigation';
 
 export default function LandlordReadingsPage() {
-  return <ServiceReadingsPage />;
+  redirect('/landlord/invoices?tab=readings');
 }

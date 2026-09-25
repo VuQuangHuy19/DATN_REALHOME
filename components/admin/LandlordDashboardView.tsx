@@ -16,7 +16,7 @@ import {
   Building2, Home, DollarSign, CalendarDays, Percent, FileText,
   CheckCircle, ShieldAlert, ShieldCheck, Clock, User, Phone, MapPin,
   ExternalLink, ArrowRight, Activity, Calendar, TrendingUp, Sparkles, AlertCircle, HelpCircle, Info, X,
-  Layers, Search, Plus, Wrench, ChevronLeft, ChevronRight
+  Layers, Search, Plus, Wrench, ChevronLeft, ChevronRight, UserCog
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -360,6 +360,12 @@ export function LandlordDashboardView({
               <Link href="/landlord/buildings">
                 <Building2 className="h-4 w-4 mr-1.5 text-emerald-600" />
                 Quản Lý Tòa Nhà
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20 font-semibold backdrop-blur-md text-xs">
+              <Link href="/landlord/managers">
+                <UserCog className="h-4 w-4 mr-1.5 text-emerald-300" />
+                Quản Lý Tòa
               </Link>
             </Button>
             <Button asChild variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20 font-semibold backdrop-blur-md text-xs">

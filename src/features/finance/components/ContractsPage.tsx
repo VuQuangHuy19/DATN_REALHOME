@@ -76,7 +76,7 @@ export function ContractsPage() {
   const router = useRouter();
   const { company, role } = useAuth();
   const pathname = usePathname();
-  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : '/admin';
+  const pathPrefix = pathname?.startsWith('/landlord') ? '/landlord' : pathname?.startsWith('/broker') ? '/broker' : '/admin';
   const [activeTab, setActiveTab] = useState<'deposits' | 'rentals' | 'archived' | 'templates'>('deposits');
   
   // Tab 1: Hợp đồng đặt cọc
