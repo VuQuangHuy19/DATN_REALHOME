@@ -11,14 +11,19 @@ import {
 } from 'lucide-react';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import type { DBAppointment } from '@/lib/supabase/types';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 interface ShowingTimelineViewProps {
   appointments: DBAppointment[];
   onOpenDetail: (appointment: DBAppointment) => void;
   onClaim?: (appointment: DBAppointment) => void;
+  assignableProfiles?: any[];
+  onAssign?: (appointmentId: string, profileId: string, profileName: string) => void;
 }
 
-export function ShowingTimelineView({ appointments, onOpenDetail, onClaim }: ShowingTimelineViewProps) {
+export function ShowingTimelineView({ appointments, onOpenDetail, onClaim, assignableProfiles = [], onAssign }: ShowingTimelineViewProps) {
+  const { role } = useAuth();
+  const isSale = role === 'sales_agent';
   // Helper to format Date object to YYYY-MM-DD local string
   const formatYMD = (d: Date) => {
     const offset = d.getTimezoneOffset();
@@ -323,17 +328,44 @@ export function ShowingTimelineView({ appointments, onOpenDetail, onClaim }: Sho
                     </div>
 
                     {!item.assigned_to ? (
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (onClaim) onClaim(item);
-                        }}
-                        className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold h-8 text-[11px] px-3 rounded-xl gap-1 shadow-sm animate-pulse"
-                      >
-                        <Flame className="h-3.5 w-3.5 text-yellow-300" />
-                        <span>✋ Nhận dẫn ngay</span>
-                      </Button>
+                      isSale ? (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onClaim) onClaim(item);
+                          }}
+                          className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold h-8 text-[11px] px-3 rounded-xl gap-1 shadow-sm animate-pulse"
+                        >
+                          <Flame className="h-3.5 w-3.5 text-yellow-300" />
+                          <span>✋ Nhận dẫn ngay</span>
+                        </Button>
+                      ) : (
+                        <div onClick={(e) => e.stopPropagation()} className="relative">
+                          <select
+                            defaultValue=""
+                            onChange={async (e) => {
+                              const selectedId = e.target.value;
+                              if (!selectedId) return;
+                              const prof = assignableProfiles.find((p) => p.id === selectedId);
+                              const profName = prof?.full_name || prof?.email || 'Sale';
+                              if (onAssign) {
+                                onAssign(item.id, selectedId, profName);
+                              }
+                            }}
+                            className="h-8 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-2.5 outline-none cursor-pointer border border-indigo-500 shadow-sm transition-all focus:ring-2 focus:ring-indigo-300"
+                          >
+                            <option value="" disabled className="bg-white text-slate-800 font-bold">
+                              Phân công Sale
+                            </option>
+                            {assignableProfiles.map((p) => (
+                              <option key={p.id} value={p.id} className="bg-white text-slate-800 font-medium">
+                                {p.full_name || p.email}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )
                     ) : (
                       <Button
                         size="sm"

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -220,6 +221,39 @@ export default function RoomDetailPage() {
             </span>
           </div>
 
+          {/* Reminder Note for sales agents */}
+          {(user || role) && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 pl-4 border-l-4 border-blue-500">
+                <div>
+                  <div className="font-bold text-ink text-sm">Đặt lịch xem
+                    <Link href={`/customer/properties/${property.buildingId}`} className="ml-2 text-xs text-accent hover:underline font-semibold">→ Xem các phòng khác trong tòa</Link>
+                  </div>
+                  <div className="text-sm font-semibold text-red-500">Tối thiểu 30 phút trước giờ hẹn</div>
+                  <div className="text-sm font-semibold text-orange-500">Hạn chế sau 21:00</div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2 text-sm">
+                <div className="flex items-start gap-2 text-red-600 dark:text-red-400">
+                  <X className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Khách chưa đi xem <span className="font-bold">→ không mặc cà</span></span>
+                </div>
+                <div className="flex items-start gap-2 text-red-600 dark:text-red-400">
+                  <X className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span className="font-bold">Không xin fix trước</span>
+                </div>
+                <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Muốn deal được <span className="font-bold">→ phải có khách thật</span></span>
+                </div>
+                <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Việc đúng: <span className="font-bold underline">đẫn khách đi xem trước</span> <span className="font-bold">→ Mới được đàm phán</span></span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
             <h2 className="text-xl font-bold font-heading text-ink mb-3">Mô tả</h2>
             <p className="text-ink-muted leading-relaxed whitespace-pre-line">{property.description}</p>
@@ -414,6 +448,11 @@ export default function RoomDetailPage() {
                 <div className="text-3xl font-bold text-ink font-mono tracking-tight">
                   {property.price.toLocaleString('vi-VN')}đ<span className="text-sm font-normal text-ink-muted">/tháng</span>
                 </div>
+                {(user || role) && (property.commissionText || property.rose) && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-lg">
+                    💰 <span>Hoa hồng:</span> <span className="text-emerald-700">{property.commissionText || property.rose}</span>
+                  </div>
+                )}
               </div>
 
               {/* Table of costs */}

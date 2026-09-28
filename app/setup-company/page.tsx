@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2, Phone, MapPin, User, Users, ArrowRight, ArrowLeft, CheckCircle2,
-  Sparkles, Shield, Zap, Clock, Loader2, ChevronRight, Mail, Lock,
+  Sparkles, Shield, Zap, Clock, Loader2, ChevronRight, Mail, Lock, Eye, EyeOff,
 } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ export default function SetupCompanyPage() {
   const { profile, user } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('professional');
   const [selectedSeats, setSelectedSeats] = useState<number | ''>(20);
 
@@ -98,8 +99,28 @@ export default function SetupCompanyPage() {
     }
   }, [profile, user]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email.trim());
+  };
+
+  const validatePhone = (phone: string) => {
+    const cleanPhone = phone.replace(/\s+/g, '');
+    const phoneRegex = /^(0|\+84)[3|5|7|8|9|2][0-9]{8,9}$/;
+    return phoneRegex.test(cleanPhone);
+  };
+
   const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   // Tính cước phí động dựa vào Gói được chọn + Số Seats mua thêm
@@ -113,19 +134,44 @@ export default function SetupCompanyPage() {
   const monthlyPriceTotal = basePrice + extraPriceTotal;
 
   const validateStep1 = () => {
-    if (!form.owner_name.trim() || !form.company_name.trim() || !form.company_phone.trim()) {
-      toast.error('Vui lòng điền đầy đủ thông tin bắt buộc (*)');
-      return false;
+    const newErrors: Record<string, string> = {};
+
+    if (!form.owner_name.trim()) {
+      newErrors.owner_name = 'Vui lòng nhập tên đại diện / chủ doanh nghiệp';
     }
+
+    if (!form.company_name.trim()) {
+      newErrors.company_name = 'Vui lòng nhập tên công ty / doanh nghiệp';
+    }
+
+    if (!form.company_phone.trim()) {
+      newErrors.company_phone = 'Vui lòng nhập số điện thoại công ty';
+    } else if (!validatePhone(form.company_phone)) {
+      newErrors.company_phone = 'Số điện thoại không hợp lệ (Ví dụ hợp lệ: 0987654321 hoặc +84987654321)';
+    }
+
+    if (!form.company_address.trim()) {
+      newErrors.company_address = 'Vui lòng nhập địa chỉ công ty';
+    }
+
     if (!profile && !user) {
-      if (!form.owner_email.trim() || !form.password.trim()) {
-        toast.error('Vui lòng nhập Email và Mật khẩu để khởi tạo tài khoản (*)');
-        return false;
+      if (!form.owner_email.trim()) {
+        newErrors.owner_email = 'Vui lòng nhập email đăng nhập';
+      } else if (!validateEmail(form.owner_email)) {
+        newErrors.owner_email = 'Email không đúng định dạng (Ví dụ hợp lệ: name@gmail.com)';
       }
-      if (form.password.trim().length < 6) {
-        toast.error('Mật khẩu khởi tạo phải từ 6 ký tự trở lên');
-        return false;
+
+      if (!form.password.trim()) {
+        newErrors.password = 'Vui lòng nhập mật khẩu khởi tạo';
+      } else if (form.password.trim().length < 6) {
+        newErrors.password = 'Mật khẩu khởi tạo phải có ít nhất 6 ký tự';
       }
+    }
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error('Vui lòng kiểm tra lại thông tin bị lỗi!');
+      return false;
     }
     return true;
   };
@@ -216,7 +262,7 @@ export default function SetupCompanyPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-bold text-slate-200">
                   Tên đại diện / Chủ doanh nghiệp <span className="text-amber-400">*</span>
                 </Label>
@@ -226,12 +272,19 @@ export default function SetupCompanyPage() {
                     placeholder="Nguyễn Văn A"
                     value={form.owner_name}
                     onChange={e => handleChange('owner_name', e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className={`pl-10 bg-white/10 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 ${
+                      errors.owner_name ? 'border-red-500 ring-1 ring-red-500' : 'border-white/20'
+                    }`}
                   />
                 </div>
+                {errors.owner_name && (
+                  <p className="text-red-400 text-xs font-semibold mt-1 animate-in fade-in-50">
+                    ⚠️ {errors.owner_name}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-bold text-slate-200">
                   Tên Công ty / Doanh nghiệp <span className="text-amber-400">*</span>
                 </Label>
@@ -241,43 +294,66 @@ export default function SetupCompanyPage() {
                     placeholder="Công ty TNHH Quản lý BĐS ABC"
                     value={form.company_name}
                     onChange={e => handleChange('company_name', e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500"
+                    className={`pl-10 bg-white/10 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 ${
+                      errors.company_name ? 'border-red-500 ring-1 ring-red-500' : 'border-white/20'
+                    }`}
                   />
                 </div>
+                {errors.company_name && (
+                  <p className="text-red-400 text-xs font-semibold mt-1 animate-in fade-in-50">
+                    ⚠️ {errors.company_name}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-bold text-slate-200">
                   Số điện thoại công ty <span className="text-amber-400">*</span>
                 </Label>
                 <div className="relative">
                   <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500 z-10" />
                   <Input
-                    placeholder="0987 654 321"
+                    placeholder="0987654321"
                     value={form.company_phone}
                     onChange={e => handleChange('company_phone', e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 font-mono"
+                    className={`pl-10 bg-white/10 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 font-mono ${
+                      errors.company_phone ? 'border-red-500 ring-1 ring-red-500' : 'border-white/20'
+                    }`}
                   />
                 </div>
+                {errors.company_phone && (
+                  <p className="text-red-400 text-xs font-semibold mt-1 animate-in fade-in-50">
+                    ⚠️ {errors.company_phone}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-200">Địa chỉ công ty</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-bold text-slate-200">
+                  Địa chỉ công ty <span className="text-amber-400">*</span>
+                </Label>
                 <div className="relative">
                   <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500 z-10" />
                   <Input
                     placeholder="123 Đường ABC, Quận 1, TP.HCM"
                     value={form.company_address}
                     onChange={e => handleChange('company_address', e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500"
+                    className={`pl-10 bg-white/10 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 ${
+                      errors.company_address ? 'border-red-500 ring-1 ring-red-500' : 'border-white/20'
+                    }`}
                   />
                 </div>
+                {errors.company_address && (
+                  <p className="text-red-400 text-xs font-semibold mt-1 animate-in fade-in-50">
+                    ⚠️ {errors.company_address}
+                  </p>
+                )}
               </div>
 
               {/* Nếu chưa đăng nhập (Incognito/Guest): Yêu cầu Email & Mật khẩu khởi tạo */}
               {(!profile && !user) ? (
                 <>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label className="text-sm font-bold text-slate-200">
                       Email đăng nhập Chủ doanh nghiệp <span className="text-amber-400">*</span>
                     </Label>
@@ -288,25 +364,52 @@ export default function SetupCompanyPage() {
                         placeholder="owner@company.com"
                         value={form.owner_email}
                         onChange={e => handleChange('owner_email', e.target.value)}
-                        className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500"
+                        className={`pl-10 bg-white/10 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 ${
+                          errors.owner_email ? 'border-red-500 ring-1 ring-red-500' : 'border-white/20'
+                        }`}
                       />
                     </div>
+                    {errors.owner_email && (
+                      <p className="text-red-400 text-xs font-semibold mt-1 animate-in fade-in-50">
+                        ⚠️ {errors.owner_email}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label className="text-sm font-bold text-slate-200">
                       Mật khẩu khởi tạo tài khoản <span className="text-amber-400">*</span>
                     </Label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-500 z-10" />
                       <Input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
                         value={form.password}
                         onChange={e => handleChange('password', e.target.value)}
-                        className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 font-mono"
+                        className={`pl-10 pr-10 bg-white/10 text-white placeholder:text-slate-500 rounded-xl h-12 focus:ring-2 focus:ring-indigo-500 font-mono ${
+                          errors.password ? 'border-red-500 ring-1 ring-red-500' : 'border-white/20'
+                        }`}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors focus:outline-none p-1 rounded-lg z-10"
+                        title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4.5 w-4.5 text-indigo-400" />
+                        ) : (
+                          <Eye className="h-4.5 w-4.5 text-slate-400 hover:text-slate-200" />
+                        )}
+                      </button>
                     </div>
+                    {errors.password && (
+                      <p className="text-red-400 text-xs font-semibold mt-1 animate-in fade-in-50">
+                        ⚠️ {errors.password}
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (

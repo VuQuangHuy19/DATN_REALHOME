@@ -60,7 +60,7 @@ export function BuildingCard({
   onComposeDeposit,
 }: BuildingCardProps) {
   const [copyDone, setCopyDone] = useState(false);
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
 
   const handleCopyBuildingLink = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -91,6 +91,10 @@ export function BuildingCard({
   const roomTypesList = Array.from(new Set(group.rooms?.map((r) => r.roomType).filter(Boolean))) as string[];
   const roomTypeTagText = roomTypesList.length > 0 ? roomTypesList.slice(0, 2).join(' • ') : (group.representativeRoom?.roomType || 'Căn hộ');
 
+  // Commission calculation for logged-in users (Sale/Broker/Admin)
+  const firstRoomWithRose = group.rooms?.find((r) => r.commissionText || r.rose);
+  const commissionDisplay = firstRoomWithRose?.commissionText || (firstRoomWithRose?.rose ? `${firstRoomWithRose.rose}` : null);
+
   return (
     <Link
       href={`/customer/properties/${group.buildingId}`}
@@ -99,8 +103,8 @@ export function BuildingCard({
       <div className="relative" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
         <ImageGallery items={group.allImages} alt={group.buildingName} />
 
-        {/* Top Badges: KYC Badge & Pet Badge */}
-        <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-1 pointer-events-none">
+        {/* Top Badges: KYC Badge (Trái) & Hoa hồng Badge (Phải - Chỉ dành cho user đã đăng nhập) */}
+        <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-1.5 pointer-events-none">
           <KYCBadge
             type="property"
             isVerified={isVerified}
@@ -108,6 +112,12 @@ export function BuildingCard({
             systemName={group.landlordSystemName || group.representativeRoom?.landlordSystemName}
             name={group.landlordName || group.representativeRoom?.landlordName}
           />
+
+          {(user || role) && commissionDisplay && (
+            <Badge className="bg-emerald-600/95 text-white border border-emerald-300 text-xs font-black px-2.5 py-1 rounded-xl shadow-lg flex items-center gap-1 backdrop-blur-xs">
+              <span>💰 HH: {commissionDisplay}</span>
+            </Badge>
+          )}
         </div>
 
         {/* Tag Loại phòng: Nền đen tối đậm + Chữ vàng Cam nổi bật */}

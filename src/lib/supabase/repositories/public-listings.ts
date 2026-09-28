@@ -21,7 +21,7 @@ const buildingFields = `
 
 const roomFields = `
   id, code, floor, room_type, size, price, status, bedrooms, bathrooms,
-  description, building_id, company_id, landlord_id,
+  description, rose, building_id, company_id, landlord_id,
   has_private_balcony, max_occupants, max_vehicles_per_room, min_contract_months,
   deposit_terms, created_at,
   buildings(${buildingFields}),

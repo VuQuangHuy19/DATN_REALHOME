@@ -15,6 +15,7 @@ type RoomRow = {
   bedrooms: number;
   bathrooms: number;
   description: string | null;
+  rose?: string | null;
   has_private_balcony?: boolean | null;
   max_occupants?: number | null;
   max_vehicles_per_room?: number | null;
@@ -56,6 +57,33 @@ type RoomRow = {
   room_images?: { url: string; thumbnail_url?: string | null; is_thumbnail: boolean; priority: number; media_type?: string }[] | null;
   rental_contracts?: any[] | null;
 };
+
+export function formatCommissionText(rose: string | null | undefined, price: number): string | null {
+  if (!rose || !rose.trim()) return null;
+  const trimmed = rose.trim();
+  if (trimmed.includes('%') && (trimmed.includes('-') || trimmed.includes('tr') || trimmed.includes('k'))) {
+    return trimmed;
+  }
+  const numMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*%?$/);
+  if (numMatch) {
+    const pct = parseFloat(numMatch[1]);
+    if (pct > 0 && price > 0) {
+      const amountVnd = (price * pct) / 100;
+      let amountStr = '';
+      if (amountVnd >= 1_000_000) {
+        const trVal = amountVnd / 1_000_000;
+        amountStr = `${Number.isInteger(trVal) ? trVal : trVal.toFixed(1).replace('.', ',')}tr`;
+      } else if (amountVnd >= 1_000) {
+        amountStr = `${Math.round(amountVnd / 1_000)}k`;
+      } else {
+        amountStr = `${amountVnd}đ`;
+      }
+      return `${pct}% - ${amountStr}`;
+    }
+    return `${pct}%`;
+  }
+  return trimmed;
+}
 
 export function mapRoomToListing(room: RoomRow): CustomerListing | null {
   if (!room.company_id) return null;
@@ -203,5 +231,7 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     createdAt: room.created_at || null,
     availableDate: null,
     nearbyPlaces: (building as any)?.nearby_places ?? null,
+    rose: room.rose || null,
+    commissionText: formatCommissionText(room.rose, room.price),
   };
 }

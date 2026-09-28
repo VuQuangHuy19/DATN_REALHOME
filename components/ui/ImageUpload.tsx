@@ -262,18 +262,7 @@ export function ImageUpload({
           <p className="font-semibold text-slate-600">Định dạng hỗ trợ</p>
           <p>PNG, JPG, WEBP, GIF (Tối đa 10 MB)</p>
           {allowVideo && <p>MP4, MOV, WEBM (Video tối đa 500 MB)</p>}
-          <div className="pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDbPickerOpen(true)}
-              className="h-7 text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 gap-1.5 font-medium"
-            >
-              <Database className="h-3.5 w-3.5 text-accent" />
-              Mở Thư viện DB đầy đủ
-            </Button>
-          </div>
+          {/* Button "Mở Thư viện DB đầy đủ" removed as requested */}
         </div>
       </div>
 
@@ -289,7 +278,7 @@ export function ImageUpload({
 
           {inlinePhotos.length === 0 && !loadingInline ? (
             <p className="text-[11px] text-slate-400 italic">
-              Tòa nhà này chưa có ảnh phòng nào trong DB. Hãy tải ảnh mới hoặc mở Thư viện DB.
+              Tòa nhà này chưa có ảnh phòng nào trong hệ thống. Hãy tải ảnh mới lên.
             </p>
           ) : (
             <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">

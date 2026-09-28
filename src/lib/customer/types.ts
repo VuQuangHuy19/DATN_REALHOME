@@ -56,6 +56,8 @@ export interface CustomerListing {
   landlordSystemName?: string | null;
   landlordName?: string | null;
   nearbyPlaces?: any | null;
+  rose?: string | null;
+  commissionText?: string | null;
 }
 
 export interface PublicCompany {

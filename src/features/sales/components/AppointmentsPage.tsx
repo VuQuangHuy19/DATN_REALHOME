@@ -115,7 +115,7 @@ export function AppointmentsPage() {
   }, [aptList, isSale, user?.id, profile?.id]);
 
   const assignableProfiles = useMemo(() => {
-    return profiles.filter((p) => p.role !== 'landlord');
+    return profiles.filter((p) => p.role !== 'landlord' && p.role !== 'tenant' && p.role !== 'customer');
   }, [profiles]);
   const formatYMD = (d: Date) => {
     const offset = d.getTimezoneOffset();
@@ -130,8 +130,8 @@ export function AppointmentsPage() {
   }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterFromDate, setFilterFromDate] = useState<string>(todayStr);
-  const [filterToDate, setFilterToDate] = useState<string>(default7DaysStr);
+  const [filterFromDate, setFilterFromDate] = useState<string>('');
+  const [filterToDate, setFilterToDate] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [viewTab, setViewTab] = useState<'timeline' | 'table'>('timeline');
@@ -346,9 +346,19 @@ export function AppointmentsPage() {
 
       {viewTab === 'timeline' ? (
         <ShowingTimelineView
-          appointments={sortedAndFiltered}
+          appointments={visibleAppointments}
           onOpenDetail={openView}
           onClaim={handleClaim}
+          assignableProfiles={assignableProfiles}
+          onAssign={async (aptId, profileId, profileName) => {
+            const toastId = toast.loading('Đang phân công Sale...');
+            try {
+              await update(aptId, { assigned_to: profileId, assigned_to_name: profileName });
+              toast.success(`🎉 Đã phân công cho ${profileName}!`, { id: toastId });
+            } catch (err: any) {
+              toast.error('Lỗi phân công: ' + err.message, { id: toastId });
+            }
+          }}
         />
       ) : (
 
@@ -481,14 +491,24 @@ export function AppointmentsPage() {
                       </td>
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         {!item.assigned_to ? (
-                          <Button
-                            size="sm"
-                            onClick={() => handleClaim(item)}
-                            disabled={claimingId === item.id}
-                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-sm gap-1 animate-pulse"
-                          >
-                            {claimingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '✋ Nhận Ngay'}
-                          </Button>
+                          isSale ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handleClaim(item)}
+                              disabled={claimingId === item.id}
+                              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-sm gap-1 animate-pulse"
+                            >
+                              {claimingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '✋ Nhận Ngay'}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => openView(item)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-sm gap-1"
+                            >
+                              👤 Phân công sale
+                            </Button>
+                          )
                         ) : isSale ? (
                           <span className="text-xs font-semibold text-ink-muted bg-bg-subtle px-2.5 py-1 rounded-full border border-border-subtle">
                             {item.assigned_to_name || 'Sale'}
@@ -651,14 +671,24 @@ export function AppointmentsPage() {
                     {/* Bottom Actions Bar */}
                     <div className="flex items-center justify-between pt-1 border-t border-border-subtle/60" onClick={(e) => e.stopPropagation()}>
                       {!item.assigned_to ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handleClaim(item)}
-                          disabled={claimingId === item.id}
-                          className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-7 px-3 rounded-lg shadow-sm gap-1 animate-pulse"
-                        >
-                          {claimingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : '✋ Nhận Ngay'}
-                        </Button>
+                        isSale ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleClaim(item)}
+                            disabled={claimingId === item.id}
+                            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-7 px-3 rounded-lg shadow-sm gap-1 animate-pulse"
+                          >
+                            {claimingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : '✋ Nhận Ngay'}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => openView(item)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-7 px-3 rounded-lg shadow-sm gap-1"
+                          >
+                            👤 Phân công sale
+                          </Button>
+                        )
                       ) : (
                         <span className="text-[11px] font-semibold text-ink-muted bg-bg-subtle px-2 py-0.5 rounded-full border border-border-subtle">
                           {item.assigned_to_name || 'Sale'}
@@ -748,19 +778,23 @@ export function AppointmentsPage() {
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between gap-2 shadow-xs">
                     <div>
                       <span className="font-bold text-amber-900 text-xs block">⚠️ Lịch hẹn chưa có Sale phụ trách</span>
-                      <span className="text-[11px] text-amber-700">Bấm nhận ngay để chăm sóc khách hàng này.</span>
+                      <span className="text-[11px] text-amber-700">
+                        {isSale ? 'Bấm nhận ngay để chăm sóc khách hàng này.' : 'Vui lòng chọn Sale từ danh sách bên dưới để phân công.'}
+                      </span>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={async () => {
-                        await handleClaim(viewItem);
-                        setIsViewOpen(false);
-                      }}
-                      disabled={claimingId === viewItem.id}
-                      className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs h-8 px-3 rounded-lg shadow-sm shrink-0 gap-1 animate-pulse"
-                    >
-                      {claimingId === viewItem.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '✋ Nhận Ngay'}
-                    </Button>
+                    {isSale && (
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          await handleClaim(viewItem);
+                          setIsViewOpen(false);
+                        }}
+                        disabled={claimingId === viewItem.id}
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs h-8 px-3 rounded-lg shadow-sm shrink-0 gap-1 animate-pulse"
+                      >
+                        {claimingId === viewItem.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : '✋ Nhận Ngay'}
+                      </Button>
+                    )}
                   </div>
                 )}
 

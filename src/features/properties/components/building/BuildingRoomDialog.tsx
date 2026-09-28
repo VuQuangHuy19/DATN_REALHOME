@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Loader2, Trash2, Image as LucideImage } from 'lucide-react';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { RoseInput } from '@/components/ui/RoseInput';
 import type { DBRoom } from '@/lib/supabase/types';
 
 interface BuildingRoomDialogProps {
@@ -178,7 +179,12 @@ export function BuildingRoomDialog({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="rose" className="text-ink font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới</Label>
-                <Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." className="rounded-lg border-border focus-visible:ring-accent" />
+                <RoseInput
+                  id="rose"
+                  name="rose"
+                  defaultValue={editItem?.rose ?? ''}
+                  inputClassName="border-border focus-visible:ring-accent"
+                />
               </div>
             </div>
 

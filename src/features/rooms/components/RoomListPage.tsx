@@ -35,6 +35,7 @@ import type { DBRoom } from '@/lib/supabase/types';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import Image from 'next/image';
 import { FormattedDateInput } from '@/components/ui/formatted-date-input';
+import { RoseInput } from '@/components/ui/RoseInput';
 import { usePathname } from 'next/navigation';
 
 export function RoomListPage() {
@@ -1110,7 +1111,7 @@ export function RoomListPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="rose" className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Hoa hồng môi giới</Label>
-                  <Input id="rose" name="rose" defaultValue={editItem?.rose ?? ''} placeholder="Nhập hoa hồng..." className="rounded-xl border-slate-200 focus:border-emerald-400" />
+                  <RoseInput id="rose" name="rose" defaultValue={editItem?.rose ?? ''} />
                 </div>
               </div>
 

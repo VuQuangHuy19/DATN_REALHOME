@@ -17,7 +17,7 @@ import { getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useCompare } from '@/src/lib/customer/RoomCompareContext';
 import {
-  MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2,
+  MapPin, Bed, Bath, Square, Calendar, Phone, Map as MapIcon, ExternalLink, Loader2,
   ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText,
   Link as LinkIcon, CheckCheck, Wind, Flame, Shirt, Utensils, Sparkles, Box, RotateCw,
   ShieldCheck, Droplets, Wifi, Sun, Lock
@@ -379,6 +379,87 @@ export default function BuildingDetailPage() {
             )}
           </div>
 
+          {/* Quick Room Access Panel */}
+          {filteredRooms.length > 0 && (
+            <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/20 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-500/15 border-b border-emerald-200 dark:border-emerald-800">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide">
+                    Phòng đang trống – Nhấn để xem ngay
+                  </span>
+                </div>
+                <span className="bg-emerald-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0">
+                  {filteredRooms.length} phòng
+                </span>
+              </div>
+              <div className="p-4 space-y-3">
+                {Array.from(
+                  filteredRooms.reduce((map, room) => {
+                    const fl = room.floor || 1;
+                    if (!map.has(fl)) map.set(fl, []);
+                    map.get(fl)!.push(room);
+                    return map;
+                  }, new Map<number, typeof filteredRooms>())
+                )
+                  .sort(([a], [b]) => a - b)
+                  .map(([floorNum, floorRooms]) => (
+                    <div key={floorNum} className="flex items-center gap-3 flex-wrap">
+                      <span className="text-xs font-bold text-ink-muted w-7 shrink-0">T{floorNum}:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {floorRooms.map((room) => (
+                          <Link
+                            key={room.id}
+                            href={`/customer/properties/rooms/${room.id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 hover:border-emerald-500 transition-all shadow-xs"
+                          >
+                            {room.title.split('—')[1]?.trim() || room.id.slice(0, 6)}
+                            {room.status === 'soon_available' && (
+                              <span className="text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-300 px-1 rounded">sắp</span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium pt-1">
+                  👆 Nhấn vào số phòng để xem chi tiết ngay lập tức
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Reminder Note for sales agents */}
+          {(user || role) && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 pl-4 border-l-4 border-blue-500">
+                <div>
+                  <div className="font-bold text-ink text-sm">Đặt lịch xem</div>
+                  <div className="text-sm font-semibold text-red-500">Tối thiểu 30 phút trước giờ hẹn</div>
+                  <div className="text-sm font-semibold text-orange-500">Hạn chế sau 21:00</div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2 text-sm">
+                <div className="flex items-start gap-2 text-red-600 dark:text-red-400">
+                  <X className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Khách chưa đi xem <span className="font-bold">→ không mặc cà</span></span>
+                </div>
+                <div className="flex items-start gap-2 text-red-600 dark:text-red-400">
+                  <X className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span className="font-bold">Không xin fix trước</span>
+                </div>
+                <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Muốn deal được <span className="font-bold">→ phải có khách thật</span></span>
+                </div>
+                <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Việc đúng: <span className="font-bold underline">đẫn khách đi xem trước</span> <span className="font-bold">→ Mới được đàm phán</span></span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           <div>
             <h2 className="text-xl font-bold font-heading text-ink mb-3">Mô tả tòa nhà</h2>
@@ -675,8 +756,15 @@ export default function BuildingDetailPage() {
                         </div>
 
                         <div className="mt-4 pt-3 border-t border-border-subtle flex items-center justify-between">
-                          <div className="font-mono font-bold text-accent text-base">
-                            {room.price.toLocaleString('vi-VN')}đ<span className="text-[10px] font-normal text-ink-muted">/tháng</span>
+                          <div>
+                            <div className="font-mono font-bold text-accent text-base">
+                              {room.price.toLocaleString('vi-VN')}đ<span className="text-[10px] font-normal text-ink-muted">/tháng</span>
+                            </div>
+                            {(user || role) && (room.commissionText || room.rose) && (
+                              <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                                💰 HH: {room.commissionText || room.rose}
+                              </div>
+                            )}
                           </div>
                           
                           {/* Actions */}
@@ -839,7 +927,7 @@ export default function BuildingDetailPage() {
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                       <div className="bg-card border border-border-subtle rounded-full px-3 py-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Map className="h-4 w-4 text-accent" />
+                        <MapIcon className="h-4 w-4 text-accent" />
                         Xem bản đồ
                       </div>
                     </div>

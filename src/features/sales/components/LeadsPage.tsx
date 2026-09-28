@@ -151,7 +151,7 @@ function LeadDetail({ leadId, onClose, currentUserId, currentUserName }: {
   };
 
   const assignableProfiles = useMemo(() => {
-    return profiles.filter((p) => p.role !== 'landlord');
+    return profiles.filter((p) => p.role !== 'landlord' && p.role !== 'tenant' && p.role !== 'customer');
   }, [profiles]);
 
   if (!lead) {
@@ -593,7 +593,7 @@ export function LeadsPage() {
   }, [leadList, isSale, user?.id, profile?.id]);
 
   const assignableProfiles = useMemo(() => {
-    return profiles.filter((p) => p.role !== 'landlord');
+    return profiles.filter((p) => p.role !== 'landlord' && p.role !== 'tenant' && p.role !== 'customer');
   }, [profiles]);
 
   const getAssigneeName = (assignedToId: string | null) => {

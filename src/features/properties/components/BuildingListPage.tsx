@@ -119,15 +119,25 @@ export function BuildingListPage() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
 
-  const [electricityPrice, setElectricityPrice] = useState('');
-  const [waterPrice, setWaterPrice] = useState('');
+  const [electricityPrice, setElectricityPrice] = useState('4.000');
+  const [waterPrice, setWaterPrice] = useState('35.000');
   const [internetPrice, setInternetPrice] = useState('100.000');
   const [commonServicePrice, setCommonServicePrice] = useState('200.000');
   const [commonServiceUnit, setCommonServiceUnit] = useState('người');
   const [extraOccupantFee, setExtraOccupantFee] = useState('0');
-  const [electricVehicleFee, setElectricVehicleFee] = useState('');
+  const [electricVehicleFee, setElectricVehicleFee] = useState('100.000');
   const [isPetAllowed, setIsPetAllowed] = useState(false);
   const [allowPetText, setAllowPetText] = useState('');
+
+  // Furniture States
+  const [hasAirConditioner, setHasAirConditioner] = useState(true);
+  const [hasWaterHeater, setHasWaterHeater] = useState(true);
+  const [hasBed, setHasBed] = useState(true);
+  const [hasWardrobe, setHasWardrobe] = useState(true);
+  const [hasKitchenCabinet, setHasKitchenCabinet] = useState(true);
+  const [hasRefrigerator, setHasRefrigerator] = useState(true);
+  const [hasHood, setHasHood] = useState(true);
+  const [hasDressingTable, setHasDressingTable] = useState(false);
 
   const [selectedBuildingIds, setSelectedBuildingIds] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -378,68 +388,80 @@ export function BuildingListPage() {
     if (!address) errs.address = 'Vui lòng nhập địa chỉ chi tiết';
     if (!totalFloorsRaw || isNaN(totalFloorsVal) || totalFloorsVal <= 0) errs.total_floors = 'Vui lòng nhập số tầng (> 0)';
     if (!totalRoomsRaw || isNaN(totalRoomsVal) || totalRoomsVal <= 0) errs.total_rooms = 'Vui lòng nhập số phòng (> 0)';
+    if (!electricityPrice.trim()) errs.electricity_price = 'Vui lòng nhập giá điện';
+    if (!waterPrice.trim()) errs.water_price = 'Vui lòng nhập giá nước';
 
     if (Object.keys(errs).length > 0) {
       setFormErrors(errs);
+      toast.error('Vui lòng kiểm tra lại thông tin bị lỗi!');
       return;
     }
     setFormErrors({});
     setSaving(true);
 
-    const payload = {
-      company_id: company?.id ?? '',
-      code,
-      name,
-      area: composedArea || (formData.get('area') as string) || '',
-      address,
-      year_built: Number(formData.get('year_built')) || null,
-      total_floors: totalFloorsVal,
-      total_rooms: totalRoomsVal,
-      description: (formData.get('description') as string) || null,
-      image_url: imageUrl || '',
-      thumbnail_url: thumbnailUrl || '',
-      landlord_id: role === 'landlord' ? currentLandlordCode : ((formData.get('landlord_id') as string) || null),
-      manager_ids: selectedManagers,
-      has_elevator: formData.get('has_elevator') === 'true',
-      pccc_certified: formData.get('pccc_certified') === 'true',
-      common_drying_area: (formData.get('common_drying_area') as string) || null,
-      allow_pet: isPetAllowed ? (allowPetText || 'Có') : 'Không',
-      allow_foreigners: formData.get('allow_foreigners') === 'true',
-      allow_vinfast_electric: formData.get('allow_vinfast_electric') === 'true',
-      has_air_conditioner: formData.get('has_air_conditioner') === 'true',
-      has_water_heater: formData.get('has_water_heater') === 'true',
-      has_bed: formData.get('has_bed') === 'true',
-      has_wardrobe: formData.get('has_wardrobe') === 'true',
-      has_kitchen_cabinet: formData.get('has_kitchen_cabinet') === 'true',
-      has_refrigerator: formData.get('has_refrigerator') === 'true',
-      has_hood: formData.get('has_hood') === 'true',
-      has_dressing_table: formData.get('has_dressing_table') === 'true',
-      electricity_price: parseNumber(electricityPrice),
-      water_price: parseNumber(waterPrice),
-      internet_price: parseNumber(internetPrice),
-      common_service_price: parseNumber(commonServicePrice),
-      common_service_unit: commonServiceUnit,
-      common_service_description: (formData.get('common_service_description') as string) || null,
-      fingerprint_lock_desc: (formData.get('fingerprint_lock_desc') as string) || null,
-      extra_occupant_fee: parseNumber(extraOccupantFee),
-      has_car_parking: formData.get('has_car_parking') === 'true',
-      washing_machine_type: (formData.get('washing_machine_type') as string) || 'chung',
-      dryer_type: (formData.get('dryer_type') as string) || 'chung',
-      electric_vehicle_fee: parseNumber(electricVehicleFee),
-      latitude,
-      longitude,
-    };
+    try {
+      const payload = {
+        company_id: company?.id ?? '',
+        code,
+        name,
+        area: composedArea || (formData.get('area') as string) || '',
+        address,
+        year_built: Number(formData.get('year_built')) || null,
+        total_floors: totalFloorsVal,
+        total_rooms: totalRoomsVal,
+        description: (formData.get('description') as string) || null,
+        deposit_terms: (formData.get('deposit_terms') as string) || null,
+        image_url: imageUrl || '',
+        thumbnail_url: thumbnailUrl || '',
+        landlord_id: role === 'landlord' ? currentLandlordCode : ((formData.get('landlord_id') as string) || null),
+        manager_ids: selectedManagers,
+        has_elevator: formData.get('has_elevator') === 'true',
+        pccc_certified: formData.get('pccc_certified') === 'true',
+        common_drying_area: (formData.get('common_drying_area') as string) || null,
+        allow_pet: isPetAllowed ? (allowPetText || 'Cho nuôi pet') : 'Không cho phép',
+        allow_foreigners: formData.get('allow_foreigners') === 'true',
+        allow_vinfast_electric: formData.get('allow_vinfast_electric') === 'true',
+        has_air_conditioner: hasAirConditioner,
+        has_water_heater: hasWaterHeater,
+        has_bed: hasBed,
+        has_wardrobe: hasWardrobe,
+        has_kitchen_cabinet: hasKitchenCabinet,
+        has_refrigerator: hasRefrigerator,
+        has_hood: hasHood,
+        has_dressing_table: hasDressingTable,
+        electricity_price: parseNumber(electricityPrice),
+        water_price: parseNumber(waterPrice),
+        internet_price: parseNumber(internetPrice),
+        common_service_price: parseNumber(commonServicePrice),
+        common_service_unit: commonServiceUnit,
+        common_service_description: (formData.get('common_service_description') as string) || null,
+        fingerprint_lock_desc: (formData.get('fingerprint_lock_desc') as string) || null,
+        extra_occupant_fee: parseNumber(extraOccupantFee),
+        has_car_parking: formData.get('has_car_parking') === 'true',
+        washing_machine_type: (formData.get('washing_machine_type') as string) || 'dùng chung',
+        dryer_type: (formData.get('dryer_type') as string) || 'dùng chung',
+        electric_vehicle_fee: parseNumber(electricVehicleFee),
+        latitude,
+        longitude,
+      };
 
-    if (editItem) {
-      await update(editItem.id, payload);
-    } else {
-      await add(payload);
+      if (editItem) {
+        await update(editItem.id, payload);
+        toast.success('Cập nhật thông tin tòa nhà thành công!');
+      } else {
+        await add(payload);
+        toast.success('Thêm tòa nhà mới thành công!');
+      }
+      setIsDialogOpen(false);
+      setEditItem(null);
+      setImageUrl(null);
+      setThumbnailUrl(null);
+    } catch (err: any) {
+      console.error('Lỗi khi lưu tòa nhà:', err);
+      toast.error('Lỗi khi lưu tòa nhà: ' + (err.message || 'Vui lòng kiểm tra lại'));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setIsDialogOpen(false);
-    setEditItem(null);
-    setImageUrl(null);
-    setThumbnailUrl(null);
   };
 
   const openAdd = () => {
@@ -455,9 +477,17 @@ export function BuildingListPage() {
     setCommonServicePrice('200.000');
     setCommonServiceUnit('người');
     setExtraOccupantFee('0');
-    setElectricVehicleFee('0');
+    setElectricVehicleFee('100.000');
     setIsPetAllowed(false);
     setAllowPetText('');
+    setHasAirConditioner(true);
+    setHasWaterHeater(true);
+    setHasBed(true);
+    setHasWardrobe(true);
+    setHasKitchenCabinet(true);
+    setHasRefrigerator(true);
+    setHasHood(true);
+    setHasDressingTable(false);
     setLatitude(null);
     setLongitude(null);
     setSelectedProvinceId('');
@@ -481,11 +511,19 @@ export function BuildingListPage() {
     setCommonServicePrice(formatNumber(item.common_service_price ?? 200000));
     setCommonServiceUnit((item as any).common_service_unit || 'người');
     setExtraOccupantFee(formatNumber(item.extra_occupant_fee ?? 0));
-    setElectricVehicleFee(formatNumber(item.electric_vehicle_fee ?? 0));
+    setElectricVehicleFee(formatNumber(item.electric_vehicle_fee ?? 100000));
     const petVal = item.allow_pet as any;
     const isPet = petVal === true || petVal === 'true' || (typeof petVal === 'string' && petVal !== 'Không' && petVal !== 'false');
     setIsPetAllowed(isPet);
     setAllowPetText(typeof petVal === 'string' && petVal !== 'Có' && petVal !== 'true' && petVal !== 'Không' && petVal !== 'false' ? petVal : '');
+    setHasAirConditioner(item.has_air_conditioner ?? true);
+    setHasWaterHeater(item.has_water_heater ?? true);
+    setHasBed(item.has_bed ?? true);
+    setHasWardrobe(item.has_wardrobe ?? true);
+    setHasKitchenCabinet(item.has_kitchen_cabinet ?? true);
+    setHasRefrigerator(item.has_refrigerator ?? true);
+    setHasHood(item.has_hood ?? true);
+    setHasDressingTable(item.has_dressing_table ?? false);
     setLatitude(item.latitude ?? null);
     setLongitude(item.longitude ?? null);
     setSelectedProvinceId('');
@@ -983,176 +1021,360 @@ export function BuildingListPage() {
           </DialogHeader>
 
           <div className="overflow-y-auto flex-1 px-6 pb-6">
-            <form id="building-form" onSubmit={handleSave} noValidate className="space-y-4 py-1">
-              <div className="grid grid-cols-2 gap-4">
+            <form id="building-form" onSubmit={handleSave} noValidate className="space-y-5 py-1">
+              {/* 1. THÔNG TIN CƠ BẢN & QUẢN LÝ */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-1.5">
+                  <span>🏢</span> 1. Thông tin cơ bản &amp; Quản lý
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Mã tòa nhà <span className="text-rose-500">*</span></Label>
+                    <Input
+                      name="code"
+                      defaultValue={editItem?.code}
+                      onChange={() => formErrors.code && setFormErrors((prev) => ({ ...prev, code: '' }))}
+                      placeholder="Ví dụ: TDN-001"
+                      className={`rounded-xl ${formErrors.code ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    />
+                    {formErrors.code && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.code}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tên tòa nhà <span className="text-rose-500">*</span></Label>
+                    <Input
+                      name="name"
+                      defaultValue={editItem?.name}
+                      onChange={() => formErrors.name && setFormErrors((prev) => ({ ...prev, name: '' }))}
+                      placeholder="Ví dụ: Tòa nhà Pháo Đài Láng"
+                      className={`rounded-xl ${formErrors.name ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    />
+                    {formErrors.name && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.name}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {role !== 'landlord' ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="landlord_id" className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Chủ nhà phụ trách</Label>
+                      <select
+                        id="landlord_id"
+                        name="landlord_id"
+                        value={formLandlordCode}
+                        onChange={(e) => setFormLandlordCode(e.target.value)}
+                        className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400"
+                      >
+                        <option value="" className="bg-white text-slate-400">-- Chọn chủ nhà --</option>
+                        {landlordList.map((l) => (
+                          <option key={l.id} value={l.code || ''} className="bg-white text-slate-800">{l.code ? `${l.code} - ` : ''}{l.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 justify-center flex flex-col">
+                      <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Chủ sở hữu</Label>
+                      <div className="text-xs font-bold text-emerald-700 bg-emerald-50/80 px-3 py-2.5 rounded-xl border border-emerald-200">
+                        {currentLandlord?.name} ({currentLandlordCode})
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Quản lý phụ trách tòa nhà</Label>
+                      <button
+                        type="button"
+                        onClick={() => setIsManagerModalOpen(true)}
+                        className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
+                      >
+                        + Thêm quản lý
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 p-2 border border-slate-200 rounded-xl bg-slate-50 min-h-[42px] items-center">
+                      {managerList.map((m) => {
+                        const isSelected = selectedManagers.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedManagers((prev) => prev.filter((id) => id !== m.id));
+                              } else {
+                                setSelectedManagers((prev) => [...prev, m.id]);
+                              }
+                            }}
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                              isSelected
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {isSelected && <span>✓</span>}
+                            <span>{m.full_name || m.name || m.email}</span>
+                          </button>
+                        );
+                      })}
+                      {managerList.length === 0 && (
+                        <span className="text-xs text-slate-400 italic">Chưa có quản lý nào. Bấm "+ Thêm quản lý" để tạo.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. ĐỊA CHỈ & VỊ TRÍ */}
+              <div className="space-y-4 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-1.5">
+                  <span>📍</span> 2. Địa chỉ &amp; Vị trí tòa nhà
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tỉnh / Thành phố <span className="text-rose-500">*</span></Label>
+                    <select
+                      value={selectedProvinceId}
+                      onChange={(e) => {
+                        setSelectedProvinceId(e.target.value);
+                        if (formErrors.province) setFormErrors((prev) => ({ ...prev, province: '' }));
+                      }}
+                      className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 ${formErrors.province ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
+                    >
+                      <option value="">-- Chọn tỉnh/thành --</option>
+                      {provinces.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    {formErrors.province && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.province}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Quận / Huyện <span className="text-rose-500">*</span></Label>
+                    <select
+                      value={selectedDistrictId}
+                      onChange={(e) => {
+                        setSelectedDistrictId(e.target.value);
+                        if (formErrors.district) setFormErrors((prev) => ({ ...prev, district: '' }));
+                      }}
+                      disabled={!selectedProvinceId}
+                      className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50 ${formErrors.district ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
+                    >
+                      <option value="">-- Chọn quận/huyện --</option>
+                      {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    {formErrors.district && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.district}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Phường / Xã <span className="text-rose-500">*</span></Label>
+                    <select
+                      value={selectedWardId}
+                      onChange={(e) => {
+                        setSelectedWardId(e.target.value);
+                        if (formErrors.ward) setFormErrors((prev) => ({ ...prev, ward: '' }));
+                      }}
+                      disabled={!selectedDistrictId}
+                      className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50 ${formErrors.ward ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
+                    >
+                      <option value="">-- Chọn phường/xã --</option>
+                      {wards.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    </select>
+                    {formErrors.ward && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.ward}</p>}
+                  </div>
+                </div>
+
+                {editItem?.area && !composedArea && (
+                  <div className="text-xs text-slate-500 font-medium">
+                    Khu vực hiện tại: <span className="font-bold text-slate-900">{editItem.area}</span>
+                  </div>
+                )}
+                {composedArea && (
+                  <div className="text-xs text-emerald-600 font-semibold">
+                    ✓ Khu vực: {composedArea}
+                  </div>
+                )}
+                <input name="area" value={composedArea || editItem?.area || ''} readOnly className="hidden" />
+
                 <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Mã tòa nhà <span className="text-rose-500">*</span></Label>
+                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-rose-500">*</span></Label>
                   <Input
-                    name="code"
-                    defaultValue={editItem?.code}
-                    onChange={() => formErrors.code && setFormErrors((prev) => ({ ...prev, code: '' }))}
-                    className={`rounded-xl ${formErrors.code ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    name="address"
+                    defaultValue={editItem?.address ?? ''}
+                    placeholder="Ví dụ: Số 9 ngách 20 ngõ 102 Pháo Đài Láng"
+                    onChange={() => formErrors.address && setFormErrors((prev) => ({ ...prev, address: '' }))}
+                    className={`rounded-xl ${formErrors.address ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
                   />
-                  {formErrors.code && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.code}</p>}
+                  {formErrors.address && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.address}</p>}
                 </div>
+
                 <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tên tòa nhà <span className="text-rose-500">*</span></Label>
-                  <Input
-                    name="name"
-                    defaultValue={editItem?.name}
-                    onChange={() => formErrors.name && setFormErrors((prev) => ({ ...prev, name: '' }))}
-                    className={`rounded-xl ${formErrors.name ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
-                  />
-                  {formErrors.name && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.name}</p>}
+                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tọa độ trên bản đồ</Label>
+                  <LocationPickerDynamic latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
                 </div>
               </div>
 
-              {/* Location Cascade */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tỉnh / Thành phố <span className="text-rose-500">*</span></Label>
-                  <select
-                    value={selectedProvinceId}
-                    onChange={(e) => {
-                      setSelectedProvinceId(e.target.value);
-                      if (formErrors.province) setFormErrors((prev) => ({ ...prev, province: '' }));
-                    }}
-                    className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 ${formErrors.province ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
-                  >
-                    <option value="">-- Chọn tỉnh/thành --</option>
-                    {provinces.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                  {formErrors.province && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.province}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Quận / Huyện <span className="text-rose-500">*</span></Label>
-                  <select
-                    value={selectedDistrictId}
-                    onChange={(e) => {
-                      setSelectedDistrictId(e.target.value);
-                      if (formErrors.district) setFormErrors((prev) => ({ ...prev, district: '' }));
-                    }}
-                    disabled={!selectedProvinceId}
-                    className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50 ${formErrors.district ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
-                  >
-                    <option value="">-- Chọn quận/huyện --</option>
-                    {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
-                  {formErrors.district && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.district}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Phường / Xã <span className="text-rose-500">*</span></Label>
-                  <select
-                    value={selectedWardId}
-                    onChange={(e) => {
-                      setSelectedWardId(e.target.value);
-                      if (formErrors.ward) setFormErrors((prev) => ({ ...prev, ward: '' }));
-                    }}
-                    disabled={!selectedDistrictId}
-                    className={`flex h-10 w-full rounded-xl border bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 disabled:opacity-50 ${formErrors.ward ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200'}`}
-                  >
-                    <option value="">-- Chọn phường/xã --</option>
-                    {wards.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-                  </select>
-                  {formErrors.ward && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.ward}</p>}
+              {/* 3. QUY MÔ & ĐẶT CỌC */}
+              <div className="space-y-4 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-1.5">
+                  <span>🏗️</span> 3. Quy mô tòa nhà &amp; Điều khoản cọc
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Năm xây dựng</Label>
+                    <Input name="year_built" type="number" defaultValue={editItem?.year_built ?? ''} placeholder="2023" className="rounded-xl border-slate-200 focus:border-emerald-400 text-xs" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Số tầng <span className="text-rose-500">*</span></Label>
+                    <Input
+                      name="total_floors"
+                      type="number"
+                      defaultValue={editItem?.total_floors ?? 0}
+                      onChange={() => formErrors.total_floors && setFormErrors((prev) => ({ ...prev, total_floors: '' }))}
+                      className={`rounded-xl text-xs ${formErrors.total_floors ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    />
+                    {formErrors.total_floors && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.total_floors}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Số phòng <span className="text-rose-500">*</span></Label>
+                    <Input
+                      name="total_rooms"
+                      type="number"
+                      defaultValue={editItem?.total_rooms ?? 0}
+                      onChange={() => formErrors.total_rooms && setFormErrors((prev) => ({ ...prev, total_rooms: '' }))}
+                      className={`rounded-xl text-xs ${formErrors.total_rooms ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    />
+                    {formErrors.total_rooms && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.total_rooms}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Quy định đặt cọc</Label>
+                    <Input
+                      name="deposit_terms"
+                      defaultValue={editItem?.deposit_terms ?? ''}
+                      placeholder="Cọc 1 tháng thanh toán 1 tháng"
+                      className="rounded-xl border-slate-200 focus:border-emerald-400 text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {editItem?.area && !composedArea && (
-                <div className="text-xs text-slate-500 font-medium">
-                  Khu vực hiện tại: <span className="font-bold text-slate-900">{editItem.area}</span>
-                </div>
-              )}
-              {composedArea && (
-                <div className="text-xs text-emerald-600 font-semibold">
-                  ✓ Khu vực: {composedArea}
-                </div>
-              )}
-              <input name="area" value={composedArea || editItem?.area || ''} readOnly className="hidden" />
-
-              {role !== 'landlord' ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="landlord_id" className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Chủ nhà phụ trách</Label>
-                  <select
-                    id="landlord_id"
-                    name="landlord_id"
-                    value={formLandlordCode}
-                    onChange={(e) => setFormLandlordCode(e.target.value)}
-                    className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400"
-                  >
-                    <option value="" className="bg-white text-slate-400">-- Chọn chủ nhà --</option>
-                    {landlordList.map((l) => (
-                      <option key={l.id} value={l.code || ''} className="bg-white text-slate-800">{l.code ? `${l.code} - ` : ''}{l.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="text-xs font-semibold text-slate-500">
-                  Chủ nhà: <span className="font-bold text-emerald-600">{currentLandlord?.name} ({currentLandlordCode})</span>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Địa chỉ chi tiết <span className="text-rose-500">*</span></Label>
-                <Input
-                  name="address"
-                  defaultValue={editItem?.address ?? ''}
-                  placeholder="Ví dụ: 96 Đê La Thành"
-                  onChange={() => formErrors.address && setFormErrors((prev) => ({ ...prev, address: '' }))}
-                  className={`rounded-xl ${formErrors.address ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
-                />
-                {formErrors.address && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.address}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Tọa độ trên bản đồ</Label>
-                <LocationPickerDynamic latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Năm XD</Label>
-                  <Input name="year_built" type="number" defaultValue={editItem?.year_built ?? ''} className="rounded-xl border-slate-200 focus:border-emerald-400" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Số tầng <span className="text-rose-500">*</span></Label>
-                  <Input
-                    name="total_floors"
-                    type="number"
-                    defaultValue={editItem?.total_floors ?? 0}
-                    onChange={() => formErrors.total_floors && setFormErrors((prev) => ({ ...prev, total_floors: '' }))}
-                    className={`rounded-xl ${formErrors.total_floors ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
-                  />
-                  {formErrors.total_floors && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.total_floors}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Số phòng <span className="text-rose-500">*</span></Label>
-                  <Input
-                    name="total_rooms"
-                    type="number"
-                    defaultValue={editItem?.total_rooms ?? 0}
-                    onChange={() => formErrors.total_rooms && setFormErrors((prev) => ({ ...prev, total_rooms: '' }))}
-                    className={`rounded-xl ${formErrors.total_rooms ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
-                  />
-                  {formErrors.total_rooms && <p className="text-xs text-rose-500 font-medium mt-1">⚠️ {formErrors.total_rooms}</p>}
-                </div>
-              </div>
-
-              {/* Tiện ích & Quy định */}
+              {/* 4. BẢNG GIÁ DỊCH VỤ & CHI PHÍ */}
               <div className="border border-slate-200 p-4 rounded-xl bg-slate-50 space-y-4 text-xs">
-                <span className="font-bold text-slate-900 block uppercase tracking-wider">Tiện ích &amp; Quy định chung</span>
+                <span className="font-bold text-slate-900 block uppercase tracking-wider text-xs">💰 4. Bảng giá dịch vụ &amp; Chi phí</span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Giá điện (VND/số) <span className="text-rose-500">*</span></Label>
+                    <Input
+                      value={electricityPrice}
+                      onChange={(e) => {
+                        handlePriceChange(setElectricityPrice)(e);
+                        if (formErrors.electricity_price) setFormErrors((prev) => ({ ...prev, electricity_price: '' }));
+                      }}
+                      placeholder="4.000"
+                      className={`h-9 text-xs rounded-xl ${formErrors.electricity_price ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    />
+                    {formErrors.electricity_price && <p className="text-[11px] text-rose-500 font-medium">⚠️ {formErrors.electricity_price}</p>}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Giá nước (VND/khối hoặc người) <span className="text-rose-500">*</span></Label>
+                    <Input
+                      value={waterPrice}
+                      onChange={(e) => {
+                        handlePriceChange(setWaterPrice)(e);
+                        if (formErrors.water_price) setFormErrors((prev) => ({ ...prev, water_price: '' }));
+                      }}
+                      placeholder="35.000"
+                      className={`h-9 text-xs rounded-xl ${formErrors.water_price ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-200 focus:border-emerald-400'}`}
+                    />
+                    {formErrors.water_price && <p className="text-[11px] text-rose-500 font-medium">⚠️ {formErrors.water_price}</p>}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Giá Internet (VND/phòng)</Label>
+                    <Input
+                      value={internetPrice}
+                      onChange={handlePriceChange(setInternetPrice)}
+                      placeholder="100.000"
+                      className="h-9 text-xs rounded-xl border-slate-200 focus:border-emerald-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Phí ở thêm người (VND)</Label>
+                    <Input
+                      value={extraOccupantFee}
+                      onChange={handlePriceChange(setExtraOccupantFee)}
+                      placeholder="0"
+                      className="h-9 text-xs rounded-xl border-slate-200 focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Phí dịch vụ chung (VND)</Label>
+                    <Input
+                      value={commonServicePrice}
+                      onChange={handlePriceChange(setCommonServicePrice)}
+                      placeholder="200.000"
+                      className="h-9 text-xs rounded-xl border-slate-200 focus:border-emerald-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Đơn vị tính DV chung</Label>
+                    <select
+                      value={commonServiceUnit}
+                      onChange={(e) => setCommonServiceUnit(e.target.value)}
+                      className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800 focus:border-emerald-400"
+                    >
+                      <option value="người">người / tháng</option>
+                      <option value="phòng">phòng / tháng</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-slate-700 text-xs">Ghi chú khóa vân tay / Thẻ từ</Label>
+                    <Input
+                      name="fingerprint_lock_desc"
+                      defaultValue={editItem?.fingerprint_lock_desc ?? ''}
+                      placeholder="Cổng khóa vân tay, gửi xe free"
+                      className="h-9 text-xs rounded-xl border-slate-200 focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <Label className="font-semibold text-slate-700 text-xs">Chi tiết dịch vụ chung bao gồm</Label>
+                  <Input
+                    name="common_service_description"
+                    defaultValue={editItem?.common_service_description ?? ''}
+                    placeholder="Vệ sinh chung, đổ rác, bảo trì đồ đạc trong phòng, máy giặt chung..."
+                    className="h-9 text-xs rounded-xl border-slate-200 focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
+              {/* 5. TIỆN ÍCH, QUY ĐỊNH & GIẶT SẤY */}
+              <div className="border border-slate-200 p-4 rounded-xl bg-slate-50 space-y-4 text-xs">
+                <span className="font-bold text-slate-900 block uppercase tracking-wider text-xs">✨ 5. Tiện ích, Quy định &amp; Giặt sấy</span>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <Label htmlFor="has_elevator" className="font-semibold text-slate-700 uppercase">Thang máy</Label>
                     <select id="has_elevator" name="has_elevator" defaultValue={editItem ? String(editItem.has_elevator) : 'true'} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
                       <option value="true">Có thang máy</option>
-                      <option value="false">Không thang máy</option>
+                      <option value="false">Không thang máy (thang bộ)</option>
                     </select>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="pccc_certified" className="font-semibold text-slate-700 uppercase">Hệ thống PCCC</Label>
                     <select id="pccc_certified" name="pccc_certified" defaultValue={editItem ? String(editItem.pccc_certified) : 'true'} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
-                      <option value="true">Đảm bảo an toàn</option>
+                      <option value="true">Đảm bảo an toàn PCCC</option>
                       <option value="false">Chưa hoàn thiện</option>
                     </select>
                   </div>
@@ -1167,34 +1389,113 @@ export function BuildingListPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="space-y-1">
-                    <Label className="font-semibold text-slate-700 uppercase">Nuôi thú cưng</Label>
+                    <Label className="font-semibold text-slate-700 uppercase">Nuôi thú cưng (Pet)</Label>
                     <select value={isPetAllowed ? 'true' : 'false'} onChange={(e) => setIsPetAllowed(e.target.value === 'true')} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
                       <option value="false">Không cho phép</option>
-                      <option value="true">Cho phép</option>
+                      <option value="true">Cho phép nuôi pet</option>
                     </select>
                   </div>
+
+                  {isPetAllowed && (
+                    <div className="space-y-1">
+                      <Label className="font-semibold text-slate-700 uppercase">Ghi chú quy định pet</Label>
+                      <Input
+                        value={allowPetText}
+                        onChange={(e) => setAllowPetText(e.target.value)}
+                        placeholder="Cho nuôi mèo, chó nhỏ dưới 5kg"
+                        className="h-9 text-xs rounded-xl border-slate-200"
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-1">
                     <Label htmlFor="allow_foreigners" className="font-semibold text-slate-700 uppercase">Người nước ngoài</Label>
                     <select id="allow_foreigners" name="allow_foreigners" defaultValue={editItem ? String(editItem.allow_foreigners) : 'false'} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
-                      <option value="false">Chỉ khách Việt</option>
-                      <option value="true">Cho phép</option>
+                      <option value="false">Chỉ khách Việt Nam</option>
+                      <option value="true">Cho phép khách nước ngoài</option>
                     </select>
                   </div>
+
                   <div className="space-y-1">
                     <Label htmlFor="allow_vinfast_electric" className="font-semibold text-slate-700 uppercase">Xe điện VinFast</Label>
                     <select id="allow_vinfast_electric" name="allow_vinfast_electric" defaultValue={editItem ? String(editItem.allow_vinfast_electric) : 'true'} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
-                      <option value="true">Nhận &amp; sạc điện</option>
-                      <option value="false">Không nhận</option>
+                      <option value="true">Nhận &amp; sạc xe điện</option>
+                      <option value="false">Không nhận xe điện</option>
                     </select>
                   </div>
+
                   <div className="space-y-1">
                     <Label htmlFor="electric_vehicle_fee" className="font-semibold text-slate-700 uppercase">Phí sạc xe điện (VND)</Label>
                     <Input id="electric_vehicle_fee" name="electric_vehicle_fee" value={electricVehicleFee} onChange={handlePriceChange(setElectricVehicleFee)} className="h-9 text-xs rounded-xl border-slate-200" />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-200/60">
+                  <div className="space-y-1">
+                    <Label htmlFor="washing_machine_type" className="font-semibold text-slate-700 uppercase">Loại máy giặt</Label>
+                    <select id="washing_machine_type" name="washing_machine_type" defaultValue={editItem?.washing_machine_type ?? 'dùng chung'} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
+                      <option value="dùng chung">Máy giặt chung</option>
+                      <option value="riêng">Máy giặt riêng từng phòng</option>
+                      <option value="không có">Không có máy giặt</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="dryer_type" className="font-semibold text-slate-700 uppercase">Loại máy sấy</Label>
+                    <select id="dryer_type" name="dryer_type" defaultValue={editItem?.dryer_type ?? 'dùng chung'} className="w-full h-9 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-800">
+                      <option value="dùng chung">Máy sấy chung</option>
+                      <option value="riêng">Máy sấy riêng từng phòng</option>
+                      <option value="không có">Không có máy sấy</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="common_drying_area" className="font-semibold text-slate-700 uppercase">Khu vực phơi đồ</Label>
+                    <Input id="common_drying_area" name="common_drying_area" defaultValue={editItem?.common_drying_area ?? ''} placeholder="Sân thượng tầng 6" className="h-9 text-xs rounded-xl border-slate-200" />
+                  </div>
+                </div>
               </div>
 
-              {/* Upload Image */}
+              {/* 6. TRANG BỊ NỘI THẤT SẴN CÓ */}
+              <div className="border border-slate-200 p-4 rounded-xl bg-slate-50 space-y-3">
+                <span className="font-bold text-slate-900 block uppercase tracking-wider text-xs">🛋️ 6. Trang bị nội thất cơ bản</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  {[
+                    { label: 'Điều hòa', state: hasAirConditioner, setter: setHasAirConditioner },
+                    { label: 'Bình nóng lạnh', state: hasWaterHeater, setter: setHasWaterHeater },
+                    { label: 'Giường ngủ', state: hasBed, setter: setHasBed },
+                    { label: 'Tủ quần áo', state: hasWardrobe, setter: setHasWardrobe },
+                    { label: 'Tủ bếp', state: hasKitchenCabinet, setter: setHasKitchenCabinet },
+                    { label: 'Tủ lạnh', state: hasRefrigerator, setter: setHasRefrigerator },
+                    { label: 'Máy hút mùi', state: hasHood, setter: setHasHood },
+                    { label: 'Bàn trang điểm', state: hasDressingTable, setter: setHasDressingTable },
+                  ].map((item, idx) => (
+                    <label key={idx} className="flex items-center gap-2 cursor-pointer p-2.5 bg-white rounded-xl border border-slate-200 hover:border-emerald-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={item.state}
+                        onChange={(e) => item.setter(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span className="font-semibold text-slate-800">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 7. MÔ TẢ CHI TIẾT */}
+              <div className="space-y-1.5">
+                <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Mô tả chi tiết tòa nhà</Label>
+                <textarea
+                  name="description"
+                  rows={3}
+                  defaultValue={editItem?.description ?? ''}
+                  placeholder="Ví dụ: Full đồ: Thang máy, Điều hòa, Nóng Lạnh, giường tủ quần áo, tủ bếp, tủ lạnh... Điện 4k/số, nước 35k/khối, internet 100k/phòng, Dịch vụ chung 200k/người..."
+                  className="flex w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-emerald-400 focus:outline-hidden"
+                />
+              </div>
+
+              {/* 8. HÌNH ẢNH TÒA NHÀ */}
               <div className="space-y-1.5">
                 <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Hình ảnh tòa nhà</Label>
                 <ImageUpload
