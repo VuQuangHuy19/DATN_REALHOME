@@ -385,6 +385,7 @@ export default function PropertiesPage() {
         isVerifiedProperty: rooms.some((r) => r.isVerifiedProperty),
         landlordSystemName: rep.landlordSystemName ?? rooms.find((r) => r.landlordSystemName)?.landlordSystemName,
         landlordName: rep.landlordName ?? rooms.find((r) => r.landlordName)?.landlordName,
+        buildingUpdatedAt: rep.buildingUpdatedAt ?? null,
       } satisfies BuildingGroup;
     });
 

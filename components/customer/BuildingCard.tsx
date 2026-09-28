@@ -8,9 +8,11 @@ import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { getAreaColorClass } from '@/lib/utils/colors';
 import { maskHouseNumberInBuildingName, formatVnPriceRange } from '@/lib/utils';
 import type { CustomerListing } from '@/lib/customer/types';
-import { Calendar, Phone, Cat, FileText, Eye, Link as LinkIcon, CheckCheck, ShieldCheck, Layers, Zap, Globe, Ban, Sparkles } from 'lucide-react';
+import { Calendar, Phone, Cat, FileText, Eye, Link as LinkIcon, CheckCheck, ShieldCheck, Layers, Zap, Globe, Ban, Sparkles, Clock } from 'lucide-react';
 import KYCBadge from '@/components/kyc/KYCBadge';
 import { formatDateDisplay } from '@/lib/room-status';
+import { formatRelativeTime } from '@/lib/utils/relative-time';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -31,6 +33,7 @@ export interface BuildingGroup {
   isVerifiedProperty?: boolean;
   landlordSystemName?: string | null;
   landlordName?: string | null;
+  buildingUpdatedAt?: string | null;
 }
 
 export function formatArea(area: string): string {
@@ -95,6 +98,8 @@ export function BuildingCard({
   const firstRoomWithRose = group.rooms?.find((r) => r.commissionText || r.rose);
   const commissionDisplay = firstRoomWithRose?.commissionText || (firstRoomWithRose?.rose ? `${firstRoomWithRose.rose}` : null);
 
+  const relativeTime = formatRelativeTime(group.buildingUpdatedAt);
+
   return (
     <Link
       href={`/customer/properties/${group.buildingId}`}
@@ -134,16 +139,22 @@ export function BuildingCard({
           {maskHouseNumberInBuildingName(group.buildingName)}
         </h3>
 
-        {/* Khu vực & Yêu thích */}
+        {/* Khu vực, thời gian cập nhật & Yêu thích */}
         <div className="flex items-center justify-between gap-1 text-sm text-slate-500">
-          <div className="flex items-center gap-1">
-            <Badge variant="outline" className={`line-clamp-1 font-semibold text-xs ${getAreaColorClass(group.area)}`}>
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <Badge variant="outline" className={`line-clamp-1 font-semibold text-xs flex-shrink-0 ${getAreaColorClass(group.area)}`}>
               {formatArea(group.area)}
             </Badge>
+            {group.buildingUpdatedAt && (
+              <span className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap overflow-hidden">
+                <Clock className="h-3 w-3 flex-shrink-0" />
+                <RelativeTime date={group.buildingUpdatedAt} className="truncate" />
+              </span>
+            )}
           </div>
 
           {group.representativeRoom && (
-            <FavoriteButton roomId={group.representativeRoom.id} className="h-7 w-7 [&>svg]:w-3.5 [&>svg]:h-3.5" />
+            <FavoriteButton roomId={group.representativeRoom.id} className="h-7 w-7 [&>svg]:w-3.5 [&>svg]:h-3.5 flex-shrink-0" />
           )}
         </div>
 

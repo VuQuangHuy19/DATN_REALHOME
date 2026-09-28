@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { PermissionGate } from '@/components/ui/PermissionGate';
-import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage, ArrowUpDown, ShieldCheck, ShieldAlert, PawPrint, Globe, Zap, Check, X, Settings } from 'lucide-react';
+import { Pencil, Plus, Eye, ArrowLeft, Building2, MapPin, Calendar, Layers, Loader2, AlertCircle, Trash2, DollarSign, Image as LucideImage, ArrowUpDown, ShieldCheck, ShieldAlert, PawPrint, Globe, Zap, Check, X, Settings, Clock } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usePropertiesFeature } from '../hooks/usePropertiesFeature';
 import { useRoomsFeature } from '@/features/rooms/hooks/useRoomsFeature';
@@ -23,6 +23,8 @@ import { getRoomImages, addRoomImage } from '@/lib/supabase/repositories/room_im
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { formatRelativeTime } from '@/lib/utils/relative-time';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 import type { DBRoom } from '@/lib/supabase/types';
 import { parseSoonAvailableDate, updateSoonAvailableDescription, getRoomDisplayStatus, formatDateDisplay } from '@/lib/room-status';
 import { useBuildingServices } from '../hooks/useBuildingServices';
@@ -658,6 +660,12 @@ export function BuildingDetailPage() {
           <div>
             <h1 className="text-2xl font-bold font-heading text-ink tracking-tight">{building.name}</h1>
             <p className="text-ink-muted text-sm font-mono mt-0.5">{building.code} — {building.address}</p>
+            {building.updated_at && (
+              <p className="text-ink-muted text-xs flex items-center gap-1 font-medium mt-1">
+                <Clock className="h-3.5 w-3.5 text-accent" />
+                <RelativeTime date={building.updated_at} prefix="Cập nhật " />
+              </p>
+            )}
           </div>
         </div>
         <PermissionGate roles={['company_admin', 'manager', 'landlord']}>
@@ -1169,6 +1177,15 @@ export function BuildingDetailPage() {
                               {item.size} m² ({item.bedrooms} PN · {item.bathrooms} WC)
                             </span>
                           </div>
+                          {((item as any).updated_at || item.created_at) && (
+                            <div className="flex justify-between">
+                              <span className="font-medium">Cập nhật:</span>
+                              <span className="font-semibold text-ink flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-slate-400" />
+                                <RelativeTime date={(item as any).updated_at || item.created_at} />
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

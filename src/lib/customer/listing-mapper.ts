@@ -53,6 +53,7 @@ type RoomRow = {
     ward_id?: string | null;
     latitude?: number | null;
     longitude?: number | null;
+    updated_at?: string | null;
   } | null;
   room_images?: { url: string; thumbnail_url?: string | null; is_thumbnail: boolean; priority: number; media_type?: string }[] | null;
   rental_contracts?: any[] | null;
@@ -229,6 +230,7 @@ export function mapRoomToListing(room: RoomRow): CustomerListing | null {
     commonServicePrice: (building as any)?.common_service_price ?? 200000,
     electricVehicleFee: (building as any)?.electric_vehicle_fee ?? 100000,
     createdAt: room.created_at || null,
+    buildingUpdatedAt: building?.updated_at || null,
     availableDate: null,
     nearbyPlaces: (building as any)?.nearby_places ?? null,
     rose: room.rose || null,

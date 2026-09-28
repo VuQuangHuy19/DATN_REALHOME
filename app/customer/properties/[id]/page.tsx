@@ -20,11 +20,13 @@ import {
   MapPin, Bed, Bath, Square, Calendar, Phone, Map as MapIcon, ExternalLink, Loader2,
   ChevronLeft, Check, X, Zap, PawPrint, Globe, Award, Layers, DollarSign, FileText,
   Link as LinkIcon, CheckCheck, Wind, Flame, Shirt, Utensils, Sparkles, Box, RotateCw,
-  ShieldCheck, Droplets, Wifi, Sun, Lock
+  ShieldCheck, Droplets, Wifi, Sun, Lock, Clock
 } from 'lucide-react';
 import { maskHouseNumberInBuildingName } from '@/lib/utils';
 import { detectDryerFeature } from '@/lib/utils/dryer-parser';
 import { MonthlyCostEstimator } from '@/components/customer/MonthlyCostEstimator';
+import { formatRelativeTime } from '@/lib/utils/relative-time';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 
 const statusLabels: Record<string, string> = {
   available: 'Còn trống',
@@ -333,7 +335,12 @@ export default function BuildingDetailPage() {
                 <MapPin className="h-5 w-5 text-accent" />
                 {maskHouseNumberInBuildingName(building.address)}
               </div>
-              
+              {building.updated_at && (
+                <div className="flex items-center gap-1.5 mt-1.5 text-[12px] text-slate-400 dark:text-slate-500 font-medium">
+                  <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                  <RelativeTime date={building.updated_at} prefix="Cập nhật " />
+                </div>
+              )}
 
             </div>
             <Button

@@ -1112,7 +1112,7 @@ export function BuildingListPage() {
                             }`}
                           >
                             {isSelected && <span>✓</span>}
-                            <span>{m.full_name || m.name || m.email}</span>
+                            <span>{(m as any).full_name || m.name || m.email}</span>
                           </button>
                         );
                       })}
@@ -1252,7 +1252,7 @@ export function BuildingListPage() {
                     <Label className="text-slate-700 font-semibold text-xs uppercase tracking-wider">Quy định đặt cọc</Label>
                     <Input
                       name="deposit_terms"
-                      defaultValue={editItem?.deposit_terms ?? ''}
+                      defaultValue={(editItem as any)?.deposit_terms ?? ''}
                       placeholder="Cọc 1 tháng thanh toán 1 tháng"
                       className="rounded-xl border-slate-200 focus:border-emerald-400 text-xs"
                     />

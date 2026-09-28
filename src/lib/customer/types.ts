@@ -46,6 +46,7 @@ export interface CustomerListing {
   latitude?: number | null;
   longitude?: number | null;
   createdAt?: string | null;
+  buildingUpdatedAt?: string | null;
   electricityPrice?: number;
   waterPrice?: number;
   internetPrice?: number;

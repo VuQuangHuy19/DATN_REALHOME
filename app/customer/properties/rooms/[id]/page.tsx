@@ -16,12 +16,14 @@ import { SameLandlordRoomsWidget } from '@/src/features/properties/components/Sa
 import { FavoriteButton } from '@/components/customer/FavoriteButton';
 import { LISTING_STATUS_LABELS, DEPOSIT_COMPOSER_ROLES } from '@/lib/customer/constants';
 import { formatDateDisplay } from '@/lib/room-status';
-import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, Check, X, Zap, PawPrint, Globe, Award, Layers, FileText, Link as LinkIcon, CheckCheck, Wind, Flame, Shirt, Utensils, Sparkles, Box, RotateCw, ShieldCheck, Droplets, Wifi, Sun, Lock } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, Calendar, Phone, Map, ExternalLink, Loader2, Check, X, Zap, PawPrint, Globe, Award, Layers, FileText, Link as LinkIcon, CheckCheck, Wind, Flame, Shirt, Utensils, Sparkles, Box, RotateCw, ShieldCheck, Droplets, Wifi, Sun, Lock, Clock } from 'lucide-react';
 
 import ImageGallery from '@/src/features/properties/components/ImageGallery';
 import { detectDryerFeature } from '@/lib/utils/dryer-parser';
 import { maskHouseNumberInBuildingName } from '@/lib/utils';
 import { MonthlyCostEstimator } from '@/components/customer/MonthlyCostEstimator';
+import { formatRelativeTime } from '@/lib/utils/relative-time';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 
 function DressingTableIcon({ className = "h-4 w-4 shrink-0" }: { className?: string }) {
   return (
@@ -177,6 +179,12 @@ export default function RoomDetailPage() {
                 <MapPin className="h-5 w-5 text-accent" />
                 {maskHouseNumberInBuildingName(property.address)}
               </div>
+              {(property.buildingUpdatedAt || property.createdAt) && (
+                <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <Clock className="h-3.5 w-3.5 text-accent shrink-0" />
+                  <RelativeTime date={property.buildingUpdatedAt || property.createdAt} prefix="Cập nhật " />
+                </div>
+              )}
 
 
             </div>

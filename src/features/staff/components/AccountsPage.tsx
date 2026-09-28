@@ -29,10 +29,27 @@ import {
   Pencil,
   Trash2,
   UserPlus,
+  Link2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { getRoleLabel } from '@/lib/constants/roles';
 import { toast } from 'sonner';
+
+// 4 vai trò chính được hỗ trợ tạo tài khoản
+const SYSTEM_ROLES = [
+  { value: 'landlord', label: '🏠 Chủ nhà / Chủ sở hữu bất động sản' },
+  { value: 'manager', label: '🏢 Quản lý vận hành tòa nhà' },
+  { value: 'sales_agent', label: '💼 Nhân viên môi giới / Sales' },
+  { value: 'tenant', label: '🔑 Khách thuê phòng' },
+];
+
+interface ExistingPerson {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  code: string | null;
+}
 
 interface AccountUser {
   id: string;
@@ -66,6 +83,12 @@ export function AccountsPage() {
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  // State cho form thêm: vai trò được chọn & danh sách người có sẵn
+  const [selectedAddRole, setSelectedAddRole] = useState('sales_agent');
+  const [existingPersons, setExistingPersons] = useState<ExistingPerson[]>([]);
+  const [loadingPersons, setLoadingPersons] = useState(false);
+  const [selectedPersonId, setSelectedPersonId] = useState('');
+
   const fetchAccounts = useCallback(async () => {
     if (!company?.id) return;
     setLoading(true);
@@ -88,6 +111,56 @@ export function AccountsPage() {
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
+
+  // Fetch danh sách người đã có trong hệ thống nhưng CHƯА có tài khoản
+  const fetchExistingPersons = useCallback(async (role: string) => {
+    if (!company?.id) return;
+    if (!['manager', 'landlord', 'tenant'].includes(role)) {
+      setExistingPersons([]);
+      return;
+    }
+    setLoadingPersons(true);
+    try {
+      const res = await fetch(
+        `/api/admin/accounts/persons-without-account?company_id=${company.id}&role=${role}`
+      );
+      if (res.ok) {
+        const json = await res.json();
+        const list: ExistingPerson[] = (json.data || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          phone: p.phone,
+          email: p.email,
+          code: p.code,
+        }));
+        setExistingPersons(list);
+      } else {
+        setExistingPersons([]);
+      }
+    } catch (err) {
+      console.error('Lỗi fetchExistingPersons:', err);
+      setExistingPersons([]);
+    } finally {
+      setLoadingPersons(false);
+    }
+  }, [company?.id]);
+
+  // Khi vai trò thay đổi trong form Thêm → fetch danh sách người có sẵn
+  useEffect(() => {
+    if (isAddOpen) {
+      setSelectedPersonId('');
+      fetchExistingPersons(selectedAddRole);
+    }
+  }, [selectedAddRole, isAddOpen, fetchExistingPersons]);
+
+  // Reset khi đóng form
+  useEffect(() => {
+    if (!isAddOpen) {
+      setSelectedAddRole('sales_agent');
+      setSelectedPersonId('');
+      setExistingPersons([]);
+    }
+  }, [isAddOpen]);
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((acc) => {
@@ -116,8 +189,9 @@ export function AccountsPage() {
     const full_name = ((formData.get('full_name') as string) || '').trim();
     const email = ((formData.get('email') as string) || '').trim();
     const phone = ((formData.get('phone') as string) || '').trim();
-    const role = (formData.get('role') as string) || 'employee';
+    const role = selectedAddRole;
     const password = ((formData.get('password') as string) || '').trim();
+    const linked_person_id = selectedPersonId || undefined;
 
     if (!full_name || !email) {
       toast.error('Vui lòng điền Họ tên và Email tài khoản');
@@ -135,6 +209,7 @@ export function AccountsPage() {
           phone,
           role,
           password: password || undefined,
+          linked_person_id,
         }),
       });
 
@@ -392,12 +467,9 @@ export function AccountsPage() {
               className="h-10 rounded-xl border border-border bg-white px-3 text-xs font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">Tất cả vai trò</option>
-              <option value="manager">Quản lý vận hành tòa nhà</option>
-              <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
-              <option value="accountant">Kế toán viên</option>
-              <option value="employee">Nhân viên</option>
-              <option value="tenant">Khách thuê phòng</option>
-              <option value="customer">Khách hàng tìm phòng</option>
+              {SYSTEM_ROLES.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
             </select>
 
             <select
@@ -584,6 +656,75 @@ export function AccountsPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreateAccount} className="space-y-4 pt-3 text-sm">
+            {/* Vai trò hệ thống — đặt lên đầu để drive UX bên dưới */}
+            <div>
+              <Label htmlFor="add_role" className="text-xs font-bold text-ink uppercase">
+                Vai trò hệ thống <span className="text-red-500">*</span>
+              </Label>
+              <select
+                id="add_role"
+                name="role"
+                value={selectedAddRole}
+                onChange={(e) => setSelectedAddRole(e.target.value)}
+                className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent mt-1"
+              >
+                {SYSTEM_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Dropdown chọn người đã có trong hệ thống (hiện khi role = landlord | manager | tenant) */}
+            {(['landlord', 'manager', 'tenant'] as string[]).includes(selectedAddRole) && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700">
+                  <Link2 className="h-3.5 w-3.5" />
+                  Liên kết với người đã có trong hệ thống
+                  <span className="font-normal text-indigo-500">(tùy chọn)</span>
+                </div>
+                {loadingPersons ? (
+                  <div className="flex items-center gap-2 text-xs text-indigo-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Đang tải danh sách...
+                  </div>
+                ) : (
+                  <select
+                    id="add_linked_person"
+                    value={selectedPersonId}
+                    onChange={(e) => {
+                      setSelectedPersonId(e.target.value);
+                      // Tự động điền tên & phone nếu chọn người có sẵn
+                      if (e.target.value) {
+                        const person = existingPersons.find(p => p.id === e.target.value);
+                        if (person) {
+                          const nameInput = document.getElementById('add_full_name') as HTMLInputElement;
+                          const phoneInput = document.getElementById('add_phone') as HTMLInputElement;
+                          if (nameInput) nameInput.value = person.name;
+                          if (phoneInput && person.phone) phoneInput.value = person.phone;
+                        }
+                      }
+                    }}
+                    className="w-full h-10 rounded-lg border border-indigo-200 bg-white px-3 text-xs font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="">— Không liên kết (tạo mới hoàn toàn) —</option>
+                    {existingPersons.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.code ? ` (${p.code})` : ''}{p.phone ? ` — ${p.phone}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {existingPersons.length === 0 && !loadingPersons && (
+                  <p className="text-[11px] text-indigo-400">
+                    Không có{
+                      selectedAddRole === 'manager' ? ' quản lý'
+                      : selectedAddRole === 'landlord' ? ' chủ nhà'
+                      : ' khách thuê'
+                    } nào trong hệ thống chưa có tài khoản.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <Label htmlFor="add_full_name" className="text-xs font-bold text-ink uppercase">
                 Họ và tên <span className="text-red-500">*</span>
@@ -625,38 +766,21 @@ export function AccountsPage() {
               </div>
 
               <div>
-                <Label htmlFor="add_role" className="text-xs font-bold text-ink uppercase">
-                  Vai trò hệ thống <span className="text-red-500">*</span>
+                <Label htmlFor="add_password" className="text-xs font-bold text-ink uppercase">
+                  Mật khẩu khởi tạo
                 </Label>
-                <select
-                  id="add_role"
-                  name="role"
-                  defaultValue="sales_agent"
-                  className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent mt-1"
-                >
-                  <option value="manager">Quản lý vận hành tòa nhà</option>
-                  <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
-                  <option value="accountant">Kế toán viên</option>
-                  <option value="employee">Nhân viên</option>
-                </select>
+                <Input
+                  id="add_password"
+                  name="password"
+                  type="password"
+                  placeholder="RealHome@2026!"
+                  className="rounded-xl h-10 mt-1"
+                />
               </div>
             </div>
-
-            <div>
-              <Label htmlFor="add_password" className="text-xs font-bold text-ink uppercase">
-                Mật khẩu khởi tạo
-              </Label>
-              <Input
-                id="add_password"
-                name="password"
-                type="password"
-                placeholder="Mặc định: RealHome@2026!"
-                className="rounded-xl h-10 mt-1"
-              />
-              <p className="text-[11px] text-ink-muted mt-1">
-                Nếu để trống, mật khẩu mặc định sẽ là <code className="font-mono bg-slate-100 px-1 rounded">RealHome@2026!</code>
-              </p>
-            </div>
+            <p className="text-[11px] text-ink-muted -mt-2">
+              Nếu để trống mật khẩu, mặc định sẽ là <code className="font-mono bg-slate-100 px-1 rounded">RealHome@2026!</code>
+            </p>
 
             <div className="pt-3 border-t border-border flex justify-end gap-2">
               <Button
@@ -740,10 +864,9 @@ export function AccountsPage() {
                     defaultValue={editAccount.role}
                     className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent mt-1"
                   >
-                    <option value="manager">Quản lý vận hành tòa nhà</option>
-                    <option value="sales_agent">Chuyên viên tư vấn / Sales</option>
-                    <option value="accountant">Kế toán viên</option>
-                    <option value="employee">Nhân viên</option>
+                    {SYSTEM_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
                   </select>
                 </div>
               </div>
