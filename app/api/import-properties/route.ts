@@ -115,11 +115,35 @@ export async function POST(req: Request) {
           }
       }
 
-      let allowPetText = firstRow['Nuôi Pet (Y/N)(*)']?.toString().toUpperCase() === 'Y' ? 'Có' : 'Không';
-      if (dvcStr.includes('không nuôi chó') || dvcStr.includes('không chó')) {
+      const petColRaw = firstRow['Nuôi Pet (Y/N)(*)']?.toString().toUpperCase();
+      let allowPetText = petColRaw === 'Y' ? 'Cho nuôi pet' : 'Không';
+
+      // Lấy thêm nội dung description để phát hiện từ khóa pet
+      const descStr = (
+        firstRow['DVC(*)']?.toString() ||
+        firstRow['[Ghi chú] Dịch vụ theo căn (văn bản gốc)']?.toString() ||
+        rows.map((r: any) => r['[Ghi chú] Dịch vụ theo căn (văn bản gốc)']?.toString() || '').join(' ') ||
+        ''
+      ).toLowerCase();
+
+      // Kiểm tra từ phủ định trước (ưu tiên cao hơn)
+      if (descStr.includes('không nuôi chó') || descStr.includes('không chó')) {
           allowPetText = 'Mèo (Không chó)';
-      } else if (dvcStr.includes('không nuôi pet') || dvcStr.includes('không pet') || dvcStr.includes('không chó mèo')) {
+      } else if (descStr.includes('không nuôi pet') || descStr.includes('không pet') || descStr.includes('không chó mèo')) {
           allowPetText = 'Không';
+      } else if (
+        // Nếu cột Y/N không có giá trị → fallback: tìm từ khẳng định trong description
+        !petColRaw &&
+        (
+          descStr.includes('được nuôi pet') ||
+          descStr.includes('cho nuôi pet') ||
+          descStr.includes('nuôi pet') ||
+          descStr.includes('nuôi thú cưng') ||
+          descStr.includes('nuôi mèo') ||
+          descStr.includes('nuôi chó')
+        )
+      ) {
+          allowPetText = 'Cho nuôi pet';
       }
 
       // Calculate building amenities based on the rooms

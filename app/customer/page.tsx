@@ -529,7 +529,7 @@ export default function CustomerHomePage() {
 
           <div className="relative z-10 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold mb-4 border border-amber-500/40">
-              <Bot className="h-4 w-4 text-amber-400" /> Trợ Lý AI RealHome 24/7
+              <Bot className="h-4 w-4 text-amber-400" /> RealHome AI 24/7
             </div>
 
             <h2 className="text-2xl md:text-4xl font-extrabold font-heading text-white leading-tight mb-4">

@@ -35,6 +35,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [rememberMe, setRememberMe] = useState(false);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number>(0);
 
   // Load saved username & parse URL parameters for expiration/errors
   useEffect(() => {
@@ -59,6 +60,29 @@ export default function LoginPage() {
     }
   }, []);
 
+  // Đếm ngược khi bị rate limit
+  useEffect(() => {
+    if (rateLimitCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setRateLimitCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setError(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [rateLimitCountdown]);
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    if (m > 0) return `${m}:${String(s).padStart(2, '0')} phút`;
+    return `${s} giây`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -76,10 +100,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error: signInError } = await signIn(username, password);
+      const { error: signInError, retryAfterSeconds } = await signIn(username, password);
       if (signInError) {
         const friendlyError = translateErrorMessage(signInError);
         setError(friendlyError);
+        if (retryAfterSeconds && retryAfterSeconds > 0) {
+          setRateLimitCountdown(retryAfterSeconds);
+        }
         toast.error('Đăng nhập không thành công, vui lòng kiểm tra lại thông tin.');
       } else {
         try {
@@ -184,7 +211,20 @@ export default function LoginPage() {
 
           {error && (
             <div className="max-w-xl mx-auto w-full mb-3 p-3 rounded-xl bg-red-500/25 border border-red-500/40 text-red-100 text-xs sm:text-sm font-medium">
-              {error}
+              {rateLimitCountdown > 0 ? (
+                <span>
+                  Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau{' '}
+                  <span className="inline-flex items-center gap-1 bg-red-500/40 border border-red-400/60 rounded-lg px-2 py-0.5 font-black text-white tabular-nums">
+                    <svg className="w-3 h-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.3" />
+                      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+                    </svg>
+                    {formatCountdown(rateLimitCountdown)}
+                  </span>
+                </span>
+              ) : (
+                error
+              )}
             </div>
           )}
 
@@ -266,8 +306,8 @@ export default function LoginPage() {
             {/* Submit */}
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full h-12 sm:h-13 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-sm sm:text-base rounded-xl sm:rounded-2xl shadow-xl shadow-orange-500/35 transition-all"
+              disabled={loading || rateLimitCountdown > 0}
+              className="w-full h-12 sm:h-13 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:from-slate-600 disabled:to-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-sm sm:text-base rounded-xl sm:rounded-2xl shadow-xl shadow-orange-500/35 transition-all"
             >
               {loading ? (
                 <span className="flex items-center gap-2 justify-center">

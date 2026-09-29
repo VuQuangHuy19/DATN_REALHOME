@@ -35,7 +35,6 @@ export function QuickCreateLandlordModal({ isOpen, onClose, onCreated }: QuickCr
     const newErrors: Record<string, string> = {};
     if (!name) newErrors.name = 'Không được để trống';
     if (!phone) newErrors.phone = 'Không được để trống';
-    if (!email) newErrors.email = 'Không được để trống';
     if (!code) newErrors.code = 'Không được để trống';
 
     if (Object.keys(newErrors).length > 0) {
@@ -135,15 +134,17 @@ export function QuickCreateLandlordModal({ isOpen, onClose, onCreated }: QuickCr
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="quick-email" className="text-ink font-semibold text-xs uppercase tracking-wider">Email <span className="text-red-500">*</span></Label>
+              <Label htmlFor="quick-email" className="text-ink font-semibold text-xs uppercase tracking-wider">
+                Email
+                <span className="ml-1.5 text-[10px] font-normal text-slate-400 normal-case tracking-normal">(không bắt buộc)</span>
+              </Label>
               <Input 
                 id="quick-email" 
                 name="email" 
                 type="email" 
-                onChange={() => errors.email && setErrors(prev => ({ ...prev, email: '' }))}
-                className={`rounded-lg border-border mt-1.5 focus-visible:ring-accent ${errors.email ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                placeholder="Có thể thêm sau trong Quản lý tài khoản"
+                className="rounded-lg border-border mt-1.5 focus-visible:ring-accent placeholder:text-slate-300"
               />
-              {errors.email && <p className="text-xs font-semibold text-red-500 mt-1">⚠️ {errors.email}</p>}
             </div>
             <div>
               <Label htmlFor="quick-code" className="text-ink font-semibold text-xs uppercase tracking-wider">Mã Chủ Nhà <span className="text-red-500">*</span></Label>

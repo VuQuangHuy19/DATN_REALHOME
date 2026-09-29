@@ -19,7 +19,7 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null; retryAfterSeconds?: number }>;
   signOut: () => Promise<void>;
   hasPermission: (perm: string) => boolean;
   refreshSession: () => Promise<void>;
@@ -100,7 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        return { error: data.error || 'Đăng nhập thất bại' };
+        return {
+          error: data.error || 'Đăng nhập thất bại',
+          retryAfterSeconds: data.retryAfterSeconds,
+        };
       }
 
       if (data.user) {
@@ -128,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error: null };
     } catch (err: any) {
-      return { error: translateErrorMessage(err) };
+      return { error: translateErrorMessage(err), retryAfterSeconds: undefined };
     }
   };
 

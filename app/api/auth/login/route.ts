@@ -20,7 +20,10 @@ export async function POST(request: Request) {
 
   if (!rl.allowed) {
     return NextResponse.json(
-      { error: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau ít phút.' },
+      {
+        error: 'Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau ít phút.',
+        retryAfterSeconds: rl.retryAfterSeconds,
+      },
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
     );
   }

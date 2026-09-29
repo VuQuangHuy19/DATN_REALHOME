@@ -268,6 +268,23 @@ export function buildGeneralNotesForBuilding(globalNotes: string, bldDvc: string
 }
 
 
+/**
+ * Parse quy định pet từ ghi chú (Mặc định: 'Cho phép')
+ */
+export function parsePetPolicy(notes: string): string {
+  if (!notes) return 'Cho phép';
+  const norm = notes.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (norm.includes('khong pet') || norm.includes('khong cho nuoi pet') || norm.includes('khong nhan khach nuoi pet') || norm.includes('cam pet') || norm.includes('k pet')) {
+    return 'Không';
+  }
+  if (norm.includes('cho pet') || norm.includes('nuoi pet') || norm.includes('nhan pet') || norm.includes('co the nuoi pet')) {
+    if (norm.includes('pet nho') || norm.includes('thu cung nho')) return 'Chỉ nuôi pet nhỏ';
+    if (norm.includes('meo')) return 'Chỉ mèo';
+    if (norm.includes('cho')) return 'Chỉ chó';
+    return 'Cho phép';
+  }
+  return 'Cho phép'; 
+}
 
 /**
  * Tổng hợp SĐT/Người quản lý cho Tòa nhà theo cơ chế Majority Vote (Số điện thoại/Người quản lý xuất hiện nhiều nhất)
@@ -351,6 +368,219 @@ export function resolveBuildingManagerRaw(bld: ParsedBuilding): string | null {
   }
 
   return bld.manager_raw || null;
+}
+
+/**
+ * Nhận diện layout "Tab-per-Building" (SUNSHINE format):
+ * - Mỗi tab = 1 tòa nhà, tên tab = địa chỉ tòa nhà
+ * - Header: GIÁ PHÒNG | SỐ PHÒNG | LOẠI PHÒNG | TÌNH TRẠNG (không có cột "Tòa nhà")
+ */
+export function detectTabPerBuildingLayout(rows: any[][]): boolean {
+  let hasPriceHeader = false;
+  let hasRoomCodeHeader = false;
+  let hasStatusHeader = false;
+  let hasBuildingCol = false;
+
+  for (let r = 0; r < Math.min(rows.length, 6); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    row.forEach((cell, cIdx) => {
+      const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (cIdx < 5) {
+        if (cStr.includes('gia phong') || cStr.includes('gia thue') || (cStr.includes('gia') && !cStr.includes('gian'))) hasPriceHeader = true;
+        if (cStr.includes('so phong') || cStr.includes('ma phong') || cStr === 'phong') hasRoomCodeHeader = true;
+        if (cStr.includes('tinh trang') || cStr.includes('trang thai')) hasStatusHeader = true;
+        if (cStr.includes('toa nha') || cStr.includes('dia chi') || cStr === 'toa') hasBuildingCol = true;
+      }
+    });
+  }
+
+  // Layout này: có header price/room/status nhưng KHÔNG có cột tòa nhà
+  if (hasBuildingCol) return false;
+  if (hasPriceHeader && hasRoomCodeHeader && hasStatusHeader) return true;
+
+  // Fallback: check data rows có dạng [số tiền, mã phòng, loại phòng, trạng thái]
+  if (!hasPriceHeader || !hasRoomCodeHeader) return false;
+  let dataRowCount = 0;
+  for (let r = 1; r < Math.min(rows.length, 15); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    const col0 = String(row[0] || '').trim();
+    const col1 = String(row[1] || '').trim();
+    if (cleanPriceNumber(col0) >= 1000000 && col1 && /^\d{2,4}[a-zA-Z]?$/.test(col1)) dataRowCount++;
+  }
+  return dataRowCount >= 2;
+}
+
+/**
+ * Parser cho layout "Tab-per-Building" (SUNSHINE format)
+ */
+export function parseTabPerBuildingLayout(
+  ws: XLSX.WorkSheet,
+  rows: any[][],
+  sheetName: string,
+  globalNotes: string
+): SheetImportResult | null {
+  const buildingName = formatStandardBuildingAddress(sheetName.trim());
+  if (!buildingName) return null;
+
+  // Auto-detect vị trí cột từ header row
+  let priceCol = 0, codeCol = 1, typeCol = 2, statusCol = 3, sizeCol = -1;
+  let headerRowIdx = -1;
+
+  for (let r = 0; r < Math.min(rows.length, 6); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    let foundPrice = false, foundCode = false;
+    row.forEach((cell, cIdx) => {
+      if (cIdx >= 8) return;
+      const cStr = String(cell || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (cStr.includes('gia phong') || cStr.includes('gia thue') || (cStr.includes('gia') && !cStr.includes('gian') && cIdx < 4)) {
+        priceCol = cIdx; foundPrice = true;
+      } else if (cStr.includes('so phong') || cStr.includes('ma phong') || cStr === 'phong') {
+        codeCol = cIdx; foundCode = true;
+      } else if (cStr.includes('loai phong') || cStr === 'loai') {
+        typeCol = cIdx;
+      } else if (cStr.includes('tinh trang') || cStr.includes('trang thai')) {
+        statusCol = cIdx;
+      } else if (cStr.includes('dien tich')) {
+        sizeCol = cIdx;
+      }
+    });
+    if (foundPrice || foundCode) { headerRowIdx = r; break; }
+  }
+
+  const startRow = headerRowIdx !== -1 ? headerRowIdx + 1 : 0;
+
+  // Đọc block thông tin phụ bên phải (cột E+ trong ~20 dòng đầu)
+  let infoNotes = '';
+  let managerRaw = '';
+  let buildingDriveUrl: string | null = null;
+
+  const INFO_LABELS: Record<string, string> = {
+    'noi that': 'Nội thất', 'dich vu': 'Dịch vụ', 'gui xe': 'Gửợi xe',
+    'internet': 'Internet', 'dvc': 'DV chung', 'link anh': 'Link ảnh'
+  };
+
+  for (let r = 0; r < Math.min(rows.length, 25); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    for (let c = 4; c < row.length; c++) {
+      const cellVal = String(row[c] || '').trim();
+      if (!cellVal) continue;
+      const cellLower = cellVal.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      const cellObj = ws[cellRef];
+      if (cellObj?.l?.Target?.includes('drive.google.com') && !buildingDriveUrl) {
+        buildingDriveUrl = cellObj.l.Target;
+      }
+
+      const matchedLabel = Object.keys(INFO_LABELS).find(k => cellLower === k || cellLower.startsWith(k));
+      if (matchedLabel) {
+        const nextVal = row[c + 1] ? String(row[c + 1]).trim() : '';
+        const nextRowVal = rows[r + 1]?.[c] ? String(rows[r + 1][c]).trim() : '';
+        const detail = nextVal || nextRowVal;
+        if (detail && detail.length > 2) {
+          infoNotes = infoNotes ? `${infoNotes} | ${INFO_LABELS[matchedLabel]}: ${detail}` : `${INFO_LABELS[matchedLabel]}: ${detail}`;
+        }
+      }
+
+      if (cellLower.includes('so dan') || cellLower.includes('sdt') || cellLower === 'so dien thoai') {
+        const phoneNext = row[c + 1] ? String(row[c + 1]).trim() : (rows[r + 1]?.[c] ? String(rows[r + 1][c]).trim() : '');
+        if (phoneNext && /\d{9,11}/.test(phoneNext.replace(/\D/g, ''))) managerRaw = phoneNext;
+      }
+      if (!managerRaw && /^\d{9,11}$/.test(cellVal.replace(/\D/g, ''))) {
+        const prevLabel = c > 0 ? String(row[c - 1] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
+        if (prevLabel.includes('so dan') || prevLabel.includes('sdt')) managerRaw = cellVal;
+      }
+    }
+  }
+
+  const finalNotes = [globalNotes, infoNotes].filter(Boolean).join(' | ') || null;
+  const allowPet = parsePetPolicy(finalNotes || '');
+
+  // Parse danh sách phòng
+  const rooms: ParsedRoom[] = [];
+
+  for (let r = startRow; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+
+    let priceVal: any = row[priceCol] !== undefined ? row[priceCol] : '';
+    let codeVal = row[codeCol] !== undefined ? String(row[codeCol]).trim() : '';
+    const typeVal = typeCol >= 0 && row[typeCol] !== undefined ? String(row[typeCol]).trim() : '';
+    const statusVal = statusCol >= 0 && row[statusCol] !== undefined ? String(row[statusCol]).trim() : '';
+    const sizeVal = sizeCol >= 0 && row[sizeCol] !== undefined ? String(row[sizeCol]).trim() : '';
+
+    // Đảo giá/mã phòng nếu cột bị nhầm
+    const priceFromCode = cleanPriceNumber(codeVal);
+    const priceFromPrice = cleanPriceNumber(priceVal);
+    if (priceFromCode >= 1000000 && isPurePriceString(codeVal) && priceFromPrice < 1000000) {
+      [codeVal, priceVal] = [String(priceVal).trim(), codeVal];
+    }
+
+    const cleanedCode = codeVal.replace(/\.0+$/, '').trim();
+    if (!cleanedCode || cleanedCode.length > 15) continue;
+    if (/^[a-z\sà-ỹ]{4,}$/i.test(cleanedCode)) continue; // bỏ qua dòng chỉ có chữ (header lẫn)
+
+    const parsedPrice = cleanPriceNumber(priceVal);
+    if (parsedPrice === 0 && cleanPriceNumber(priceFromCode) === 0) continue;
+
+    // Trích xuất link Drive ẩn
+    let roomDriveUrl: string | null = null;
+    for (let c = 0; c < Math.min(row.length, 20); c++) {
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      const cellObj = ws[cellRef];
+      if (cellObj?.l?.Target?.includes('drive.google.com')) { roomDriveUrl = cellObj.l.Target; break; }
+    }
+
+    // Parse trạng thái
+    const cleanStat = statusVal.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let status: 'available' | 'rented' | 'reserved' = 'rented';
+    let roomAvailableDate: string | null = null;
+
+    if (cleanStat.includes('trong') || cleanStat.includes('o ngay') || cleanStat.includes('o luon') || cleanStat === 'available') {
+      status = 'available';
+    } else {
+      const dateInfo = parseDateFromStatusString(cleanStat);
+      if (dateInfo.available_date) { roomAvailableDate = dateInfo.available_date; }
+      else if (cleanStat.includes('giu') || cleanStat.includes('coc')) { status = 'reserved'; }
+    }
+
+    const { code: finalCode, roomType } = cleanRoomCodeAndType(cleanedCode, parseRoomType(typeVal));
+    const sizeMatch = sizeVal.match(/(\d{2,3})/);
+    const sizeNum = sizeMatch ? Math.min(Math.max(parseInt(sizeMatch[1]), 10), 200) : 25;
+
+    rooms.push({
+      code: finalCode,
+      floor: parseFloorFromRoomCode(finalCode),
+      price: parsedPrice,
+      room_type: roomType || 'Studio',
+      size: sizeNum,
+      status,
+      available_date: roomAvailableDate,
+      bedrooms: roomType.includes('2N') ? 2 : 1,
+      bathrooms: roomType.includes('2WC') ? 2 : 1,
+      description: null,
+      drive_media_url: roomDriveUrl || buildingDriveUrl || null,
+    });
+  }
+
+  if (rooms.length === 0) return null;
+
+  const building: ParsedBuilding = {
+    name: buildingName,
+    address: buildingName,
+    area: detectHanoiDistrict(buildingName),
+    drive_media_url: buildingDriveUrl,
+    general_notes: finalNotes,
+    allow_pet: allowPet,
+    rooms,
+    ...(managerRaw ? { manager_raw: managerRaw } as any : {}),
+  };
+  console.log(`[TabPerBuilding] Tab "${sheetName}" → ${rooms.length} phòng, building: "${buildingName}"`);
+  return { buildings: [building] };
 }
 
 /**
@@ -454,6 +684,23 @@ export function parseDualColumnLayout(
     }
   }
 
+  // Auto-detect leftBldCol: scan tìm cột nào trong rows đầu chứa địa chỉ tòa nhà
+  for (let r = startRow; r < Math.min(rows.length, startRow + 20); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+    for (let c = 1; c <= 4; c++) {
+      const cellVal = String(row[c] || '').trim();
+      if (cellVal && isBuildingHeader(cellVal)) {
+        leftBldCol = c;
+        // Mã phòng thường ở cột kế bên (leftCodeCol giữ nguyên hoặc tự suy)
+        if (leftCodeCol <= leftBldCol) leftCodeCol = leftBldCol + 1;
+        console.log(`[DualColumn] Auto-detect: leftBldCol=${c}, cell="${cellVal.slice(0, 40)}"`);
+        break;
+      }
+    }
+    if (leftBldCol !== 2) break;
+  }
+
   for (let r = startRow; r < rows.length; r++) {
     const row = rows[r];
     if (!row || !Array.isArray(row) || row.length === 0) continue;
@@ -475,6 +722,16 @@ export function parseDualColumnLayout(
       currentBldInternet = '';
       if (!buildingMetaMap.has(currentBldName)) {
         buildingMetaMap.set(currentBldName, { dvc: '', internet: '', notes: [] });
+      }
+      if (!buildingsMap.has(currentBldName)) {
+        buildingsMap.set(currentBldName, {
+          name: currentBldName,
+          address: currentBldName,
+          area: detectHanoiDistrict(currentBldName),
+          drive_media_url: null,
+          general_notes: globalNotes || null,
+          rooms: [],
+        });
       }
     }
 
@@ -547,22 +804,31 @@ export function parseDualColumnLayout(
       }
     });
 
+    const isNonCodeLabel = (code: string) => {
+      const lower = code.toLowerCase().trim();
+      return (
+        lower.includes('sđt') ||
+        lower.includes('lưu ý') ||
+        lower.includes('ghi chú') ||
+        lower.includes('nhà để xe') ||
+        lower.includes('số dận') ||
+        lower.includes('stt') ||
+        lower.includes('tiêu chí') ||
+        lower === 'phòng' ||
+        lower === 'link ảnh' ||
+        lower === 'link ảnh + video' ||
+        lower === 'link'
+      );
+    };
+
     // 2. Xử lý Phòng vùng trái (col3 = mã phòng có data)
-    const leftCode = col3Val;
+    const leftCodeRaw = col3Val;
     const leftPrice = cleanPriceNumber(col4Val);
 
-    const isValidCode = (code: string) =>
-      code.length > 0 &&
-      code.length <= 15 &&
-      !code.toLowerCase().includes('sđt') &&
-      !code.toLowerCase().includes('link') &&
-      !code.toLowerCase().includes('lưu ý') &&
-      !code.toLowerCase().includes('ghi chú') &&
-      !code.toLowerCase().includes('nhà để xe') &&
-      !code.toLowerCase().includes('số dận') &&
-      !code.toLowerCase().includes('stt');
+    if (leftCodeRaw && leftCodeRaw.length <= 30 && !isNonCodeLabel(leftCodeRaw) && currentBldName) {
+      // Tách mã phòng nếu ô chứa nhiều phòng (ví dụ: "201, 702")
+      const rawCodeTokens = leftCodeRaw.split(/[,;\n/]+/).map(t => t.trim()).filter(Boolean);
 
-    if (leftCode && isValidCode(leftCode) && currentBldName) {
       // Trích xuất Drive link từ ô
       let roomDriveUrl: string | null = null;
       row.forEach((_, cIdx) => {
@@ -642,21 +908,6 @@ export function parseDualColumnLayout(
       const sizeMatch = col6Val.match(/(\d{2,3})/);
       const sizeNum = sizeMatch ? Math.min(200, Math.max(10, parseInt(sizeMatch[1]))) : 25;
       const parsedType = parseRoomType(col5Val);
-      const cleanedCode = cleanRoomCodeAndType(leftCode, parsedType);
-
-      const leftRoom: ParsedRoom = {
-        code: cleanedCode.code,
-        floor: parseFloorFromRoomCode(cleanedCode.code),
-        price: leftPrice,
-        room_type: cleanedCode.roomType,
-        size: sizeNum,
-        status: leftStatus,
-        available_date: leftAvailableDate,
-        bedrooms: cleanedCode.roomType.includes('2N') ? 2 : 1,
-        bathrooms: cleanedCode.roomType.includes('2WC') ? 2 : 1,
-        description: leftDesc,
-        drive_media_url: roomDriveUrl,
-      };
 
       if (!buildingsMap.has(currentBldName)) {
         buildingsMap.set(currentBldName, {
@@ -665,18 +916,31 @@ export function parseDualColumnLayout(
           general_notes: globalNotes || null, rooms: [],
         });
       }
-      buildingsMap.get(currentBldName)!.rooms.push(leftRoom);
+
+      const targetBld = buildingsMap.get(currentBldName)!;
+
+      for (const singleCode of rawCodeTokens) {
+        if (isNonCodeLabel(singleCode)) continue;
+        const cleanedCode = cleanRoomCodeAndType(singleCode, parsedType);
+        const leftRoom: ParsedRoom = {
+          code: cleanedCode.code,
+          floor: parseFloorFromRoomCode(cleanedCode.code),
+          price: leftPrice,
+          room_type: cleanedCode.roomType,
+          size: sizeNum,
+          status: leftStatus,
+          available_date: leftAvailableDate,
+          bedrooms: cleanedCode.roomType.includes('2N') ? 2 : 1,
+          bathrooms: cleanedCode.roomType.includes('2WC') ? 2 : 1,
+          description: leftDesc,
+          drive_media_url: roomDriveUrl,
+        };
+        targetBld.rooms.push(leftRoom);
+      }
     }
 
-    // 3. Xử lý Phòng vùng phải (col13 = mã phòng đã thuê hoặc Drive link)
-    const col14Val = String(row[rightCodeCol + 1] || '').trim();
-    if (
-      col13Val &&
-      isValidCode(col13Val) &&
-      (/\d/.test(col13Val) || col13Val.toLowerCase().includes('trục')) &&
-      currentBldName
-    ) {
-
+    // 3. Xử lý Phòng vùng phải (col13 = mã phòng đã thuê / hyperlink / danh sách phòng)
+    if (col13Val && currentBldName) {
       // Trích xuất Drive link từ ô nếu có
       const cellRef13 = XLSX.utils.encode_cell({ r, c: rightCodeCol });
       const cellObj13 = ws[cellRef13];
@@ -689,38 +953,54 @@ export function parseDualColumnLayout(
         }
       }
 
-      // Xử lý mã phòng đã thuê (hoặc mã trục)
-      const bld = buildingsMap.get(currentBldName);
-      // Chuẩn hóa mã phòng để kiểm tra trùng (bỏ prefix p., đuôi .0, lowercase)
-      const normCode = (c: string) => c.trim().toLowerCase().replace(/^p\.?/i, '').replace(/\.0+$/, '');
-      const alreadyAdded = bld?.rooms.some(
-        rm => normCode(rm.code) === normCode(col13Val)
-      );
+      // Trích xuất các ứng viên mã phòng từ cột N
+      const candidates: string[] = [];
+      const cleanVal = col13Val.replace(/^(link|ảnh|video|phòng)\s*/i, '').trim();
 
-      if (!alreadyAdded) {
-        const rightClean = cleanRoomCodeAndType(col13Val, 'Studio');
-        const rightRoom: ParsedRoom = {
-          code: rightClean.code,
-          floor: parseFloorFromRoomCode(rightClean.code),
-          price: 0,
-          room_type: rightClean.roomType,
-          size: 25,
-          status: 'rented',
-          available_date: null,
-          bedrooms: 1,
-          bathrooms: 1,
-          description: null,
-          drive_media_url: roomDriveUrl,
-        };
-
-        if (!buildingsMap.has(currentBldName)) {
-          buildingsMap.set(currentBldName, {
-            name: currentBldName, address: currentBldName,
-            area: detectHanoiDistrict(currentBldName), drive_media_url: roomDriveUrl,
-            general_notes: globalNotes || null, rooms: [],
-          });
+      if (!isNonCodeLabel(col13Val) && !col13Val.startsWith('http')) {
+        const tokens = cleanVal.split(/[,;\n/]+/).map(t => t.trim()).filter(Boolean);
+        tokens.forEach(tok => {
+          const tokClean = tok.replace(/^(link|ảnh|video|phòng)\s*/i, '').trim();
+          if (tokClean.length > 0 && tokClean.length <= 15 && (/\d/.test(tokClean) || tokClean.toLowerCase().includes('trục'))) {
+            if (!isNonCodeLabel(tokClean)) {
+              candidates.push(tokClean);
+            }
+          }
+        });
+      } else if (cellObj13?.v || cellObj13?.w) {
+        const dispText = String(cellObj13.w || cellObj13.v).trim();
+        if (dispText && dispText.length <= 15 && (/\d/.test(dispText) || dispText.toLowerCase().includes('trục')) && !isNonCodeLabel(dispText)) {
+          candidates.push(dispText);
         }
-        buildingsMap.get(currentBldName)!.rooms.push(rightRoom);
+      }
+
+      const bld = buildingsMap.get(currentBldName);
+      if (bld) {
+        const normCode = (c: string) => c.trim().toLowerCase().replace(/^p\.?/i, '').replace(/\.0+$/, '');
+        for (const codeCand of candidates) {
+          const existingRoom = bld.rooms.find(rm => normCode(rm.code) === normCode(codeCand));
+          if (existingRoom) {
+            if (!existingRoom.drive_media_url && roomDriveUrl) {
+              existingRoom.drive_media_url = roomDriveUrl;
+            }
+          } else {
+            const rightClean = cleanRoomCodeAndType(codeCand, 'Studio');
+            const rightRoom: ParsedRoom = {
+              code: rightClean.code,
+              floor: parseFloorFromRoomCode(rightClean.code),
+              price: 0,
+              room_type: rightClean.roomType,
+              size: 25,
+              status: 'rented',
+              available_date: null,
+              bedrooms: 1,
+              bathrooms: 1,
+              description: null,
+              drive_media_url: roomDriveUrl,
+            };
+            bld.rooms.push(rightRoom);
+          }
+        }
       }
     }
   }
@@ -731,12 +1011,14 @@ export function parseDualColumnLayout(
     b.general_notes = buildGeneralNotesForBuilding(
       b.general_notes || '', meta?.dvc || '', meta?.internet || '', meta?.notes || []
     );
+    b.allow_pet = parsePetPolicy(b.general_notes || '');
     b.area = detectHanoiDistrict(b.name, b.area);
     resolveBuildingManagerRaw(b);
   });
 
   const buildings = rawBuildings.map(expandBuildingGrid);
   const totalRooms = buildings.reduce((sum, b) => sum + b.rooms.length, 0);
+  console.log(`[DualColumn] Tìm được ${buildings.length} tòa nhà, ${totalRooms} phòng (buildingsMap size: ${buildingsMap.size})`);
   if (buildings.length > 0 && totalRooms > 0) return { buildings };
   return null;
 }
@@ -1314,6 +1596,7 @@ export function parseSingleRowBuildingLayout(
     } else {
       bld.general_notes = null;
     }
+    bld.allow_pet = parsePetPolicy(bld.general_notes || '');
   });
 
   const rawBuildings = Array.from(buildingsMap.values()).filter(b => b.rooms.length > 0);
@@ -1363,6 +1646,23 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
       const dualResult = parseDualColumnLayout(ws, rows, sheetName, globalNotesForSheet);
       if (dualResult) {
         for (const bld of dualResult.buildings) {
+          const existing = buildingsMap.get(bld.name);
+          if (existing) {
+            existing.rooms.push(...bld.rooms);
+          } else {
+            buildingsMap.set(bld.name, bld);
+          }
+        }
+        continue; // Chuyển sang tab tiếp theo
+      }
+    }
+
+    // === STRATEGY 1.5: Tab-per-Building Layout (SUNSHINE format — mỗi tab = 1 tòa nhà) ===
+    if (!detectDualColumnLayout(rows) && detectTabPerBuildingLayout(rows)) {
+      console.log(`[Sheet Parser] Phát hiện Tab-per-Building layout trong tab "${sheetName}"`);
+      const tabResult = parseTabPerBuildingLayout(ws, rows, sheetName, globalNotesForSheet);
+      if (tabResult) {
+        for (const bld of tabResult.buildings) {
           const existing = buildingsMap.get(bld.name);
           if (existing) {
             existing.rooms.push(...bld.rooms);
@@ -1712,6 +2012,7 @@ export function parseSheetContentProgrammatically(wb: XLSX.WorkBook): SheetImpor
       meta?.internet || '',
       meta?.notes || []
     );
+    b.allow_pet = parsePetPolicy(b.general_notes || '');
   });
 
   const buildings = rawBuildings.map(expandBuildingGrid);
@@ -1818,7 +2119,7 @@ export async function fetchPublicGoogleSheetCsv(sheetUrl: string): Promise<strin
     })
     .filter(Boolean) as string[];
 
-  return formattedLines.slice(0, 3000).join('\n');
+  return formattedLines.slice(0, 10000).join('\n');
 }
 
 /**
@@ -1871,12 +2172,43 @@ export async function parseGoogleSheetFull(sheetUrl: string): Promise<SheetImpor
         console.log(`[Sheet Parser] Programmatic parser bóc tách thành công ${cleanedResult.buildings.length} tòa nhà và ${totalRooms} phòng! (Có quy định chủ nhà: ${Boolean(parsedPolicies)})`);
         return cleanedResult;
       }
+
+      // Prog parser trả null → XLSX vẫn tải được → dùng lại workbook để format text cho AI
+      // (tránh gọi CSV với gid đơn lẻ → chỉ lấy 1 tab)
+      console.warn('[Sheet Parser] Prog parser trả null → dùng XLSX content cho AI fallback');
+      const targetSheets = findBestSheetsToProcess(wb);
+      const resultLines: string[] = [];
+
+      for (const sName of targetSheets) {
+        const wsTab = wb.Sheets[sName];
+        if (!wsTab || !wsTab['!ref']) continue;
+        const range = XLSX.utils.decode_range(wsTab['!ref']);
+        resultLines.push(`=== TAB TẠNG TÍNH (TÒA NHÀ/BẢNG HÀNG): "${sName}" ===`);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          const rowCells: string[] = [];
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = wsTab[cellAddress];
+            if (!cell) continue;
+            let val = cell.v !== undefined && cell.v !== null ? String(cell.v).trim() : '';
+            if (cell.l?.Target) val += ` [Link Drive: ${cell.l.Target}]`;
+            if (val) rowCells.push(val);
+          }
+          if (rowCells.length > 0) resultLines.push(`[Dòng ${R + 1}]: ${rowCells.join(' | ')}`);
+        }
+      }
+
+      if (resultLines.length > 0) {
+        const xlsxText = resultLines.slice(0, 10000).join('\n');
+        const rawAiResult = await parseSheetContentWithAI(xlsxText);
+        return cleanAllPromoAndRewards(rawAiResult);
+      }
     }
   } catch (err: any) {
     console.warn('[Sheet Parser] Programmatic parser fallback to AI:', err?.message);
   }
 
-  // BƯỚC 2: Fallback sang AI Gemini nếu file có cấu trúc tự do không theo bảng tiêu chuẩn
+  // BƯỚC 2: Fallback cuối cùng — tải CSV (XLSX thất bại hoàn toàn)
   const csvContent = await fetchPublicGoogleSheetCsv(sheetUrl);
   const rawAiResult = await parseSheetContentWithAI(csvContent);
   return cleanAllPromoAndRewards(rawAiResult);

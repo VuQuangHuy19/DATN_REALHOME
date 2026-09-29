@@ -280,6 +280,17 @@ export function SheetImportPreviewDialog({
     setIsCommitting(true);
 
     try {
+      // Khi "Chỉ nhập phòng trống": lọc ra chỉ các building có phòng trống/sắp trống
+      let buildingsToSend = data.buildings;
+      if (onlyAvailable) {
+        buildingsToSend = data.buildings
+          .map((b) => ({
+            ...b,
+            rooms: (b.rooms || []).filter((r) => r.status === 'available' || Boolean(r.available_date)),
+          }))
+          .filter((b) => b.rooms.length > 0);
+      }
+
       const res = await fetch('/api/sync/google-sheet/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -287,7 +298,7 @@ export function SheetImportPreviewDialog({
           company_id: companyId,
           landlord_id: landlordId,
           sheet_url: sheetUrl,
-          buildings: data.buildings,
+          buildings: buildingsToSend,
           only_available: onlyAvailable,
         }),
       });
@@ -301,7 +312,7 @@ export function SheetImportPreviewDialog({
         ? ` • ${resData.totalRoomsMarkedRented} phòng tự động đánh dấu "Đã thuê"` : '';
       const modeMsg = onlyAvailable ? ' (Chỉ phòng trống)' : '';
       toast.success(
-        `Đã nhập thành công ${resData.totalBuildings || totalBuildings} Tòa nhà và ${resData.totalRooms || totalRooms} Phòng!${modeMsg}${markedMsg}`
+        `Đã nhập thành công ${resData.totalBuildings || buildingsToSend.length} Tòa nhà và ${resData.totalRooms || totalRooms} Phòng!${modeMsg}${markedMsg}`
       );
 
       // Dispatch event để admin layout bắt đầu polling tiến độ tải ảnh

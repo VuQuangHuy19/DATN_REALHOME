@@ -259,10 +259,10 @@ export function AIChatWidget({ role = 'tenant' }: { role?: 'manager' | 'tenant' 
                 </div>
                 <div>
                   <h3 className="font-bold font-heading text-sm leading-snug flex items-center gap-1.5">
-                    {role === 'manager' ? 'RealHome AI' : 'Trợ lý AI RealHome'}
+                    {role === 'manager' ? 'RealHome AI' : 'RealHome AI'}
                     <Sparkles className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
                   </h3>
-                  <p className="text-[11px] text-white/80">Tìm phòng thông minh • Gemini AI</p>
+                  <p className="text-[11px] text-white/80">Tìm phòng thông minh</p>
                 </div>
               </div>
               

@@ -102,7 +102,7 @@ export async function POST(req: Request) {
 - Tuyệt đối KHÔNG tiết lộ bất kỳ thông tin nội bộ nào như: Hoa hồng Sale, Doanh thu công ty, Thông tin hợp đồng hay Thông tin chủ nhà. Nếu khách hỏi ngoài phạm vi tìm phòng, hãy lịch sự từ chối: "Tôi là Trợ lý RealHome hỗ trợ tìm phòng trọ. Tôi chỉ có thể giúp bạn tìm kiếm các phòng phù hợp thôi nhé!".`;
     }
 
-    const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống RealHome - Nền tảng tìm kiếm & quản lý bất động sản hàng đầu.
+    const systemPrompt = `Bạn là Trợ lý AI thông minh của hệ thống RealHome - Nền tảng tìm kiếm & quản lý bất động sản cho thuê hàng đầu.
 
 ${roleInstructions}
 
@@ -153,7 +153,8 @@ QUY TẮC CỐT LÕI (NGHIÊM NGẶT):
         }
 
         if (allowPet) {
-          query = query.in('buildings.allow_pet', ['yes', 'small_only']);
+          // Giá trị thực tế trong DB: "Cho nuôi pet", "Chỉ nuôi pet nhỏ"
+          query = query.in('buildings.allow_pet', ['Cho nuôi pet', 'Chỉ nuôi pet nhỏ', 'yes', 'small_only', 'chỉ nuôi mèo', 'chỉ nuôi chó', 'chỉ chó', 'chỉ mèo', ]);
         }
 
         const { data: rows, error } = await query.limit(100);
@@ -232,7 +233,7 @@ QUY TẮC CỐT LÕI (NGHIÊM NGẶT):
             area: r.buildings?.area,
             address: isMaskedRole ? maskHouseNumberInBuildingName(r.buildings?.address || '') : (r.buildings?.address || ''),
             distance_from_landmark: r.distance_km !== undefined && r.distance_km !== null ? `${r.distance_km} km` : undefined,
-            allow_pet: (r.buildings?.allow_pet === 'yes' || r.buildings?.allow_pet === 'small_only') ? 'Có' : 'Không',
+            allow_pet: (['Cho nuôi pet', 'Chỉ nuôi pet nhỏ', 'yes', 'small_only', 'Có', 'Y', 'true'].includes(r.buildings?.allow_pet)) ? 'Có' : 'Không',
             detail_link: `/customer/properties/rooms/${r.id}`,
           })),
         };

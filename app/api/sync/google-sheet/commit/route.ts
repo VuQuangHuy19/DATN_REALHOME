@@ -127,13 +127,21 @@ export async function POST(req: Request) {
       const area = detectHanoiDistrict(buildingName, bData.area);
       const address = formatStandardBuildingAddress(bData.address || buildingName);
 
-      // 1. CHÉC TRÙNG TÒA NHÀ HỆ THỐNG (Ưu tiên target_building_id từ Preview, external_sync_id, hoặc so khớp địa chỉ)
+      // Tạo external_sync_id riêng biệt cho từng Tòa nhà (tránh gộp nhiều tòa trong cùng 1 sheet)
+      const buildingExternalSyncId = `${sheet_url}#${buildingName}`;
+
+      // 1. CHÉC TRÙNG TÒA NHÀ HỆ THỐNG (Ưu tiên target_building_id từ Preview, external_sync_id riêng theo tên tòa, hoặc so khớp địa chỉ)
       let existingBuilding = null;
       if (bData.target_building_id) {
         existingBuilding = dbBuildings.find((b: any) => b.id === bData.target_building_id);
       }
+      // Tìm theo external_sync_id riêng của từng tòa nhà (dạng sheet_url#buildingName)
       if (!existingBuilding && sheet_url) {
-        existingBuilding = dbBuildings.find((b: any) => b.external_sync_id === sheet_url);
+        existingBuilding = dbBuildings.find((b: any) =>
+          b.external_sync_id === buildingExternalSyncId ||
+          // Tương thích ngược: tòa nhà cũ chỉ lưu sheet_url thuần (không có #buildingName)
+          (b.external_sync_id === sheet_url && (isMatchingBuilding(b.name, buildingName) || isMatchingBuilding(b.address || '', address)))
+        );
       }
       if (!existingBuilding) {
         existingBuilding = dbBuildings.find((b: any) => {
@@ -198,10 +206,10 @@ export async function POST(req: Request) {
             area: area,
             description: buildingDesc,
             total_rooms: bData.rooms.length,
-            external_sync_id: sheet_url,
+            external_sync_id: buildingExternalSyncId,
             has_elevator: true,
             pccc_certified: true,
-            allow_pet: 'Không',
+            allow_pet: (bData as any).allow_pet || 'Cho phép',
             electricity_price: 4000,
             water_price: 35000,
             internet_price: 100000,
@@ -228,7 +236,7 @@ export async function POST(req: Request) {
             name: buildingName,
             address: address,
             landlord_id: landlord_id || null,
-            external_sync_id: sheet_url,
+            external_sync_id: buildingExternalSyncId,
           });
         }
       } else {
@@ -251,8 +259,9 @@ export async function POST(req: Request) {
             area: area,
             total_rooms: bData.rooms.length,
             description: updatedBuildingDesc || undefined,
-            external_sync_id: sheet_url,
+            external_sync_id: buildingExternalSyncId,
             landlord_id: targetBuildingLandlordId,
+            allow_pet: (bData as any).allow_pet || 'Cho phép',
             ...(dryerTypeVal ? { dryer_type: dryerTypeVal } : {}),
             updated_at: new Date().toISOString(),
           })
